@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CIBN Akademi – Pusat Ujian &amp; Sertifikasi Profesional</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --blue:#1a4fd6;--blue-dark:#0f2d8a;--blue-mid:#2563eb;--blue-light:#dbeafe;--blue-pale:#eff6ff;
+  --white:#ffffff;--off:#f8faff;--gray:#64748b;--gray-light:#e2e8f0;--gray-dark:#1e293b;
+  --gold:#b8860b;--radius:16px;--shadow:0 4px 32px rgba(26,79,214,0.08);
+  --green:#16a34a;--green-pale:#f0fdf4;
+}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:#fff;color:#1e293b;overflow-x:hidden}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(255,255,255,0.92);backdrop-filter:blur(20px);border-bottom:1px solid rgba(26,79,214,0.08);padding:0 5vw;display:flex;align-items:center;justify-content:space-between;height:68px;transition:all .3s}
+.nav-logo{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:700;color:var(--blue-dark);letter-spacing:.02em;text-decoration:none}
+.nav-logo span{color:var(--blue)}
+.nav-links{display:flex;gap:2rem;list-style:none}
+.nav-links a{font-size:.85rem;font-weight:500;color:var(--gray);text-decoration:none;transition:color .2s}
+.nav-links a:hover{color:var(--blue)}
+.nav-cta{background:var(--blue);color:#fff;border:none;padding:.55rem 1.4rem;border-radius:50px;font-size:.85rem;font-weight:500;cursor:pointer;transition:all .3s;font-family:'DM Sans',sans-serif}
+.nav-cta:hover{background:var(--blue-dark);transform:translateY(-1px)}
+.nav-hamburger{display:none;flex-direction:column;gap:5px;background:none;border:none;cursor:pointer;padding:4px}
+.nav-hamburger span{display:block;width:22px;height:2px;background:var(--blue-dark);border-radius:2px;transition:all .3s}
+.nav-mobile-menu{display:none;position:fixed;inset:0;background:rgba(255,255,255,0.98);backdrop-filter:blur(20px);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:2rem}
+.nav-mobile-menu.open{display:flex}
+.nav-mobile-menu a{font-size:1.4rem;font-weight:500;color:var(--gray-dark);text-decoration:none;font-family:'Cormorant Garamond',serif}
+.nav-mobile-menu a:hover{color:var(--blue)}
+.nav-mobile-close{position:absolute;top:1.4rem;right:1.6rem;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--gray)}
+
+/* ── HERO ── */
+#hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:100px 5vw 60px;position:relative;overflow:hidden;background:linear-gradient(165deg,#fff 0%,#eff6ff 50%,#dbeafe 100%)}
+.hero-glow{position:absolute;width:700px;height:700px;border-radius:50%;background:radial-gradient(circle,rgba(37,99,235,0.1) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);animation:pulse 6s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.7}50%{transform:translate(-50%,-50%) scale(1.1);opacity:1}}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;background:rgba(26,79,214,0.08);border:1px solid rgba(26,79,214,0.15);color:var(--blue);padding:.4rem 1rem;border-radius:50px;font-size:.78rem;font-weight:500;margin-bottom:1.5rem;animation:fadeUp .8s both}
+.hero-badge::before{content:'✦';font-size:.7rem}
+h1{font-family:'Cormorant Garamond',serif;font-size:clamp(2.8rem,6vw,5.5rem);font-weight:700;line-height:1.1;color:var(--gray-dark);margin-bottom:1.2rem;animation:fadeUp .8s .1s both}
+h1 span{color:var(--blue)}
+.hero-sub{font-size:clamp(1rem,2vw,1.2rem);color:var(--gray);max-width:580px;line-height:1.7;margin:0 auto 2.5rem;animation:fadeUp .8s .2s both;font-weight:300}
+.hero-btns{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;animation:fadeUp .8s .3s both}
+.btn-primary{background:var(--blue);color:#fff;border:none;padding:.85rem 2rem;border-radius:50px;font-size:.95rem;font-weight:500;cursor:pointer;transition:all .3s;text-decoration:none;display:inline-flex;align-items:center;gap:.5rem;font-family:'DM Sans',sans-serif}
+.btn-primary:hover{background:var(--blue-dark);transform:translateY(-2px);box-shadow:0 8px 24px rgba(26,79,214,0.3)}
+.btn-outline{background:transparent;color:var(--blue);border:1.5px solid var(--blue);padding:.85rem 2rem;border-radius:50px;font-size:.95rem;font-weight:500;cursor:pointer;transition:all .3s;text-decoration:none;display:inline-flex;align-items:center;font-family:'DM Sans',sans-serif}
+.btn-outline:hover{background:var(--blue-pale);transform:translateY(-2px)}
+.hero-stats{display:flex;gap:3rem;justify-content:center;margin-top:4rem;animation:fadeUp .8s .4s both;flex-wrap:wrap}
+.stat{text-align:center}
+.stat-num{font-family:'Cormorant Garamond',serif;font-size:2.4rem;font-weight:700;color:var(--blue-dark)}
+.stat-label{font-size:.78rem;color:var(--gray);font-weight:400;letter-spacing:.05em;text-transform:uppercase}
+.hero-divider{width:1px;height:50px;background:var(--gray-light);align-self:center}
+.scroll-ind{position:absolute;bottom:2rem;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:.5rem;color:var(--gray);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;animation:bounce 2s infinite}
+@keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(6px)}}
+.scroll-dot{width:6px;height:6px;border-radius:50%;background:var(--blue);opacity:.5}
+
+/* ── COBA UJIAN ── */
+#coba-ujian{padding:100px 5vw;background:#fff;text-align:center}
+.coba-inner{max-width:600px;margin:0 auto}
+.coba-card{background:linear-gradient(135deg,var(--blue-dark) 0%,var(--blue-mid) 100%);border-radius:24px;padding:3rem 2rem;position:relative;overflow:hidden;margin-top:2rem}
+.coba-card::before{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,0.06)}
+.coba-card::after{content:'';position:absolute;bottom:-40px;left:-40px;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,0.04)}
+.coba-card h3{font-family:'Cormorant Garamond',serif;font-size:1.8rem;color:#fff;margin-bottom:.5rem;position:relative}
+.coba-card p{color:rgba(255,255,255,0.7);font-size:.9rem;font-weight:300;margin-bottom:1.8rem;position:relative}
+.coba-btn{background:#fff;color:var(--blue-dark);border:none;padding:.85rem 2.2rem;border-radius:50px;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .3s;position:relative;font-family:'DM Sans',sans-serif}
+.coba-btn:hover{transform:scale(1.03);box-shadow:0 8px 24px rgba(0,0,0,0.15)}
+
+/* ── PROMO ── */
+#promo{background:linear-gradient(135deg,var(--blue-dark) 0%,var(--blue) 100%);padding:80px 5vw;position:relative;overflow:hidden}
+#promo::before{content:'';position:absolute;top:-100px;right:-100px;width:400px;height:400px;border-radius:50%;background:rgba(255,255,255,0.04)}
+#promo::after{content:'';position:absolute;bottom:-80px;left:-80px;width:300px;height:300px;border-radius:50%;background:rgba(255,255,255,0.03)}
+.promo-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:center;position:relative}
+.promo-text h2{font-family:'Cormorant Garamond',serif;font-size:clamp(2rem,4vw,3rem);font-weight:700;color:#fff;line-height:1.2;margin-bottom:1rem}
+.promo-text p{color:rgba(255,255,255,0.75);line-height:1.7;font-size:.95rem;font-weight:300}
+.promo-cards{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.promo-card{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:var(--radius);padding:1.2rem;backdrop-filter:blur(10px);transition:all .3s}
+.promo-card:hover{background:rgba(255,255,255,0.14);transform:translateY(-3px)}
+.promo-card-icon{font-size:1.6rem;margin-bottom:.5rem}
+.promo-card h4{color:#fff;font-size:.9rem;font-weight:600;margin-bottom:.3rem}
+.promo-card p{color:rgba(255,255,255,0.6);font-size:.78rem;font-weight:300}
+
+/* ── SHARED SECTION ── */
+.section-center{max-width:1100px;margin:0 auto}
+.section-tag{display:inline-block;background:var(--blue-pale);color:var(--blue);font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:.35rem .9rem;border-radius:50px;margin-bottom:1rem}
+.section-title{font-family:'Cormorant Garamond',serif;font-size:clamp(1.8rem,3.5vw,2.8rem);font-weight:700;color:var(--gray-dark);margin-bottom:.5rem;line-height:1.2}
+.section-sub{color:var(--gray);font-size:.95rem;font-weight:300;max-width:500px;line-height:1.6;margin-bottom:3rem}
+
+/* ── MITRA ── */
+#mitra{padding:80px 5vw;background:#fff}
+.mitra-track{display:flex;gap:3rem;overflow:hidden;position:relative;margin-top:2rem}
+.mitra-track::before,.mitra-track::after{content:'';position:absolute;top:0;bottom:0;width:80px;z-index:2}
+.mitra-track::before{left:0;background:linear-gradient(to right,#fff,transparent)}
+.mitra-track::after{right:0;background:linear-gradient(to left,#fff,transparent)}
+.mitra-scroll{display:flex;gap:3rem;animation:scrollMitra 20s linear infinite;white-space:nowrap}
+@keyframes scrollMitra{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.mitra-item{display:inline-flex;align-items:center;justify-content:center;min-width:160px;height:60px;background:var(--off);border:1px solid var(--gray-light);border-radius:12px;padding:0 1.5rem;font-weight:600;color:var(--gray);font-size:.85rem;letter-spacing:.05em;transition:all .3s;flex-shrink:0}
+.mitra-item:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-pale)}
+
+/* ── FITUR ── */
+#fitur{padding:100px 5vw;background:var(--off)}
+.fitur-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;margin-top:3rem}
+.fitur-card{background:#fff;border-radius:var(--radius);padding:2rem;border:1px solid var(--gray-light);transition:all .4s;position:relative;overflow:hidden}
+.fitur-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--blue-pale),transparent);opacity:0;transition:opacity .4s}
+.fitur-card:hover::before{opacity:1}
+.fitur-card:hover{border-color:rgba(26,79,214,0.2);transform:translateY(-4px);box-shadow:0 16px 40px rgba(26,79,214,0.1)}
+.fitur-icon{width:52px;height:52px;background:var(--blue-pale);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin-bottom:1.2rem;position:relative;z-index:1;transition:all .3s}
+.fitur-card:hover .fitur-icon{background:var(--blue);transform:scale(1.05)}
+.fitur-card h3{font-size:1rem;font-weight:600;color:var(--gray-dark);margin-bottom:.5rem;position:relative;z-index:1}
+.fitur-card p{font-size:.85rem;color:var(--gray);line-height:1.6;font-weight:300;position:relative;z-index:1}
+
+/* ── PAKET ── */
+#paket{padding:100px 5vw;background:#fff}
+.paket-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;margin-top:3rem}
+.paket-card{border-radius:var(--radius);padding:2rem;border:1.5px solid var(--gray-light);transition:all .4s;position:relative;overflow:hidden}
+.paket-card.featured{border-color:var(--blue);background:linear-gradient(160deg,var(--blue-pale) 0%,#fff 100%)}
+.paket-card.featured::before{content:'Terpopuler';position:absolute;top:1rem;right:1rem;background:var(--blue);color:#fff;font-size:.7rem;font-weight:600;padding:.25rem .7rem;border-radius:50px;letter-spacing:.05em}
+.paket-card:hover{transform:translateY(-5px);box-shadow:0 20px 50px rgba(26,79,214,0.12)}
+.paket-name{font-size:.78rem;font-weight:600;color:var(--blue);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem}
+.paket-price{font-family:'Cormorant Garamond',serif;font-size:2.8rem;font-weight:700;color:var(--gray-dark);line-height:1;margin-bottom:.2rem}
+.paket-price span{font-size:.9rem;font-weight:400;color:var(--gray);font-family:'DM Sans',sans-serif}
+.paket-desc{font-size:.82rem;color:var(--gray);margin-bottom:1.5rem;font-weight:300}
+.paket-divider{height:1px;background:var(--gray-light);margin:1.2rem 0}
+.paket-features{list-style:none;display:flex;flex-direction:column;gap:.7rem;margin-bottom:1.8rem}
+.paket-features li{font-size:.84rem;color:var(--gray-dark);display:flex;align-items:center;gap:.6rem;font-weight:300}
+.paket-features li::before{content:'✓';color:var(--blue);font-weight:700;font-size:.85rem;flex-shrink:0}
+.paket-btn{width:100%;padding:.8rem;border-radius:50px;font-size:.9rem;font-weight:500;cursor:pointer;border:1.5px solid var(--blue);color:var(--blue);background:transparent;transition:all .3s;font-family:'DM Sans',sans-serif}
+.paket-btn:hover,.paket-card.featured .paket-btn{background:var(--blue);color:#fff}
+
+/* ── MATERI ── */
+#materi{padding:100px 5vw;background:var(--off)}
+.materi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1.2rem;margin-top:3rem}
+.materi-card{background:#fff;border-radius:var(--radius);padding:1.5rem;border:1px solid var(--gray-light);display:flex;align-items:flex-start;gap:1rem;transition:all .3s;cursor:pointer}
+.materi-card:hover{border-color:var(--blue);box-shadow:0 8px 24px rgba(26,79,214,0.08);transform:translateX(4px)}
+.materi-num{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700;color:var(--blue-light);line-height:1;flex-shrink:0;min-width:36px}
+.materi-info h4{font-size:.9rem;font-weight:600;color:var(--gray-dark);margin-bottom:.3rem}
+.materi-info p{font-size:.78rem;color:var(--gray);font-weight:300;line-height:1.5}
+.materi-tag{display:inline-block;background:var(--blue-pale);color:var(--blue);font-size:.65rem;font-weight:600;padding:.2rem .5rem;border-radius:4px;margin-top:.4rem;letter-spacing:.05em}
+
+/* ── TESTIMONI ── */
+#testimoni{padding:100px 5vw;background:#fff;overflow:hidden}
+.testi-slider{display:flex;gap:1.5rem;margin-top:3rem;overflow:hidden}
+.testi-track{display:flex;gap:1.5rem;animation:scrollTesti 25s linear infinite}
+.testi-track:hover{animation-play-state:paused}
+@keyframes scrollTesti{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.testi-card{min-width:320px;background:var(--off);border-radius:var(--radius);padding:1.8rem;border:1px solid var(--gray-light);flex-shrink:0}
+.testi-stars{color:#f59e0b;font-size:1rem;margin-bottom:.8rem;letter-spacing:.1em}
+.testi-text{font-size:.88rem;color:var(--gray-dark);line-height:1.7;font-style:italic;font-weight:300;margin-bottom:1.2rem}
+.testi-author{display:flex;align-items:center;gap:.8rem}
+.testi-avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue-dark));display:flex;align-items:center;justify-content:center;color:#fff;font-size:.8rem;font-weight:600;flex-shrink:0}
+.testi-name{font-size:.85rem;font-weight:600;color:var(--gray-dark)}
+.testi-role{font-size:.75rem;color:var(--gray);font-weight:300}
+
+/* ── FAQ ── */
+#faq{padding:100px 5vw;background:var(--off)}
+.faq-list{max-width:700px;margin:3rem auto 0;display:flex;flex-direction:column;gap:.8rem}
+.faq-item{background:#fff;border-radius:var(--radius);border:1px solid var(--gray-light);overflow:hidden;transition:all .3s}
+.faq-item.open{border-color:rgba(26,79,214,0.2)}
+.faq-q{padding:1.2rem 1.5rem;font-size:.92rem;font-weight:500;color:var(--gray-dark);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:1rem}
+.faq-arrow{color:var(--blue);font-size:1.1rem;transition:transform .3s;flex-shrink:0}
+.faq-item.open .faq-arrow{transform:rotate(180deg)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .4s ease,padding .3s}
+.faq-item.open .faq-a{max-height:200px;padding:0 1.5rem 1.2rem}
+.faq-a p{font-size:.85rem;color:var(--gray);line-height:1.7;font-weight:300}
+
+/* ── EXAM MODAL ── */
+.exam-overlay{display:none;position:fixed;inset:0;z-index:2000;background:rgba(15,45,138,0.6);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:1rem}
+.exam-overlay.show{display:flex}
+.exam-modal{background:#fff;border-radius:24px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;padding:2.5rem;position:relative;animation:modalIn .4s cubic-bezier(.22,1,.36,1)}
+@keyframes modalIn{from{opacity:0;transform:scale(.92) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.exam-close{position:absolute;top:1.2rem;right:1.2rem;width:32px;height:32px;border-radius:50%;border:1px solid var(--gray-light);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--gray);font-size:1rem;transition:all .2s}
+.exam-close:hover{background:var(--off);color:var(--gray-dark)}
+.exam-progress{height:4px;background:var(--gray-light);border-radius:2px;margin-bottom:2rem}
+.exam-progress-bar{height:100%;background:linear-gradient(to right,var(--blue),var(--blue-dark));border-radius:2px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.exam-q-num{font-size:.75rem;color:var(--gray);font-weight:500;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem}
+.exam-q-text{font-size:1.05rem;font-weight:500;color:var(--gray-dark);line-height:1.5;margin-bottom:1.8rem}
+.exam-options{display:flex;flex-direction:column;gap:.7rem}
+.exam-opt{padding:1rem 1.2rem;border:1.5px solid var(--gray-light);border-radius:12px;cursor:pointer;font-size:.9rem;color:var(--gray-dark);transition:all .25s;display:flex;align-items:center;gap:.8rem;font-weight:400}
+.exam-opt:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-pale)}
+.exam-opt.selected{border-color:var(--blue);background:var(--blue-pale);color:var(--blue);font-weight:500}
+.exam-opt.correct{border-color:#16a34a;background:#f0fdf4;color:#15803d}
+.exam-opt.wrong{border-color:#dc2626;background:#fef2f2;color:#b91c1c}
+.exam-opt-letter{width:26px;height:26px;border-radius:50%;background:var(--gray-light);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;transition:all .25s}
+.exam-opt.selected .exam-opt-letter{background:var(--blue);color:#fff}
+.exam-nav{display:flex;justify-content:space-between;align-items:center;margin-top:2rem}
+.exam-score{text-align:center;padding:2rem 0}
+.exam-score-num{font-family:'Cormorant Garamond',serif;font-size:5rem;font-weight:700;color:var(--blue);line-height:1}
+.exam-score-label{font-size:.9rem;color:var(--gray);margin-top:.5rem}
+.exam-score-msg{font-size:1.05rem;font-weight:500;color:var(--gray-dark);margin-top:1rem}
+
+/* ── LOGIN MODAL ── */
+.login-input{width:100%;padding:.75rem 1rem;border:1.5px solid #e2e8f0;border-radius:12px;font-size:.9rem;font-family:'DM Sans',sans-serif;color:#1e293b;outline:none;transition:border .2s}
+.login-input:focus{border-color:#1a4fd6}
+.login-label{font-size:.78rem;font-weight:600;color:#1e293b;letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:.4rem}
+
+/* ── DOC MODAL ── */
+.doc-modal-overlay{position:fixed;inset:0;background:rgba(15,45,138,0.5);backdrop-filter:blur(6px);z-index:9999;display:none;align-items:center;justify-content:center;padding:1rem}
+.doc-modal-overlay.show{display:flex}
+.doc-modal-box{background:#fff;border-radius:20px;max-width:560px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 32px 80px rgba(0,0,0,0.2);animation:docIn .3s cubic-bezier(.22,1,.36,1)}
+@keyframes docIn{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}
+.doc-modal-header{padding:1.4rem 1.6rem 1rem;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.doc-modal-header h3{font-family:'Cormorant Garamond',serif;font-size:1.25rem;font-weight:700;color:#0f2d8a}
+.doc-modal-close{background:none;border:none;color:#94a3b8;font-size:1.3rem;cursor:pointer;padding:.2rem .5rem;border-radius:6px;transition:all .2s;line-height:1}
+.doc-modal-close:hover{background:#f1f5f9;color:#1e293b}
+.doc-modal-body{overflow-y:auto;padding:1.4rem 1.6rem;flex:1;font-size:.87rem;color:#334155;line-height:1.75;white-space:pre-wrap}
+.doc-modal-footer{padding:1rem 1.6rem;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;flex-shrink:0}
+.doc-modal-btn{background:linear-gradient(135deg,#1a4fd6,#0f2d8a);color:#fff;border:none;padding:.65rem 1.8rem;border-radius:50px;font-size:.88rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s}
+.doc-modal-btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(26,79,214,0.3)}
+
+/* ── FOOTER ── */
+footer{background:var(--gray-dark);color:#fff;padding:80px 5vw 40px;position:relative;overflow:hidden}
+.footer-inner{max-width:1100px;margin:0 auto}
+.footer-top{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:3rem;margin-bottom:4rem}
+.footer-brand p{color:rgba(255,255,255,0.55);font-size:.85rem;line-height:1.7;margin-top:.8rem;font-weight:300;max-width:260px}
+.footer-col h5{font-size:.78rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:1rem}
+.footer-col ul{list-style:none;display:flex;flex-direction:column;gap:.6rem}
+.footer-col ul li a{color:rgba(255,255,255,0.6);text-decoration:none;font-size:.85rem;font-weight:300;transition:color .2s}
+.footer-col ul li a:hover{color:#fff}
+.footer-contact p{color:rgba(255,255,255,0.6);font-size:.85rem;font-weight:300;display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem}
+.social-links{display:flex;gap:.8rem;margin-top:1.5rem}
+.social-btn{width:38px;height:38px;border-radius:50%;border:1px solid rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.6);text-decoration:none;font-size:.85rem;transition:all .3s}
+.social-btn:hover{border-color:var(--blue);background:var(--blue);color:#fff}
+.footer-divider{height:1px;background:rgba(255,255,255,0.08);margin:0 0 2rem}
+.footer-bottom{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem}
+.footer-copy{font-size:.78rem;color:rgba(255,255,255,0.35);font-weight:300}
+#cibn-canvas-wrapper{position:relative;margin-bottom:3rem}
+#cibn-canvas{display:block;width:100%;cursor:pointer}
+
+/* ── CHATBOT ── */
+.chat-toggle{position:fixed;bottom:2rem;right:2rem;width:58px;height:58px;border-radius:50%;background:var(--blue);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(26,79,214,0.35);z-index:999;transition:all .3s;color:#fff;font-size:1.4rem;overflow:hidden}
+.chat-toggle:hover{background:var(--blue-dark);transform:scale(1.05)}
+.chat-toggle .notif{position:absolute;top:0;right:0;width:14px;height:14px;background:#ef4444;border-radius:50%;border:2px solid #fff;font-size:8px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff}
+.chat-box{position:fixed;bottom:6rem;right:2rem;width:340px;max-height:480px;background:#fff;border-radius:20px;box-shadow:0 24px 60px rgba(0,0,0,0.14);border:1px solid var(--gray-light);z-index:999;display:none;flex-direction:column;overflow:hidden;animation:chatIn .3s cubic-bezier(.22,1,.36,1)}
+.chat-box.show{display:flex}
+@keyframes chatIn{from{opacity:0;transform:translateY(16px) scale(.95)}to{opacity:1;transform:none}}
+.chat-header{background:linear-gradient(135deg,var(--blue-dark),var(--blue));padding:1rem 1.2rem;display:flex;align-items:center;gap:.8rem}
+.chat-avatar{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:1rem;overflow:hidden;flex-shrink:0}
+.chat-header-info h4{color:#fff;font-size:.88rem;font-weight:600}
+.chat-header-info p{color:rgba(255,255,255,0.7);font-size:.72rem;font-weight:300}
+.chat-header-close{margin-left:auto;background:none;border:none;color:rgba(255,255,255,0.7);cursor:pointer;font-size:1rem;padding:.2rem;transition:color .2s}
+.chat-header-close:hover{color:#fff}
+.chat-messages{flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:.8rem;background:var(--off)}
+.chat-msg{max-width:80%;font-size:.83rem;line-height:1.5;padding:.6rem .9rem;border-radius:14px;animation:msgIn .3s ease}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.chat-msg.bot{background:#fff;border:1px solid var(--gray-light);color:var(--gray-dark);border-radius:4px 14px 14px 14px;align-self:flex-start}
+.chat-msg.user{background:var(--blue);color:#fff;border-radius:14px 4px 14px 14px;align-self:flex-end}
+.chat-quick{display:flex;flex-wrap:wrap;gap:.4rem;padding:.5rem 1rem}
+.chat-quick-btn{background:#fff;border:1px solid var(--gray-light);color:var(--blue);font-size:.72rem;padding:.3rem .7rem;border-radius:50px;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif}
+.chat-quick-btn:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
+.chat-input-row{display:flex;gap:.5rem;padding:.8rem 1rem;border-top:1px solid var(--gray-light);background:#fff}
+.chat-input{flex:1;border:1.5px solid var(--gray-light);border-radius:50px;padding:.5rem .9rem;font-size:.83rem;font-family:'DM Sans',sans-serif;outline:none;transition:border .2s;color:var(--gray-dark)}
+.chat-input:focus{border-color:var(--blue)}
+.chat-send{background:var(--blue);color:#fff;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;transition:all .2s}
+.chat-send:hover{background:var(--blue-dark)}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+.reveal{opacity:0;transform:translateY(30px);transition:all .7s cubic-bezier(.4,0,.2,1)}
+.reveal.visible{opacity:1;transform:none}
+.reveal-delay-1{transition-delay:.1s}
+.reveal-delay-2{transition-delay:.2s}
+.reveal-delay-3{transition-delay:.3s}
+
+/* ── RESPONSIVE ── */
+@media(max-width:768px){
+  nav{padding:0 1.2rem}
+  .nav-links{display:none}
+  .nav-hamburger{display:flex}
+  .promo-inner{grid-template-columns:1fr;gap:2rem}
+  .footer-top{grid-template-columns:1fr 1fr;gap:2rem}
+  .hero-stats{gap:1.5rem}
+  .hero-divider{display:none}
+  .chat-box{width:calc(100vw - 2rem);right:1rem;bottom:5rem}
+  .paket-grid{grid-template-columns:1fr}
+  .materi-grid{grid-template-columns:1fr}
+}
+@media(max-width:480px){
+  .footer-top{grid-template-columns:1fr}
+  .promo-cards{grid-template-columns:1fr 1fr}
+  h1{font-size:2.4rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ NAV ══ -->
+<nav id="navbar">
+  <a class="nav-logo" href="#"><span>CIBN</span> Akademi</a>
+  <ul class="nav-links">
+    <li><a href="#fitur">Fitur</a></li>
+    <li><a href="#paket">Paket</a></li>
+    <li><a href="#materi">Materi</a></li>
+    <li><a href="#testimoni">Testimoni</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ul>
+  <button class="nav-cta" onclick="openLogin()">Masuk</button>
+  <button class="nav-hamburger" onclick="document.getElementById('mobileMenu').classList.add('open')" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- Mobile Menu -->
+<div class="nav-mobile-menu" id="mobileMenu">
+  <button class="nav-mobile-close" onclick="document.getElementById('mobileMenu').classList.remove('open')">✕</button>
+  <a href="#fitur" onclick="document.getElementById('mobileMenu').classList.remove('open')">Fitur</a>
+  <a href="#paket" onclick="document.getElementById('mobileMenu').classList.remove('open')">Paket</a>
+  <a href="#materi" onclick="document.getElementById('mobileMenu').classList.remove('open')">Materi</a>
+  <a href="#testimoni" onclick="document.getElementById('mobileMenu').classList.remove('open')">Testimoni</a>
+  <a href="#faq" onclick="document.getElementById('mobileMenu').classList.remove('open')">FAQ</a>
+  <button class="btn-primary" onclick="document.getElementById('mobileMenu').classList.remove('open');openLogin()" style="margin-top:1rem">Masuk</button>
+</div>
+
+<!-- ══ DOC MODAL (Syarat & Privasi) ══ -->
+<div class="doc-modal-overlay" id="docModalOverlay" onclick="if(event.target===this)closeDocModal()">
+  <div class="doc-modal-box">
+    <div class="doc-modal-header">
+      <h3 id="docModalTitle"></h3>
+      <button class="doc-modal-close" onclick="closeDocModal()">&#x2715;</button>
+    </div>
+    <div class="doc-modal-body" id="docModalBody"></div>
+    <div class="doc-modal-footer">
+      <button class="doc-modal-btn" onclick="closeDocModal()">Saya Mengerti</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LOGIN / REGISTER MODAL ══ -->
+<div class="exam-overlay" id="loginOverlay" onclick="if(event.target===this)closeLogin()">
+  <div class="exam-modal" style="max-width:420px;padding:2.5rem">
+    <button class="exam-close" onclick="closeLogin()">&#x2715;</button>
+    <div style="text-align:center;margin-bottom:2rem">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:700;color:#0f2d8a;margin-bottom:.3rem"><span style="color:#1a4fd6">CIBN</span> Akademi</div>
+      <p style="font-size:.85rem;color:#64748b;font-weight:300" id="loginSubtitle">Masuk ke akun Anda</p>
+    </div>
+    <!-- LOGIN FORM -->
+    <div id="loginForm">
+      <div style="display:flex;flex-direction:column;gap:1rem">
+        <div><label class="login-label">Email</label><input id="loginEmail" type="email" placeholder="nama@email.com" class="login-input" onkeydown="if(event.key==='Enter')doLogin()"></div>
+        <div>
+          <label class="login-label">Password</label>
+          <div style="position:relative">
+            <input id="loginPass" type="password" placeholder="Masukkan password" class="login-input" style="padding-right:3rem" onkeydown="if(event.key==='Enter')doLogin()">
+            <button onclick="togglePass()" style="position:absolute;right:.8rem;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;font-size:.85rem;padding:.2rem">👁</button>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:.8rem">
+          <label style="display:flex;align-items:center;gap:.4rem;color:#64748b;cursor:pointer;font-weight:300"><input type="checkbox" style="accent-color:#1a4fd6"> Ingat saya</label>
+          <a href="#" style="color:#1a4fd6;text-decoration:none;font-weight:500">Lupa password?</a>
+        </div>
+        <div id="loginError" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:.7rem 1rem;font-size:.82rem;color:#b91c1c"></div>
+        <button onclick="doLogin()" style="width:100%;background:linear-gradient(135deg,#1a4fd6,#0f2d8a);color:#fff;border:none;padding:.9rem;border-radius:50px;font-size:.95rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:.3rem">Masuk →</button>
+      </div>
+      <div style="text-align:center;margin-top:1.5rem">
+        <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1.2rem">
+          <div style="flex:1;height:1px;background:#e2e8f0"></div>
+          <span style="font-size:.75rem;color:#94a3b8;font-weight:300">atau lanjutkan dengan</span>
+          <div style="flex:1;height:1px;background:#e2e8f0"></div>
+        </div>
+        <div style="display:flex;gap:.8rem;justify-content:center">
+          <button style="flex:1;display:flex;align-items:center;justify-content:center;gap:.5rem;border:1.5px solid #e2e8f0;background:#fff;border-radius:10px;padding:.65rem;font-size:.82rem;font-weight:500;color:#1e293b;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s" onmouseover="this.style.borderColor='#1a4fd6'" onmouseout="this.style.borderColor='#e2e8f0'">🔵 Google</button>
+          <button style="flex:1;display:flex;align-items:center;justify-content:center;gap:.5rem;border:1.5px solid #e2e8f0;background:#fff;border-radius:10px;padding:.65rem;font-size:.82rem;font-weight:500;color:#1e293b;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s" onmouseover="this.style.borderColor='#1a4fd6'" onmouseout="this.style.borderColor='#e2e8f0'">🔗 LinkedIn</button>
+        </div>
+        <p style="margin-top:1.2rem;font-size:.82rem;color:#64748b;font-weight:300">Belum punya akun? <a href="#" onclick="showRegister()" style="color:#1a4fd6;font-weight:600;text-decoration:none">Daftar sekarang</a></p>
+      </div>
+    </div>
+    <!-- REGISTER FORM -->
+    <div id="registerForm" style="display:none">
+      <div style="display:flex;flex-direction:column;gap:1rem">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
+          <div><label class="login-label">Nama Depan</label><input type="text" id="regFirstName" placeholder="Budi" class="login-input"></div>
+          <div><label class="login-label">Nama Belakang</label><input type="text" id="regLastName" placeholder="Santoso" class="login-input"></div>
+        </div>
+        <div><label class="login-label">Email</label><input type="email" id="regEmail" placeholder="nama@email.com" class="login-input"></div>
+        <div><label class="login-label">Password</label><input type="password" id="regPass" placeholder="Min. 8 karakter" class="login-input"></div>
+        <label style="display:flex;align-items:flex-start;gap:.5rem;font-size:.8rem;color:#64748b;font-weight:300;cursor:pointer;line-height:1.5">
+          <input type="checkbox" id="regAgree" style="accent-color:#1a4fd6;margin-top:2px;flex-shrink:0">
+          Saya menyetujui <a href="#" onclick="event.preventDefault();openDocModal('sk')" style="color:#1a4fd6;margin:0 3px">Syarat &amp; Ketentuan</a> dan <a href="#" onclick="event.preventDefault();openDocModal('kp')" style="color:#1a4fd6;margin-left:3px">Kebijakan Privasi</a>
+        </label>
+        <div id="regError" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:.7rem 1rem;font-size:.82rem;color:#b91c1c"></div>
+        <button onclick="doRegister()" style="width:100%;background:linear-gradient(135deg,#1a4fd6,#0f2d8a);color:#fff;border:none;padding:.9rem;border-radius:50px;font-size:.95rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:.3rem">Buat Akun →</button>
+      </div>
+      <p style="text-align:center;margin-top:1.2rem;font-size:.82rem;color:#64748b;font-weight:300">Sudah punya akun? <a href="#" onclick="showLogin()" style="color:#1a4fd6;font-weight:600;text-decoration:none">Masuk di sini</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ HERO ══ -->
+<section id="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-badge">Platform Ujian Sertifikasi Terpercaya</div>
+  <h1>Raih Sertifikasi<br><span>Profesional Anda</span><br>Bersama Kami</h1>
+  <p class="hero-sub">Platform ujian online terdepan dengan materi komprehensif, sistem penilaian canggih, dan dukungan instruktur berpengalaman.</p>
+  <div class="hero-btns">
+    <button class="btn-primary" onclick="openExam()">✦ Coba Ujian Gratis</button>
+    <a href="#paket" class="btn-outline">Lihat Paket</a>
+  </div>
+  <div class="hero-stats">
+    <div class="stat"><div class="stat-num">12K+</div><div class="stat-label">Peserta Aktif</div></div>
+    <div class="hero-divider"></div>
+    <div class="stat"><div class="stat-num">98%</div><div class="stat-label">Tingkat Lulus</div></div>
+    <div class="hero-divider"></div>
+    <div class="stat"><div class="stat-num">200+</div><div class="stat-label">Materi Ujian</div></div>
+  </div>
+  <div class="scroll-ind"><div class="scroll-dot"></div><div style="margin-top:2px">scroll</div></div>
+</section>
+
+<!-- ══ COBA UJIAN ══ -->
+<section id="coba-ujian">
+  <div class="coba-inner reveal">
+    <div class="section-tag">Gratis &amp; Terbatas</div>
+    <h2 class="section-title">Coba Dulu, Bayar Nanti</h2>
+    <p class="section-sub">Rasakan pengalaman ujian kami secara langsung. Akses soal terbatas dan langsung lihat nilaimu setelah selesai.</p>
+    <div class="coba-card">
+      <h3>Tes Simulasi Ujian</h3>
+      <p>5 soal pilihan ganda · Nilai instan · Tanpa daftar</p>
+      <button class="coba-btn" onclick="openExam()">▶ Mulai Ujian Sekarang</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══ PROMO ══ -->
+<section id="promo">
+  <div class="promo-inner">
+    <div class="promo-text reveal">
+      <div class="section-tag" style="background:rgba(255,255,255,0.12);color:#fff;margin-bottom:1rem">Penawaran Terbatas</div>
+      <h2>Promo Spesial<br>Mei 2025</h2>
+      <p>Dapatkan akses premium dengan harga spesial. Berlaku sampai akhir bulan ini. Jangan lewatkan kesempatan emas untuk tingkatkan karirmu.</p>
+    </div>
+    <div class="promo-cards reveal reveal-delay-1">
+      <div class="promo-card"><div class="promo-card-icon">🎓</div><h4>Diskon 40%</h4><p>Semua paket premium</p></div>
+      <div class="promo-card"><div class="promo-card-icon">📚</div><h4>Akses Gratis</h4><p>Modul bonus eksklusif</p></div>
+      <div class="promo-card"><div class="promo-card-icon">🏆</div><h4>Sertifikat</h4><p>Terakreditasi nasional</p></div>
+      <div class="promo-card"><div class="promo-card-icon">💬</div><h4>Mentoring</h4><p>1-on-1 dengan pakar</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ MITRA ══ -->
+<section id="mitra">
+  <div class="section-center">
+    <div class="reveal">
+      <div class="section-tag">Rekanan Terpercaya</div>
+      <h2 class="section-title">Dipercaya Institusi Terkemuka</h2>
+      <p class="section-sub">Bermitra dengan organisasi dan perusahaan terbaik di Indonesia</p>
+    </div>
+    <div class="mitra-track">
+      <div class="mitra-scroll" id="mitraScroll">
+        <div class="mitra-item">Bank Indonesia</div>
+        <div class="mitra-item">Kemendikbud</div>
+        <div class="mitra-item">Telkom Indonesia</div>
+        <div class="mitra-item">BCA Finance</div>
+        <div class="mitra-item">Mandiri Learning</div>
+        <div class="mitra-item">PLN Akademi</div>
+        <div class="mitra-item">Pertamina Edu</div>
+        <div class="mitra-item">BNSP</div>
+        <div class="mitra-item">Bank Indonesia</div>
+        <div class="mitra-item">Kemendikbud</div>
+        <div class="mitra-item">Telkom Indonesia</div>
+        <div class="mitra-item">BCA Finance</div>
+        <div class="mitra-item">Mandiri Learning</div>
+        <div class="mitra-item">PLN Akademi</div>
+        <div class="mitra-item">Pertamina Edu</div>
+        <div class="mitra-item">BNSP</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FITUR ══ -->
+<section id="fitur">
+  <div class="section-center">
+    <div class="reveal">
+      <div class="section-tag">Fitur Unggulan</div>
+      <h2 class="section-title">Dirancang untuk Hasil Terbaik</h2>
+      <p class="section-sub">Teknologi terdepan yang mendukung perjalanan belajar Anda</p>
+    </div>
+    <div class="fitur-grid">
+      <div class="fitur-card reveal"><div class="fitur-icon"><span>🎯</span></div><h3>Bank Soal Adaptif</h3><p>Sistem AI yang menyesuaikan tingkat kesulitan soal berdasarkan kemampuan real-time peserta.</p></div>
+      <div class="fitur-card reveal reveal-delay-1"><div class="fitur-icon"><span>📊</span></div><h3>Analitik Mendalam</h3><p>Dashboard canggih dengan insight performa, tren belajar, dan rekomendasi peningkatan personal.</p></div>
+      <div class="fitur-card reveal reveal-delay-2"><div class="fitur-icon"><span>🔒</span></div><h3>Ujian Aman</h3><p>Teknologi anti-kecurangan berlapis dengan pengawasan AI dan enkripsi data tingkat enterprise.</p></div>
+      <div class="fitur-card reveal"><div class="fitur-icon"><span>📱</span></div><h3>Multi-Platform</h3><p>Belajar di mana saja – desktop, tablet, dan smartphone dengan sinkronisasi otomatis lintas perangkat.</p></div>
+      <div class="fitur-card reveal reveal-delay-1"><div class="fitur-icon"><span>🤖</span></div><h3>Asisten AI 24/7</h3><p>Tanya jawab instan dengan AI tutor yang memahami konteks materi dan memberikan penjelasan mendalam.</p></div>
+      <div class="fitur-card reveal reveal-delay-2"><div class="fitur-icon"><span>🏅</span></div><h3>Sertifikat Digital</h3><p>Sertifikat blockchain-verified yang dapat diverifikasi langsung oleh perusahaan dan institusi terkait.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ PAKET ══ -->
+<section id="paket">
+  <div class="section-center">
+    <div class="reveal" style="text-align:center">
+      <div class="section-tag">Paket Harga</div>
+      <h2 class="section-title">Pilih Paket yang Tepat</h2>
+      <p class="section-sub" style="margin:0 auto 3rem">Investasi terbaik untuk karir profesional Anda</p>
+    </div>
+    <div class="paket-grid">
+      <div class="paket-card reveal">
+        <div class="paket-name">Starter</div>
+        <div class="paket-price">Rp149K <span>/bulan</span></div>
+        <p class="paket-desc">Cocok untuk pemula yang ingin mulai berlatih</p>
+        <div class="paket-divider"></div>
+        <ul class="paket-features">
+          <li>Akses 50 soal per hari</li>
+          <li>5 simulasi ujian / bulan</li>
+          <li>Laporan dasar</li>
+          <li>Akses komunitas</li>
+        </ul>
+        <button class="paket-btn" onclick="openSignup('Starter','Rp149K/bulan')">Mulai Sekarang</button>
+      </div>
+      <div class="paket-card featured reveal reveal-delay-1">
+        <div class="paket-name">Professional</div>
+        <div class="paket-price">Rp299K <span>/bulan</span></div>
+        <p class="paket-desc">Solusi lengkap untuk profesional yang serius</p>
+        <div class="paket-divider"></div>
+        <ul class="paket-features">
+          <li>Soal tanpa batas</li>
+          <li>Simulasi ujian tidak terbatas</li>
+          <li>Analitik mendalam</li>
+          <li>AI Tutor 24/7</li>
+          <li>Sertifikat digital</li>
+          <li>Mentoring 2x/bulan</li>
+        </ul>
+        <button class="paket-btn" onclick="openSignup('Professional','Rp299K/bulan')">Pilih Professional</button>
+      </div>
+      <div class="paket-card reveal reveal-delay-2">
+        <div class="paket-name">Enterprise</div>
+        <div class="paket-price">Custom <span></span></div>
+        <p class="paket-desc">Untuk institusi dan perusahaan dengan kebutuhan khusus</p>
+        <div class="paket-divider"></div>
+        <ul class="paket-features">
+          <li>Lisensi multi-pengguna</li>
+          <li>Dashboard admin khusus</li>
+          <li>Integrasi API</li>
+          <li>Pelatihan tim dedicated</li>
+          <li>SLA &amp; dukungan prioritas</li>
+        </ul>
+        <button class="paket-btn" onclick="openSignup('Enterprise','Custom')">Hubungi Kami</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ MATERI ══ -->
+<section id="materi">
+  <div class="section-center">
+    <div class="reveal">
+      <div class="section-tag">Konten Tersedia</div>
+      <h2 class="section-title">Materi yang Kami Sediakan</h2>
+      <p class="section-sub">Ratusan topik dari berbagai bidang profesional</p>
+    </div>
+    <div class="materi-grid">
+      <div class="materi-card reveal"><div class="materi-num">01</div><div class="materi-info"><h4>Akuntansi &amp; Keuangan</h4><p>PSAK, perpajakan, audit, dan manajemen keuangan</p><span class="materi-tag">38 Modul</span></div></div>
+      <div class="materi-card reveal reveal-delay-1"><div class="materi-num">02</div><div class="materi-info"><h4>Manajemen SDM</h4><p>Rekrutmen, pelatihan, kompensasi, dan hubungan kerja</p><span class="materi-tag">24 Modul</span></div></div>
+      <div class="materi-card reveal"><div class="materi-num">03</div><div class="materi-info"><h4>Teknologi Informasi</h4><p>Keamanan siber, cloud computing, dan tata kelola IT</p><span class="materi-tag">42 Modul</span></div></div>
+      <div class="materi-card reveal reveal-delay-1"><div class="materi-num">04</div><div class="materi-info"><h4>Hukum &amp; Kepatuhan</h4><p>Regulasi perbankan, pasar modal, dan hukum bisnis</p><span class="materi-tag">30 Modul</span></div></div>
+      <div class="materi-card reveal"><div class="materi-num">05</div><div class="materi-info"><h4>Perbankan &amp; Fintech</h4><p>Produk perbankan, digital payment, dan fintech regulation</p><span class="materi-tag">36 Modul</span></div></div>
+      <div class="materi-card reveal reveal-delay-1"><div class="materi-num">06</div><div class="materi-info"><h4>Manajemen Risiko</h4><p>ERM, Basel III, stress testing, dan mitigasi risiko</p><span class="materi-tag">28 Modul</span></div></div>
+      <div class="materi-card reveal"><div class="materi-num">07</div><div class="materi-info"><h4>Kepemimpinan &amp; Strategi</h4><p>Leadership, strategic planning, dan change management</p><span class="materi-tag">20 Modul</span></div></div>
+      <div class="materi-card reveal reveal-delay-1"><div class="materi-num">08</div><div class="materi-info"><h4>Asuransi &amp; Investasi</h4><p>Produk asuransi, analisis investasi, dan portofolio</p><span class="materi-tag">32 Modul</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ TESTIMONI ══ -->
+<section id="testimoni">
+  <div class="section-center">
+    <div class="reveal" style="text-align:center">
+      <div class="section-tag">Apa Kata Mereka</div>
+      <h2 class="section-title">Ribuan Peserta Telah Merasakan</h2>
+    </div>
+  </div>
+  <div class="testi-slider">
+    <div class="testi-track" id="testiTrack">
+      <div class="testi-card"><div class="testi-stars">★★★★★</div><p class="testi-text">"Platform yang luar biasa! Saya lulus ujian WMI dalam sekali coba setelah berlatih intensif di sini. Materinya sangat komprehensif."</p><div class="testi-author"><div class="testi-avatar">AR</div><div><div class="testi-name">Ahmad Rizky</div><div class="testi-role">Wealth Manager · BRI</div></div></div></div>
+      <div class="testi-card"><div class="testi-stars">★★★★★</div><p class="testi-text">"Analitik performanya sangat detail. Saya bisa tahu persis kelemahan saya di bagian mana dan fokus belajar di sana."</p><div class="testi-author"><div class="testi-avatar">DP</div><div><div class="testi-name">Dewi Puspita</div><div class="testi-role">Compliance Officer · Mandiri</div></div></div></div>
+      <div class="testi-card"><div class="testi-stars">★★★★★</div><p class="testi-text">"AI Tutor-nya sangat membantu! Kapanpun ada pertanyaan, langsung dijawab dengan penjelasan yang mudah dipahami."</p><div class="testi-author"><div class="testi-avatar">BH</div><div><div class="testi-name">Budi Hartono</div><div class="testi-role">Risk Analyst · BNI</div></div></div></div>
+      <div class="testi-card"><div class="testi-stars">★★★★☆</div><p class="testi-text">"Soal-soalnya sangat relevan dengan ujian asli. Berasa seperti latihan sungguhan. Recommended banget untuk semua profesional."</p><div class="testi-author"><div class="testi-avatar">SM</div><div><div class="testi-name">Siti Mardiana</div><div class="testi-role">Auditor · Deloitte Indonesia</div></div></div></div>
+      <div class="testi-card"><div class="testi-stars">★★★★★</div><p class="testi-text">"Interface-nya elegan dan tidak membingungkan. Mudah digunakan bahkan untuk yang tidak terlalu melek teknologi sekalipun."</p><div class="testi-author"><div class="testi-avatar">RN</div><div><div class="testi-name">Rudi Nugroho</div><div class="testi-role">Branch Manager · BCA</div></div></div></div>
+      <!-- duplikat untuk scroll tanpa henti -->
+      <div class="testi-card"><div class="testi-stars">★★★★★</div><p class="testi-text">"Platform yang luar biasa! Saya lulus ujian WMI dalam sekali coba setelah berlatih intensif di sini. Materinya sangat komprehensif."</p><div class="testi-author"><div class="testi-avatar">AR</div><div><div class="testi-name">Ahmad Rizky</div><div class="testi-role">Wealth Manager · BRI</div></div></div></div>
+      <div class="testi-card"><div class="testi-stars">★★★★★</div><p class="testi-text">"Analitik performanya sangat detail. Saya bisa tahu persis kelemahan saya di bagian mana dan fokus belajar di sana."</p><div class="testi-author"><div class="testi-avatar">DP</div><div><div class="testi-name">Dewi Puspita</div><div class="testi-role">Compliance Officer · Mandiri</div></div></div></div>
+      <div class="testi-card"><div class="testi-stars">★★★★★</div><p class="testi-text">"AI Tutor-nya sangat membantu! Kapanpun ada pertanyaan, langsung dijawab dengan penjelasan yang mudah dipahami."</p><div class="testi-author"><div class="testi-avatar">BH</div><div><div class="testi-name">Budi Hartono</div><div class="testi-role">Risk Analyst · BNI</div></div></div></div>
+      <div class="testi-card"><div class="testi-stars">★★★★☆</div><p class="testi-text">"Soal-soalnya sangat relevan dengan ujian asli. Berasa seperti latihan sungguhan. Recommended banget untuk semua profesional."</p><div class="testi-author"><div class="testi-avatar">SM</div><div><div class="testi-name">Siti Mardiana</div><div class="testi-role">Auditor · Deloitte Indonesia</div></div></div></div>
+      <div class="testi-card"><div class="testi-stars">★★★★★</div><p class="testi-text">"Interface-nya elegan dan tidak membingungkan. Mudah digunakan bahkan untuk yang tidak terlalu melek teknologi sekalipun."</p><div class="testi-author"><div class="testi-avatar">RN</div><div><div class="testi-name">Rudi Nugroho</div><div class="testi-role">Branch Manager · BCA</div></div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FAQ ══ -->
+<section id="faq">
+  <div class="section-center">
+    <div class="reveal" style="text-align:center">
+      <div class="section-tag">FAQ</div>
+      <h2 class="section-title">Pertanyaan yang Sering Diajukan</h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Apakah saya bisa mencoba sebelum berlangganan?<span class="faq-arrow">▾</span></div><div class="faq-a"><p>Ya! Kami menyediakan akses uji coba gratis dengan soal terbatas. Anda bisa langsung mencoba dan mendapatkan nilai Anda tanpa perlu mendaftar terlebih dahulu.</p></div></div>
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Bagaimana sistem pembayaran berlaku?<span class="faq-arrow">▾</span></div><div class="faq-a"><p>Kami menerima berbagai metode pembayaran termasuk transfer bank, kartu kredit/debit, e-wallet (GoPay, OVO, Dana), dan QRIS. Pembayaran diproses secara aman dengan enkripsi SSL.</p></div></div>
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Apakah materi selalu diperbarui?<span class="faq-arrow">▾</span></div><div class="faq-a"><p>Ya, tim konten kami secara rutin memperbarui materi sesuai perkembangan regulasi dan standar industri terbaru. Semua pembaruan tersedia otomatis tanpa biaya tambahan.</p></div></div>
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Apakah sertifikat dari CIBN Akademi diakui?<span class="faq-arrow">▾</span></div><div class="faq-a"><p>Sertifikat kami diakui oleh berbagai institusi keuangan, perusahaan, dan lembaga pemerintah di Indonesia. Sertifikat dilengkapi teknologi blockchain untuk verifikasi keaslian.</p></div></div>
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Bagaimana jika tidak lulus ujian sertifikasi?<span class="faq-arrow">▾</span></div><div class="faq-a"><p>Kami menawarkan program remedial gratis dan analisis mendalam tentang area yang perlu ditingkatkan. Peserta paket Professional mendapatkan sesi konsultasi 1-on-1 dengan instruktur.</p></div></div>
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Berapa lama akses berlaku setelah berlangganan?<span class="faq-arrow">▾</span></div><div class="faq-a"><p>Akses berlaku sesuai paket yang dipilih (bulanan atau tahunan). Untuk paket tahunan, Anda mendapat diskon hingga 30% dibandingkan harga bulanan.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FOOTER ══ -->
+<footer>
+  <div class="footer-inner">
+    <div id="cibn-canvas-wrapper">
+      <canvas id="cibn-canvas" height="120"></canvas>
+    </div>
+    <div class="footer-top">
+      <div class="footer-col footer-brand">
+        <div class="nav-logo" style="color:#fff;font-size:1.2rem"><span style="color:#93c5fd">CIBN</span> Akademi</div>
+        <p>Platform ujian dan sertifikasi profesional terpercaya di Indonesia. Membantu ribuan profesional meraih karir impian mereka.</p>
+      </div>
+      <div class="footer-col">
+        <h5>Platform</h5>
+        <ul>
+          <li><a href="#">Fitur Unggulan</a></li>
+          <li><a href="#">Bank Soal</a></li>
+          <li><a href="#">Simulasi Ujian</a></li>
+          <li><a href="#">AI Tutor</a></li>
+          <li><a href="#">Sertifikasi</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h5>Perusahaan</h5>
+        <ul>
+          <li><a href="#">Tentang Kami</a></li>
+          <li><a href="#">Tim Pengajar</a></li>
+          <li><a href="#">Blog &amp; Artikel</a></li>
+          <li><a href="#">Karir</a></li>
+          <li><a href="#" onclick="event.preventDefault();openDocModal('kp')">Kebijakan Privasi</a></li>
+        </ul>
+      </div>
+      <div class="footer-col footer-contact">
+        <h5>Hubungi Kami</h5>
+        <p>📞 +62 21 5555 0100</p>
+        <p>📧 hello@cibnakademi.id</p>
+        <p>📍 Jakarta Selatan, DKI Jakarta</p>
+        <div class="social-links">
+          <a href="#" class="social-btn" title="Instagram">ig</a>
+          <a href="#" class="social-btn" title="LinkedIn">in</a>
+          <a href="#" class="social-btn" title="YouTube">yt</a>
+          <a href="#" class="social-btn" title="Twitter/X">x</a>
+          <a href="#" class="social-btn" title="WhatsApp">wa</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-divider"></div>
+    <div class="footer-bottom">
+      <div class="footer-copy">© 2025 CIBN Akademi. Hak Cipta Dilindungi Undang-Undang.</div>
+      <div class="footer-copy">Terdaftar &amp; diawasi oleh OJK</div>
+    </div>
+  </div>
+</footer>
+
+<!-- ══ EXAM MODAL ══ -->
+<div class="exam-overlay" id="examOverlay">
+  <div class="exam-modal">
+    <button class="exam-close" onclick="closeExam()">✕</button>
+    <div class="exam-progress"><div class="exam-progress-bar" id="examBar" style="width:0%"></div></div>
+    <div id="examContent"></div>
+  </div>
+</div>
+
+<!-- ══ CHATBOT ══ -->
+<button class="chat-toggle" onclick="toggleChat()" id="chatToggle">
+  💬
+  <div class="notif">1</div>
+</button>
+<div class="chat-box" id="chatBox">
+  <div class="chat-header">
+    <div class="chat-avatar">🤖</div>
+    <div class="chat-header-info">
+      <h4>CIBN Assistant</h4>
+      <p>● Online · Siap membantu</p>
+    </div>
+    <button class="chat-header-close" onclick="toggleChat()">✕</button>
+  </div>
+  <div class="chat-messages" id="chatMessages">
+    <div class="chat-msg bot">Halo! Selamat datang di CIBN Akademi 👋 Ada yang bisa saya bantu?</div>
+  </div>
+  <div class="chat-quick" id="chatQuick">
+    <button class="chat-quick-btn" onclick="quickReply('💎 Info Paket')">💎 Info Paket</button>
+    <button class="chat-quick-btn" onclick="quickReply('📝 Cara Daftar')">📝 Cara Daftar</button>
+    <button class="chat-quick-btn" onclick="quickReply('📚 Materi')">📚 Materi</button>
+    <button class="chat-quick-btn" onclick="quickReply('▶ Coba Ujian Gratis')">▶ Coba Ujian Gratis</button>
+  </div>
+  <div class="chat-input-row">
+    <input class="chat-input" id="chatInput" placeholder="Ketik pesan..." onkeydown="if(event.key==='Enter')sendChat()">
+    <button class="chat-send" onclick="sendChat()">→</button>
+  </div>
+</div>
+
+<script>
+// ── MUAT DATA DARI SERVER (API /api/landing) ──
+(function applyLandingData() {
+  const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  function applyData(D) {
+    if (!D || !Object.keys(D).length) return;
+
+    // Title
+    if (D.pageTitle) document.title = D.pageTitle;
+
+    // Nav
+    if (D.nav) {
+      const n = D.nav;
+      const logo = document.querySelector('.nav-logo');
+      if (logo && n.brand) logo.innerHTML = `<span>${esc(n.brand)}</span> ${esc(n.subbrand||'')}`;
+      const ctaBtn = document.querySelector('.nav-cta');
+      if (ctaBtn && n.cta) ctaBtn.textContent = n.cta;
+      const links = document.querySelectorAll('.nav-links a');
+      if (n.menus) n.menus.forEach((m, i) => { if(links[i]) { links[i].textContent = m.text; links[i].href = m.href||'#'; } });
+    }
+
+    // Hero
+    if (D.hero) {
+      const h = D.hero;
+      const badge = document.querySelector('.hero-badge');
+      if (badge) badge.innerHTML = h.badge;
+      const h1 = document.querySelector('h1');
+      if (h1 && h.h1) h1.innerHTML = `${esc(h.h1[0])} <span>${esc(h.h1[1]||'')}</span> ${esc(h.h1[2]||'')}`;
+      const sub = document.querySelector('.hero-sub');
+      if (sub) sub.textContent = h.sub;
+      const btns = document.querySelectorAll('.hero-btns a, .hero-btns button');
+      if (btns[0] && h.btn1) btns[0].textContent = h.btn1;
+      if (btns[1] && h.btn2) { btns[1].textContent = h.btn2; btns[1].href = h.btn2href||'#paket'; }
+      if (h.stats) {
+        const statNums = document.querySelectorAll('.stat-num');
+        const statLabels = document.querySelectorAll('.stat-label');
+        h.stats.forEach((s, i) => { if(statNums[i]) statNums[i].textContent = s.num; if(statLabels[i]) statLabels[i].textContent = s.label; });
+      }
+    }
+
+    // Coba
+    if (D.coba) {
+      const c = D.coba;
+      const cobaSection = document.getElementById('coba-ujian');
+      if (cobaSection) {
+        const tag = cobaSection.querySelector('.section-tag'); if(tag) tag.textContent = c.tag;
+        const ttl = cobaSection.querySelector('h2'); if(ttl) ttl.textContent = c.title;
+        const sub = cobaSection.querySelector('.section-sub'); if(sub) sub.textContent = c.sub;
+        const cH3 = cobaSection.querySelector('.coba-card h3'); if(cH3) cH3.textContent = c.cardTitle;
+        const cP = cobaSection.querySelector('.coba-card p'); if(cP) cP.textContent = c.cardDesc;
+        const cBtn = cobaSection.querySelector('.coba-btn'); if(cBtn) cBtn.textContent = c.btn;
+      }
+    }
+
+    // Promo
+    if (D.promo) {
+      const p = D.promo;
+      const promoSection = document.getElementById('promo');
+      if (promoSection) {
+        const tag = promoSection.querySelector('.section-tag'); if(tag) tag.textContent = p.tag;
+        const h2s = promoSection.querySelectorAll('h2 > *');
+        if (h2s.length >= 2) { h2s[0].textContent = p.h2_1; h2s[1].textContent = p.h2_2; }
+        else { const h2 = promoSection.querySelector('h2'); if(h2) h2.textContent = (p.h2_1||'') + ' ' + (p.h2_2||''); }
+        const desc = promoSection.querySelector('.promo-text p'); if(desc) desc.textContent = p.desc;
+        if (p.cards && p.cards.length) {
+          const grid = promoSection.querySelector('.promo-cards');
+          if (grid) grid.innerHTML = p.cards.map(c => `<div class="promo-card"><div class="promo-card-icon">${c.icon}</div><h4>${esc(c.title)}</h4><p>${esc(c.desc)}</p></div>`).join('');
+        }
+      }
+    }
+
+    // Mitra
+    if (D.mitra) {
+      const m = D.mitra;
+      const mitraSection = document.getElementById('mitra');
+      if (mitraSection) {
+        const tag = mitraSection.querySelector('.section-tag'); if(tag) tag.textContent = m.tag;
+        const ttl = mitraSection.querySelector('h2'); if(ttl) ttl.textContent = m.title;
+        const sub = mitraSection.querySelector('.section-sub'); if(sub) sub.textContent = m.sub;
+        if (m.list && m.list.length) {
+          const scroll = document.getElementById('mitraScroll');
+          if (scroll) {
+            const doubled = [...m.list, ...m.list];
+            scroll.innerHTML = doubled.map(item => `<div class="mitra-item">${esc(item)}</div>`).join('');
+          }
+        }
+      }
+    }
+
+    // Fitur
+    if (D.fitur) {
+      const f = D.fitur;
+      const fiturSection = document.getElementById('fitur');
+      if (fiturSection) {
+        const tag = fiturSection.querySelector('.section-tag'); if(tag) tag.textContent = f.tag;
+        const ttl = fiturSection.querySelector('h2'); if(ttl) ttl.textContent = f.title;
+        const sub = fiturSection.querySelector('.section-sub'); if(sub) sub.textContent = f.sub;
+        if (f.cards && f.cards.length) {
+          const grid = fiturSection.querySelector('.fitur-grid');
+          if (grid) grid.innerHTML = f.cards.map((c, i) => `<div class="fitur-card reveal${i===1?' reveal-delay-1':i===2?' reveal-delay-2':''}"><div class="fitur-icon"><span>${c.icon}</span></div><h3>${esc(c.title)}</h3><p>${esc(c.desc)}</p></div>`).join('');
+        }
+      }
+    }
+
+    // Paket
+    if (D.paket) {
+      const p = D.paket;
+      const paketSection = document.getElementById('paket');
+      if (paketSection) {
+        const tag = paketSection.querySelector('.section-tag'); if(tag) tag.textContent = p.tag;
+        const ttl = paketSection.querySelector('h2'); if(ttl) ttl.textContent = p.title;
+        const sub = paketSection.querySelector('.section-sub'); if(sub) sub.textContent = p.sub;
+        if (p.list && p.list.length) {
+          const grid = paketSection.querySelector('.paket-grid');
+          if (grid) grid.innerHTML = p.list.map((pk, i) => {
+            const fl = (Array.isArray(pk.features) ? pk.features : (pk.features||'').split('\n')).filter(x=>x.trim());
+            // Ambil data dari paket keuangan yang terhubung (jika ada)
+            const keuPakets = window._keuanganPakets || [];
+            const linkedKeu = pk.link_keuangan ? keuPakets.find(kp => (kp.kode||kp.id) === pk.link_keuangan) : null;
+            // Gunakan harga dari paket keuangan jika terhubung
+            let displayPrice = pk.price;
+            let displayUnit = pk.unit;
+            if (linkedKeu) {
+              const hargaNum = parseInt(linkedKeu.harga || 0);
+              displayPrice = hargaNum > 0 ? 'Rp' + hargaNum.toLocaleString('id-ID') : pk.price;
+              displayUnit = linkedKeu.periode || pk.unit || '/bulan';
+            }
+            return `<div class="paket-card${pk.featured?' featured':''} reveal${i===1?' reveal-delay-1':i===2?' reveal-delay-2':''}">
+              <div class="paket-name">${esc(pk.name)}</div>
+              <div class="paket-price">${esc(displayPrice)} <span>${esc(displayUnit)}</span></div>
+              <p class="paket-desc">${esc(pk.desc)}</p>
+              <div class="paket-divider"></div>
+              <ul class="paket-features">${fl.map(f=>`<li>${esc(f)}</li>`).join('')}</ul>
+              <button class="paket-btn" onclick="openSignup('${esc(pk.name)}','${esc(displayPrice+(displayUnit||''))}' )">${esc(pk.btnText)}</button>
+            </div>`;
+          }).join('');
+        }
+      }
+    }
+
+    // Materi
+    if (D.materi) {
+      const m = D.materi;
+      const materiSection = document.getElementById('materi');
+      if (materiSection) {
+        const tag = materiSection.querySelector('.section-tag'); if(tag) tag.textContent = m.tag;
+        const ttl = materiSection.querySelector('h2'); if(ttl) ttl.textContent = m.title;
+        const sub = materiSection.querySelector('.section-sub'); if(sub) sub.textContent = m.sub;
+        if (m.list && m.list.length) {
+          const grid = materiSection.querySelector('.materi-grid');
+          if (grid) grid.innerHTML = m.list.map((item, i) => `<div class="materi-card reveal${i%2===1?' reveal-delay-1':''}"><div class="materi-num">${String(i+1).padStart(2,'0')}</div><div class="materi-info"><h4>${esc(item.title)}</h4><p>${esc(item.desc)}</p><span class="materi-tag">${esc(item.tag)}</span></div></div>`).join('');
+        }
+      }
+    }
+
+    // Testimoni
+    if (D.testi) {
+      const t = D.testi;
+      const testiSection = document.getElementById('testimoni');
+      if (testiSection) {
+        const tag = testiSection.querySelector('.section-tag'); if(tag) tag.textContent = t.tag;
+        const ttl = testiSection.querySelector('h2'); if(ttl) ttl.textContent = t.title;
+        if (t.list && t.list.length) {
+          const track = document.getElementById('testiTrack');
+          if (track) {
+            const starStr = n => '★'.repeat(n||5)+(n<5?'☆'.repeat(5-n):'');
+            const cards = t.list.map(card => `<div class="testi-card"><div class="testi-stars">${starStr(card.stars)}</div><p class="testi-text">"${esc(card.text)}"</p><div class="testi-author"><div class="testi-avatar">${esc(card.initials)}</div><div><div class="testi-name">${esc(card.name)}</div><div class="testi-role">${esc(card.role)}</div></div></div></div>`).join('');
+            track.innerHTML = cards + cards;
+          }
+        }
+      }
+    }
+
+    // FAQ
+    if (D.faq) {
+      const f = D.faq;
+      const faqSection = document.getElementById('faq');
+      if (faqSection) {
+        const tag = faqSection.querySelector('.section-tag'); if(tag) tag.textContent = f.tag;
+        const ttl = faqSection.querySelector('h2'); if(ttl) ttl.textContent = f.title;
+        if (f.list && f.list.length) {
+          const list = faqSection.querySelector('.faq-list');
+          if (list) list.innerHTML = f.list.map(item => `<div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">${esc(item.q)}<span class="faq-arrow">▾</span></div><div class="faq-a"><p>${esc(item.a)}</p></div></div>`).join('');
+        }
+      }
+    }
+
+    // Di dalam fungsi applyData(D) pada landing.html:
+    if (D.footer) {
+        const f = D.footer;
+        const footer = document.querySelector('footer');
+        if (footer) {
+            if (f.brandDesc) { const bd = footer.querySelector('.footer-brand p'); if(bd) bd.textContent = f.brandDesc; }
+            if (f.phone) { const ph = footer.querySelector('.footer-contact p:nth-child(2)'); if(ph) ph.textContent = '📞 '+f.phone; }
+            if (f.email) { const em = footer.querySelector('.footer-contact p:nth-child(3)'); if(em) em.textContent = '📧 '+f.email; }
+            if (f.address) { const ad = footer.querySelector('.footer-contact p:nth-child(4)'); if(ad) ad.textContent = '📍 '+f.address; }
+            
+            // PERBAIKAN: Gunakan querySelectorAll karena ada dua div .footer-copy berdampingan
+            const cps = footer.querySelectorAll('.footer-copy');
+            if (f.copy && cps[0]) cps[0].textContent = f.copy; 
+            if (f.reg && cps[1]) cps[1].textContent = f.reg; 
+
+            if (f.platform && f.platform.length) { const ul = footer.querySelectorAll('.footer-col ul')[0]; if(ul) ul.innerHTML = f.platform.map(l=>`<li><a href="${esc(l.href)}">${esc(l.text)}</a></li>`).join(''); }
+            if (f.perusahaan && f.perusahaan.length) { const ul = footer.querySelectorAll('.footer-col ul')[1]; if(ul) ul.innerHTML = f.perusahaan.map(l=>`<li><a href="${esc(l.href)}">${esc(l.text)}</a></li>`).join(''); }
+            if (f.social && f.social.length) { const sl = footer.querySelector('.social-links'); if(sl) sl.innerHTML = f.social.map(s=>`<a href="${esc(s.href)}" class="social-btn" title="${esc(s.label)}">${esc(s.short)}</a>`).join(''); }
+            
+            // Simpan canvasText untuk di-load nanti
+            if (f.canvasText) window._customCanvasText = f.canvasText;
+        }
+    }
+
+    // Chatbot
+    if (D.chat) {
+      const c = D.chat;
+      const chatHeader = document.querySelector('.chat-header-info h4'); if(chatHeader) chatHeader.textContent = c.name;
+      const chatStatus = document.querySelector('.chat-header-info p'); if(chatStatus) chatStatus.textContent = c.status;
+      const chatInput = document.getElementById('chatInput'); if(chatInput) chatInput.placeholder = c.placeholder;
+      const firstMsg = document.querySelector('.chat-msg.bot'); if(firstMsg) firstMsg.textContent = c.greeting;
+      if (c.avatar) {
+        const av = document.querySelector('.chat-avatar'); if(av) av.innerHTML = `<img src="${c.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+        const tg = document.querySelector('.chat-toggle'); if(tg) tg.innerHTML = `<img src="${c.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"><div class="notif">1</div>`;
+      }
+      if (c.quickReplies) {
+        const qc = document.getElementById('chatQuick');
+        if (qc) qc.innerHTML = Object.entries(c.quickReplies).map(([k, v]) => {
+          const display = k.charAt(0).toUpperCase() + k.slice(1);
+          return `<button class="chat-quick-btn" onclick="quickReply('${k}')">${display}</button>`;
+        }).join('');
+      }
+      window._chatKeywords = c.keywords || [];
+      window._chatDefaultReply = c.defaultReply || '';
+      window._chatQuickMap = c.quickReplies || {};
+    }
+
+    // Soal (ujian coba)
+    if (D.soal && D.soal.length) window._customSoal = D.soal;
+
+    // SK & KP
+    if (D.sk) window._docData_sk = D.sk;
+    if (D.kp) window._docData_kp = D.kp;
+  }
+
+  // Ganti porsi fetch API ini:
+  // Muat landing data + paket keuangan secara paralel agar harga terhubung
+  Promise.all([
+    fetch(window.location.origin + '/api/landing').then(r => r.json()).catch(() => null),
+    fetch(window.location.origin + '/api/pakets/public').then(r => r.ok ? r.json() : []).catch(() => [])
+  ]).then(([data, keuanganPakets]) => {
+      window._keuanganPakets = keuanganPakets || [];
+      applyData(data);
+      if (typeof window.initCibnCanvas === 'function') {
+          window.initCibnCanvas(window._customCanvasText);
+      }
+  }).catch(err => console.warn('[Landing] Gagal muat data dari server:', err));
+})();
+
+// ── REVEAL ON SCROLL ──
+const reveals = document.querySelectorAll('.reveal');
+const ro = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) e.target.classList.add('visible');
+  });
+}, { threshold: .12 });
+reveals.forEach(r => ro.observe(r));
+
+// ── NAV SHADOW ──
+window.addEventListener('scroll', () => {
+  document.getElementById('navbar').style.boxShadow = window.scrollY > 20 ? '0 2px 20px rgba(0,0,0,0.06)' : 'none';
+});
+
+// ── FAQ ──
+function toggleFaq(el) {
+  const item = el.parentElement;
+  const wasOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+  if (!wasOpen) item.classList.add('open');
+}
+
+// ── EXAM ──
+// Soal default (fallback jika server belum dikonfigurasi)
+const _defaultQuestions = [
+  {q:'Apa kepanjangan dari OJK dalam sistem keuangan Indonesia?', opts:['Otoritas Jasa Keuangan','Organisasi Jasa Keuangan','Otoritas Jaminan Keuangan','Operasional Jasa Keuangan'], ans:0},
+  {q:'Rasio kecukupan modal minimum yang wajib dipenuhi bank umum menurut regulasi Basel III adalah…', opts:['6%','8%','10%','12%'], ans:1},
+  {q:'Manakah yang termasuk instrumen pasar uang?', opts:['Obligasi jangka panjang','Sertifikat Bank Indonesia (SBI)','Saham biasa','Reksadana saham'], ans:1},
+  {q:"Prinsip 'Know Your Customer' (KYC) terutama bertujuan untuk…", opts:['Meningkatkan profit bank','Mencegah pencucian uang dan pendanaan terorisme','Mempercepat layanan nasabah','Mengurangi biaya operasional'], ans:1},
+  {q:'Value at Risk (VaR) digunakan untuk mengukur…', opts:['Profitabilitas portofolio','Potensi kerugian maksimum pada tingkat kepercayaan tertentu','Kecepatan perputaran aset','Rasio likuiditas jangka pendek'], ans:1},
+];
+// Fungsi helper — ambil soal dari server jika ada, fallback ke default
+function getQuestions() { return (window._customSoal && window._customSoal.length) ? window._customSoal : _defaultQuestions; }
+let curQ = 0, score = 0, answered = false;
+
+function openExam() {
+  curQ = 0; score = 0; answered = false;
+  document.getElementById('examOverlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+  renderExamQ();
+}
+function closeExam() {
+  document.getElementById('examOverlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+function renderExamQ() {
+  const qs = getQuestions();
+  const q = qs[curQ];
+  const pct = (curQ / qs.length) * 100;
+  document.getElementById('examBar').style.width = pct + '%';
+  const letters = ['A','B','C','D','E'];
+  document.getElementById('examContent').innerHTML =
+    '<div class="exam-q-num">Soal ' + (curQ+1) + ' dari ' + qs.length + '</div>' +
+    '<div class="exam-q-text">' + q.q + '</div>' +
+    '<div class="exam-options">' +
+    q.opts.map((o,i) => '<div class="exam-opt" onclick="selectOpt('+i+')" id="opt'+i+'"><div class="exam-opt-letter">'+letters[i]+'</div>'+o+'</div>').join('') +
+    '</div>' +
+    '<div class="exam-nav"><div></div><button class="btn-primary" onclick="nextQ()" style="padding:.7rem 1.6rem;font-size:.88rem">' +
+    (curQ === qs.length-1 ? 'Lihat Hasil →' : 'Lanjut →') + '</button></div>';
+}
+function selectOpt(i) {
+  if (answered) return;
+  answered = true;
+  document.querySelectorAll('.exam-opt').forEach((o, j) => {
+    const qs2 = getQuestions();
+  if (j === qs2[curQ].ans) o.classList.add('correct');
+    else if (j === i && i !== qs2[curQ].ans) o.classList.add('wrong');
+    else o.style.opacity = '.4';
+    if (j === i) o.classList.add('selected');
+  });
+  if (i === qs2[curQ].ans) score++;
+}
+function nextQ() {
+  if (!answered) { alert('Pilih jawaban terlebih dahulu!'); return; }
+  curQ++;
+  const qs3 = getQuestions();
+  if (curQ < qs3.length) {
+    answered = false;
+    renderExamQ();
+  } else {
+    document.getElementById('examBar').style.width = '100%';
+    const pct = Math.round(score / qs3.length * 100);
+    const msg = pct >= 80 ? 'Luar biasa! Kamu sangat siap!' : pct >= 60 ? 'Bagus! Sedikit lagi sempurna.' : 'Terus berlatih, kamu pasti bisa!';
+    document.getElementById('examContent').innerHTML =
+      '<div class="exam-score">' +
+      '<div class="exam-score-num">' + pct + '<span style="font-size:2rem">%</span></div>' +
+      '<div class="exam-score-label">' + score + ' dari ' + qs3.length + ' soal benar</div>' +
+      '<div class="exam-score-msg">' + msg + '</div>' +
+      '</div>' +
+      '<div style="text-align:center;margin-top:2rem">' +
+      '<button class="btn-primary" onclick="openExam()" style="margin-right:.8rem">Coba Lagi</button>' +
+      '<button class="btn-outline" onclick="closeExam();openSignup(\'Professional\',\'Rp299K/bulan\')" style="padding:.8rem 1.6rem">Mulai Berlangganan</button>' +
+      '</div>';
+  }
+}
+
+// ── CHATBOT ──
+// Data chatbot diambil dari server lewat applyData(). Ini fallback jika server belum dikonfigurasi.
+const _defaultChatQuickReplies = {
+  '💎 info paket': 'Kami memiliki 3 paket: Starter (Rp149K/bln), Professional (Rp299K/bln), dan Enterprise (custom). Paket Professional paling populer!',
+  '📝 cara daftar': 'Daftar sangat mudah! Klik tombol "Masuk" lalu pilih "Daftar Sekarang". Prosesnya hanya 2 menit.',
+  '📚 materi': 'Kami punya 200+ modul mencakup Akuntansi, SDM, IT, Hukum, Perbankan, dan banyak lagi!',
+  '▶ coba ujian gratis': 'Klik tombol "Coba Ujian Gratis" di halaman ini untuk mencoba 5 soal demo tanpa perlu daftar!',
+};
+const _defaultChatKeywords = [
+  {keyword:'harga', reply:'Paket kami mulai dari Rp149K/bulan. Lihat detail lengkap di bagian Paket Harga di halaman ini!'},
+  {keyword:'sertifikat', reply:'Sertifikat kami diakui berbagai institusi keuangan dan perusahaan di Indonesia, dilengkapi teknologi blockchain untuk verifikasi keaslian.'},
+  {keyword:'diskon', reply:'Kami menawarkan diskon hingga 30% untuk paket tahunan. Hubungi tim kami untuk info promo terkini!'},
+  {keyword:'daftar', reply:'Klik tombol "Masuk" di pojok kanan atas, lalu pilih "Daftar Sekarang". Hanya butuh 2 menit!'},
+  {keyword:'bayar', reply:'Kami menerima transfer bank, kartu kredit, e-wallet (GoPay, OVO, Dana), dan QRIS.'},
+];
+const _defaultChatReply = 'Terima kasih atas pertanyaannya! Tim kami siap membantu. Hubungi kami langsung untuk info lebih lanjut.';
+// Helper — pakai data dari server jika tersedia
+function getChatQuickReplies() { return (window._chatQuickMap && Object.keys(window._chatQuickMap).length) ? window._chatQuickMap : _defaultChatQuickReplies; }
+function getChatKeywords() { return (window._chatKeywords && window._chatKeywords.length) ? window._chatKeywords : _defaultChatKeywords; }
+function getChatDefaultReply() { return window._chatDefaultReply || _defaultChatReply; }
+
+function toggleChat() {
+  const b = document.getElementById('chatBox');
+  b.classList.toggle('show');
+  if (b.classList.contains('show')) {
+    document.getElementById('chatToggle').querySelector('.notif').style.display = 'none';
+  }
+}
+function sendChat() {
+  const inp = document.getElementById('chatInput');
+  const msg = inp.value.trim();
+  if (!msg) return;
+  const msgs = document.getElementById('chatMessages');
+  const um = document.createElement('div');
+  um.className = 'chat-msg user';
+  um.textContent = msg;
+  msgs.appendChild(um);
+  inp.value = '';
+  msgs.scrollTop = msgs.scrollHeight;
+  setTimeout(() => {
+    const bm = document.createElement('div');
+    bm.className = 'chat-msg bot';
+    const msgLow = msg.toLowerCase();
+    let answer = getChatQuickReplies()[msgLow];
+    if (!answer) {
+      const matched = getChatKeywords().filter(k => k.keyword && msgLow.includes(k.keyword));
+      if (matched.length) {
+        const best = matched.reduce((a, b) => b.keyword.length > a.keyword.length ? b : a);
+        answer = best.reply;
+      }
+    }
+    if (!answer) answer = getChatDefaultReply();
+    bm.textContent = answer;
+    msgs.appendChild(bm);
+    msgs.scrollTop = msgs.scrollHeight;
+  }, 800);
+}
+function quickReply(t) {
+  document.getElementById('chatInput').value = t;
+  sendChat();
+}
+
+// ── LOGIN / REGISTER ──
+const API_BASE_LANDING = window.location.origin + '/api';
+
+function openLogin() {
+  document.getElementById('loginOverlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+  const b = document.getElementById('paketBanner');
+  if (b) b.remove();
+  showLogin();
+}
+function closeLogin() {
+  document.getElementById('loginOverlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+function showLogin() {
+  document.getElementById('loginForm').style.display = 'block';
+  document.getElementById('registerForm').style.display = 'none';
+  document.getElementById('loginSubtitle').textContent = 'Masuk ke akun Anda';
+  const b = document.getElementById('paketBanner');
+  if (b) b.remove();
+}
+function showRegister() {
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('registerForm').style.display = 'block';
+  document.getElementById('loginSubtitle').textContent = 'Buat akun baru';
+}
+function togglePass() {
+  const p = document.getElementById('loginPass');
+  p.type = p.type === 'password' ? 'text' : 'password';
+}
+
+// Simpan paket yang dipilih user saat klik tombol paket
+let _selectedPaket = null;
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const err = document.getElementById('loginError');
+  if (!email || !pass) { err.style.display='block'; err.textContent='Email dan password tidak boleh kosong.'; return; }
+  if (!email.includes('@')) { err.style.display='block'; err.textContent='Format email tidak valid.'; return; }
+  err.style.display = 'none';
+  const btn = document.querySelector('#loginForm button[onclick="doLogin()"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Memproses...'; }
+  try {
+    const res = await fetch(API_BASE_LANDING + '/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Login gagal');
+    // Simpan token & user ke localStorage (sama dengan admin panel)
+    localStorage.setItem('cbn_token', data.token);
+    localStorage.setItem('cbn_user', JSON.stringify(data.user));
+    // Redirect sesuai role
+    if (data.user.role === 'admin') window.location.href = 'index_admin.html';
+    else if (data.user.role === 'review') window.location.href = 'index_review.html';
+    else window.location.href = 'index_user.html';
+  } catch(e) {
+    err.style.display = 'block';
+    err.textContent = e.message || 'Gagal terhubung ke server. Pastikan server aktif.';
+    if (btn) { btn.disabled = false; btn.textContent = 'Masuk →'; }
+  }
+}
+
+async function doRegister() {
+  const fn = document.getElementById('regFirstName').value.trim();
+  const ln = document.getElementById('regLastName').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const pass = document.getElementById('regPass').value;
+  const agree = document.getElementById('regAgree').checked;
+  const err = document.getElementById('regError');
+  if (!fn || !email || !pass) { err.style.display='block'; err.textContent='Semua field wajib diisi.'; return; }
+  if (!email.includes('@')) { err.style.display='block'; err.textContent='Format email tidak valid.'; return; }
+  if (pass.length < 8) { err.style.display='block'; err.textContent='Password minimal 8 karakter.'; return; }
+  if (!agree) { err.style.display='block'; err.textContent='Anda harus menyetujui Syarat & Ketentuan.'; return; }
+  err.style.display = 'none';
+  const btn = document.querySelector('#registerForm button[onclick="doRegister()"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Memproses...'; }
+  try {
+    const nama = (fn + ' ' + ln).trim();
+    const res = await fetch(API_BASE_LANDING + '/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nama, email, password: pass, paket_nama: _selectedPaket || null })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Pendaftaran gagal');
+    // Tampilkan pesan sukses di dalam modal
+    const modal = document.querySelector('#loginOverlay .exam-modal');
+    modal.innerHTML = `
+      <div style="text-align:center;padding:2rem 1rem">
+        <div style="font-size:3.5rem;margin-bottom:1rem">✅</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:700;color:#0f2d8a;margin-bottom:.5rem">Pendaftaran Berhasil!</div>
+        <p style="font-size:.88rem;color:#64748b;font-weight:300;line-height:1.7;margin-bottom:.5rem">
+          Akun Anda sedang menunggu konfirmasi dari admin.<br>
+          ${_selectedPaket ? `Paket yang dipilih: <strong>${_selectedPaket}</strong><br>` : ''}
+          Anda akan dihubungi setelah diaktifkan.
+        </p>
+        <button onclick="closeLogin()" style="margin-top:1.5rem;background:linear-gradient(135deg,#1a4fd6,#0f2d8a);color:#fff;border:none;padding:.85rem 2.2rem;border-radius:50px;font-size:.95rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Tutup</button>
+      </div>`;
+    _selectedPaket = null;
+  } catch(e) {
+    err.style.display = 'block';
+    err.textContent = e.message || 'Gagal terhubung ke server.';
+    if (btn) { btn.disabled = false; btn.textContent = 'Buat Akun →'; }
+  }
+}
+
+function openSignup(paketName, paketPrice) {
+  _selectedPaket = paketName;
+  openLogin();
+  showRegister();
+  const regForm = document.getElementById('registerForm');
+  const existing = document.getElementById('paketBanner');
+  if (existing) existing.remove();
+  const banner = document.createElement('div');
+  banner.id = 'paketBanner';
+  banner.style.cssText = 'background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1.5px solid rgba(26,79,214,0.2);border-radius:12px;padding:.9rem 1.1rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem';
+  banner.innerHTML = '<div><div style="font-size:.7rem;font-weight:600;color:#1a4fd6;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.15rem">Paket Dipilih</div><div style="font-size:.92rem;font-weight:700;color:#0f2d8a">'+paketName+'</div></div><div style="font-size:.88rem;font-weight:600;color:#1a4fd6">'+paketPrice+'</div>';
+  regForm.insertBefore(banner, regForm.firstChild);
+}
+
+// ── DOC MODAL ──
+// Data SK & KP diambil dari server. Fallback jika belum ada.
+const _defaultDocData = {
+  sk: { title: 'Syarat & Ketentuan', content: '(Belum dikonfigurasi oleh admin)' },
+  kp: { title: 'Kebijakan Privasi', content: '(Belum dikonfigurasi oleh admin)' }
+};
+function openDocModal(type) {
+  const fromServer = type === 'sk' ? window._docData_sk : window._docData_kp;
+  const d = fromServer || _defaultDocData[type];
+  if (!d) return;
+  document.getElementById('docModalTitle').textContent = d.title;
+  document.getElementById('docModalBody').textContent = d.content;
+  document.getElementById('docModalOverlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeDocModal() {
+  document.getElementById('docModalOverlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+// ── CANVAS PARTICLE ──
+/* ── CANVAS PARTICLE ── */
+// Ubah fungsi (function() { ... })(); menjadi:
+window.initCibnCanvas = function(customText) {
+  const canvas = document.getElementById('cibn-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [], mouse = { x: -999, y: -999 };
+  
+  // Ambil custom text dari server, jika kosong baru ambil dari Logo
+  const TEXT = customText || document.querySelector('.nav-logo')?.textContent?.trim() || 'CIBN Akademi';
+  const DENSITY = 4;
+
+  // Hentikan animasi sebelumnya jika ada (mencegah memory leak saat fungsi dipanggil 2x)
+  if (window._cibnAnimFrame) cancelAnimationFrame(window._cibnAnimFrame);
+
+  function resize() {
+    W = canvas.offsetWidth;
+    H = canvas.height;
+    canvas.width = W;
+    init();
+  }
+  // [Biarkan fungsi getPixels dan init sama seperti sebelumnya]
+  function getPixels() {
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const cx = c.getContext('2d');
+    cx.fillStyle = '#fff';
+    cx.font = 'bold ' + Math.min(H * .55, W * .12) + 'px Cormorant Garamond, serif';
+    cx.textAlign = 'center';
+    cx.textBaseline = 'middle';
+    cx.fillText(TEXT, W / 2, H / 2);
+    const data = cx.getImageData(0, 0, W, H).data;
+    const pts = [];
+    for (let y = 0; y < H; y += DENSITY)
+      for (let x = 0; x < W; x += DENSITY) {
+        const idx = (y * W + x) * 4;
+        if (data[idx + 3] > 128) pts.push({ ox: x, oy: y });
+      }
+    return pts;
+  }
+  function init() {
+    const pts = getPixels();
+    particles = pts.map(p => ({
+      x: Math.random() * W, y: Math.random() * H,
+      ox: p.ox, oy: p.oy, vx: 0, vy: 0,
+      size: Math.random() * 1.2 + 0.6,
+      opacity: Math.random() * .4 + .6
+    }));
+  }
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    const r = 80, repel = 120, spring = .06, friction = .82, maxV = 8;
+    particles.forEach(p => {
+      // [Biarkan logika matematika canvas persis sama seperti milik Anda]
+      const dx = p.x - mouse.x, dy = p.y - mouse.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < r && dist > 0) {
+        const force = (r - dist) / r;
+        p.vx += (dx / dist) * force * repel * .1;
+        p.vy += (dy / dist) * force * repel * .1;
+      }
+      p.vx += (p.ox - p.x) * spring;
+      p.vy += (p.oy - p.y) * spring;
+      p.vx *= friction; p.vy *= friction;
+      const spd = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+      if (spd > maxV) { p.vx = p.vx / spd * maxV; p.vy = p.vy / spd * maxV; }
+      p.x += p.vx; p.y += p.vy;
+      const dh = Math.sqrt((p.x - p.ox) ** 2 + (p.y - p.oy) ** 2);
+      const blue = Math.min(1, dh / 40);
+      const r1 = Math.round(147 + (26 - 147) * blue);
+      const g1 = Math.round(197 + (79 - 197) * blue);
+      const b1 = Math.round(253 + (214 - 253) * blue);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(' + r1 + ',' + g1 + ',' + b1 + ',' + p.opacity + ')';
+      ctx.fill();
+    });
+    window._cibnAnimFrame = requestAnimationFrame(draw);
+  }
+  
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+  });
+  canvas.addEventListener('mouseleave', () => { mouse.x = -999; mouse.y = -999; });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.touches[0].clientX - rect.left;
+    mouse.y = e.touches[0].clientY - rect.top;
+  }, { passive: false });
+  canvas.addEventListener('touchend', () => { mouse.x = -999; mouse.y = -999; });
+  window.addEventListener('resize', resize);
+  
+  resize();
+  draw();
+};
+// Jangan lupa panggil awal untuk jaga-jaga jika data telat
+window.initCibnCanvas();
+</script>
+</body>
+</html>

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Masuk – CIBN PRESTISE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        :root{--blue:#133259;--accent:#1a5aa0;--accent2:#2666b8;--glass:rgba(255,255,255,0.55);--border:rgba(255,255,255,0.75);--text-sub:#5a7a9a;--success:#16a34a;--danger:#dc2626;--font-head:'Syne',sans-serif;--font:'DM Sans',sans-serif}
+        html,body{width:100%;height:100%;font-family:var(--font);background:linear-gradient(135deg,#dce8f4 0%,#e8eef6 50%,#d8e4f0 100%);overflow:hidden}
+        .bg{position:fixed;inset:0;z-index:0}
+        .bg-circle{position:absolute;border-radius:50%;filter:blur(80px);opacity:0.5}
+        .c1{width:500px;height:500px;background:radial-gradient(circle,rgba(26,90,160,0.25),transparent);top:-150px;left:-150px;animation:cp 8s ease-in-out infinite alternate}
+        .c2{width:400px;height:400px;background:radial-gradient(circle,rgba(38,102,184,0.2),transparent);bottom:-100px;right:-100px;animation:cp 10s ease-in-out infinite alternate-reverse}
+        .c3{width:250px;height:250px;background:radial-gradient(circle,rgba(19,50,89,0.15),transparent);top:40%;right:20%;animation:cp 6s ease-in-out infinite alternate}
+        @keyframes cp{0%{transform:scale(1) translate(0,0)}100%{transform:scale(1.2) translate(20px,15px)}}
+        .wrap{position:relative;z-index:1;width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:20px}
+        .card{background:rgba(255,255,255,0.7);backdrop-filter:blur(32px) saturate(1.8);-webkit-backdrop-filter:blur(32px) saturate(1.8);border:1.5px solid rgba(255,255,255,0.85);border-radius:24px;box-shadow:0 24px 64px rgba(19,50,89,0.15),0 2px 0 rgba(255,255,255,0.9) inset;padding:36px 32px;width:100%;max-width:400px;animation:cardIn 0.6s cubic-bezier(.34,1.56,.64,1) both}
+        @keyframes cardIn{from{opacity:0;transform:translateY(30px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+        .logo{text-align:center;margin-bottom:28px}
+        .logo-icon{width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;box-shadow:0 8px 20px rgba(26,90,160,0.35)}
+        .logo-icon svg{width:28px;height:28px;color:white}
+        .logo-title{font-family:var(--font-head);font-size:20px;font-weight:800;color:var(--blue);letter-spacing:-0.01em}
+        .logo-sub{font-size:12px;color:var(--text-sub);margin-top:2px}
+        .tabs{display:flex;background:rgba(19,50,89,0.06);border-radius:12px;padding:4px;margin-bottom:24px}
+        .tab-btn{flex:1;padding:9px;border:none;background:transparent;border-radius:10px;font-family:var(--font);font-size:13px;font-weight:600;color:var(--text-sub);cursor:pointer;transition:all 0.25s}
+        .tab-btn.active{background:white;color:var(--blue);box-shadow:0 2px 8px rgba(19,50,89,0.1)}
+        .form-group{margin-bottom:14px}
+        .form-label{display:block;font-size:11px;font-weight:700;color:var(--text-sub);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px}
+        .form-input{width:100%;padding:12px 14px;background:rgba(19,50,89,0.04);border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;font-family:var(--font);font-size:14px;color:var(--blue);outline:none;transition:border-color 0.2s,box-shadow 0.2s}
+        .form-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(19,50,89,0.08);background:rgba(255,255,255,0.8)}
+        .form-input::placeholder{color:rgba(19,50,89,0.28)}
+        .pw-wrap{position:relative}
+        .pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-sub);width:22px;height:22px;display:flex;align-items:center;justify-content:center;padding:0}
+        .pw-toggle svg{width:16px;height:16px}
+        .btn-submit{width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer;transition:all 0.25s;box-shadow:0 6px 18px rgba(26,90,160,0.35);margin-top:4px}
+        .btn-submit:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(26,90,160,0.45)}
+        .btn-submit:disabled{opacity:0.65;transform:none;cursor:not-allowed}
+        .error-msg{background:rgba(220,38,38,0.1);border:1.5px solid rgba(220,38,38,0.2);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--danger);margin-bottom:14px;display:none;animation:shake 0.3s ease}
+        @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+        .success-msg{background:rgba(22,163,74,0.1);border:1.5px solid rgba(22,163,74,0.2);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--success);margin-bottom:14px;display:none}
+        .divider{text-align:center;margin:16px 0;font-size:11px;color:var(--text-sub)}
+        .link-btn{background:none;border:none;color:var(--accent);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;text-decoration:underline;padding:0}
+        .footer-note{text-align:center;font-size:11px;color:var(--text-sub);margin-top:20px}
+        .panel{display:none}.panel.active{display:block}
+        .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.4);border-top-color:white;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px}
+        @keyframes spin{to{transform:rotate(360deg)}}
+    </style>
+</head>
+<body>
+<div class="bg">
+    <div class="bg-circle c1"></div>
+    <div class="bg-circle c2"></div>
+    <div class="bg-circle c3"></div>
+</div>
+
+<div class="wrap">
+    <div class="card">
+        <div class="logo">
+            <div class="logo-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+            </div>
+            <div class="logo-title">CIBN PRESTISE</div>
+            <div class="logo-sub">Platform Ujian & Asesmen</div>
+        </div>
+
+        <!-- TABS -->
+        <div class="tabs">
+            <button class="tab-btn active" id="tab-login" onclick="switchTab('login')">Masuk</button>
+            <button class="tab-btn" id="tab-signup" onclick="switchTab('signup')">Daftar</button>
+        </div>
+
+        <!-- ERROR / SUCCESS -->
+        <div class="error-msg" id="error-msg"></div>
+        <div class="success-msg" id="success-msg"></div>
+
+        <!-- LOGIN PANEL -->
+        <div class="panel active" id="panel-login">
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input id="login-email" class="form-input" type="email" placeholder="email@domain.com" autocomplete="email" onkeydown="if(event.key==='Enter')doLogin()">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <div class="pw-wrap">
+                    <input id="login-pw" class="form-input" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+                    <button class="pw-toggle" type="button" onclick="togglePw('login-pw',this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                </div>
+            </div>
+            <button class="btn-submit" id="btn-login" onclick="doLogin()">Masuk</button>
+            <div class="divider">atau</div>
+            <div style="text-align:center"><button class="link-btn" onclick="switchTab('signup')">Belum punya akun? Daftar di sini</button></div>
+        </div>
+
+        <!-- SIGNUP PANEL -->
+        <div class="panel" id="panel-signup">
+            <div class="form-group">
+                <label class="form-label">Nama Lengkap</label>
+                <input id="signup-nama" class="form-input" type="text" placeholder="Nama Anda">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input id="signup-email" class="form-input" type="email" placeholder="email@domain.com">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <div class="pw-wrap">
+                    <input id="signup-pw" class="form-input" type="password" placeholder="Min. 6 karakter">
+                    <button class="pw-toggle" type="button" onclick="togglePw('signup-pw',this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Konfirmasi Password</label>
+                <input id="signup-pwk" class="form-input" type="password" placeholder="Ulangi password" onkeydown="if(event.key==='Enter')doSignup()">
+            </div>
+            <button class="btn-submit" id="btn-signup" onclick="doSignup()">Daftar Sekarang</button>
+            <div class="divider">atau</div>
+            <div style="text-align:center"><button class="link-btn" onclick="switchTab('login')">Sudah punya akun? Masuk</button></div>
+        </div>
+
+        <div class="footer-note">
+            <a href="landing.html" style="color:var(--text-sub);text-decoration:none">← Kembali ke Landing Page</a>
+        </div>
+    </div>
+</div>
+
+<script>
+const API = window.location.origin + '/api';
+
+function switchTab(tab) {
+    document.getElementById('panel-login').classList.toggle('active', tab==='login');
+    document.getElementById('panel-signup').classList.toggle('active', tab==='signup');
+    document.getElementById('tab-login').classList.toggle('active', tab==='login');
+    document.getElementById('tab-signup').classList.toggle('active', tab==='signup');
+    hideMessages();
+}
+
+function showError(msg) {
+    const el=document.getElementById('error-msg');el.textContent=msg;el.style.display='block';
+    document.getElementById('success-msg').style.display='none';
+    void el.offsetWidth; // trigger animation
+}
+function showSuccess(msg) {
+    const el=document.getElementById('success-msg');el.textContent=msg;el.style.display='block';
+    document.getElementById('error-msg').style.display='none';
+}
+function hideMessages() {
+    document.getElementById('error-msg').style.display='none';
+    document.getElementById('success-msg').style.display='none';
+}
+
+function setLoading(btnId, loading) {
+    const btn=document.getElementById(btnId);
+    btn.disabled=loading;
+    if(loading) btn.innerHTML='<span class="spinner"></span>Memproses...';
+    else btn.innerHTML=btnId==='btn-login'?'Masuk':'Daftar Sekarang';
+}
+
+function togglePw(id, btn) {
+    const inp=document.getElementById(id);
+    const show=inp.type==='password';
+    inp.type=show?'text':'password';
+    btn.innerHTML=show
+        ?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg>'
+        :'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+}
+
+async function doLogin() {
+    const email=document.getElementById('login-email').value.trim();
+    const pw=document.getElementById('login-pw').value;
+    if(!email||!pw){showError('Email dan password wajib diisi');return;}
+    setLoading('btn-login',true);
+
+    // Demo credentials (offline mode)
+    const demoUsers = [
+        {email:'admin@cibnprestise.id', password:'Admin@123', role:'admin', nama:'Super Admin'},
+        {email:'guru@cibnprestise.id', password:'Review@123', role:'review', nama:'Reviewer 1'},
+    ];
+
+    try {
+        const res=await fetch(API+'/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});
+        const data=await res.json();
+        if(!res.ok){showError(data.error||'Login gagal');setLoading('btn-login',false);return;}
+        localStorage.setItem('cbn_token',data.token);
+        localStorage.setItem('cbn_user',JSON.stringify(data.user));
+        showSuccess('Berhasil masuk! Mengalihkan...');
+        setTimeout(()=>{
+            const role=data.user?.role;
+            if(role==='admin') window.location.href='index_admin.html';
+            else if(role==='review') window.location.href='index_review.html';
+            else window.location.href='index_user.html';
+        },1000);
+    } catch(e) {
+        // Offline fallback - check demo credentials
+        const demo = demoUsers.find(u=>u.email===email && u.password===pw);
+        if(demo){
+            const fakeToken = btoa(JSON.stringify({id:1,kode:'ADM001',email:demo.email,nama:demo.nama,role:demo.role,exp:Date.now()+86400000}));
+            localStorage.setItem('cbn_token', fakeToken);
+            localStorage.setItem('cbn_user', JSON.stringify({kode:'ADM001',email:demo.email,nama:demo.nama,role:demo.role}));
+            showSuccess('Masuk dalam mode offline. Mengalihkan...');
+            const r=demo.role;
+            setTimeout(()=>window.location.href=(r==='admin'?'index_admin.html':r==='review'?'index_review.html':'index_user.html'), 1000);
+        } else {
+            showError('Server offline. Gunakan akun demo: admin@cibnprestise.id / Admin@123 (atau jalankan node server.js)');
+            setLoading('btn-login',false);
+        }
+    }
+}
+
+async function doSignup() {
+    const nama=document.getElementById('signup-nama').value.trim();
+    const email=document.getElementById('signup-email').value.trim();
+    const pw=document.getElementById('signup-pw').value;
+    const pwk=document.getElementById('signup-pwk').value;
+    if(!nama||!email||!pw){showError('Semua field wajib diisi');return;}
+    if(pw.length<6){showError('Password minimal 6 karakter');return;}
+    if(pw!==pwk){showError('Konfirmasi password tidak cocok');return;}
+    setLoading('btn-signup',true);
+    try {
+        const res=await fetch(API+'/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nama,email,password:pw})});
+        const data=await res.json();
+        if(!res.ok){showError(data.error||'Pendaftaran gagal');setLoading('btn-signup',false);return;}
+        showSuccess('Pendaftaran berhasil! Akun Anda akan diaktifkan oleh admin. Silakan tunggu notifikasi.');
+        setLoading('btn-signup',false);
+        document.getElementById('signup-nama').value='';
+        document.getElementById('signup-email').value='';
+        document.getElementById('signup-pw').value='';
+        document.getElementById('signup-pwk').value='';
+        setTimeout(()=>switchTab('login'),3000);
+    } catch(e) {
+        showError('Server tidak dapat dijangkau. Pastikan server sedang berjalan.');
+        setLoading('btn-signup',false);
+    }
+}
+
+// Check if already logged in
+(function(){
+    const token=localStorage.getItem('cbn_token');
+    const user=JSON.parse(localStorage.getItem('cbn_user')||'null');
+    if(token&&user){
+        if(user.role==='admin') window.location.href='index_admin.html';
+        else if(user.role==='review') window.location.href='index_review.html';
+        else window.location.href='index_user.html';
+    }
+})();
+</script>
+</body>
+</html>

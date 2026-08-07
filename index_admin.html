@@ -1,0 +1,2562 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Admin – CIBN PRESTISE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/taskbar.css">
+<link rel="stylesheet" href="css/modal.css">
+<script>
+(function(){
+  var token=localStorage.getItem('cbn_token');
+  var user=JSON.parse(localStorage.getItem('cbn_user')||'null');
+  if(!token||!user){ window.location.replace('landing.html'); return; }
+  if(user.role==='review'){ window.location.replace('index_review.html'); return; }
+  if(user.role==='user'){ window.location.replace('index_user.html'); return; }
+  // If offline token, validate expiry
+  try {
+    var payload=JSON.parse(atob(token));
+    if(payload.exp && payload.exp < Date.now()){ localStorage.removeItem('cbn_token'); localStorage.removeItem('cbn_user'); window.location.replace('landing.html'); return; }
+  } catch(e){ /* real JWT - ok */ }
+  if(location.protocol==='file:'){
+    document.addEventListener('DOMContentLoaded',function(){
+      var w=document.createElement('div');
+      w.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#d97706;color:white;text-align:center;padding:10px 16px;font-family:sans-serif;font-size:13px;font-weight:600';
+      w.innerHTML='<b>⚠️ Harus dijalankan via server!</b> Jalankan: <code style="background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:4px">node server.js</code> lalu buka <a href="http://localhost:3000/index_admin.html" style="color:white">http://localhost:3000/index_admin.html</a>';
+      document.body.prepend(w);
+    });
+  }
+})();
+</script>
+<style>
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes checkAnim{to{stroke-dashoffset:0}}
+@keyframes crossAnim{to{stroke-dashoffset:0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
+@media(min-width:600px){.stat-grid{grid-template-columns:repeat(4,1fr)}}
+.stat-card{background:rgba(255,255,255,0.65);border:1.5px solid rgba(255,255,255,0.85);border-radius:16px;padding:18px;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;box-shadow:0 4px 16px rgba(19,50,89,0.07)}
+.stat-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(19,50,89,0.12)}
+.stat-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+.stat-icon.blue{background:rgba(19,50,89,0.1);color:var(--blue)}.stat-icon.accent{background:rgba(26,90,160,0.12);color:var(--accent)}.stat-icon.green{background:rgba(22,163,74,0.12);color:var(--success)}.stat-icon.orange{background:rgba(217,119,6,0.12);color:var(--warning)}
+.stat-num{font-family:var(--font-head);font-size:28px;font-weight:800;color:var(--blue);line-height:1}
+.stat-label{font-size:12px;color:var(--text-sub);margin-top:4px;font-weight:500}
+.recent-item{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:12px;cursor:pointer;transition:background 0.2s;gap:12px}
+.recent-item:hover{background:rgba(19,50,89,0.04)}
+.recent-left{display:flex;align-items:center;gap:12px;min-width:0}
+.recent-icon{width:36px;height:36px;border-radius:10px;background:rgba(26,90,160,0.1);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0}
+.skor-badge{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700;flex-shrink:0}
+.grub-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;background:rgba(19,50,89,0.07);color:var(--blue);border:1.5px solid rgba(19,50,89,0.12);font-family:var(--font-body);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s}
+.grub-chip:hover{background:rgba(19,50,89,0.14)}
+.modul-card{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(255,255,255,0.6);border:1.5px solid rgba(255,255,255,0.8);border-radius:14px;margin-bottom:10px;gap:12px;box-shadow:0 2px 10px rgba(19,50,89,0.05);transition:transform 0.2s}
+.modul-card:hover{transform:translateY(-1px)}
+.modul-card-left{display:flex;align-items:center;gap:12px;min-width:0}
+.modul-card-icon{width:40px;height:40px;border-radius:10px;background:rgba(26,90,160,0.1);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0}
+.lib-card{background:rgba(255,255,255,0.6);border:1.5px solid rgba(255,255,255,0.8);border-radius:14px;padding:16px;margin-bottom:10px;box-shadow:0 2px 10px rgba(19,50,89,0.05)}
+.lib-type-btn{padding:7px 16px;border-radius:20px;border:1.5px solid rgba(19,50,89,0.12);background:rgba(255,255,255,0.5);color:var(--text-sub);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s}
+.lib-type-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+/* ── FILTER DROPDOWN (ikon corong ringkas, dipakai untuk filter kelompok & tipe soal) ── */
+.filter-dd-wrap{position:relative;flex-shrink:0}
+.filter-dd-btn{position:relative;width:38px;height:38px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(255,255,255,0.5);color:var(--text-sub);border:1.5px solid rgba(19,50,89,0.12);cursor:pointer;transition:all 0.2s}
+.filter-dd-btn:hover{background:rgba(19,50,89,0.08)}
+.filter-dd-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.filter-dd-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--warning);border:1.5px solid #fff}
+.filter-dd-panel{position:absolute;top:calc(100% + 8px);right:0;min-width:190px;max-height:280px;overflow-y:auto;background:#fff;border:1.5px solid rgba(19,50,89,0.1);border-radius:14px;box-shadow:0 12px 32px rgba(19,50,89,0.18);padding:6px;z-index:50}
+.filter-dd-title{font-size:10.5px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.04em;padding:8px 10px 4px}
+.filter-dd-title:not(:first-child){margin-top:4px;border-top:1px solid rgba(19,50,89,0.08);padding-top:12px}
+.filter-dd-item{padding:9px 10px;border-radius:9px;font-size:12.5px;font-weight:600;color:var(--blue);cursor:pointer;transition:background 0.15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.filter-dd-item:hover{background:rgba(19,50,89,0.06)}
+.filter-dd-item.active{background:var(--blue);color:#fff}
+/* E-BOOK — grid kartu library dengan poster, form Buat Buku, & list Modul e-book */
+.ebook-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;margin-top:14px}
+.ebook-card{background:rgba(255,255,255,0.65);border:1.5px solid rgba(255,255,255,0.85);border-radius:14px;overflow:hidden;box-shadow:0 2px 10px rgba(19,50,89,0.06);transition:transform 0.2s,box-shadow 0.2s;display:flex;flex-direction:column}
+.ebook-card:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(19,50,89,0.12)}
+.ebook-poster{width:100%;aspect-ratio:3/4;background:linear-gradient(135deg,rgba(19,50,89,0.08),rgba(26,90,160,0.12));display:flex;align-items:center;justify-content:center;color:var(--accent);overflow:hidden;flex-shrink:0}
+.ebook-poster img{width:100%;height:100%;object-fit:cover}
+.ebook-card-body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:4px;flex:1}
+.ebook-card-nama{font-weight:700;font-size:13px;color:var(--blue);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ebook-card-kelompok{font-size:11px;color:var(--accent);font-weight:600}
+.ebook-card-meta{font-size:11px;color:var(--text-sub);margin-top:auto;padding-top:6px;display:flex;align-items:center;gap:5px}
+.ebook-card-actions{display:flex;gap:6px;padding:0 12px 12px}
+.ebook-card-actions .btn-icon{flex:1;border-radius:8px}
+.ebook-upload-box{border:1.5px dashed rgba(19,50,89,0.2);border-radius:14px;padding:20px;text-align:center;cursor:pointer;transition:all 0.2s;background:rgba(255,255,255,0.4)}
+.ebook-upload-box:hover{border-color:var(--accent);background:rgba(26,90,160,0.04)}
+.ebook-upload-box.has-file{border-style:solid;border-color:var(--accent);background:rgba(26,90,160,0.06)}
+.ebook-poster-preview{width:110px;height:146px;border-radius:10px;overflow:hidden;background:rgba(19,50,89,0.06);display:flex;align-items:center;justify-content:center;color:var(--accent);margin:0 auto 10px;flex-shrink:0}
+.ebook-poster-preview img{width:100%;height:100%;object-fit:cover}
+.ebook-modul-card{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(255,255,255,0.6);border:1.5px solid rgba(255,255,255,0.8);border-radius:14px;margin-bottom:10px;gap:12px;box-shadow:0 2px 10px rgba(19,50,89,0.05);transition:transform 0.2s}
+.ebook-modul-card:hover{transform:translateY(-1px)}
+.ebook-modul-poster-stack{display:flex;flex-shrink:0}
+.ebook-modul-poster-stack .stk{width:32px;height:42px;border-radius:6px;overflow:hidden;background:rgba(26,90,160,0.1);border:2px solid #fff;box-shadow:0 1px 4px rgba(19,50,89,0.15);margin-left:-14px;flex-shrink:0}
+.ebook-modul-poster-stack .stk:first-child{margin-left:0}
+.ebook-modul-poster-stack .stk img{width:100%;height:100%;object-fit:cover}
+.ebook-pick-item{padding:10px 12px;background:rgba(19,50,89,0.03);border-radius:12px;border:1.5px solid rgba(19,50,89,0.08);transition:border-color 0.2s;display:flex;align-items:center;gap:10px}
+.ebook-pick-item.checked{border-color:var(--accent)}
+.ebook-pick-thumb{width:34px;height:44px;border-radius:6px;overflow:hidden;background:rgba(26,90,160,0.1);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--accent)}
+.ebook-pick-thumb img{width:100%;height:100%;object-fit:cover}
+/* Soal builder */
+.soal-nav-side{width:200px;flex-shrink:0;background:rgba(255,255,255,0.7);border:1.5px solid rgba(255,255,255,0.85);border-radius:16px;padding:14px;box-shadow:0 4px 16px rgba(19,50,89,0.08);transition:opacity 0.3s ease,transform 0.3s ease;align-self:flex-start;position:sticky;top:0}
+.soal-nav-btn{width:34px;height:34px;border-radius:8px;border:1.5px solid rgba(19,50,89,0.15);background:rgba(255,255,255,0.7);color:var(--text-sub);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;position:relative}
+.soal-nav-btn:hover{background:rgba(255,255,255,1);border-color:rgba(19,50,89,0.3)}
+.soal-nav-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.soal-nav-btn.filled{background:rgba(26,90,160,0.15);color:var(--blue);border-color:var(--accent)}
+.soal-nav-del{position:absolute;top:-5px;right:-5px;width:15px;height:15px;background:var(--danger);border:none;border-radius:50%;cursor:pointer;color:#fff;font-size:10px;line-height:1;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.15s}
+div:hover>.soal-nav-del{opacity:1}
+.jawaban-item{transition:border-color 0.2s,opacity 0.2s,transform 0.2s}
+/* Sikap kerja */
+.kolom-card{background:rgba(255,255,255,0.65);border:1.5px solid rgba(255,255,255,0.85);border-radius:16px;padding:18px;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s,border-color 0.2s;box-shadow:0 4px 16px rgba(19,50,89,0.07)}
+.kolom-card:hover{transform:translateY(-4px);box-shadow:0 12px 32px rgba(19,50,89,0.13);border-color:var(--accent)}
+.item-box{width:100%;min-height:64px;background:rgba(19,50,89,0.05);border:1.5px dashed rgba(19,50,89,0.18);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;padding:8px;text-align:center}
+.item-box:hover{background:rgba(26,90,160,0.08);border-color:var(--accent)}
+/* ── LANDING EDITOR EMBEDDED ── */
+#page-landing{padding:0!important;overflow:hidden;display:none;flex-direction:column}
+#page-landing.active{display:flex}
+.ld-editor-main{flex:1;overflow-y:auto;padding:1.4rem 1.2rem 110px;background:rgba(241,245,249,0.6)}
+.ld-panel{display:none}
+.ld-panel.active{display:block}
+
+/* Card utama editor */
+.ld-card{
+  background:rgba(255,255,255,0.92);
+  border-radius:18px;
+  border:1.5px solid rgba(255,255,255,0.95);
+  padding:1.6rem;
+  margin-bottom:1.3rem;
+  box-shadow:0 4px 20px rgba(19,50,89,0.07),0 1px 4px rgba(19,50,89,0.04);
+  backdrop-filter:blur(12px);
+}
+.ld-card-hd{
+  display:flex;align-items:center;gap:.8rem;
+  margin-bottom:1.4rem;padding-bottom:1rem;
+  border-bottom:1.5px solid rgba(19,50,89,0.07);
+}
+.ld-card-hd h3{font-size:.95rem;font-weight:700;color:var(--blue);font-family:var(--font-head);margin:0}
+.ld-card-hd p{font-size:.76rem;color:var(--text-sub);margin-top:.2rem;margin-bottom:0}
+.ld-sc-icon{
+  width:40px;height:40px;
+  background:linear-gradient(135deg,rgba(19,50,89,0.1),rgba(26,90,160,0.08));
+  border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.1rem;flex-shrink:0;
+  border:1px solid rgba(19,50,89,0.08);
+}
+
+/* Field group & grid */
+.ld-field-group{display:grid;gap:1rem}
+.ld-cols-2{grid-template-columns:1fr 1fr}
+@media(max-width:520px){.ld-cols-2{grid-template-columns:1fr}}
+
+/* Field individual */
+.ld-field{display:flex;flex-direction:column;gap:.4rem;width:100%}
+.ld-field label{
+  font-size:.68rem;font-weight:700;
+  color:var(--blue);letter-spacing:.07em;text-transform:uppercase;
+  opacity:.85;
+}
+.ld-field input,
+.ld-field textarea,
+.ld-field select{
+  border:1.5px solid rgba(19,50,89,0.13);
+  border-radius:10px;
+  padding:.6rem .9rem;
+  font-size:.87rem;
+  font-family:var(--font-main,sans-serif);
+  color:var(--text-main,#1e293b);
+  outline:none;
+  transition:border .2s,box-shadow .2s;
+  background:#fff;
+  width:100%;
+  box-sizing:border-box;
+}
+.ld-field input:focus,
+.ld-field textarea:focus,
+.ld-field select:focus{
+  border-color:var(--blue,#133259);
+  box-shadow:0 0 0 3px rgba(19,50,89,0.08);
+}
+.ld-field textarea{resize:vertical;min-height:84px;line-height:1.55}
+.ld-hint{font-size:.69rem;color:var(--text-sub);margin-top:.15rem;line-height:1.4}
+
+/* Notice / info box */
+.ld-notice{
+  background:rgba(19,50,89,0.05);
+  border:1.5px solid rgba(19,50,89,0.1);
+  border-radius:12px;
+  padding:.9rem 1.1rem;
+  margin-bottom:1.1rem;
+  font-size:.82rem;
+  color:var(--blue,#133259);
+  line-height:1.55;
+}
+
+/* ── Repeat item (materi, fitur, link footer, dsb.) ── */
+.ld-repeat-item{
+  background:#fff;
+  border:1.5px solid rgba(19,50,89,0.1);
+  border-radius:14px;
+  padding:1.1rem 1.2rem;
+  margin-bottom:.9rem;
+  box-shadow:0 2px 8px rgba(19,50,89,0.04);
+  transition:box-shadow .2s;
+}
+.ld-repeat-item:hover{box-shadow:0 4px 16px rgba(19,50,89,0.09)}
+.ld-repeat-hd{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:1rem;
+  padding-bottom:.7rem;
+  border-bottom:1px solid rgba(19,50,89,0.07);
+}
+.ld-repeat-title{
+  font-size:.82rem;font-weight:700;
+  color:var(--blue,#133259);
+  display:flex;align-items:center;gap:.4rem;
+}
+.ld-btn-remove{
+  background:none;
+  border:1.5px solid #fecaca;
+  color:#dc2626;
+  border-radius:8px;
+  padding:.25rem .65rem;
+  font-size:.72rem;
+  font-weight:600;
+  cursor:pointer;
+  transition:all .2s;
+  white-space:nowrap;
+}
+.ld-btn-remove:hover{background:#fef2f2;border-color:#f87171}
+
+/* Add button */
+.ld-btn-add{
+  display:flex;align-items:center;justify-content:center;gap:.5rem;
+  background:rgba(19,50,89,0.04);
+  color:var(--blue,#133259);
+  border:1.5px dashed rgba(19,50,89,0.22);
+  border-radius:12px;
+  padding:.75rem 1.1rem;
+  width:100%;
+  font-size:.84rem;
+  font-weight:600;
+  cursor:pointer;
+  margin-top:.8rem;
+  transition:all .2s;
+}
+.ld-btn-add:hover{background:rgba(19,50,89,0.09);border-color:var(--blue);border-style:solid}
+
+/* Radio options (jawaban soal) */
+.ld-radio-option{
+  display:flex;align-items:center;gap:.6rem;
+  padding:.55rem .85rem;
+  border:1.5px solid rgba(19,50,89,0.12);
+  border-radius:10px;
+  cursor:pointer;
+  transition:all .2s;
+  font-size:.85rem;
+  margin-bottom:.45rem;
+  background:#fff;
+}
+.ld-radio-option:hover{border-color:var(--blue);background:rgba(19,50,89,0.03)}
+.ld-radio-option input[type=radio]{accent-color:var(--blue,#133259)}
+.ld-radio-option.correct-ans{border-color:#16a34a;background:#f0fdf4}
+
+/* Link row (label + url berdampingan) */
+.ld-link-row{display:grid;grid-template-columns:1fr 1.3fr;gap:.8rem;align-items:start}
+@media(max-width:520px){.ld-link-row{grid-template-columns:1fr}}
+
+/* Nomor badge pada repeat item */
+.ld-item-num{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:22px;height:22px;
+  background:rgba(19,50,89,0.1);
+  border-radius:6px;
+  font-size:.72rem;font-weight:800;color:var(--blue);
+  flex-shrink:0;
+}
+.landing-nav-btn.active-tab .dock-icon{filter:drop-shadow(0 0 4px rgba(19,50,89,0.3))}
+
+/* ── SIDE DOCK — panel vertikal grup SOAL UJIAN / CAT / Editor Landing ──
+   Muncul di samping (kiri/kanan) tanpa menyembunyikan main-dock. */
+.side-dock-wrap{
+  position:fixed; top:50%; left:16px; transform:translateY(-50%) translateX(-12px) scale(.92);
+  z-index:210; opacity:0; pointer-events:none; transition:opacity .18s, transform .18s;
+  max-height:calc(100vh - 120px); width:fit-content;
+}
+.side-dock-wrap.side-dock-right{ left:auto; right:16px; transform:translateY(-50%) translateX(12px) scale(.92); }
+.side-dock-wrap.open{ opacity:1; pointer-events:auto; transform:translateY(-50%) translateX(0) scale(1); }
+.side-dock{
+  display:flex; flex-direction:column; align-items:stretch;
+  padding:8px; width:fit-content; max-height:calc(100vh - 120px);
+  background:linear-gradient(160deg, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0.45) 40%, rgba(180,210,240,0.35) 70%, rgba(255,255,255,0.60) 100%);
+  backdrop-filter:blur(40px) saturate(2.2) brightness(1.08);
+  -webkit-backdrop-filter:blur(40px) saturate(2.2) brightness(1.08);
+  border:1px solid rgba(255,255,255,0.9);
+  border-radius:22px;
+  box-shadow:0 2px 0 rgba(255,255,255,0.95) inset, 0 16px 48px rgba(19,50,89,0.22), 0 4px 12px rgba(19,50,89,0.12);
+}
+.side-dock-scroll{ display:flex; flex-direction:column; align-items:stretch; gap:3px; overflow-y:auto; overflow-x:hidden; }
+.side-dock-scroll .dock-item{ width:100%; }
+.side-dock-pos-btn{
+  display:flex; align-items:center; justify-content:center; width:100%;
+  padding:2px 0 8px; margin-bottom:6px; border:none; background:transparent; cursor:pointer;
+  color:var(--text-sub); border-bottom:1px solid rgba(19,50,89,0.08);
+  transition:color .15s, transform .15s; -webkit-tap-highlight-color:transparent;
+}
+.side-dock-pos-btn:hover{ color:var(--blue); transform:scale(1.1); }
+.side-dock-autosave{
+  font-family:var(--font-body); font-size:8.5px; font-weight:600; color:var(--success);
+  text-align:center; padding:8px 6px 2px; border-top:1px solid rgba(19,50,89,0.08); margin-top:6px;
+}
+@media (max-width:480px){
+  .side-dock-wrap{ left:10px; }
+  .side-dock-wrap.side-dock-right{ right:10px; }
+}
+
+/* ── SIDE-DOCK DI MOBILE/TABLET (≤1024px) ──
+   Panel vertikal di sisi layar (bisa berisi banyak sekali item, mis. 14 panel
+   di Editor Landing) terlalu memakan tinggi layar kalau dipaksa tetap vertikal
+   di layar sempit/pendek. Di lebar ini, panel diubah jadi STRIP HORIZONTAL
+   yang "menempel"/ditimpakan tepat di atas dock utama (bukan lagi mengambang
+   di sisi kiri/kanan) — geser dengan swipe kiri-kanan, tidak makan tempat
+   vertikal, dan tidak mendorong konten (dock-avoid dimatikan). */
+@media (max-width:1024px){
+  /* Landing-dock (14 item) yang jadi strip horizontal — grup CAT/SOAL cuma 3 item,
+     jadi cukup tetap vertikal seperti biasa & mendorong konten (lihat .dock-avoid). */
+  #landing-dock-wrap{
+    left:8px !important; right:8px !important; top:auto !important;
+    bottom:calc(var(--taskbar-h) + 24px) !important;
+    transform:translateY(10px) scale(.96) !important;
+    max-height:none; width:auto;
+  }
+  #landing-dock-wrap.open{ transform:translateY(0) scale(1) !important; }
+  #landing-dock-wrap .side-dock{
+    width:100%; max-width:100%; max-height:none;
+    flex-direction:row; align-items:stretch; padding:6px 8px;
+  }
+  #landing-dock-wrap .side-dock-pos-btn{ display:none; }
+  #landing-dock-wrap .side-dock-scroll{
+    flex-direction:row; overflow-x:auto; overflow-y:hidden;
+    -webkit-overflow-scrolling:touch; padding:2px 2px 4px;
+    scrollbar-width:thin;
+  }
+  #landing-dock-wrap .side-dock-scroll .dock-item{ width:auto; }
+  #landing-dock-wrap .side-dock-autosave{ display:none; }
+}
+
+/* ── Grup CAT/SOAL (#side-dock-wrap, 3 item) di mobile/tablet: TETAP panel vertikal,
+   konten di sampingnya (.dock-avoid) ikut menyempit & bergeser ke arah berlawanan
+   dari posisi dock — sama persis seperti perilaku Library/Modul, cuma lebih rapat. */
+@media (max-width:640px){
+  #side-dock-wrap .side-dock{ padding:6px; gap:2px; }
+  #side-dock-wrap .dock-item{ padding:6px 8px; }
+}
+
+/* ── DOCK-AVOID — tampilan full-width (list token, laporan, review, library, modul, dst)
+   otomatis menyesuaikan (diberi ruang/padding) menjauh dari side-dock agar tidak tertimpa.
+   Form "Buat Soal" (#page-soal) juga dapat class ini lewat JS (lihat showSoalSetup di
+   soal.js) khusus selama masih di layar setup, karena kotaknya perlu ikut bergeser/
+   menyempit menjauhi dock di layar sempit — bukan lagi disembunyikan.
+   --side-dock-offset dihitung & diisi otomatis lewat JS (lebar panel + jarak aman). */
+.dock-avoid{ transition: padding-left .22s cubic-bezier(.4,0,.2,1), padding-right .22s cubic-bezier(.4,0,.2,1); }
+body.side-dock-open:not(.side-dock-open-right) .dock-avoid{ padding-left: var(--side-dock-offset, 0px); }
+body.side-dock-open.side-dock-open-right .dock-avoid{ padding-right: var(--side-dock-offset, 0px); }
+
+/* ── DOCK-AVOID-CENTER — khusus box/kartu yang SUDAH center (Buat Token, Buat Soal).
+   Di desktop dock berada di ruang kosong samping & tidak mengganggu, jadi box TIDAK
+   perlu ikut bergeser (biar tetap center). Cuma di layar sempit (≤1024px) box ini
+   ikut menyempit/bergeser menjauhi dock, sama seperti sebelumnya, karena di situ
+   ruang kosongnya sudah habis dan box beneran ketimpa kalau tidak digeser. */
+@media (max-width:1024px){
+  .dock-avoid-center{ transition: padding-left .22s cubic-bezier(.4,0,.2,1), padding-right .22s cubic-bezier(.4,0,.2,1); }
+  body.side-dock-open:not(.side-dock-open-right) .dock-avoid-center{ padding-left: var(--side-dock-offset, 0px); }
+  body.side-dock-open.side-dock-open-right .dock-avoid-center{ padding-right: var(--side-dock-offset, 0px); }
+}
+
+/* ── Saat sedang membuat/mengedit soal (mode builder), side-dock disembunyikan total ──
+   krn builder soal sudah punya panel navigasi soal sendiri (.soal-nav-side) di sisi kanan,
+   dock grup tidak lagi relevan/akan tabrakan dgn panel tsb. */
+body.soal-building #side-dock-wrap{
+  opacity:0 !important; pointer-events:none !important;
+  transform:translateY(-50%) translateX(-16px) scale(.9) !important;
+}
+body.soal-building #side-dock-wrap.side-dock-right{
+  transform:translateY(-50%) translateX(16px) scale(.9) !important;
+}
+/* Box-sizing fix agar input tidak overflow ke kiri */
+.ld-field input,.ld-field textarea,.ld-field select{box-sizing:border-box}
+.ld-repeat-item,.ld-repeat-item *{box-sizing:border-box}
+/* Paket card keuangan */
+.paket-card-admin{background:rgba(255,255,255,0.65);border:1.5px solid rgba(255,255,255,0.85);border-radius:16px;padding:18px;box-shadow:0 4px 16px rgba(19,50,89,0.07);transition:transform 0.2s,box-shadow 0.2s;position:relative}
+.paket-card-admin:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(19,50,89,0.12)}
+.paket-card-admin.popular{border-color:var(--blue);box-shadow:0 4px 20px rgba(26,90,160,0.18)}
+.paket-badge-popular{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,var(--blue),var(--accent));color:#fff;font-size:10px;font-weight:700;padding:3px 12px;border-radius:20px;white-space:nowrap;letter-spacing:0.05em}
+/* Ldp link item hover — dihapus */
+.paket-price{font-family:var(--font-head);font-size:26px;font-weight:800;color:var(--blue);line-height:1}
+.paket-period{font-size:11px;color:var(--text-sub)}
+.paket-features{list-style:none;margin:12px 0;display:flex;flex-direction:column;gap:6px}
+.paket-features li{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-main)}
+.paket-features li::before{content:'✓';color:var(--success);font-weight:700;flex-shrink:0}
+/* Trx status badge */
+.badge-success{background:rgba(22,163,74,0.1);color:#16a34a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-pending{background:rgba(217,119,6,0.1);color:#d97706;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-failed{background:rgba(220,38,38,0.1);color:#dc2626;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+/* Landing page full screen mode */
+#page-landing{position:relative}
+#page-landing iframe{width:100%;height:calc(100vh - 80px);border:none;display:block}
+/* Admin profile */
+.admin-profile-hero{background:linear-gradient(145deg,var(--blue) 0%,#1c4a7a 60%,#0d2a4e 100%);padding:24px;border-radius:16px;color:#fff;display:flex;align-items:center;gap:16px;margin-bottom:16px;position:relative;overflow:hidden}
+.admin-profile-hero::before{content:'';position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,0.06)}
+.admin-avatar{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* Home signup notif */
+#home-signup-notif{display:none;background:rgba(217,119,6,0.08);border:1.5px solid rgba(217,119,6,0.2);border-radius:14px;padding:14px;margin-bottom:16px}
+/* Review page */
+.review-user-card{background:rgba(255,255,255,0.6);border:1.5px solid rgba(255,255,255,0.8);border-radius:12px;padding:14px;margin-bottom:8px}
+@media(max-width:640px){.soal-nav-side{display:none}.form-row{grid-template-columns:1fr}}
+
+/* ══════════════════════════════════════════
+   LANDING EDITOR — CENTERING & LAYOUT FIX
+   Memastikan semua konten berada di tengah
+   dan tidak mepet ke kiri
+══════════════════════════════════════════ */
+
+/* #page-landing: full size, flex column, center horizontal */
+#page-landing {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  width: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Wrapper utama editor: max-width + center */
+.ld-editor-main {
+  width: 100% !important;
+  max-width: 680px !important;
+  box-sizing: border-box !important;
+  padding: 1.4rem 1.2rem 110px !important;
+  flex-shrink: 0 !important;
+}
+
+/* Semua panel full width dalam wrapper */
+.ld-panel {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Card: full width, box-sizing benar */
+.ld-card {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Field group: stretch penuh */
+.ld-field-group {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Setiap field: full width */
+.ld-field {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Input/textarea/select: full width, TIDAK overflow */
+.ld-field input,
+.ld-field textarea,
+.ld-field select {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  display: block !important;
+}
+
+/* Repeat item: full width */
+.ld-repeat-item {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Semua child dalam repeat item ikut box-sizing */
+.ld-repeat-item *,
+.ld-field-group * {
+  box-sizing: border-box !important;
+}
+
+/* Grid 2 kolom tetap benar */
+.ld-cols-2 {
+  grid-template-columns: 1fr 1fr !important;
+}
+@media(max-width: 560px) {
+  .ld-cols-2 { grid-template-columns: 1fr !important; }
+  .ld-editor-main { padding-left: .9rem !important; padding-right: .9rem !important; }
+}
+
+/* Tombol add full width terpusat */
+.ld-btn-add {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Notice box full width */
+.ld-notice {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+/* Toggle switch (izinkan review, dll) */
+.switch-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;background:rgba(19,50,89,0.03);border:1.5px solid rgba(19,50,89,0.08);border-radius:12px}
+.switch-row .switch-label{font-size:13px;font-weight:600;color:var(--blue)}
+.switch-row .switch-desc{font-size:11px;color:var(--text-sub);margin-top:2px}
+.switch{position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.switch-slider{position:absolute;cursor:pointer;inset:0;background:rgba(19,50,89,0.18);border-radius:24px;transition:0.2s}
+.switch-slider::before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
+.switch input:checked+.switch-slider{background:var(--blue)}
+.switch input:checked+.switch-slider::before{transform:translateX(18px)}
+</style>
+</head>
+<body>
+<div class="bg-static"></div>
+<div class="app-wrapper">
+<div class="page-container">
+
+<!-- HOME -->
+<div class="page" id="page-home">
+  <div class="section-title">Selamat Datang 👋</div>
+  <div class="section-sub">Ringkasan sistem CIBN PRESTISE</div>
+  <div id="home-signup-notif"></div>
+  <div class="stat-grid" id="home-stats"><div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-sub)">Memuat...</div></div>
+  <div class="card"><div style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--blue);margin-bottom:12px">Aktivitas Terbaru</div><div id="home-recent"></div></div>
+</div>
+
+<!-- AKUN -->
+<div class="page" id="page-akun">
+  <div class="section-title">Manajemen Akun</div>
+  <div class="section-sub">Kelola akun Admin, Reviewer, User, dan Pendaftaran</div>
+  <div class="sub-tabs">
+    <button class="sub-tab active" data-sub="admin" onclick="renderAkunSub('admin')">Admin</button>
+    <button class="sub-tab" data-sub="review" onclick="renderAkunSub('review')">Reviewer</button>
+    <button class="sub-tab" data-sub="user" onclick="renderAkunSub('user')">User</button>
+    <button class="sub-tab" data-sub="signup" onclick="renderAkunSub('signup')">Pendaftaran</button>
+  </div>
+  <!-- ADMIN -->
+  <div class="sub-page active" id="sub-akun-admin">
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="openAddUser('admin')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Tambah</button>
+      <button class="btn btn-secondary" onclick="downloadAkunTemplate('admin')" title="Unduh template Excel untuk import akun Admin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Template</button>
+      <button class="btn btn-secondary" onclick="triggerUploadAkun('admin')" title="Import banyak akun Admin sekaligus dari file Excel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Upload Excel</button>
+      <button class="btn btn-secondary" onclick="exportAkunToExcel('admin')" title="Ekspor akun Admin yang sedang tampil ke Excel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
+      <input type="file" id="upload-akun-admin-file" accept=".xlsx,.xls" style="display:none" onchange="onUploadAkunFile(this,'admin')">
+    </div>
+    <div id="akun-import-progress-admin" style="display:none;font-size:12px;color:var(--text-sub);margin:-6px 0 14px"></div>
+    <div class="search-bar"><div class="search-input-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari nama / email..." oninput="_adminSearch=this.value;renderAdminList()"></div></div>
+    <div class="bulk-bar" id="bulk-bar-admin"><span><b id="bulk-count-admin">0</b> akun dipilih</span><div class="bulk-bar-actions"><button class="btn btn-secondary" onclick="clearAkunSelection('admin')">Batal</button><button class="btn btn-danger" onclick="deleteSelectedAkun('admin')">Hapus Massal</button><button class="btn btn-primary" onclick="openBulkEditAkun('admin')">Edit Massal</button></div></div>
+    <div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap"><table><thead><tr><th class="akun-check-col"><input type="checkbox" id="admin-select-all" onchange="toggleSelectAllAkun('admin',this.checked)"></th><th>#</th><th>Nama</th><th>Email</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="admin-tbody"></tbody></table></div><div class="swipe-list" id="admin-swipe-list"></div></div>
+  </div>
+  <!-- REVIEW -->
+  <div class="sub-page" id="sub-akun-review">
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="openAddUser('review')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Tambah</button>
+      <button class="btn btn-secondary" onclick="downloadAkunTemplate('review')" title="Unduh template Excel untuk import akun Reviewer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Template</button>
+      <button class="btn btn-secondary" onclick="triggerUploadAkun('review')" title="Import banyak akun Reviewer sekaligus dari file Excel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Upload Excel</button>
+      <button class="btn btn-secondary" onclick="exportAkunToExcel('review')" title="Ekspor akun Reviewer yang sedang tampil ke Excel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
+      <input type="file" id="upload-akun-review-file" accept=".xlsx,.xls" style="display:none" onchange="onUploadAkunFile(this,'review')">
+    </div>
+    <div id="akun-import-progress-review" style="display:none;font-size:12px;color:var(--text-sub);margin:-6px 0 14px"></div>
+    <div class="search-bar"><div class="search-input-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari nama / email..." oninput="_reviewSearch=this.value;renderReviewList()"></div></div>
+    <div class="bulk-bar" id="bulk-bar-review"><span><b id="bulk-count-review">0</b> akun dipilih</span><div class="bulk-bar-actions"><button class="btn btn-secondary" onclick="clearAkunSelection('review')">Batal</button><button class="btn btn-danger" onclick="deleteSelectedAkun('review')">Hapus Massal</button><button class="btn btn-primary" onclick="openBulkEditAkun('review')">Edit Massal</button></div></div>
+    <div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap"><table><thead><tr><th class="akun-check-col"><input type="checkbox" id="review-select-all" onchange="toggleSelectAllAkun('review',this.checked)"></th><th>#</th><th>Nama</th><th>Email</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="review-tbody"></tbody></table></div><div class="swipe-list" id="review-swipe-list"></div></div>
+  </div>
+  <!-- USER -->
+  <div class="sub-page" id="sub-akun-user">
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="openAddUser('user')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Akun User</button>
+      <button class="btn btn-secondary" onclick="openManageUserGrub()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Kelola Grup</button>
+      <button class="btn btn-secondary" onclick="downloadAkunTemplate('user')" title="Unduh template Excel untuk import akun User"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Template</button>
+      <button class="btn btn-secondary" onclick="triggerUploadAkun('user')" title="Import banyak akun User sekaligus dari file Excel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Upload Excel</button>
+      <button class="btn btn-secondary" onclick="exportAkunToExcel('user')" title="Ekspor akun User yang sedang tampil ke Excel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
+      <input type="file" id="upload-akun-user-file" accept=".xlsx,.xls" style="display:none" onchange="onUploadAkunFile(this,'user')">
+    </div>
+    <div id="akun-import-progress-user" style="display:none;font-size:12px;color:var(--text-sub);margin:-6px 0 14px"></div>
+    <div class="search-bar"><div class="search-input-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari nama / email..." oninput="_userSearch=this.value;renderUserList()"></div><div id="user-grub-filters"></div></div>
+    <div class="bulk-bar" id="bulk-bar-user"><span><b id="bulk-count-user">0</b> akun dipilih</span><div class="bulk-bar-actions"><button class="btn btn-secondary akun-select-all-mobile" onclick="toggleSelectAllAkun('user',true)">Semua</button><button class="btn btn-secondary" onclick="clearAkunSelection('user')">Batal</button><button class="btn btn-danger" onclick="deleteSelectedAkun('user')">Hapus Massal</button><button class="btn btn-primary" onclick="openBulkEditAkun('user')">Edit Massal</button></div></div>
+    <div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap"><table><thead><tr><th class="akun-check-col"><input type="checkbox" id="user-select-all" onchange="toggleSelectAllAkun('user',this.checked)"></th><th>#</th><th>Nama</th><th>Email</th><th class="hide-mobile">Grup</th><th class="hide-mobile">Paket & Langganan</th><th class="hide-mobile">Status</th><th>Aksi</th></tr></thead><tbody id="user-tbody"></tbody></table></div><div class="swipe-list" id="user-swipe-list"></div></div>
+  </div>
+  <!-- SIGNUP -->
+  <div class="sub-page" id="sub-akun-signup">
+    <div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap"><table><thead><tr><th>#</th><th>Nama</th><th>Email</th><th class="hide-mobile">Paket</th><th class="hide-mobile">Tgl Daftar</th><th>Aksi</th></tr></thead><tbody id="signup-req-list"></tbody></table></div><div class="swipe-list" id="signup-swipe-list"></div></div>
+  </div>
+</div>
+
+<!-- TOKEN -->
+<div class="page" id="page-token">
+  <div class="section-title">Manajemen Token</div>
+  <div class="section-sub">Buat dan kelola token ujian</div>
+  <div class="sub-tabs">
+    <button class="sub-tab active" data-sub="buat" onclick="renderTokenSub('buat')">Buat Token</button>
+    <button class="sub-tab" data-sub="list" onclick="renderTokenSub('list')">List Token</button>
+    <button class="sub-tab" data-sub="used" onclick="renderTokenSub('used')">Token Terpakai</button>
+  </div>
+  <div class="sub-page active dock-avoid-center" id="sub-token-buat">
+    <div class="card" style="margin:0 auto 16px;max-width:560px">
+      <div class="form-group"><label class="form-label">Pilih Modul</label><select id="token-modul-sel" class="form-select"><option>-- Pilih Modul --</option></select></div>
+      <div class="form-group">
+        <label class="form-label">Waktu Aktif</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <button class="token-mode-btn sub-tab active" data-mode="hari_ini" onclick="_setTokenMode('hari_ini')" style="flex:1;min-width:100px">Hari Ini</button>
+          <button class="token-mode-btn sub-tab" data-mode="besok" onclick="_setTokenMode('besok')" style="flex:1;min-width:100px">Besok</button>
+          <button class="token-mode-btn sub-tab" data-mode="custom" onclick="_setTokenMode('custom')" style="flex:1;min-width:100px">Custom</button>
+        </div>
+        <div id="token-custom-wrap" style="display:none">
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Tanggal Aktivasi</label><input id="token-tgl-mulai" class="form-input" type="date"></div>
+            <div class="form-group"><label class="form-label">Tanggal Expired</label><input id="token-tgl-akhir" class="form-input" type="date"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Jam Mulai</label><input id="token-jam-mulai" class="form-input" type="time" value="08:00"></div>
+            <div class="form-group"><label class="form-label">Jam Selesai</label><input id="token-jam-akhir" class="form-input" type="time" value="23:59"></div>
+          </div>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Jumlah Token (maks. 200)</label><input id="token-jumlah" class="form-input" type="number" value="10" min="1" max="200"></div>
+      <div class="form-group">
+        <div class="switch-row">
+          <div>
+            <div class="switch-label">Izinkan Review</div>
+            <div class="switch-desc">Jika aktif, peserta yang memakai kode ini akan melihat tombol "Lihat Hasil" setelah selesai ujian</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="token-izinkan-review"><span class="switch-slider"></span></label>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="switch-row">
+          <div>
+            <div class="switch-label">Aktifkan Grup Token</div>
+            <div class="switch-desc">Jika aktif, seluruh token yang dibuat pada proses ini akan tergabung dalam 1 kelompok. Nama kelompok dipakai untuk filter & unduh laporan grup (ZIP) di panel Review.</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="token-grub-aktif" onchange="_toggleTokenGrub(this.checked)"><span class="switch-slider"></span></label>
+        </div>
+        <div id="token-grub-wrap" style="display:none;margin-top:10px">
+          <label class="form-label">Nama Grup Token</label>
+          <input id="token-grub-nama" class="form-input" type="text" placeholder="Contoh: Batch Ujian Oktober - Kelas A" list="token-grub-suggest">
+          <datalist id="token-grub-suggest"></datalist>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="generateTokens()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Buat Token</button>
+    </div>
+    <div id="token-dl-section" style="display:none;gap:10px;flex-wrap:wrap;margin-top:8px;margin-bottom:18px">
+      <button class="btn btn-secondary" onclick="downloadAllQR()">Unduh Semua QR</button>
+      <button class="btn btn-secondary" onclick="downloadTokenList()">Unduh CSV</button>
+    </div>
+    <div id="token-generated-list"><div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap" id="token-generated-table-wrap"></div><div class="swipe-list" id="token-generated-swipe-list"></div></div><div id="token-generated-pagination"></div></div>
+  </div>
+  <div class="sub-page dock-avoid" id="sub-token-list">
+    <div class="search-bar" style="flex-wrap:wrap;gap:8px">
+      <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari kode..." oninput="_ltSearch=this.value;_renderListToken()"></div>
+      <select id="list-token-modul-filter" class="form-select" style="flex:1;min-width:130px" onchange="_ltFilter=this.value;_renderListToken()"><option value="">Semua Modul</option></select>
+      <select id="list-token-grub-filter" class="form-select" style="flex:1;min-width:130px" onchange="_ltGrubFilter=this.value;_renderListToken()"><option value="">Semua Grup Token</option></select>
+    </div>
+    <div id="list-token-dl-section" style="display:none;gap:10px;flex-wrap:wrap;margin:0 0 14px">
+      <button class="btn btn-secondary" onclick="downloadAllQR(_ltFilteredData)">Unduh Semua QR</button>
+      <button class="btn btn-secondary" onclick="downloadTokenList(_ltFilteredData)">Unduh CSV</button>
+      <button class="btn btn-secondary" onclick="copyKodeList(_ltFilteredData)">Salin Semua Kode</button>
+      <span id="list-token-dl-count" style="font-size:11px;color:var(--text-sub);align-self:center"></span>
+    </div>
+    <div id="list-token-groups"></div>
+  </div>
+  <!-- TOKEN TERPAKAI -->
+  <div class="sub-page dock-avoid" id="sub-token-used">
+    <div class="search-bar" style="flex-wrap:wrap;gap:8px">
+      <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari kode / nama akun..." oninput="_tuSearch=this.value;_renderTokenUsed()"></div>
+      <select id="token-used-modul-filter" class="form-select" style="flex:1;min-width:130px" onchange="_tuFilter=this.value;_renderTokenUsed()"><option value="">Semua Modul</option></select>
+      <select id="token-used-grub-filter" class="form-select" style="flex:1;min-width:130px" onchange="_tuGrubFilter=this.value;_renderTokenUsed()"><option value="">Semua Grup Token</option></select>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <button class="sub-tab active" data-range="semua" onclick="_setTuRange('semua')" style="flex:1;min-width:90px">Semua</button>
+      <button class="sub-tab" data-range="hari_ini" onclick="_setTuRange('hari_ini')" style="flex:1;min-width:90px">Hari Ini</button>
+      <button class="sub-tab" data-range="kemarin" onclick="_setTuRange('kemarin')" style="flex:1;min-width:90px">Kemarin</button>
+      <button class="sub-tab" data-range="range" onclick="_setTuRange('range')" style="flex:1;min-width:90px">Range</button>
+    </div>
+    <div id="token-used-range-wrap" style="display:none;margin-bottom:10px">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Dari Tanggal</label><input id="token-used-range-from" class="form-input" type="date" onchange="_tuCustomFrom=this.value;_renderTokenUsed()"></div>
+        <div class="form-group"><label class="form-label">Sampai Tanggal</label><input id="token-used-range-to" class="form-input" type="date" onchange="_tuCustomTo=this.value;_renderTokenUsed()"></div>
+      </div>
+    </div>
+    <div id="token-used-groups"></div>
+  </div>
+</div>
+
+<!-- LAPORAN -->
+<div class="page dock-avoid" id="page-laporan">
+  <div class="section-title">Laporan Ujian</div>
+  <div class="section-sub">Pantau dan unduh hasil ujian peserta</div>
+  <div class="search-bar"><div class="search-input-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari token / modul..." oninput="_lapSearch=this.value;_renderLapTable()"></div></div>
+  <div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap"><table><thead><tr><th>#</th><th>Token</th><th>Modul</th><th class="hide-mobile">Tgl Selesai</th><th class="hide-mobile">Durasi</th><th>Skor</th><th>Aksi</th></tr></thead><tbody id="laporan-tbody"></tbody></table></div><div class="swipe-list" id="laporan-swipe-list"></div></div>
+  <div id="laporan-pagination"></div>
+</div>
+
+<!-- REVIEW (Reviewer view) -->
+<div class="page dock-avoid" id="page-review">
+  <div class="section-title">Review Peserta</div>
+  <div class="section-sub">Lihat data dan hasil ujian per user</div>
+  <div class="search-bar"><div class="search-input-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari nama / email..." oninput="_rvSearch=this.value;_renderRvList()"></div></div>
+  <div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap"><table><thead><tr><th>#</th><th>Nama</th><th>Email</th><th class="hide-mobile">Status</th><th>Aksi</th></tr></thead><tbody id="review-user-list"></tbody></table></div><div class="swipe-list" id="review-page-swipe-list"></div></div>
+</div>
+
+<!-- BUAT SOAL -->
+<div class="page" id="page-soal">
+  <div id="soal-page-content" style="transition:opacity 0.3s ease,transform 0.3s ease"></div>
+</div>
+
+<!-- LIBRARY -->
+<div class="page dock-avoid" id="page-library">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div><div class="section-title" style="margin-bottom:0">Library Soal</div><div class="section-sub">Semua soal yang telah dibuat</div></div>
+    <button class="btn btn-secondary" onclick="openManageSoalKelompok()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Kelola Kelompok</button>
+  </div>
+  <div class="search-bar" style="flex-wrap:wrap;gap:8px;margin-top:10px">
+    <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari nama / tipe..." oninput="_libSearch=this.value;_renderLibList()"></div>
+    <div id="library-filters"></div>
+    <button class="btn btn-secondary akun-select-all-mobile" onclick="toggleSelectAllLib(true)">Semua</button>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-sub);cursor:pointer;padding:0 4px" class="hide-mobile"><input type="checkbox" id="lib-select-all" onchange="toggleSelectAllLib(this.checked)" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer"> Pilih Semua</label>
+  </div>
+  <div class="bulk-bar" id="bulk-bar-lib"><span><b id="bulk-count-lib">0</b> soal dipilih</span><div class="bulk-bar-actions">
+    <button class="btn btn-secondary" onclick="clearLibSelection()">Batal</button>
+    <button class="btn btn-secondary" onclick="openBulkSetKelompokLib()">Set Kelompok</button>
+    <button class="btn btn-secondary" onclick="exportSelectedLibSoal()">Export ZIP</button>
+    <button class="btn btn-danger" onclick="deleteSelectedLibSoal()">Hapus Massal</button>
+  </div></div>
+  <div class="aksi-swipe-wrap" id="library-list"></div>
+  <div class="swipe-list" id="library-swipe-list"></div>
+</div>
+
+<!-- MODUL -->
+<div class="page dock-avoid" id="page-modul">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+    <div class="section-title" style="margin-bottom:0">Manajemen Modul</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div id="modul-kelompok-filters"></div>
+      <button class="btn btn-secondary" onclick="openManageModulKelompok()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Kelola Kelompok</button>
+      <button class="btn btn-primary" onclick="openAddModul()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Buat Modul</button>
+    </div>
+  </div>
+  <div class="section-sub">Susun soal menjadi paket ujian</div>
+  <div class="aksi-swipe-wrap" id="modul-list"></div>
+  <div class="swipe-list" id="modul-swipe-list"></div>
+</div>
+
+<!-- E-BOOK: BUAT BUKU -->
+<div class="page dock-avoid-center" id="page-buku">
+  <div id="buku-page-content"></div>
+</div>
+
+
+<!-- E-BOOK: LIBRARY -->
+<div class="page dock-avoid" id="page-ebook-library">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div><div class="section-title" style="margin-bottom:0">Library E-Book</div><div class="section-sub">Semua buku (PDF) yang telah diupload</div></div>
+    <button class="btn btn-secondary" onclick="openManageEbookKelompok()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Kelola Kelompok</button>
+  </div>
+  <div class="search-bar" style="flex-wrap:wrap;gap:8px;margin-top:10px">
+    <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari nama / kelompok..." oninput="_ebookSearch=this.value;_renderEbookLibList()"></div>
+    <div id="ebook-kelompok-filters"></div>
+  </div>
+  <div class="aksi-swipe-wrap" id="ebook-library-list"></div>
+  <div class="swipe-list" id="ebook-library-swipe-list"></div>
+</div>
+
+<!-- E-BOOK: MODUL (paket buku) -->
+<div class="page dock-avoid" id="page-ebook-modul">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+    <div class="section-title" style="margin-bottom:0">Modul E-Book</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div id="ebook-modul-kelompok-filters"></div>
+      <button class="btn btn-secondary" onclick="openManageEbookModulKelompok()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Kelola Kelompok</button>
+      <button class="btn btn-primary" onclick="openAddEbookModul()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Buat Modul</button>
+    </div>
+  </div>
+  <div class="section-sub">Paketkan beberapa buku menjadi satu modul</div>
+  <div class="aksi-swipe-wrap" id="ebook-modul-list"></div>
+  <div class="swipe-list" id="ebook-modul-swipe-list"></div>
+</div>
+
+<!-- LANDING — embedded editor -->
+<div class="page" id="page-landing" style="padding:0!important">
+  <main class="ld-editor-main" id="ld-editor-main">
+
+    <!-- ═══ NAVBAR ═══ -->
+    <div class="ld-panel" id="ld-panel-nav">
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">🔗</div><div><h3>Logo & Navbar</h3><p>Nama brand dan menu navigasi</p></div></div>
+        <div class="ld-field-group ld-cols-2">
+          <div class="ld-field"><label>Brand (teks sebelum spasi)</label><input type="text" id="nav_brand" value="CIBN" placeholder="CIBN"></div>
+          <div class="ld-field"><label>Sub-brand (teks setelah spasi)</label><input type="text" id="nav_subbrand" value="Akademi" placeholder="Akademi"></div>
+          <div class="ld-field"><label>Menu 1 — Teks</label><input type="text" id="nav_m1_text" value="Fitur"></div>
+          <div class="ld-field"><label>Menu 1 — Link</label><input type="text" id="nav_m1_href" value="#fitur"></div>
+          <div class="ld-field"><label>Menu 2 — Teks</label><input type="text" id="nav_m2_text" value="Paket"></div>
+          <div class="ld-field"><label>Menu 2 — Link</label><input type="text" id="nav_m2_href" value="#paket"></div>
+          <div class="ld-field"><label>Menu 3 — Teks</label><input type="text" id="nav_m3_text" value="Materi"></div>
+          <div class="ld-field"><label>Menu 3 — Link</label><input type="text" id="nav_m3_href" value="#materi"></div>
+          <div class="ld-field"><label>Menu 4 — Teks</label><input type="text" id="nav_m4_text" value="Testimoni"></div>
+          <div class="ld-field"><label>Menu 4 — Link</label><input type="text" id="nav_m4_href" value="#testimoni"></div>
+          <div class="ld-field"><label>Menu 5 — Teks</label><input type="text" id="nav_m5_text" value="FAQ"></div>
+          <div class="ld-field"><label>Menu 5 — Link</label><input type="text" id="nav_m5_href" value="#faq"></div>
+          <div class="ld-field"><label>Tombol CTA Navbar</label><input type="text" id="nav_cta" value="Masuk"></div>
+          <div class="ld-field"><label>Judul Tab Browser</label><input type="text" id="page_title" value="CIBN Akademi – Pusat Ujian & Sertifikasi Profesional"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ HERO ═══ -->
+    <div class="ld-panel active" id="ld-panel-hero">
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">🏠</div><div><h3>Hero Section</h3><p>Bagian utama pertama yang dilihat pengunjung</p></div></div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Badge / Label Kecil</label><input type="text" id="hero_badge" value="Platform Ujian Sertifikasi Terpercaya"></div>
+          <div class="ld-field"><label>Judul Baris 1</label><input type="text" id="hero_h1_1" value="Raih Sertifikasi"></div>
+          <div class="ld-field"><label>Judul Baris 2 (warna biru)</label><input type="text" id="hero_h1_2" value="Profesional Anda"></div>
+          <div class="ld-field"><label>Judul Baris 3</label><input type="text" id="hero_h1_3" value="Bersama Kami"></div>
+          <div class="ld-field"><label>Sub-judul / Deskripsi</label><textarea id="hero_sub">Platform ujian online terdepan dengan materi komprehensif, sistem penilaian canggih, dan dukungan instruktur berpengalaman.</textarea></div>
+          <div class="ld-field-group ld-cols-2">
+            <div class="ld-field"><label>Tombol Primer — Teks</label><input type="text" id="hero_btn1" value="✦ Coba Ujian Gratis"></div>
+            <div class="ld-field"><label>Tombol Outline — Teks</label><input type="text" id="hero_btn2" value="Lihat Paket"></div>
+            <div class="ld-field"><label>Tombol Outline — Link</label><input type="text" id="hero_btn2_href" value="#paket"></div>
+          </div>
+          <div class="ld-field-group ld-cols-2">
+            <div class="ld-field"><label>Statistik 1 — Angka</label><input type="text" id="stat1_num" value="12K+"></div>
+            <div class="ld-field"><label>Statistik 1 — Label</label><input type="text" id="stat1_label" value="Peserta Aktif"></div>
+            <div class="ld-field"><label>Statistik 2 — Angka</label><input type="text" id="stat2_num" value="98%"></div>
+            <div class="ld-field"><label>Statistik 2 — Label</label><input type="text" id="stat2_label" value="Tingkat Lulus"></div>
+            <div class="ld-field"><label>Statistik 3 — Angka</label><input type="text" id="stat3_num" value="200+"></div>
+            <div class="ld-field"><label>Statistik 3 — Label</label><input type="text" id="stat3_label" value="Materi Ujian"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ COBA UJIAN ═══ -->
+    <div class="ld-panel" id="ld-panel-coba">
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">▶</div><div><h3>Section "Coba Ujian"</h3><p>Kartu ajakan mencoba ujian gratis</p></div></div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Tag / Label Kecil</label><input type="text" id="coba_tag" value="Gratis & Terbatas"></div>
+          <div class="ld-field"><label>Judul Section</label><input type="text" id="coba_title" value="Coba Dulu, Bayar Nanti"></div>
+          <div class="ld-field"><label>Sub-judul</label><textarea id="coba_sub">Rasakan pengalaman ujian kami secara langsung. Akses soal terbatas dan langsung lihat nilaimu setelah selesai.</textarea></div>
+          <div class="ld-field"><label>Judul Kartu Ujian</label><input type="text" id="coba_card_title" value="Tes Simulasi Ujian"></div>
+          <div class="ld-field"><label>Deskripsi Kartu Ujian</label><input type="text" id="coba_card_desc" value="5 soal pilihan ganda · Nilai instan · Tanpa daftar"></div>
+          <div class="ld-field"><label>Teks Tombol Mulai Ujian</label><input type="text" id="coba_btn" value="▶ Mulai Ujian Sekarang"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PROMO ═══ -->
+    <div class="ld-panel" id="ld-panel-promo">
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">🎁</div><div><h3>Promo Banner</h3><p>Bagian penawaran spesial bertema biru gelap</p></div></div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Tag / Label Kecil</label><input type="text" id="promo_tag" value="Penawaran Terbatas"></div>
+          <div class="ld-field"><label>Judul Baris 1</label><input type="text" id="promo_h2_1" value="Promo Spesial"></div>
+          <div class="ld-field"><label>Judul Baris 2</label><input type="text" id="promo_h2_2" value="Mei 2025"></div>
+          <div class="ld-field"><label>Deskripsi Promo</label><textarea id="promo_desc">Dapatkan akses premium dengan harga spesial. Berlaku sampai akhir bulan ini. Jangan lewatkan kesempatan emas untuk tingkatkan karirmu.</textarea></div>
+        </div>
+      </div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">🃏</div><div><h3>Kartu-kartu Promo (4 kartu)</h3><p>Ikon, judul, dan deskripsi tiap kartu</p></div></div>
+        <div id="promo-cards-list">
+          <div class="ld-repeat-item"><div class="ld-repeat-hd"><span class="ld-repeat-title">🎓 Kartu 1</span></div>
+            <div class="ld-field-group ld-cols-2">
+              <div class="ld-field"><label>Ikon (emoji)</label><input type="text" class="pc-icon" value="🎓"></div>
+              <div class="ld-field"><label>Judul</label><input type="text" class="pc-title" value="Diskon 40%"></div>
+              <div class="ld-field"><label>Deskripsi</label><input type="text" class="pc-desc" value="Semua paket premium"></div>
+            </div>
+          </div>
+          <div class="ld-repeat-item"><div class="ld-repeat-hd"><span class="ld-repeat-title">📚 Kartu 2</span></div>
+            <div class="ld-field-group ld-cols-2">
+              <div class="ld-field"><label>Ikon (emoji)</label><input type="text" class="pc-icon" value="📚"></div>
+              <div class="ld-field"><label>Judul</label><input type="text" class="pc-title" value="Akses Gratis"></div>
+              <div class="ld-field"><label>Deskripsi</label><input type="text" class="pc-desc" value="Modul bonus eksklusif"></div>
+            </div>
+          </div>
+          <div class="ld-repeat-item"><div class="ld-repeat-hd"><span class="ld-repeat-title">🏆 Kartu 3</span></div>
+            <div class="ld-field-group ld-cols-2">
+              <div class="ld-field"><label>Ikon (emoji)</label><input type="text" class="pc-icon" value="🏆"></div>
+              <div class="ld-field"><label>Judul</label><input type="text" class="pc-title" value="Sertifikat"></div>
+              <div class="ld-field"><label>Deskripsi</label><input type="text" class="pc-desc" value="Terakreditasi nasional"></div>
+            </div>
+          </div>
+          <div class="ld-repeat-item"><div class="ld-repeat-hd"><span class="ld-repeat-title">💬 Kartu 4</span></div>
+            <div class="ld-field-group ld-cols-2">
+              <div class="ld-field"><label>Ikon (emoji)</label><input type="text" class="pc-icon" value="💬"></div>
+              <div class="ld-field"><label>Judul</label><input type="text" class="pc-title" value="Mentoring"></div>
+              <div class="ld-field"><label>Deskripsi</label><input type="text" class="pc-desc" value="1-on-1 dengan pakar"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ MITRA ═══ -->
+    <div class="ld-panel" id="ld-panel-mitra">
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">🤝</div><div><h3>Mitra / Rekanan</h3><p>Ticker nama mitra yang berjalan otomatis</p></div></div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Tag</label><input type="text" id="mitra_tag" value="Rekanan Terpercaya"></div>
+          <div class="ld-field"><label>Judul</label><input type="text" id="mitra_title" value="Dipercaya Institusi Terkemuka"></div>
+          <div class="ld-field"><label>Sub-judul</label><input type="text" id="mitra_sub" value="Bermitra dengan organisasi dan perusahaan terbaik di Indonesia"></div>
+          <div class="ld-field"><label>Daftar Mitra (satu per baris)</label>
+            <textarea id="mitra_list" style="min-height:130px">Bank Indonesia
+Kemendikbud
+Telkom Indonesia
+BCA Finance
+Mandiri Learning
+PLN Akademi
+Pertamina Edu
+BNSP</textarea>
+            <span class="ld-hint">Daftar ini akan otomatis digandakan untuk animasi scroll tak terbatas</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ FITUR ═══ -->
+    <div class="ld-panel" id="ld-panel-fitur">
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">⚙️</div><div><h3>Header Section Fitur</h3></div></div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Tag</label><input type="text" id="fitur_tag" value="Fitur Unggulan"></div>
+          <div class="ld-field"><label>Judul</label><input type="text" id="fitur_title" value="Dirancang untuk Hasil Terbaik"></div>
+          <div class="ld-field"><label>Sub-judul</label><input type="text" id="fitur_sub" value="Teknologi terdepan yang mendukung perjalanan belajar Anda"></div>
+        </div>
+      </div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">🃏</div><div><h3>Kartu Fitur</h3><p>6 kartu fitur unggulan</p></div></div>
+        <div id="fitur-cards-list"></div>
+        <button class="ld-btn-add" onclick="addFiturCard()">+ Tambah Kartu Fitur</button>
+      </div>
+    </div>
+
+    <!-- ═══ PAKET ═══ -->
+    <div class="ld-panel" id="ld-panel-paket">
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">💎</div><div><h3>Header Section Paket</h3></div></div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Tag</label><input type="text" id="paket_tag" value="Paket Harga"></div>
+          <div class="ld-field"><label>Judul</label><input type="text" id="paket_title" value="Pilih Paket yang Tepat"></div>
+          <div class="ld-field"><label>Sub-judul</label><input type="text" id="paket_sub" value="Investasi terbaik untuk karir profesional Anda"></div>
+        </div>
+      </div>
+
+      <div id="paket-list"></div>
+    </div>
+
+    <!-- ═══ MATERI ═══ -->
+    <div class="ld-panel" id="ld-panel-materi">
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">📚</div><div><h3>Header Section Materi</h3></div></div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Tag</label><input type="text" id="materi_tag" value="Konten Tersedia"></div>
+          <div class="ld-field"><label>Judul</label><input type="text" id="materi_title" value="Materi yang Kami Sediakan"></div>
+          <div class="ld-field"><label>Sub-judul</label><input type="text" id="materi_sub" value="Ratusan topik dari berbagai bidang profesional"></div>
+        </div>
+      </div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">📋</div><div><h3>Daftar Materi</h3><p>Setiap item memiliki nomor, judul, deskripsi, dan tag modul</p></div></div>
+        <div id="materi-list"></div>
+        <button class="ld-btn-add" onclick="addMateri()">+ Tambah Materi</button>
+      </div>
+    </div>
+
+    <!-- ═══ TESTIMONI ═══ -->
+    <div class="ld-panel" id="ld-panel-testimoni">
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">💬</div><div><h3>Header Section Testimoni</h3></div></div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Tag</label><input type="text" id="testi_tag" value="Apa Kata Mereka"></div>
+          <div class="ld-field"><label>Judul</label><input type="text" id="testi_title" value="Ribuan Peserta Telah Merasakan"></div>
+        </div>
+      </div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">⭐</div><div><h3>Kartu Testimoni</h3><p>Teks kutipan, nama, dan peran</p></div></div>
+        <div id="testi-list"></div>
+        <button class="ld-btn-add" onclick="addTesti()">+ Tambah Testimoni</button>
+      </div>
+    </div>
+
+    <!-- ═══ FAQ ═══ -->
+    <div class="ld-panel" id="ld-panel-faq">
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">❓</div><div><h3>FAQ</h3><p>Pertanyaan yang sering diajukan</p></div></div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Tag</label><input type="text" id="faq_tag" value="FAQ"></div>
+          <div class="ld-field"><label>Judul</label><input type="text" id="faq_title" value="Pertanyaan yang Sering Diajukan"></div>
+        </div>
+      </div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">📃</div><div><h3>Daftar Pertanyaan & Jawaban</h3></div></div>
+        <div id="faq-list"></div>
+        <button class="ld-btn-add" onclick="addFaq()">+ Tambah FAQ</button>
+      </div>
+    </div>
+
+    <!-- ═══ SOAL UJIAN ═══ -->
+    <div class="ld-panel" id="ld-panel-soal">
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">📝</div><div><h3>Soal Ujian Demo</h3><p>Soal yang muncul saat peserta klik "Coba Ujian Gratis"</p></div></div>
+        <div id="soal-list"></div>
+        <button class="ld-btn-add" onclick="addSoal()">+ Tambah Soal</button>
+      </div>
+    </div>
+
+    <!-- ═══ FOOTER ═══ -->
+    <div class="ld-panel" id="ld-panel-footer">
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">✨</div><div><h3>Teks Animasi Partikel</h3><p>Teks yang tampil sebagai partikel interaktif di atas footer</p></div></div>
+        <div class="ld-notice">💡 Teks ini muncul sebagai animasi partikel berwarna biru di bagian atas footer. Teks pendek lebih baik.</div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Teks Animasi Canvas</label><input type="text" id="canvas_text" value="CIBN Akademi" placeholder="Contoh: CIBN Akademi">
+            <span class="ld-hint">Teks pendek lebih baik. Terlalu panjang akan mengecilkan ukuran partikel.</span>
+          </div>
+        </div>
+      </div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">📋</div><div><h3>Footer — Informasi Brand</h3></div></div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Deskripsi Brand</label><textarea id="footer_brand_desc">Platform ujian dan sertifikasi profesional terpercaya di Indonesia. Membantu ribuan profesional meraih karir impian mereka.</textarea></div>
+          <div class="ld-field"><label>Teks Hak Cipta</label><input type="text" id="footer_copy" value="© 2025 CIBN Akademi. Hak Cipta Dilindungi Undang-Undang."></div>
+          <div class="ld-field"><label>Teks Regulasi</label><input type="text" id="footer_reg" value="Terdaftar & diawasi oleh OJK"></div>
+        </div>
+      </div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">🔗</div><div><h3>Link Footer — Kolom "Platform"</h3></div></div>
+        <div id="footer-platform-list"></div>
+        <button class="ld-btn-add" onclick="addFooterLink('platform')">+ Tambah Link</button>
+      </div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">🏢</div><div><h3>Link Footer — Kolom "Perusahaan"</h3></div></div>
+        <div id="footer-perusahaan-list"></div>
+        <button class="ld-btn-add" onclick="addFooterLink('perusahaan')">+ Tambah Link</button>
+      </div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">📞</div><div><h3>Kontak & Sosial Media</h3></div></div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Nomor Telepon</label><input type="text" id="footer_phone" value="+62 21 5555 0100"></div>
+          <div class="ld-field"><label>Email</label><input type="text" id="footer_email" value="hello@cibnakademi.id"></div>
+          <div class="ld-field"><label>Alamat</label><input type="text" id="footer_address" value="Jakarta Selatan, DKI Jakarta"></div>
+        </div>
+      </div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">📲</div><div><h3>Link Sosial Media</h3></div></div>
+        <div id="footer-social-list"></div>
+      </div>
+    </div>
+
+    <!-- ═══ CHATBOT ═══ -->
+    <div class="ld-panel" id="ld-panel-chatbot">
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">🤖</div><div><h3>Chatbot Widget</h3><p>Nama, pesan sambutan, dan tombol cepat</p></div></div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Nama Asisten</label><input type="text" id="chat_name" value="CIBN Assistant"></div>
+          <div class="ld-field"><label>Status Asisten</label><input type="text" id="chat_status" value="● Online · Siap membantu"></div>
+          <div class="ld-field"><label>Pesan Sambutan</label><textarea id="chat_greeting">Halo! Selamat datang di CIBN Akademi 👋 Ada yang bisa saya bantu?</textarea></div>
+          <div class="ld-field"><label>Placeholder Input</label><input type="text" id="chat_placeholder" value="Ketik pesan..."></div>
+          <div class="ld-field">
+            <label>Foto / Avatar Bot</label>
+            <div style="display:flex;align-items:center;gap:1rem;margin-top:.4rem">
+              <div id="avatar-preview" style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#1a4fd6,#0f2d8a);display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;overflow:hidden;border:3px solid #dbeafe">🤖</div>
+              <div style="flex:1">
+                <label style="display:inline-flex;align-items:center;gap:.4rem;background:var(--blue);color:#fff;padding:.5rem 1rem;border-radius:50px;font-size:.82rem;font-weight:500;cursor:pointer">
+                  📁 Pilih Gambar
+                  <input type="file" id="chat_avatar_upload" accept="image/*" style="display:none" onchange="handleAvatarUpload(this)">
+                </label>
+                <button onclick="resetAvatar()" style="margin-left:.5rem;background:none;border:1px solid var(--gray-border);color:var(--text-sub);padding:.45rem .9rem;border-radius:50px;font-size:.82rem;cursor:pointer">Reset ke Emoji</button>
+                <div class="ld-hint" style="margin-top:.3rem">JPG, PNG, GIF. Otomatis dipotong lingkaran. Maks ~500KB.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">⚡</div><div><h3>Tombol Quick Reply</h3><p>Tambah atau hapus tombol sesuai kebutuhan</p></div></div>
+        <div id="chat-quick-list"></div>
+      </div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">🔑</div><div><h3>Kata Kunci Otomatis</h3><p>Bot menjawab otomatis jika pesan mengandung kata kunci ini</p></div></div>
+        <div class="ld-notice" style="margin-bottom:1rem">💡 Bot akan mencari kata kunci dalam pesan pengguna. Prioritas: Quick Reply → Kata Kunci → Jawaban Default.</div>
+        <div id="chat-keyword-list"></div>
+      </div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">🔄</div><div><h3>Jawaban Default</h3><p>Ditampilkan jika tidak ada kata kunci yang cocok</p></div></div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Teks Jawaban Default Bot</label><textarea id="chat_default_reply" style="min-height:80px">Terima kasih atas pertanyaannya! Tim kami siap membantu. Hubungi kami langsung untuk info lebih lanjut.</textarea></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SYARAT & PRIVASI ═══ -->
+    <div class="ld-panel" id="ld-panel-taksabar">
+
+      <div class="ld-notice">📄 Teks di bawah akan muncul sebagai pop-up ketika pengunjung mengklik link <strong>"Syarat &amp; Ketentuan"</strong> atau <strong>"Kebijakan Privasi"</strong> pada form pendaftaran akun.</div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">📋</div><div><h3>Syarat &amp; Ketentuan</h3><p>Isi dokumen yang tampil saat link diklik di form daftar akun</p></div></div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Judul Pop-up</label><input type="text" id="sk_title" value="Syarat & Ketentuan Penggunaan"></div>
+          <div class="ld-field"><label>Isi Dokumen Syarat &amp; Ketentuan</label>
+            <textarea id="sk_content" style="min-height:260px;font-size:.82rem;line-height:1.6">1. PENERIMAAN SYARAT
+Dengan mendaftar dan menggunakan layanan CIBN Akademi, Anda menyatakan telah membaca, memahami, dan menyetujui seluruh syarat dan ketentuan ini.
+
+2. LAYANAN
+CIBN Akademi menyediakan platform ujian online, materi pembelajaran, dan sertifikasi profesional.
+
+3. AKUN PENGGUNA
+Anda bertanggung jawab menjaga kerahasiaan data login. Segala aktivitas yang terjadi di akun Anda menjadi tanggung jawab Anda sepenuhnya.
+
+4. PEMBAYARAN DAN BERLANGGANAN
+Pembayaran dilakukan di muka sesuai paket yang dipilih. Tidak ada refund untuk langganan yang telah aktif kecuali terdapat gangguan teknis dari pihak kami.
+
+5. HAK KEKAYAAN INTELEKTUAL
+Seluruh konten, materi, soal ujian, dan desain platform adalah milik CIBN Akademi dan dilindungi undang-undang.
+
+6. PEMBATASAN TANGGUNG JAWAB
+CIBN Akademi tidak bertanggung jawab atas kerugian tidak langsung akibat penggunaan layanan.
+
+7. PERUBAHAN KETENTUAN
+Kami berhak memperbarui syarat ini kapan saja. Perubahan berlaku sejak dipublikasikan.</textarea>
+          </div>
+        </div>
+      </div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">🔒</div><div><h3>Kebijakan Privasi</h3><p>Isi dokumen yang tampil saat link diklik di form daftar akun</p></div></div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Judul Pop-up</label><input type="text" id="kp_title" value="Kebijakan Privasi"></div>
+          <div class="ld-field"><label>Isi Dokumen Kebijakan Privasi</label>
+            <textarea id="kp_content" style="min-height:260px;font-size:.82rem;line-height:1.6">1. DATA YANG KAMI KUMPULKAN
+Kami mengumpulkan data yang Anda berikan saat mendaftar (nama, email, nomor telepon), data penggunaan platform, serta data teknis.
+
+2. PENGGUNAAN DATA
+Data Anda digunakan untuk menyediakan dan meningkatkan layanan, mengirim notifikasi penting, dan keperluan keamanan.
+
+3. BERBAGI DATA
+Kami tidak menjual data pribadi Anda kepada pihak ketiga. Data dapat dibagikan kepada mitra terpercaya yang membantu operasional.
+
+4. KEAMANAN DATA
+Kami menerapkan enkripsi SSL, perlindungan berlapis, dan audit keamanan berkala untuk melindungi data Anda.
+
+5. HAK PENGGUNA
+Anda berhak mengakses, memperbarui, atau menghapus data pribadi Anda kapan saja melalui pengaturan akun.
+
+6. COOKIE
+Kami menggunakan cookie untuk meningkatkan pengalaman pengguna.
+
+7. KONTAK PRIVASI
+Pertanyaan terkait privasi: privacy@cibnakademi.id</textarea>
+          </div>
+        </div>
+      </div>
+      <!-- UPDATE button khusus taksabar -->
+      <div style="position:sticky;bottom:0;padding:1rem 0 .5rem;background:linear-gradient(to top,rgba(241,245,249,1) 60%,transparent);margin-top:.5rem">
+        <button class="btn btn-primary" style="width:100%;gap:8px" onclick="ldUpdateTaksabar()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>
+          Update Syarat &amp; Privasi ke Landing Page
+        </button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- KEUANGAN -->
+<div class="page" id="page-keuangan">
+  <div class="section-title">Keuangan & Paket</div>
+  <div class="section-sub">Kelola paket harga, payment gateway, dan transaksi</div>
+
+  <!-- Sub Tabs -->
+  <div class="sub-tabs">
+    <button class="sub-tab active" data-sub="paket" onclick="renderKeuanganSub('paket')">Paket Harga</button>
+    <button class="sub-tab" data-sub="gateway" onclick="renderKeuanganSub('gateway')">Payment Gateway</button>
+    <button class="sub-tab" data-sub="transaksi" onclick="renderKeuanganSub('transaksi')">Transaksi</button>
+  </div>
+
+  <!-- PAKET -->
+  <div class="sub-page active" id="sub-keuangan-paket">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <span style="font-size:12px;color:var(--text-sub)">Paket yang tampil di landing page & digunakan saat checkout</span>
+      <button class="btn btn-primary btn-sm" onclick="openAddPaket()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Paket Baru</button>
+    </div>
+    <div id="paket-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px"></div>
+  </div>
+
+  <!-- GATEWAY -->
+  <div class="sub-page" id="sub-keuangan-gateway">
+    <div class="card" style="margin-bottom:14px">
+      <div style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--blue);margin-bottom:14px;display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Midtrans</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Server Key</label><input id="gw-midtrans-sk" class="form-input" type="password" placeholder="SB-Mid-server-xxxx" oninput="setDirty('payment gateway')"><div style="font-size:10px;color:var(--text-sub);margin-top:4px">Simpan untuk transaksi live. Jangan share ke siapapun.</div></div>
+        <div class="form-group"><label class="form-label">Client Key</label><input id="gw-midtrans-ck" class="form-input" type="password" placeholder="SB-Mid-client-xxxx" oninput="setDirty()"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Mode</label>
+        <div style="display:flex;gap:8px">
+          <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid var(--gray-border);border-radius:10px;cursor:pointer;flex:1;font-size:13px"><input type="radio" name="midtrans-mode" value="sandbox" checked style="accent-color:var(--blue)"> Sandbox (Testing)</label>
+          <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid var(--gray-border);border-radius:10px;cursor:pointer;flex:1;font-size:13px"><input type="radio" name="midtrans-mode" value="production" style="accent-color:var(--blue)"> Production (Live)</label>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="saveGateway('midtrans')">Simpan Konfigurasi</button>
+    </div>
+    <div class="card">
+      <div style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--blue);margin-bottom:14px;display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Xendit</div>
+      <div class="form-group"><label class="form-label">Secret Key</label><input id="gw-xendit-sk" class="form-input" type="password" placeholder="xnd_development_xxxx" oninput="setDirty()"></div>
+      <div class="form-group"><label class="form-label">Public Key</label><input id="gw-xendit-pk" class="form-input" type="password" placeholder="xnd_public_xxxx" oninput="setDirty()"></div>
+      <button class="btn btn-primary" onclick="saveGateway('xendit')">Simpan Konfigurasi</button>
+    </div>
+  </div>
+
+  <!-- TRANSAKSI -->
+  <div class="sub-page" id="sub-keuangan-transaksi">
+    <div class="search-bar" style="margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari email / paket..." id="trx-search" oninput="filterTrx()"></div>
+      <select id="trx-status-filter" class="form-select" style="max-width:160px" onchange="filterTrx()"><option value="">Semua Status</option><option value="success">Success</option><option value="pending">Pending</option><option value="failed">Failed</option></select>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="table-wrap">
+        <table><thead><tr><th>#</th><th>User / Email</th><th>Paket</th><th class="hide-mobile">Metode</th><th class="hide-mobile">Tgl</th><th>Total</th><th>Status</th></tr></thead>
+        <tbody id="trx-tbody">
+          <tr><td colspan="7"><div class="empty-state"><p>Belum ada transaksi</p></div></td></tr>
+        </tbody></table>
+      </div>
+    </div>
+    <div id="trx-pagination"></div>
+  </div>
+</div>
+
+<!-- AKUN SAYA -->
+<div class="page" id="page-akun-admin">
+  <div class="section-title">Akun Saya</div>
+  <div class="section-sub">Kelola profil dan keamanan akun</div>
+  <div class="admin-profile-hero">
+    <div class="admin-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" width="28" height="28"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+    <div style="position:relative;z-index:1"><div id="akun-admin-nama" style="font-family:var(--font-head);font-size:18px;font-weight:700;margin-bottom:2px">-</div><div id="akun-admin-email" style="font-size:12px;opacity:0.7">-</div><span style="display:inline-block;margin-top:6px;font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;background:rgba(255,255,255,0.15);padding:3px 10px;border-radius:10px">Admin</span></div>
+  </div>
+  <div class="card">
+    <div class="form-group"><label class="form-label">Nama Lengkap</label><input id="aa-nama" class="form-input" type="text" oninput="setDirty('profil akun')"></div>
+    <div class="form-group"><label class="form-label">Email</label><input id="aa-email" class="form-input" type="email" oninput="setDirty()"></div>
+    <div class="form-group"><label class="form-label">Password Baru <span style="font-size:10px;color:var(--text-sub);font-weight:400">(kosongkan jika tidak diubah)</span></label>
+      <div style="position:relative"><input id="aa-pw" class="form-input" type="password" placeholder="Password baru" oninput="setDirty()"><button type="button" onclick="togglePwVis('aa-pw',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-sub);width:22px;height:22px;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+    </div>
+    <div class="form-group"><label class="form-label">Konfirmasi Password</label><input id="aa-pwk" class="form-input" type="password" placeholder="Ulangi password" oninput="setDirty()"></div>
+    <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="submitAkunAdmin()">Simpan Perubahan</button>
+    <button class="btn btn-danger" style="width:100%" onclick="handleLogout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Keluar</button>
+  </div>
+</div>
+
+</div><!-- /page-container -->
+
+<!-- TASKBAR -->
+<!-- TASKBAR -->
+<div class="dock-wrap">
+  <div class="dock" id="main-dock">
+    <button class="dock-item active-tab" data-page="home" onclick="navigateTo('home')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span class="dock-label">HOME</span></button>
+    <button class="dock-item" data-page="akun" onclick="navigateTo('akun')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><span class="dock-label">AKUN</span></button>
+    <button class="dock-item" data-group="cat" onclick="navigateTo('token')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div><span class="dock-label">CAT</span></button>
+    <button class="dock-item" data-group="soalujian" onclick="navigateTo('soal')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><span class="dock-label">SOAL</span></button>
+    <button class="dock-item dock-overflow-item" data-group="ebook" onclick="navigateTo('buku')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div><span class="dock-label">E-BOOK</span></button>
+    <button class="dock-item" data-page="keuangan" onclick="navigateTo('keuangan')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><span class="dock-label">KEUANGAN</span></button>
+    <!-- Overflow items: tampil inline saat layar lebar, masuk titik-3 saat sempit -->
+    <button class="dock-item dock-overflow-item" data-page="landing" onclick="navigateTo('landing')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><span class="dock-label">LANDING</span></button>
+    <button class="dock-item dock-overflow-item" data-page="akun-admin" onclick="navigateTo('akun-admin')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span class="dock-label">AKUN-KU</span></button>
+    <div class="dock-sep" id="main-dock-sep"></div>
+    <!-- Tombol titik tiga — hidden by default, JS munculkan saat ada overflow -->
+    <div class="dock-more" id="dock-more-wrap" style="display:none">
+      <button class="dock-item" id="btn-dock-more" onclick="toggleDockMore()"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></div><span class="dock-label">LAGI</span></button>
+      <div class="dock-more-menu" id="dock-more-menu"></div>
+    </div>
+  </div>
+</div>
+
+<!-- LANDING EDITOR SIDE PANEL — vertikal, gaya sama dengan #side-dock.
+     main-dock TIDAK disembunyikan (keluar cukup klik menu lain di main-dock),
+     tidak ada tombol UPDATE — setiap perubahan otomatis tersimpan ke server. -->
+<div class="side-dock-wrap" id="landing-dock-wrap">
+  <div class="side-dock" id="landing-dock">
+    <button class="side-dock-pos-btn" onclick="toggleSideDockPosition('landing-dock-wrap')" title="Pindah panel ke sisi lain">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+    </button>
+    <div class="side-dock-scroll">
+      <button class="dock-item landing-nav-btn" data-panel="nav" onclick="landingNav('nav')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div><span class="dock-label">Navbar</span></button>
+      <button class="dock-item landing-nav-btn active-tab" data-panel="hero" onclick="landingNav('hero')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span class="dock-label">Hero</span></button>
+      <button class="dock-item landing-nav-btn" data-panel="coba" onclick="landingNav('coba')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></div><span class="dock-label">Demo</span></button>
+      <button class="dock-item landing-nav-btn" data-panel="promo" onclick="landingNav('promo')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg></div><span class="dock-label">Promo</span></button>
+      <button class="dock-item landing-nav-btn" data-panel="mitra" onclick="landingNav('mitra')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><span class="dock-label">Mitra</span></button>
+      <button class="dock-item landing-nav-btn" data-panel="fitur" onclick="landingNav('fitur')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div><span class="dock-label">Fitur</span></button>
+      <button class="dock-item landing-nav-btn" data-panel="paket" onclick="landingNav('paket')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="6 3 18 3 22 9 12 21 2 9"/><path d="M2 9h20"/><path d="M12 3 8 9l4 12 4-12-4-6"/></svg></div><span class="dock-label">Paket</span></button>
+      <button class="dock-item landing-nav-btn" data-panel="materi" onclick="landingNav('materi')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div><span class="dock-label">Materi</span></button>
+      <button class="dock-item landing-nav-btn" data-panel="testimoni" onclick="landingNav('testimoni')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div><span class="dock-label">Testimoni</span></button>
+      <button class="dock-item landing-nav-btn" data-panel="faq" onclick="landingNav('faq')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><span class="dock-label">FAQ</span></button>
+      <button class="dock-item landing-nav-btn" data-panel="soal" onclick="landingNav('soal')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div><span class="dock-label">Soal</span></button>
+      <button class="dock-item landing-nav-btn" data-panel="footer" onclick="landingNav('footer')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></div><span class="dock-label">Footer</span></button>
+      <button class="dock-item landing-nav-btn" data-panel="chatbot" onclick="landingNav('chatbot')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><span class="dock-label">Chatbot</span></button>
+      <button class="dock-item landing-nav-btn" data-panel="taksabar" onclick="landingNav('taksabar')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><span class="dock-label">Syarat</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- SIDE DOCK — panel vertikal grup (SOAL UJIAN / CAT). Tidak menimpa/menutup main-dock,
+     muncul terpisah di sisi kiri (default) atau kanan layar. Tidak dipakai di landingpage. -->
+<div class="side-dock-wrap" id="side-dock-wrap">
+  <div class="side-dock" id="side-dock">
+    <button class="side-dock-pos-btn" onclick="toggleSideDockPosition('side-dock-wrap')" title="Pindah panel ke sisi lain">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+    </button>
+    <div class="side-dock-scroll" id="side-dock-items"></div>
+  </div>
+</div>
+</div><!-- /app-wrapper -->
+
+
+
+<!-- ═══════════ MODALS ═══════════ -->
+
+<!-- LEAVE CONFIRM -->
+<div class="overlay leave-confirm-overlay" id="leave-overlay"><div class="modal modal-sm"><div class="confirm-icon warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="confirm-title">Batalkan Proses?</div><div class="confirm-msg" id="leave-msg">Data yang belum disimpan akan hilang.</div><div class="confirm-btns"><button class="btn btn-secondary" onclick="closeLeaveConfirm()">Lanjutkan Isi</button><button class="btn btn-danger" onclick="confirmLeave()">Ya, Batalkan</button></div></div></div>
+
+<!-- GENERIC CONFIRM -->
+<div class="overlay" id="confirm-overlay"><div class="modal modal-sm"><div class="confirm-icon danger" id="confirm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></div><div class="confirm-title" id="confirm-title">Konfirmasi</div><div class="confirm-msg" id="confirm-msg">Yakin?</div><div class="confirm-btns"><button class="btn btn-secondary" onclick="handleConfirmNo()">Batal</button><button class="btn btn-primary" id="confirm-yes-btn" onclick="handleConfirmYes()">Ya, Lanjutkan</button></div></div></div>
+
+<!-- USER FORM MODAL (shared admin/review/user) -->
+<div class="overlay" id="user-form-overlay"><div class="modal"><div class="modal-header"><div class="modal-title" id="uf-title">Tambah Akun</div><button class="modal-close" onclick="closeModal('user-form-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<input type="hidden" id="uf-mode" value="add"><input type="hidden" id="uf-id" value=""><input type="hidden" id="uf-role" value="">
+<div id="uf-form-body">
+  <div class="form-group"><label class="form-label">Nama Lengkap</label><input id="uf-nama" class="form-input" type="text" placeholder="Nama lengkap" oninput="setDirty('pengisian form akun')"></div>
+  <div class="form-group"><label class="form-label">Email</label><input id="uf-email" class="form-input" type="email" placeholder="email@domain.com" oninput="setDirty()"></div>
+  <div class="form-group" id="uf-grub-wrap" style="display:none"><label class="form-label">Grup (Opsional)</label><select id="uf-grub" class="form-select"><option value="">-- Tanpa Grup --</option></select></div>
+  <div class="form-group"><label class="form-label">Password <span style="font-size:10px;color:var(--text-sub);font-weight:400">(kosongkan saat edit jika tidak diubah)</span></label><div style="position:relative"><input id="uf-password" class="form-input" type="password" placeholder="Min. 6 karakter" oninput="setDirty()"><button type="button" onclick="togglePwVis('uf-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-sub);width:22px;height:22px;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+  <div class="form-group"><label class="form-label">Konfirmasi Password</label><input id="uf-konfirm" class="form-input" type="password" placeholder="Ulangi password" oninput="setDirty()"></div>
+  <div class="form-group"><label class="form-label">Status</label><select id="uf-status" class="form-select"><option value="aktif">Aktif</option><option value="pending">Pending</option><option value="suspend">Suspend</option></select></div>
+  <!-- Paket & Langganan — hanya tampil untuk role User -->
+  <div id="uf-paket-wrap" style="display:none;border-top:1.5px solid rgba(19,50,89,0.08);margin-top:14px;padding-top:14px">
+    <div style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">📦 Paket &amp; Langganan</div>
+    <div class="form-group"><label class="form-label">Nama Paket</label><input id="uf-paket-nama" class="form-input" type="text" placeholder="Misal: Professional" oninput="setDirty()"></div>
+    <div class="form-group">
+      <label class="form-label">Durasi Langganan</label>
+      <select id="uf-durasi" class="form-select" onchange="_onUfDurasiChange()">
+        <option value="">-- Tanpa Langganan --</option>
+        <option value="hari">1 Hari</option>
+        <option value="minggu">1 Minggu</option>
+        <option value="bulan">1 Bulan</option>
+        <option value="tahun">1 Tahun</option>
+        <option value="range">Rentang Tanggal (Custom)</option>
+      </select>
+    </div>
+    <div id="uf-langganan-range-wrap" class="form-row" style="display:none">
+      <div class="form-group"><label class="form-label">Langganan Mulai</label><input id="uf-langganan-mulai" class="form-input" type="date" oninput="setDirty()"></div>
+      <div class="form-group"><label class="form-label">Langganan Akhir</label><input id="uf-langganan-akhir" class="form-input" type="date" oninput="setDirty()"></div>
+    </div>
+    <div id="uf-durasi-preview" style="display:none;font-size:11.5px;color:var(--text-sub);margin-top:-6px"></div>
+  </div>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('user-form-overlay')">Batal</button><button class="btn btn-primary" onclick="submitUserForm()">Proses</button></div>
+</div></div>
+
+<!-- EDIT MASSAL (BULK) AKUN -->
+<div class="overlay" id="bulk-edit-overlay"><div class="modal"><div class="modal-header"><div class="modal-title" id="bue-title">Edit Massal</div><button class="modal-close" onclick="closeModal('bulk-edit-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<input type="hidden" id="bue-role" value="">
+<div id="bue-body">
+  <p style="font-size:12.5px;color:var(--text-sub);margin-bottom:14px">Centang field yang ingin diubah. Field yang tidak dicentang akan tetap seperti semula. Perubahan berlaku untuk <b id="bue-count">0</b> akun terpilih.</p>
+  <div class="form-group" id="bue-grub-wrap" style="display:none">
+    <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="bue-grub-on" onchange="_bueToggle('grub')" style="accent-color:var(--blue);width:16px;height:16px"> Ganti Grup</label>
+    <select id="bue-grub" class="form-select" disabled><option value="">-- Tanpa Grup --</option></select>
+  </div>
+  <div class="form-group" id="bue-status-wrap">
+    <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="bue-status-on" onchange="_bueToggle('status')" style="accent-color:var(--blue);width:16px;height:16px"> Aktivasi / Status Akun</label>
+    <select id="bue-status" class="form-select" disabled><option value="aktif">Aktif</option><option value="pending">Pending</option><option value="suspend">Suspend</option></select>
+  </div>
+  <div id="bue-paket-wrap" style="display:none;border-top:1.5px solid rgba(19,50,89,0.08);margin-top:14px;padding-top:14px">
+    <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px"><input type="checkbox" id="bue-paket-on" onchange="_bueToggle('paket')" style="accent-color:var(--blue);width:16px;height:16px"> 📦 Ganti Paket &amp; Langganan</label>
+    <div id="bue-paket-fields" style="opacity:.45;pointer-events:none">
+      <div class="form-group"><label class="form-label">Nama Paket</label><input id="bue-paket-nama" class="form-input" type="text" placeholder="Misal: Professional"></div>
+      <div class="form-group">
+        <label class="form-label">Durasi Langganan</label>
+        <select id="bue-durasi" class="form-select" onchange="_onBueDurasiChange()">
+          <option value="">-- Tanpa Langganan --</option>
+          <option value="hari">1 Hari</option>
+          <option value="minggu">1 Minggu</option>
+          <option value="bulan">1 Bulan</option>
+          <option value="tahun">1 Tahun</option>
+          <option value="range">Rentang Tanggal (Custom)</option>
+        </select>
+      </div>
+      <div id="bue-langganan-range-wrap" class="form-row" style="display:none">
+        <div class="form-group"><label class="form-label">Langganan Mulai</label><input id="bue-langganan-mulai" class="form-input" type="date"></div>
+        <div class="form-group"><label class="form-label">Langganan Akhir</label><input id="bue-langganan-akhir" class="form-input" type="date"></div>
+      </div>
+      <div id="bue-durasi-preview" style="display:none;font-size:11.5px;color:var(--text-sub);margin-top:-6px"></div>
+    </div>
+  </div>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('bulk-edit-overlay')">Batal</button><button class="btn btn-primary" onclick="submitBulkEditAkun()">Terapkan</button></div>
+</div></div>
+
+<!-- KELOLA GRUP USER -->
+<div class="overlay" id="user-grub-overlay"><div class="modal"><div class="modal-header"><div class="modal-title">Kelola Grup</div><button class="modal-close" onclick="closeModal('user-grub-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <input id="user-grub-new-input" class="form-input" type="text" placeholder="Nama grup baru" onkeydown="if(event.key==='Enter')addUserGrub()">
+    <button class="btn btn-primary" style="flex-shrink:0" onclick="addUserGrub()">Tambah</button>
+  </div>
+  <div id="user-grub-manage-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('user-grub-overlay')">Tutup</button></div>
+</div></div>
+
+<!-- SET KELOMPOK MASSAL (Library Soal — bulk select) -->
+<div class="overlay" id="bulk-kelompok-lib-overlay"><div class="modal modal-sm"><div class="modal-header"><div class="modal-title">Set Kelompok Massal</div><button class="modal-close" onclick="closeModal('bulk-kelompok-lib-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <p style="font-size:12.5px;color:var(--text-sub);margin-bottom:14px">Pindahkan <b id="bkl-count">0</b> soal terpilih ke kelompok berikut (menimpa kelompok lama masing-masing soal).</p>
+  <div class="form-group">
+    <label class="form-label">Kelompok Tujuan</label>
+    <select id="bkl-kelompok-select" class="form-input"><option value="">-- Tanpa Kelompok --</option></select>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('bulk-kelompok-lib-overlay')">Batal</button><button class="btn btn-primary" onclick="submitBulkSetKelompokLib()">Terapkan</button></div>
+</div></div>
+
+<!-- TOKEN QR -->
+<div class="overlay" id="token-qr-overlay"><div class="modal modal-sm" style="text-align:center"><div class="modal-header"><div class="modal-title">QR Code Token</div><button class="modal-close" onclick="closeModal('token-qr-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><canvas id="qr-canvas-popup" style="width:200px;height:200px;border-radius:12px;border:2px solid rgba(19,50,89,0.1);display:block;margin:0 auto 12px"></canvas><div id="qr-token-code" style="font-family:monospace;font-size:15px;font-weight:700;letter-spacing:0.08em;color:var(--blue);margin-bottom:4px"></div><div id="qr-modul-name" style="font-size:12px;color:var(--text-sub);margin-bottom:16px"></div><div style="display:flex;gap:10px;justify-content:center"><button class="btn btn-primary btn-sm" onclick="downloadTokenQR()">Download</button><button class="btn btn-secondary btn-sm" onclick="copyTokenCode()">Salin Kode</button></div></div></div>
+
+<!-- TOKEN COPY -->
+<div class="overlay" id="token-copy-overlay"><div class="modal modal-sm"><div class="modal-header"><div class="modal-title">Salin Token</div><button class="modal-close" onclick="closeModal('token-copy-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><div style="background:rgba(19,50,89,0.04);border-radius:12px;padding:14px;margin-bottom:16px"><div style="font-size:11px;color:var(--text-sub);margin-bottom:2px">Kode Token</div><div id="copy-token-kode" style="font-family:monospace;font-size:16px;font-weight:700;color:var(--blue);letter-spacing:0.08em"></div><div style="font-size:11px;color:var(--text-sub);margin-top:10px;margin-bottom:2px">Modul</div><div id="copy-token-modul" style="font-size:13px;font-weight:600;color:var(--blue)"></div><div style="font-size:11px;color:var(--text-sub);margin-top:10px;margin-bottom:2px">Waktu Aktif</div><div id="copy-token-waktu" style="font-size:12px;color:var(--blue)"></div></div><div style="display:flex;gap:10px"><button class="btn btn-secondary" style="flex:1" onclick="copyKodeSaja()">Salin Kode</button><button class="btn btn-primary" style="flex:1" onclick="copyList()">Salin Lengkap</button></div></div></div>
+
+<div class="overlay" id="token-used-data-overlay"><div class="modal modal-sm"><div class="modal-header"><div class="modal-title">Data Pemakaian Token</div><button class="modal-close" onclick="closeModal('token-used-data-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><div style="background:rgba(19,50,89,0.04);border-radius:12px;padding:14px"><div style="font-size:11px;color:var(--text-sub);margin-bottom:2px">Kode Token</div><div id="tud-kode" style="font-family:monospace;font-size:15px;font-weight:700;color:var(--blue);letter-spacing:0.08em;margin-bottom:10px"></div><div style="font-size:11px;color:var(--text-sub);margin-bottom:2px">Modul</div><div id="tud-modul" style="font-size:13px;font-weight:600;color:var(--blue);margin-bottom:10px"></div><div style="font-size:11px;color:var(--text-sub);margin-bottom:2px">Digunakan Oleh</div><div id="tud-user" style="font-size:13px;font-weight:600;color:var(--blue);margin-bottom:10px"></div><div style="font-size:11px;color:var(--text-sub);margin-bottom:2px">Waktu Pemakaian (Mulai s/d Selesai)</div><div id="tud-waktu" style="font-size:12px;color:var(--blue);margin-bottom:10px"></div><div style="font-size:11px;color:var(--text-sub);margin-bottom:2px">Nilai</div><div id="tud-skor" style="font-size:22px;font-weight:800;color:var(--blue)"></div></div><div style="display:flex;gap:10px;margin-top:16px"><button class="btn btn-primary" style="flex:1" onclick="_tudOpenReview()">Lihat Review</button><button class="btn btn-secondary" style="flex:1" onclick="closeModal('token-used-data-overlay')">Tutup</button></div></div></div>
+
+<!-- REVIEW LAPORAN -->
+<div class="overlay" id="review-laporan-overlay"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title">Review Hasil Ujian</div><button class="modal-close" onclick="closeModal('review-laporan-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><div id="review-laporan-body" style="max-height:60vh;overflow-y:auto"></div><div class="modal-footer" style="display:flex;gap:8px;flex-wrap:wrap;">
+  <button class="btn btn-primary" onclick="closeModal('review-laporan-overlay')" style="margin-left:auto">Tutup</button>
+</div></div></div>
+
+<!-- REVIEW USER LAPORAN -->
+<div class="overlay" id="review-user-laporan-overlay"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title" id="review-user-laporan-title">Laporan User</div><button class="modal-close" onclick="closeModal('review-user-laporan-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><div id="review-user-laporan-body" style="max-height:60vh;overflow-y:auto"></div><div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('review-user-laporan-overlay')">Tutup</button></div></div></div>
+
+<!-- MODUL FORM -->
+<div class="overlay" id="modul-form-overlay"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title" id="modul-form-title">Buat Modul</div><button class="modal-close" onclick="closeModal('modul-form-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><input type="hidden" id="modul-form-mode" value="add"><input type="hidden" id="modul-form-id" value=""><div class="form-row"><div class="form-group"><label class="form-label">Nama Modul</label><input id="modul-nama-input" class="form-input" type="text" placeholder="Nama paket ujian" oninput="setDirty('modul')"></div><div class="form-group"><label class="form-label">Nilai Minimum Lulus (%)</label><input id="modul-nilai-min-input" class="form-input" type="number" min="0" max="100" value="60" placeholder="60" oninput="setDirty('modul')"></div></div><div class="form-group"><label class="form-label">Kelompok <span style="font-weight:400;color:var(--text-sub)">(opsional)</span></label><select id="modul-kelompok-select" class="form-input" onchange="setDirty('modul')"><option value="">-- Tanpa Kelompok --</option></select></div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"><label class="form-label" style="margin-bottom:0">Pilih Soal & Urutan Tampil</label><span style="font-size:11px;color:var(--text-sub)">Seret <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11" style="vertical-align:middle"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> untuk mengatur urutan soal</span></div><div id="modul-soal-picker" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:8px"></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('modul-form-overlay')">Batal</button><button class="btn btn-primary" onclick="submitModulForm()">Simpan Modul</button></div></div></div>
+
+<!-- MODUL E-BOOK FORM (paket buku) -->
+<div class="overlay" id="ebook-modul-form-overlay"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title" id="ebook-modul-form-title">Buat Modul E-Book</div><button class="modal-close" onclick="closeModal('ebook-modul-form-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><input type="hidden" id="ebook-modul-form-mode" value="add"><input type="hidden" id="ebook-modul-form-id" value=""><div class="form-group"><label class="form-label">Nama Modul</label><input id="ebook-modul-nama-input" class="form-input" type="text" placeholder="Misal: Paket Akuntansi Dasar" oninput="setDirty('modul e-book')"></div><div class="form-group"><label class="form-label">Kelompok <span style="font-weight:400;color:var(--text-sub)">(opsional)</span></label><select id="ebook-modul-kelompok-select" class="form-input" onchange="setDirty('modul e-book')"><option value="">-- Tanpa Kelompok --</option></select></div><label class="form-label">Pilih Buku</label><div id="ebook-modul-picker" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-top:6px"></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('ebook-modul-form-overlay')">Batal</button><button class="btn btn-primary" onclick="submitEbookModulForm()">Simpan Modul</button></div></div></div>
+
+<!-- KELOLA KELOMPOK E-BOOK -->
+<div class="overlay" id="ebook-kelompok-overlay"><div class="modal"><div class="modal-header"><div class="modal-title">Kelola Kelompok E-Book</div><button class="modal-close" onclick="closeModal('ebook-kelompok-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <input id="ebook-kelompok-new-input" class="form-input" type="text" placeholder="Nama kelompok baru" onkeydown="if(event.key==='Enter')addEbookKelompok()">
+    <button class="btn btn-primary" style="flex-shrink:0" onclick="addEbookKelompok()">Tambah</button>
+  </div>
+  <div id="ebook-kelompok-manage-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('ebook-kelompok-overlay')">Tutup</button></div>
+</div></div>
+
+<!-- KELOLA KELOMPOK SOAL -->
+<div class="overlay" id="soal-kelompok-overlay"><div class="modal"><div class="modal-header"><div class="modal-title">Kelola Kelompok Soal</div><button class="modal-close" onclick="closeModal('soal-kelompok-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <input id="soal-kelompok-new-input" class="form-input" type="text" placeholder="Nama kelompok baru" onkeydown="if(event.key==='Enter')addSoalKelompok()">
+    <button class="btn btn-primary" style="flex-shrink:0" onclick="addSoalKelompok()">Tambah</button>
+  </div>
+  <div id="soal-kelompok-manage-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('soal-kelompok-overlay')">Tutup</button></div>
+</div></div>
+
+<!-- KELOLA KELOMPOK MODUL -->
+<div class="overlay" id="modul-kelompok-overlay"><div class="modal"><div class="modal-header"><div class="modal-title">Kelola Kelompok Modul</div><button class="modal-close" onclick="closeModal('modul-kelompok-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <input id="modul-kelompok-new-input" class="form-input" type="text" placeholder="Nama kelompok baru" onkeydown="if(event.key==='Enter')addModulKelompok()">
+    <button class="btn btn-primary" style="flex-shrink:0" onclick="addModulKelompok()">Tambah</button>
+  </div>
+  <div id="modul-kelompok-manage-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('modul-kelompok-overlay')">Tutup</button></div>
+</div></div>
+
+<!-- KELOLA KELOMPOK MODUL E-BOOK -->
+<div class="overlay" id="ebook-modul-kelompok-overlay"><div class="modal"><div class="modal-header"><div class="modal-title">Kelola Kelompok Modul E-Book</div><button class="modal-close" onclick="closeModal('ebook-modul-kelompok-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <input id="ebook-modul-kelompok-new-input" class="form-input" type="text" placeholder="Nama kelompok baru" onkeydown="if(event.key==='Enter')addEbookModulKelompok()">
+    <button class="btn btn-primary" style="flex-shrink:0" onclick="addEbookModulKelompok()">Tambah</button>
+  </div>
+  <div id="ebook-modul-kelompok-manage-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('ebook-modul-kelompok-overlay')">Tutup</button></div>
+</div></div>
+
+<!-- PREVIEW SOAL -->
+<div class="overlay" id="preview-soal-overlay"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title">Preview Soal</div><button class="modal-close" onclick="closeModal('preview-soal-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><div id="preview-soal-body" style="max-height:60vh;overflow-y:auto"></div><div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('preview-soal-overlay')">Tutup</button></div></div></div>
+
+<!-- EDIT INFO SOAL (nama, waktu, tipe) -->
+<div class="overlay" id="edit-soal-info-overlay"><div class="modal modal-sm">
+  <div class="modal-header">
+    <div class="modal-title">Edit Info Soal</div>
+    <button class="modal-close" onclick="closeModal('edit-soal-info-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Nama Soal</label>
+    <input id="esi-nama" class="form-input" type="text" placeholder="Contoh: Tes Pengetahuan Umum">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Kelompok <span style="font-weight:400;color:var(--text-sub)">(opsional)</span></label>
+    <select id="esi-kelompok-select" class="form-input"><option value="">-- Tanpa Kelompok --</option></select>
+  </div>
+  <div class="form-group" id="esi-type-wrap">
+    <label class="form-label">Tipe Soal</label>
+    <select id="esi-type" class="form-select">
+      <option value="multiple_choice">Multiple Choice</option>
+      <option value="linier">Linier (tidak bisa kembali)</option>
+    </select>
+    <div style="font-size:11px;color:var(--text-sub);margin-top:4px">Tipe hanya bisa ditukar antar Multiple Choice ↔ Linier</div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Timer Pengerjaan</label>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div style="text-align:center;flex:1"><input id="esi-jam" class="form-input" type="number" value="0" min="0" max="23" style="text-align:center"><div style="font-size:10px;color:var(--text-sub);margin-top:3px;font-weight:600">JAM</div></div>
+      <span style="color:var(--text-sub);font-weight:700;font-size:18px;margin-bottom:18px">:</span>
+      <div style="text-align:center;flex:1"><input id="esi-menit" class="form-input" type="number" value="0" min="0" max="59" style="text-align:center"><div style="font-size:10px;color:var(--text-sub);margin-top:3px;font-weight:600">MENIT</div></div>
+      <span style="color:var(--text-sub);font-weight:700;font-size:18px;margin-bottom:18px">:</span>
+      <div style="text-align:center;flex:1"><input id="esi-detik" class="form-input" type="number" value="0" min="0" max="59" style="text-align:center"><div style="font-size:10px;color:var(--text-sub);margin-top:3px;font-weight:600">DETIK</div></div>
+    </div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('edit-soal-info-overlay')">Batal</button><button class="btn btn-primary" onclick="saveSoalInfo()">Simpan</button></div>
+</div></div>
+
+<!-- ITEM EDITOR (Sikap Kerja) -->
+<div class="overlay" id="item-editor-overlay"><div class="modal modal-sm"><div class="modal-header"><div class="modal-title" id="ie-label">Edit Item</div><button class="modal-close" onclick="closeItemEditor()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<div style="text-align:center;margin-bottom:16px">
+  <div id="ie-preview" style="width:80px;height:80px;border-radius:14px;background:rgba(19,50,89,0.06);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:32px;border:2px dashed rgba(19,50,89,0.15)">?</div>
+  <div style="font-size:11px;color:var(--text-sub)">Preview item</div>
+</div>
+<div class="form-group"><label class="form-label">Teks / Simbol / Angka / Emoji</label><input id="ie-teks" class="form-input" type="text" placeholder="Contoh: 9, ✓, →, ABC" oninput="applyItemTeks()"></div>
+<div style="text-align:center;margin:12px 0"><span style="font-size:12px;color:var(--text-sub)">— atau —</span></div>
+<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+  <button class="btn btn-secondary" onclick="triggerItemImage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Upload Gambar</button>
+  <button class="btn btn-secondary" onclick="clearItemVal()">Hapus</button>
+</div>
+<input type="file" id="ie-img-input" accept="image/*" style="display:none" onchange="onItemImageSelected(this)">
+</div></div>
+
+<!-- TEMPLATE SOAL (Unduh Template untuk Upload Soal) -->
+<div class="overlay" id="template-soal-overlay"><div class="modal modal-sm">
+  <div class="modal-header">
+    <div class="modal-title">Unduh Template Soal</div>
+    <button class="modal-close" onclick="closeModal('template-soal-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="section-sub" style="margin-top:-4px">Pilih tipe soal & sistem penilaian, lalu isi template dan upload kembali lewat tombol "Upload Soal".</div>
+  <div class="form-group">
+    <label class="form-label">Tipe Soal</label>
+    <select id="tpl-type" class="form-select" onchange="onTplTypeChange()">
+      <option value="multiple_choice">Multiple Choice</option>
+      <option value="linier">Linier (tidak bisa kembali)</option>
+      <option value="sikap_kerja">Sikap Kerja</option>
+    </select>
+  </div>
+  <div id="tpl-skor-wrap">
+    <div class="form-group">
+      <label class="form-label">Sistem Penilaian</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <label style="flex:1;min-width:130px;display:flex;align-items:flex-start;gap:8px;padding:12px;border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;cursor:pointer;background:rgba(255,255,255,0.6)">
+          <input type="radio" name="tpl_skor_type" value="benar_salah" checked style="margin-top:2px;accent-color:var(--blue)">
+          <div><div style="font-weight:700;font-size:13px">Benar / Salah</div><div style="font-size:11px;color:var(--text-sub)">Ada kunci jawaban</div></div>
+        </label>
+        <label style="flex:1;min-width:130px;display:flex;align-items:flex-start;gap:8px;padding:12px;border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;cursor:pointer;background:rgba(255,255,255,0.6)">
+          <input type="radio" name="tpl_skor_type" value="nilai_sendiri" style="margin-top:2px;accent-color:var(--blue)">
+          <div><div style="font-weight:700;font-size:13px">Nilai per Jawaban</div><div style="font-size:11px;color:var(--text-sub)">Tiap pilihan punya skor</div></div>
+        </label>
+      </div>
+    </div>
+  </div>
+  <div class="form-group" id="tpl-jumlah-wrap">
+    <label class="form-label">Jumlah Baris Soal di Template</label>
+    <input id="tpl-jumlah" class="form-input" type="number" value="10" min="1" max="200" style="max-width:120px">
+  </div>
+  <button class="btn btn-primary" style="width:100%;padding:12px" onclick="downloadSoalTemplate()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Download Template Excel
+  </button>
+</div></div>
+
+<!-- Tambahkan ini di index_admin.html sebelum tag <div class="toast" id="toast"> -->
+<div class="overlay" id="download-overlay">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Pilih Format Unduhan</div>
+      <button class="modal-close" onclick="closeModal('download-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:15px">
+        <button class="btn btn-primary" onclick="doDownloadAdmin('all','word')">Semua (Word)</button>
+        <button class="btn btn-secondary" onclick="doDownloadAdmin('all','excel')" style="border-color:rgba(22,163,74,0.3);color:var(--success)">Semua (Excel)</button>
+      </div>
+      <div id="dl-per-soal-list" style="max-height:250px; overflow-y:auto; border-top:1px solid #eee; padding-top:12px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- PAKET FORM MODAL -->
+<div class="overlay" id="paket-form-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="paket-form-title">Tambah Paket</div>
+      <button class="modal-close" onclick="closeModal('paket-form-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <input type="hidden" id="pf-id">
+    <div id="pf-body">
+
+      <!-- ── LINK KE PAKET LANDING PAGE ── -->
+      <div class="form-group" style="background:rgba(26,90,160,0.05);border:1.5px solid rgba(26,90,160,0.15);border-radius:12px;padding:12px 14px;margin-bottom:4px">
+        <label class="form-label" style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="font-size:14px">🔗</span> Gabungkan dengan Paket Landing Page
+          <span style="font-size:10px;color:var(--text-sub);font-weight:400;margin-left:4px">(opsional)</span>
+        </label>
+        <select id="pf-link-landing" class="form-select" oninput="setDirty('paket')">
+          <option value="">-- Tidak dihubungkan / berdiri sendiri --</option>
+        </select>
+        <div style="font-size:10px;color:var(--text-sub);margin-top:5px;line-height:1.5">Pilih paket landing page yang akan dihubungkan. Data harga & nama paket ini akan terbaca oleh sistem pembayaran saat user memilih paket tersebut di landing page.</div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Nama Paket</label><input id="pf-nama" class="form-input" type="text" placeholder="Misal: Paket Starter" oninput="setDirty('paket')"></div>
+        <div class="form-group"><label class="form-label">Ikon (emoji)</label><input id="pf-icon" class="form-input" type="text" placeholder="📦" style="font-size:1.4rem;text-align:center" maxlength="4"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Harga (Rp)</label><input id="pf-harga" class="form-input" type="number" placeholder="299000" oninput="setDirty('paket')"></div>
+        <div class="form-group"><label class="form-label">Durasi / Periode</label>
+          <select id="pf-periode" class="form-select" onchange="(function(v){var c=document.getElementById('pf-periode-custom');if(c)c.style.display=v==='custom'?'block':'none'})(this.value)">
+            <option value="/bulan">Per Bulan</option>
+            <option value="/tahun">Per Tahun</option>
+            <option value="/hari">Per Hari</option>
+            <option value="sekali bayar">Sekali Bayar (lifetime)</option>
+            <option value="custom">Custom (isi sendiri)...</option>
+          </select>
+          <input id="pf-periode-custom" class="form-input" type="text" placeholder="Contoh: /3 bulan, /minggu, /semester..." style="margin-top:6px;display:none" oninput="setDirty('paket')">
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Deskripsi Singkat</label><input id="pf-desc" class="form-input" type="text" placeholder="Cocok untuk pemula" oninput="setDirty('paket')"></div>
+      <div class="form-group">
+        <label class="form-label">Fitur (satu per baris)</label>
+        <textarea id="pf-fitur" class="form-input" style="min-height:100px;resize:vertical;line-height:1.6" placeholder="Akses 10 modul&#10;Sertifikat digital&#10;Support 7x24" oninput="setDirty('paket')"></textarea>
+      </div>
+      <div class="form-group"><label class="form-label">Warna Aksen</label>
+        <select id="pf-warna" class="form-select">
+          <option value="blue">Biru (Default)</option>
+          <option value="gold">Emas (Premium)</option>
+          <option value="green">Hijau</option>
+          <option value="purple">Ungu</option>
+        </select>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:12px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--blue)">
+          <input type="checkbox" id="pf-popular" style="width:18px;height:18px;accent-color:var(--blue)"> Tandai sebagai Paling Populer
+        </label>
+      </div>
+
+      <!-- ══ HAK AKSES PAKET ══ -->
+      <div style="border-top:1.5px solid rgba(19,50,89,0.08);margin-top:16px;padding-top:16px">
+        <div style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+          🔐 Hak Akses Paket
+        </div>
+        <div style="font-size:11px;color:var(--text-sub);margin-bottom:12px;line-height:1.5">Menu & fitur yang dapat diakses user dengan paket ini. Kosongkan dulu — akan dihubungkan dengan item menu akun user nantinya.</div>
+
+        <!-- Menu Utama -->
+        <div style="font-size:10px;font-weight:700;color:var(--blue);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;opacity:.7">Menu Utama</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px" id="pf-hak-akses-checks">
+
+          <!-- Ujian -->
+          <div style="border:1.5px solid rgba(19,50,89,0.1);border-radius:10px;overflow:hidden;background:#fff">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;padding:9px 12px;color:var(--blue)" onclick="toggleHakSubMenu(this)">
+              <input type="checkbox" name="pf-hak" value="ujian" style="accent-color:var(--blue)"> 📝 Ujian Online
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="margin-left:auto;opacity:.4;transition:transform .2s" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+            </label>
+            <div class="hak-sub" style="display:none;padding:0 12px 10px 34px;border-top:1px solid rgba(19,50,89,0.06)">
+              <div style="font-size:10px;color:var(--text-sub);margin:6px 0 4px">Aturan akses menu Ujian:</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="ujian.mulai" style="accent-color:var(--blue)"> Bisa mulai ujian baru</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="ujian.history" style="accent-color:var(--blue)"> Lihat riwayat ujian</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="ujian.ulang" style="accent-color:var(--blue)"> Boleh ujian ulang</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="ujian.review_jawaban" style="accent-color:var(--blue)"> Lihat review jawaban setelah ujian</label>
+            </div>
+          </div>
+
+          <!-- Modul / Materi -->
+          <div style="border:1.5px solid rgba(19,50,89,0.1);border-radius:10px;overflow:hidden;background:#fff">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;padding:9px 12px;color:var(--blue)" onclick="toggleHakSubMenu(this)">
+              <input type="checkbox" name="pf-hak" value="modul" style="accent-color:var(--blue)"> 📚 Modul / Materi
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="margin-left:auto;opacity:.4;transition:transform .2s" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+            </label>
+            <div class="hak-sub" style="display:none;padding:0 12px 10px 34px;border-top:1px solid rgba(19,50,89,0.06)">
+              <div style="font-size:10px;color:var(--text-sub);margin:6px 0 4px">Aturan akses menu Modul:</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="modul.baca" style="accent-color:var(--blue)"> Baca/akses konten modul</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="modul.download" style="accent-color:var(--blue)"> Download materi (PDF/file)</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="modul.semua" style="accent-color:var(--blue)"> Akses semua modul (tidak dibatasi)</label>
+            </div>
+          </div>
+
+          <!-- Laporan -->
+          <div style="border:1.5px solid rgba(19,50,89,0.1);border-radius:10px;overflow:hidden;background:#fff">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;padding:9px 12px;color:var(--blue)" onclick="toggleHakSubMenu(this)">
+              <input type="checkbox" name="pf-hak" value="laporan" style="accent-color:var(--blue)"> 📊 Laporan & Statistik
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="margin-left:auto;opacity:.4;transition:transform .2s" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+            </label>
+            <div class="hak-sub" style="display:none;padding:0 12px 10px 34px;border-top:1px solid rgba(19,50,89,0.06)">
+              <div style="font-size:10px;color:var(--text-sub);margin:6px 0 4px">Aturan akses menu Laporan:</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="laporan.lihat" style="accent-color:var(--blue)"> Lihat laporan hasil ujian</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="laporan.download" style="accent-color:var(--blue)"> Download laporan (Word/Excel)</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="laporan.grafik" style="accent-color:var(--blue)"> Lihat grafik & statistik detail</label>
+            </div>
+          </div>
+
+          <!-- Sertifikat -->
+          <div style="border:1.5px solid rgba(19,50,89,0.1);border-radius:10px;overflow:hidden;background:#fff">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;padding:9px 12px;color:var(--blue)" onclick="toggleHakSubMenu(this)">
+              <input type="checkbox" name="pf-hak" value="sertifikat" style="accent-color:var(--blue)"> 🏆 Sertifikat Digital
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="margin-left:auto;opacity:.4;transition:transform .2s" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+            </label>
+            <div class="hak-sub" style="display:none;padding:0 12px 10px 34px;border-top:1px solid rgba(19,50,89,0.06)">
+              <div style="font-size:10px;color:var(--text-sub);margin:6px 0 4px">Aturan akses menu Sertifikat:</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="sertifikat.cetak" style="accent-color:var(--blue)"> Cetak/download sertifikat lulus</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="sertifikat.share" style="accent-color:var(--blue)"> Bagikan sertifikat ke LinkedIn/medsos</label>
+            </div>
+          </div>
+
+          <!-- Mentoring -->
+          <div style="border:1.5px solid rgba(19,50,89,0.1);border-radius:10px;overflow:hidden;background:#fff">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;padding:9px 12px;color:var(--blue)" onclick="toggleHakSubMenu(this)">
+              <input type="checkbox" name="pf-hak" value="mentoring" style="accent-color:var(--blue)"> 💬 Mentoring & Konsultasi
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="margin-left:auto;opacity:.4;transition:transform .2s" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+            </label>
+            <div class="hak-sub" style="display:none;padding:0 12px 10px 34px;border-top:1px solid rgba(19,50,89,0.06)">
+              <div style="font-size:10px;color:var(--text-sub);margin:6px 0 4px">Aturan akses menu Mentoring:</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="mentoring.chat" style="accent-color:var(--blue)"> Chat dengan instruktur</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="mentoring.jadwal" style="accent-color:var(--blue)"> Booking sesi 1-on-1</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="mentoring.prioritas" style="accent-color:var(--blue)"> Prioritas antrian support</label>
+            </div>
+          </div>
+
+          <!-- Library -->
+          <div style="border:1.5px solid rgba(19,50,89,0.1);border-radius:10px;overflow:hidden;background:#fff">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;padding:9px 12px;color:var(--blue)" onclick="toggleHakSubMenu(this)">
+              <input type="checkbox" name="pf-hak" value="library" style="accent-color:var(--blue)"> 🗂️ Library Soal
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="margin-left:auto;opacity:.4;transition:transform .2s" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+            </label>
+            <div class="hak-sub" style="display:none;padding:0 12px 10px 34px;border-top:1px solid rgba(19,50,89,0.06)">
+              <div style="font-size:10px;color:var(--text-sub);margin:6px 0 4px">Aturan akses menu Library:</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="library.baca" style="accent-color:var(--blue)"> Akses bank soal latihan</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="library.download" style="accent-color:var(--blue)"> Download kumpulan soal</label>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Batas & Aturan Teknis -->
+        <div style="font-size:10px;font-weight:700;color:var(--blue);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;opacity:.7">Batas & Aturan Teknis</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Maks. Ujian <span style="font-weight:400;color:var(--text-sub)">(kosong = ∞)</span></label>
+            <input id="pf-maks-ujian" class="form-input" type="number" min="0" placeholder="Contoh: 5" oninput="setDirty('paket')">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Durasi Akses (hari) <span style="font-weight:400;color:var(--text-sub)">(kosong = ikut periode)</span></label>
+            <input id="pf-durasi-hari" class="form-input" type="number" min="1" placeholder="Contoh: 30" oninput="setDirty('paket')">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Catatan Internal Hak Akses</label>
+          <input id="pf-hak-notes" class="form-input" type="text" placeholder="Misal: Full access semua fitur, kecuali mentoring" oninput="setDirty('paket')">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('paket-form-overlay')">Batal</button>
+      <button class="btn btn-primary" onclick="submitPaket()">Simpan Paket</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Dipakai untuk bundling Export Massal soal (beberapa file .xlsx jadi 1 file .zip) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<!-- QR generator (dihosting lokal) — dipakai buat bikin QR Code token yang beneran bisa dipindai -->
+<script src="js/qrcode-gen.js"></script>
+<script src="js/api.js"></script>
+<script src="js/swipe.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/app.js"></script>
+<script src="js/akun.js"></script>
+<script src="js/token.js"></script>
+<script src="js/soal.js"></script>
+<script src="js/pages.js"></script>
+<script src="js/ebook.js"></script>
+<script>
+/* ══════════════════════════════════════════════════
+   ADMIN — Enhanced Download Functions (Word + Excel)
+   Sinkronisasi dengan logika index_review.html
+══════════════════════════════════════════════════ */
+
+function adminHitungSkor(soalList, jawabanUser) {
+  let perSoal = {};
+  let skData   = {};
+
+  (soalList || []).forEach(s => {
+      const kode = s.kode || s.id || s.nama;
+      if (!perSoal[kode]) perSoal[kode] = { nama: s.nama, type: s.type, skor_type: s.skor_type || 'benar_salah', benar: 0, total: 0, nilaiDapat: 0, nilaiMaks: 0, dijawab: 0 };
+      const data_soal = typeof s.data === 'string' ? JSON.parse(s.data) : (s.data || []);
+
+      if (s.type === 'sikap_kerja') {
+          if (!skData[kode]) {
+              skData[kode] = { nama: s.nama, kolom: [] };
+              data_soal.forEach((kol, ki) => {
+                  const stk = kode + '_' + ki;
+                  let b = 0, sl = 0, dij = 0;
+                  (kol.soal || []).forEach((_q, qi) => {
+                      const ans = jawabanUser[stk + '_' + qi];
+                      if (ans) { dij++; const k = _q.kunci_huruf || _q.kunci; if (ans === k) b++; else sl++; }
+                  });
+                  skData[kode].kolom.push({ total: dij, benar: b, salah: sl, totalSoal: (kol.soal || []).length });
+              });
+              perSoal[kode].benar = skData[kode].kolom.reduce((a, c) => a + c.benar, 0);
+              perSoal[kode].total = skData[kode].kolom.reduce((a, c) => a + c.totalSoal, 0);
+          }
+      } else {
+          const opsi = s.opsi_jawaban || 1;
+          
+          // Kumpulkan jawaban untuk bypass fitur acak soal
+          let allUserAns = [];
+          Object.keys(jawabanUser).forEach(key => {
+              if (key.startsWith(kode + '_')) {
+                  let ans = jawabanUser[key];
+                  if (Array.isArray(ans)) allUserAns.push(...ans);
+                  else if (ans != null) allUserAns.push(ans);
+              }
+          });
+
+          data_soal.forEach((q, qi) => {
+              let ans = null;
+              const jawaban = q.jawaban || [];
+              
+              if (jawabanUser[q.id]) {
+                  ans = jawabanUser[q.id];
+              } else {
+                  let matchedAns = allUserAns.filter(ansId => jawaban.some(j => (j.id != null ? String(j.id) : null) === String(ansId)));
+                  if (matchedAns.length > 0) {
+                      ans = matchedAns.length === 1 ? matchedAns[0] : matchedAns;
+                  } else {
+                      ans = jawabanUser[kode + '_' + qi];
+                  }
+              }
+
+              perSoal[kode].total++;
+
+              if (s.skor_type === 'nilai_sendiri') {
+                  const maks = [...jawaban].map(j => parseFloat(j.nilai) || 0).sort((a,b) => b-a).slice(0, opsi).reduce((a,v) => a+v, 0);
+                  perSoal[kode].nilaiMaks += maks;
+                  
+                  if (ans) {
+                      perSoal[kode].dijawab++;
+                      const ids = Array.isArray(ans) ? ans : [ans];
+                      const dapat = ids.reduce((s2, pid) => { 
+                          const j = jawaban.find((jj, idx) => (jj.id != null ? String(jj.id) : String(idx)) === String(pid));
+                          return s2 + (parseFloat(j?.nilai) || 0); 
+                      }, 0);
+                      perSoal[kode].nilaiDapat += dapat;
+                      if (dapat > 0) perSoal[kode].benar++;
+                  }
+              } else {
+                  const kunci = q.kunci || [];
+                  if (ans) {
+                      perSoal[kode].dijawab++;
+                      const a = Array.isArray(ans) ? ans : [ans];
+                      const benar = Array.isArray(kunci) ? (kunci.every(k => a.includes(String(k))) && a.length === kunci.length) : a.includes(String(kunci));
+                      if (benar) perSoal[kode].benar++;
+                  }
+              }
+          });
+      }
+  });
+
+  return {
+    perSoal: Object.entries(perSoal).map(([k, v]) => {
+      let sk = v.skor_type === 'nilai_sendiri'
+          ? (v.nilaiMaks > 0 ? Math.round(v.nilaiDapat / v.nilaiMaks * 100) : 0)
+          : (v.total > 0 ? Math.round(v.benar / v.total * 100) : 0);
+      return { ...v, soalKode: k, skor: sk };
+    }),
+    skData
+  };
+}
+
+function adminFixImgPaths(htmlStr) {
+  if (!htmlStr) return '';
+  const div = document.createElement('div');
+  div.innerHTML = htmlStr;
+  div.querySelectorAll('img').forEach(img => {
+    const src = img.getAttribute('src');
+    if (src && !src.startsWith('http') && !src.startsWith('data:')) {
+      try { img.src = new URL(src, window.location.href).href; } catch(e) {}
+    }
+  });
+  return div.innerHTML;
+}
+
+function adminCreateChartImage(details) {
+  const canvas = document.createElement('canvas');
+  const W = 600, H = 250; 
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,W,H);
+  const pad = {t:30, r:20, b:50, l:40};
+  const pw = W-pad.l-pad.r, ph = H-pad.t-pad.b;
+  const n = details.length;
+  
+  const allV = details.flatMap(k => [k.total || 0, k.benar || 0, k.salah || 0]);
+  const maxV = Math.max(...allV, 1);
+  const stepX = pw/(n-1||1);
+
+  ctx.strokeStyle='rgba(19,50,89,0.06)'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y = pad.t+ph-(i/4)*ph;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+pw,y); ctx.stroke();
+    ctx.fillStyle='rgba(19,50,89,0.5)'; ctx.font='10px Arial'; ctx.textAlign='right';
+    ctx.fillText(Math.round(maxV*i/4), pad.l-8, y+3);
+  }
+
+  [['total','#1a5aa0'],['benar','#16a34a'],['salah','#dc2626']].forEach(([k,c])=>{
+    ctx.beginPath(); ctx.strokeStyle=c; ctx.lineWidth=2; ctx.lineJoin='round';
+    details.forEach((kl,i)=>{
+      const val = kl[k] || 0; 
+      const x = pad.l+i*stepX, y = pad.t+ph-(val/maxV)*ph;
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    
+    details.forEach((kl,i)=>{
+      const val = kl[k] || 0;
+      const x = pad.l+i*stepX, y = pad.t+ph-(val/maxV)*ph;
+      ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fillStyle=c; ctx.fill();
+    });
+  });
+
+  ctx.textAlign='center';
+  details.forEach((k,i)=>{
+    const x = pad.l+i*stepX;
+    ctx.fillStyle='#1e293b'; ctx.font='bold 11px Arial';
+    ctx.fillText(`K${i+1}`, x, H-30);
+    
+    const dijawab = (k.benar || 0) + (k.salah || 0);
+    const acc = dijawab > 0 ? Math.round(((k.benar||0)/dijawab)*100) : 0;
+    
+    ctx.fillStyle='#16a34a'; ctx.font='bold 10px Arial';
+    ctx.fillText(`${acc}%`, x, H-15);
+  });
+
+  let lx = pad.l;
+  [['Dijawab','#1a5aa0'],['Benar','#16a34a'],['Salah','#dc2626']].forEach(([lb,c])=>{
+    ctx.fillStyle=c; ctx.fillRect(lx, 10, 14, 3);
+    ctx.fillStyle='rgba(19,50,89,0.6)'; ctx.font='10px Arial'; ctx.textAlign='left';
+    ctx.fillText(lb, lx+18, 14);
+    lx += 70;
+  });
+
+  return canvas.toDataURL('image/png');
+}
+
+function adminDoDownloadExcel(lap, soalTampil, jawaban) {
+  if (typeof XLSX === 'undefined') { if(typeof showToast==='function') showToast('Library XLSX tidak termuat', 'danger'); return; }
+  const soalAll = lap.soal_detail || [];
+  const { perSoal: psArr, skData } = adminHitungSkor(soalAll, jawaban);
+  const cleanT = t => t ? t.replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').trim() : '';
+
+  const totalB = psArr.reduce((a,s)=>a+s.benar,0);
+  const totalS = psArr.reduce((a,s)=>a+(s.dijawab-s.benar),0);
+  const totalT = psArr.reduce((a,s)=>a+s.total,0);
+  const skorAkhir = Math.round(lap.skor||0) || (totalT ? Math.round(totalB/totalT*100) : 0);
+
+  const wb = XLSX.utils.book_new();
+
+  // Sheet Ringkasan
+  const summaryRows = [
+    ['LAPORAN HASIL UJIAN'],
+    ['Peserta', lap.user_nama || lap.user_kode || '-'],
+    ['Modul', lap.modul_nama || lap.modul_kode || '-'],
+    ['Tanggal', typeof formatDateTime === 'function' ? formatDateTime(lap.tgl_selesai || lap.created_at) : (lap.tgl_selesai || lap.created_at)],
+    ['Token', lap.token_kode || '-'],
+    ['Waktu Pengerjaan', lap.waktu_pengerjaan || '-'],
+    ['Skor Akhir', skorAkhir],
+    [],
+    ['Ringkasan Per Soal'],
+    ['No', 'Nama Soal', 'Tipe', 'Benar', 'Salah', 'Kosong', 'Total', 'Skor (%)']
+  ];
+  psArr.forEach((s, i) => {
+    const salah = s.dijawab - s.benar;
+    const kosong = s.total - s.dijawab;
+    summaryRows.push([i+1, s.nama, s.type, s.benar, salah, kosong, s.total, s.skor]);
+  });
+  summaryRows.push([]);
+  summaryRows.push(['TOTAL','','',totalB,totalS,totalT-totalB-totalS,totalT,skorAkhir]);
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+  wsSummary['!cols'] = [{wch:5},{wch:30},{wch:15},{wch:8},{wch:8},{wch:8},{wch:8},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan');
+
+  // Sheet Detail per Soal
+  soalTampil.forEach((soal, idx) => {
+    const rawData = typeof soal.data === 'string' ? JSON.parse(soal.data) : (soal.data || []);
+    const sheetName = (soal.nama || ('Soal'+(idx+1))).substring(0, 31);
+    const rows = [
+      [`DETAIL: ${soal.nama}`],
+      ['Tipe', soal.type],
+      []
+    ];
+
+    if (soal.type === 'sikap_kerja') {
+      rows.push(['Kolom', 'No', 'Jawaban User', 'Kunci', 'Status']);
+      (rawData||[]).forEach((kolom, ki) => {
+        (kolom.soal||[]).forEach((q, qi) => {
+          const userAns = jawaban[`${soal.kode}_${ki}_${qi}`];
+          const kunci = q.kunci_huruf || q.kunci || '-';
+          rows.push([`Kolom ${ki+1}`, qi+1, userAns||'-', kunci, userAns?(userAns===kunci?'BENAR':'SALAH'):'Tidak dijawab']);
+        });
+      });
+    } else {
+      rows.push(['No', 'Pertanyaan', 'Jawaban User (ID)', 'Jawaban User (Huruf)', 'Kunci (Huruf)', 'Status', 'Pembahasan']);
+      (rawData||[]).forEach((q, qi) => {
+        const jArr = q.jawaban || [];
+        const kunci = q.kunci || [];
+        const kunciArr = Array.isArray(kunci) ? kunci.map(String) : [String(kunci??'')];
+
+        let ua = jawaban[`${soal.kode}_${qi}`];
+        if (ua == null && q.id != null) ua = jawaban[String(q.id)];
+
+        const uaId = ua != null ? (Array.isArray(ua) ? ua[0] : String(ua)) : null;
+        const isBenar = uaId != null && kunciArr.includes(uaId);
+
+        const idToHuruf = id => { const i = jArr.findIndex(j => (j.id != null ? String(j.id) : null) === String(id)); return i >= 0 ? String.fromCharCode(65+i) : String(id); };
+        const uaHuruf = uaId != null ? idToHuruf(uaId) : '-';
+        const kunciHuruf = kunciArr.map(k => { const i = jArr.findIndex(j => (j.id != null ? String(j.id) : null) === String(k)); return i >= 0 ? String.fromCharCode(65+i) : k; }).join(',');
+
+        rows.push([
+          qi+1,
+          cleanT(q.soal||'').substring(0,150),
+          uaId ?? '-',
+          uaHuruf,
+          kunciHuruf,
+          uaId != null ? (isBenar ? 'BENAR' : 'SALAH') : 'Tidak dijawab',
+          cleanT(q.pembahasan||'').substring(0,200)
+        ]);
+      });
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:5},{wch:8},{wch:40},{wch:15},{wch:15},{wch:12},{wch:15},{wch:35}];
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g,'-');
+  XLSX.writeFile(wb, `Laporan_${lap.user_nama||lap.user_kode||'Peserta'}_${lap.modul_nama||'Ujian'}_${tgl}.xlsx`);
+  if(typeof showToast === 'function') showToast('File Excel berhasil diunduh', 'success');
+}
+
+function adminDoDownloadWord(lap, soalTampil, jawaban) {
+  const soalAll = lap.soal_detail || [];
+  const { perSoal: psArr, skData } = adminHitungSkor(soalAll, jawaban);
+  const mcArr = psArr.filter(s => s.type !== 'sikap_kerja');
+  const totalB = mcArr.reduce((a,s)=>a+s.benar,0);
+  const totalS = mcArr.reduce((a,s)=>a+(s.dijawab-s.benar),0);
+  const totalT = mcArr.reduce((a,s)=>a+s.total,0);
+  const tidakDijawab = totalT - mcArr.reduce((a,s)=>a+s.dijawab,0);
+  const skorAkhir = Math.round(lap.skor||0) || (totalT ? Math.round(totalB/totalT*100) : 0);
+  const fmtDT = typeof formatDateTime === 'function' ? formatDateTime : (s => s ? new Date(s).toLocaleString('id-ID') : '-');
+
+  let html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+<title>Laporan Ujian — ${lap.modul_nama||lap.modul_kode}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f5f7fa;color:#1a2a3a;padding:24px;}
+  .page-wrap{max-width:860px;margin:0 auto;}
+  h1{font-size:22px;font-weight:800;color:#133259;margin-bottom:4px;}
+  .sub{font-size:13px;color:#5a7a9a;margin-bottom:20px;}
+  .skor-big{font-size:60px;font-weight:800;color:#133259;text-align:center;line-height:1;margin:16px 0 4px;}
+  .skor-lbl{text-align:center;font-size:12px;color:#5a7a9a;margin-bottom:20px;}
+  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;}
+  .stat-box{background:#fff;border-radius:10px;padding:12px;text-align:center;border:1px solid #e0e8f0;}
+  .stat-val{font-size:22px;font-weight:800;color:#133259;}
+  .stat-lbl{font-size:11px;color:#5a7a9a;}
+  .sec-ttl{font-size:14px;font-weight:800;color:#133259;margin:16px 0 8px;padding-bottom:5px;border-bottom:2px solid #e0e8f0;}
+  .soal-block{background:#fff;border:1px solid #e0e8f0;border-radius:12px;padding:16px;margin-bottom:12px;page-break-inside:avoid;}
+  .soal-hdr{font-size:12px;font-weight:700;color:#133259;margin-bottom:8px;}
+  .q-teks{font-size:14px;line-height:1.7;color:#1a2a3a;margin-bottom:10px;}
+  .opt{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:8px;border:1.5px solid #e0e8f0;background:#fafbfc;margin-bottom:5px;font-size:13px;}
+  .opt.benar{border-color:#16a34a;background:rgba(22,163,74,0.07);}
+  .opt.salah{border-color:#dc2626;background:rgba(220,38,38,0.06);}
+  .opt.kunci-saja{border-color:#d97706;background:rgba(217,119,6,0.07);}
+  .opt.dijawab{border-color:#1a5aa0;background:rgba(26,90,160,0.07);}
+  .opt-letter{width:24px;height:24px;border-radius:6px;background:#e8eef6;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0;}
+  .opt.benar .opt-letter{background:#16a34a;color:#fff;}
+  .opt.salah .opt-letter{background:#dc2626;color:#fff;}
+  .opt.kunci-saja .opt-letter{background:#d97706;color:#fff;}
+  .opt.dijawab .opt-letter{background:#1a5aa0;color:#fff;}
+  .badge-poin{float:right;font-size:10px;font-weight:700;color:#1a5aa0;background:rgba(26,90,160,0.15);padding:2px 6px;border-radius:4px;}
+  .pembahasan{background:rgba(26,90,160,0.06);border:1px solid rgba(26,90,160,0.15);border-radius:8px;padding:10px;margin-top:8px;font-size:12px;color:#1a5aa0;}
+  .pembahasan strong{font-size:11px;text-transform:uppercase;letter-spacing:0.05em;}
+  .sk-block{background:#fff;border:1px solid #e0e8f0;border-radius:12px;padding:14px;margin-bottom:10px;page-break-inside:avoid;}
+  .sk-items-row{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:6px;}
+  .sk-item{border:1px solid #e0e8f0;border-radius:7px;padding:6px;text-align:center;min-height:40px;display:flex;align-items:center;justify-content:center;font-size:14px;}
+  .sk-lbl{font-size:10px;font-weight:700;color:#5a7a9a;text-align:center;margin-bottom:4px;}
+  .sk-q-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;}
+  .sk-q-item{border:1px solid #e0e8f0;border-radius:7px;padding:6px;text-align:center;min-height:40px;display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .sk-choices{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+  .sk-choice{border:1.5px solid #e0e8f0;border-radius:8px;padding:6px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;}
+  .sk-choice.benar{border-color:#16a34a;background:rgba(22,163,74,0.07);}
+  .sk-choice.salah{border-color:#dc2626;background:rgba(220,38,38,0.06);}
+  .sk-choice.kunci{border-color:#d97706;background:rgba(217,119,6,0.07);}
+  .sk-ch-ltr{width:22px;height:22px;border-radius:5px;background:#e8eef6;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;}
+  .sk-choice.benar .sk-ch-ltr{background:#16a34a;color:#fff;}
+  .sk-choice.salah .sk-ch-ltr{background:#dc2626;color:#fff;}
+  .sk-choice.kunci .sk-ch-ltr{background:#d97706;color:#fff;}
+  .legend-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 12px;font-size:11px;}
+  .leg{display:flex;align-items:center;gap:4px;}
+  .leg-dot{width:10px;height:10px;border-radius:3px;}
+  .per-soal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:16px;}
+  .ps-card{background:#fff;border:1px solid #e0e8f0;border-radius:10px;padding:12px;text-align:center;}
+  .ps-skor{font-size:22px;font-weight:800;}
+  .ps-skor.ok{color:#16a34a;}.ps-skor.no{color:#dc2626;}
+  .ps-nm{font-size:11px;font-weight:700;color:#133259;margin-bottom:4px;}
+  .data-table{width:100%;border-collapse:collapse;margin-top:10px;border:1px solid #ccc;}
+  .data-table th,.data-table td{border:1px solid #ccc;padding:5px;text-align:center;font-size:11px;}
+  .data-table th{background:#f3f4f6;}
+  @media print{body{background:#fff;padding:0;}.no-print{display:none;}}
+</style>
+</head><body><div class="page-wrap">
+<div class="no-print" style="margin-bottom:16px;display:flex;gap:8px;">
+  <button onclick="window.print()" style="padding:8px 16px;border-radius:8px;border:none;background:#133259;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">🖨 Cetak / Simpan PDF</button>
+  <button onclick="window.close()" style="padding:8px 16px;border-radius:8px;border:1.5px solid #dde;background:#fff;font-size:13px;cursor:pointer;">✕ Tutup</button>
+</div>
+<h1>Laporan Ujian — ${lap.modul_nama||lap.modul_kode||'Modul'}</h1>
+<div class="sub">
+  <strong>Peserta:</strong> ${lap.user_nama||lap.user_kode||'-'} &nbsp;|&nbsp;
+  <strong>Tanggal:</strong> ${fmtDT(lap.tgl_selesai||lap.created_at)} &nbsp;|&nbsp;
+  <strong>Token:</strong> ${lap.token_kode||'-'}
+</div>
+<div class="skor-big">${skorAkhir}</div>
+<div class="skor-lbl">Skor Akhir</div>
+<div class="stat-row">
+  <div class="stat-box"><div class="stat-val">${totalB}</div><div class="stat-lbl">Jawaban Benar</div></div>
+  <div class="stat-box"><div class="stat-val">${totalS}</div><div class="stat-lbl">Jawaban Salah</div></div>
+  <div class="stat-box"><div class="stat-val">${tidakDijawab}</div><div class="stat-lbl">Tidak Dijawab</div></div>
+</div>`;
+
+  if (mcArr.length > 1) {
+    html += `<div class="sec-ttl">Nilai Per Subtes</div><div class="per-soal-grid">`;
+    mcArr.forEach(s => {
+      html += `<div class="ps-card"><div class="ps-nm">${s.nama}</div><div class="ps-skor ${s.skor>=60?'ok':'no'}">${s.skor}</div><div style="font-size:10px;color:#5a7a9a">${s.benar}/${s.total} benar</div></div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `<div class="legend-row">
+    <div class="leg"><div class="leg-dot" style="background:#16a34a"></div>Benar (jawaban user & kunci)</div>
+    <div class="leg"><div class="leg-dot" style="background:#dc2626"></div>Salah (jawaban user)</div>
+    <div class="leg"><div class="leg-dot" style="background:#d97706"></div>Kunci (tidak dipilih user)</div>
+  </div>`;
+
+  soalTampil.forEach(soal => {
+    const rawData = typeof soal.data === 'string' ? JSON.parse(soal.data) : (soal.data || []);
+    html += `<div class="sec-ttl">${soal.nama} <span style="font-size:11px;font-weight:500;color:#5a7a9a">(${soal.type})</span></div>`;
+
+    if (soal.type === 'sikap_kerja') {
+      const sk = skData[soal.kode];
+      if (sk && sk.kolom.length) {
+        const chartImg = adminCreateChartImage(sk.kolom);
+        html += `<div style="text-align:center;margin:10px 0"><img src="${chartImg}" width="500" style="border-radius:8px;border:1px solid #e0e8f0;"/></div>`;
+        html += `<table class="data-table"><thead><tr><th>Kolom</th><th>Benar</th><th>Salah</th><th>Soal Terjawab</th><th>Akurasi</th></tr></thead><tbody>`;
+        sk.kolom.forEach((col, ci) => {
+          const terjawab = col.total || 0; 
+          const acc = terjawab > 0 ? ((col.benar / terjawab) * 100).toFixed(0) : 0;
+          html += `<tr>
+            <td>K${ci+1}</td>
+            <td style="color:#16a34a">${col.benar}</td>
+            <td style="color:#dc2626">${col.salah}</td>
+            <td>${terjawab}</td>
+            <td>${acc}%</td>
+          </tr>`;
+        });
+        html += `</tbody></table><br>`;
+      }
+      (rawData||[]).forEach((kolom, ki) => {
+        const stk = `${soal.kode}_${ki}`;
+        html += `<div class="sk-block"><div style="font-size:11px;font-weight:700;color:#5a7a9a;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em">Kolom ${ki+1}</div>`;
+        (kolom.soal||[]).forEach((q, qi) => {
+          const userAns = jawaban[`${stk}_${qi}`];
+          const isBenar = userAns && userAns === (q.kunci_huruf||q.kunci);
+          html += `<div style="margin-bottom:12px;padding:10px;border:1px solid #eee;border-radius:8px;background:${userAns?(isBenar?'rgba(22,163,74,0.04)':'rgba(220,38,38,0.03)'):'#fff'}">
+            <div style="font-size:11px;font-weight:700;color:#5a7a9a;margin-bottom:6px">Soal ${qi+1} · Jawaban: <strong>${userAns||'Tidak dijawab'}</strong> ${userAns?(isBenar?'<span style="color:#16a34a">✓ Benar</span>':'<span style="color:#dc2626">✗ Salah</span>'):''}</div>
+            <div class="sk-items-row">`;
+          (kolom.items||[]).forEach((it,i)=>{
+            const v=it.nilai??it.value??it;const sv=String(v||'');
+            const img=sv.startsWith('data:')||sv.startsWith('/')||sv.startsWith('http');
+            html+=`<div style="text-align:center"><div class="sk-lbl">${String.fromCharCode(65+i)}</div><div class="sk-item">${img?`<img src="${sv}" style="max-height:30px;max-width:100%;">`:(sv||'?')}</div></div>`;
+          });
+          html+=`</div>`;
+          const tampil=q.tampil||q.soal_item||[];
+          html+=`<div style="font-size:10px;font-weight:700;color:#5a7a9a;margin:6px 0 4px;text-align:center">SOAL (4 Item)</div><div class="sk-q-row">`;
+          tampil.forEach(v=>{const sv=String(v||'');const img=sv.startsWith('data:')||sv.startsWith('/')||sv.startsWith('http');html+=`<div class="sk-q-item">${img?`<img src="${sv}" style="max-height:28px;max-width:100%;">`:(sv||'')}</div>`;});
+          html+=`</div><div class="sk-choices">`;
+          (kolom.items||[]).forEach((it,i)=>{
+            const letter=String.fromCharCode(65+i);
+            const v=it.nilai??it.value??it;const sv=String(v||'');
+            const img=sv.startsWith('data:')||sv.startsWith('/')||sv.startsWith('http');
+            const picked=userAns===letter;const isKey=(q.kunci_huruf||q.kunci)===letter;
+            let cls='sk-choice';if(picked&&isKey)cls+=' benar';else if(picked&&!isKey)cls+=' salah';else if(!picked&&isKey)cls+=' kunci';
+            html+=`<div class="${cls}"><div class="sk-ch-ltr">${letter}</div><div style="font-size:11px">${img?`<img src="${sv}" style="max-height:22px;max-width:100%;">`:(sv||'?')}</div></div>`;
+          });
+          html+=`</div></div>`;
+        });
+        html+=`</div>`;
+      });
+    } else {
+      let allUserAns = [];
+      Object.keys(jawaban).forEach(k => {
+          if (k.startsWith(soal.kode + '_')) {
+              let ans = jawaban[k];
+              if (Array.isArray(ans)) allUserAns.push(...ans);
+              else if (ans != null) allUserAns.push(ans);
+          }
+      });
+      
+      const isNS = soal.skor_type === 'nilai_sendiri';
+
+      (rawData||[]).forEach((q, qi) => {
+        const jArr = q.jawaban || [];
+        const kunci = q.kunci || [];
+        const kunciArr = Array.isArray(kunci) ? kunci.map(String) : [String(kunci??'')];
+
+        const validJids = jArr.map((j, i) => j.id != null ? String(j.id) : String(i));
+        let uaArr = [];
+        allUserAns.forEach(ansId => { if (validJids.includes(String(ansId))) uaArr.push(String(ansId)); });
+        
+        if (uaArr.length === 0) {
+            let fallback = jawaban[`${soal.kode}_${qi}`];
+            if (fallback == null && q.id != null) fallback = jawaban[String(q.id)];
+            if (fallback != null) uaArr = Array.isArray(fallback) ? fallback.map(String) : [String(fallback)];
+        }
+
+        let statusHtml = '';
+        if (isNS) {
+            statusHtml = uaArr.length > 0 ? '<span style="color:#1a5aa0">✓ Telah Dijawab</span>' : '<span style="color:#5a7a9a">Tidak dijawab</span>';
+        } else {
+            const isBenar = uaArr.length > 0 && kunciArr.every(k => uaArr.includes(k)) && uaArr.length === kunciArr.length;
+            statusHtml = uaArr.length > 0 ? (isBenar ? '<span style="color:#16a34a">✓ Benar</span>' : '<span style="color:#dc2626">✗ Salah</span>') : '<span style="color:#5a7a9a">Tidak dijawab</span>';
+        }
+
+        html+=`<div class="soal-block">
+          <div class="soal-hdr">Soal ${qi+1} · ${statusHtml}</div>
+          <div class="q-teks">${adminFixImgPaths(q.soal)||'<em>Kosong</em>'}</div>`;
+          
+        jArr.forEach((j,i)=>{
+          const letter = String.fromCharCode(65+i);
+          const jid = j.id != null ? String(j.id) : String(i);
+          const picked = uaArr.includes(jid);
+          
+          let cls = 'opt';
+          let poinBadge = '';
+
+          if (isNS) {
+              const poin = parseFloat(j.nilai) || 0;
+              if (picked) cls += ' dijawab';
+              poinBadge = `<span class="badge-poin">Poin: ${poin}</span>`;
+          } else {
+              const isKey = kunciArr.includes(jid);
+              if (picked && isKey) cls += ' benar'; 
+              else if (picked && !isKey) cls += ' salah'; 
+              else if (!picked && isKey) cls += ' kunci-saja';
+          }
+
+          html+=`<div class="${cls}"><div class="opt-letter">${letter}</div><div style="flex:1">${adminFixImgPaths(j.teks||j.text||'')||''} ${poinBadge}</div></div>`;
+        });
+        
+        if(q.pembahasan) html+=`<div class="pembahasan"><strong>💡 Pembahasan:</strong><br>${adminFixImgPaths(q.pembahasan)}</div>`;
+        html+=`</div>`;
+      });
+    }
+  });
+
+  html+=`</div></body></html>`;
+
+  // PERBAIKAN: sebelumnya hanya membuka tab print-preview (tidak benar-benar
+  // mengunduh file apapun walau tombolnya berlabel "Word"). Sekarang file .doc
+  // sungguhan diunduh ke perangkat (bisa dibuka di Word/LibreOffice/Google Docs).
+  const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g,'-');
+  const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Laporan_${(lap.user_nama||lap.user_kode||'Peserta')}_${(lap.modul_nama||'Ujian')}_${tgl}.doc`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  if (typeof showToast === 'function') showToast('File Word berhasil diunduh', 'success');
+}
+</script>
+
+<script>
+/* ── HAK AKSES SUBMENU TOGGLE ── */
+function toggleHakSubMenu(labelEl) {
+  const sub = labelEl.parentElement.querySelector('.hak-sub');
+  const chev = labelEl.querySelector('.hak-chevron');
+  if (!sub) return;
+  const isOpen = sub.style.display !== 'none';
+  sub.style.display = isOpen ? 'none' : 'block';
+  if (chev) chev.style.transform = isOpen ? '' : 'rotate(180deg)';
+}
+
+/* ── POPULATE DROPDOWN LINK LANDING PAGE ── */
+function populateLinkLandingDropdown(currentVal) {
+  const sel = document.getElementById('pf-link-landing');
+  if (!sel) return;
+  // Ambil data paket landing page dari ldPaketData (global dari landing editor)
+  const landingPakets = (typeof ldPaketData !== 'undefined' ? ldPaketData : []);
+  // Simpan pilihan saat ini
+  sel.innerHTML = '<option value="">-- Tidak dihubungkan / berdiri sendiri --</option>';
+  landingPakets.forEach((p, i) => {
+    const val = p.id || ('ldp_' + i);
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = (p.name || 'Paket ' + (i+1)) + (p.price ? ' · ' + p.price : '');
+    if (currentVal && currentVal === val) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  // Jika tidak ada paket landing, beri info
+  if (!landingPakets.length) {
+    const opt = document.createElement('option');
+    opt.disabled = true;
+    opt.textContent = '(Belum ada paket di Landing Page Editor)';
+    sel.appendChild(opt);
+  }
+}
+
+/* ── RESPONSIVE DOCK OVERFLOW ──
+   Main dock: semua .dock-overflow-item tampil saat lebar,
+   masuk menu titik-3 (dari kanan) saat sempit.
+   Landing dock: sama untuk .landing-nav-btn.
+*/
+
+// ── Main dock ──
+function setupMainDockOverflow() {
+  const dock     = document.getElementById('main-dock');
+  if (!dock) return;
+  const moreWrap = document.getElementById('dock-more-wrap');
+  const moreMenu = document.getElementById('dock-more-menu');
+  const sep      = document.getElementById('main-dock-sep');
+  if (!moreWrap || !moreMenu) return;
+
+  // Semua item overflow, urutan DOM (kiri ke kanan)
+  const overflowItems = [...dock.querySelectorAll('.dock-overflow-item')];
+
+  function update() {
+    // 1. Tampilkan semua dulu, sembunyikan tombol more
+    overflowItems.forEach(el => { el.style.display = ''; });
+    moreWrap.style.display = 'none';
+    if (sep) sep.style.display = '';
+
+    // 2. Sembunyikan satu-satu dari KANAN sampai muat
+    // Tambahkan tombol more ke layout agar lebarnya ikut dihitung
+    moreWrap.style.visibility = 'hidden';
+    moreWrap.style.display = '';
+
+    let attempts = 0;
+    while (dock.scrollWidth > dock.offsetWidth && attempts < overflowItems.length) {
+      // Cari item overflow paling kanan yang masih tampil
+      const visible = overflowItems.filter(el => el.style.display !== 'none');
+      if (!visible.length) break;
+      visible[visible.length - 1].style.display = 'none';
+      attempts++;
+    }
+    moreWrap.style.visibility = '';
+
+    // 3. Cek apakah ada yang tersembunyi
+    const hiddenItems = overflowItems.filter(el => el.style.display === 'none');
+
+    if (hiddenItems.length === 0) {
+      moreWrap.style.display = 'none';
+      if (sep) sep.style.display = '';
+    } else {
+      moreWrap.style.display = '';
+      // Sembunyikan separator jika semua overflow item hidden
+      const anyVisible = overflowItems.some(el => el.style.display !== 'none');
+      if (sep) sep.style.display = anyVisible ? '' : 'none';
+
+      // Rebuild menu (urutan kiri ke kanan = urutan alami)
+      moreMenu.innerHTML = hiddenItems.map(btn => {
+        const page  = btn.dataset.page;
+        const label = btn.querySelector('.dock-label')?.textContent ?? page;
+        const svg   = btn.querySelector('.dock-icon svg')?.outerHTML ?? '';
+        return `<button class="dock-more-item" onclick="navigateTo('${page}');closeDockMore()">${svg}${label}</button>`;
+      }).join('');
+    }
+  }
+
+  new ResizeObserver(update).observe(dock);
+  update();
+  setTimeout(update, 300); // setelah font & layout settle
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setupMainDockOverflow();
+});
+
+/* ── SIDE DOCK — grup "SOAL UJIAN" (soal/library/modul) & "CAT" (token/laporan/review) ──
+   Muncul sebagai panel vertikal terpisah di samping (default kiri), TIDAK menimpa/
+   menyembunyikan main-dock. Panel ini tetap terbuka selama halaman aktif masih
+   termasuk dalam grup tsb (pindah antar-item di dalamnya tidak menutup panel),
+   dan otomatis tertutup begitu navigasi keluar dari grup. Posisi kiri/kanan bisa
+   dipindah lewat tombol titik-3 horizontal di puncak panel (toggleSideDockPosition). */
+const SIDE_DOCK_GROUPS = {
+  soalujian: {
+    items: [
+      { page:'soal',    label:'SOAL',
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' },
+      { page:'library', label:'LIBRARY',
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>' },
+      { page:'modul',   label:'MODUL',
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>' },
+    ]
+  },
+  cat: {
+    items: [
+      { page:'token',   label:'TOKEN',
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>' },
+      { page:'laporan', label:'LAPORAN',
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' },
+      { page:'review',  label:'REVIEW',
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' },
+    ]
+  },
+  ebook: {
+    items: [
+      { page:'buku',          label:'BUAT BUKU',
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>' },
+      { page:'ebook-library', label:'LIBRARY',
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>' },
+      { page:'ebook-modul',   label:'MODUL',
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>' },
+    ]
+  }
+};
+
+let _sideDockOpenGroup = null;
+
+// Cari grup pemilik sebuah pageId (null jika halaman itu bukan bagian dari grup manapun)
+function groupForPage(pageId) {
+  for (const g in SIDE_DOCK_GROUPS) {
+    if (SIDE_DOCK_GROUPS[g].items.some(it => it.page === pageId)) return g;
+  }
+  return null;
+}
+
+function openSideDock(group) {
+  const def = SIDE_DOCK_GROUPS[group];
+  const wrap  = document.getElementById('side-dock-wrap');
+  const items = document.getElementById('side-dock-items');
+  if (!def || !wrap || !items) return;
+
+  items.innerHTML = def.items.map(it => `
+    <button class="dock-item${AppState.currentPage === it.page ? ' active-tab' : ''}" data-page="${it.page}" onclick="navigateTo('${it.page}')">
+      <div class="dock-icon">${it.icon}</div>
+      <span class="dock-label">${it.label}</span>
+    </button>`).join('');
+
+  wrap.classList.add('open');
+  _sideDockOpenGroup = group;
+  markSideDockGroupButtons(group);
+  _syncDockLayoutOffset();
+}
+
+function closeSideDock() {
+  const wrap = document.getElementById('side-dock-wrap');
+  if (wrap) wrap.classList.remove('open');
+  _sideDockOpenGroup = null;
+  markSideDockGroupButtons(null);
+  _syncDockLayoutOffset();
+}
+
+/* ── Aturan tampilan-menyesuaikan-dock ──
+   Mengukur lebar panel side-dock (setelah render, sebelum animasi scale selesai — offsetWidth
+   tidak terpengaruh transform:scale jadi aman diukur kapan saja) lalu menuliskannya sebagai
+   CSS var --side-dock-offset. Elemen dgn class .dock-avoid otomatis diberi padding sebesar itu
+   di sisi yang sama dgn posisi dock (kiri/kanan), supaya kontennya tidak pernah tertimpa panel.
+   Tampilan yang sudah center (Buat Soal, editor Landing) tidak diberi class .dock-avoid krn
+   dock berada di ruang kosong di sampingnya & memang tidak mengganggu. */
+function _syncDockLayoutOffset() {
+  const wrap = document.getElementById('side-dock-wrap');
+  const body = document.body;
+  if (!wrap || !wrap.classList.contains('open')) {
+    body.classList.remove('side-dock-open', 'side-dock-open-right');
+    document.documentElement.style.removeProperty('--side-dock-offset');
+    return;
+  }
+  const isRight = wrap.classList.contains('side-dock-right');
+  body.classList.add('side-dock-open');
+  body.classList.toggle('side-dock-open-right', isRight);
+  const GAP = 20; // jarak aman antara tepi dock & konten
+  const wrapLeftOrRight = 16; // harus sinkron dgn .side-dock-wrap left/right di CSS (10px di mobile)
+  const edge = window.innerWidth <= 480 ? 10 : wrapLeftOrRight;
+  const offset = Math.ceil(wrap.offsetWidth) + edge + GAP;
+  document.documentElement.style.setProperty('--side-dock-offset', offset + 'px');
+}
+window.addEventListener('resize', () => { if (document.body.classList.contains('side-dock-open')) _syncDockLayoutOffset(); });
+
+// Tandai tombol grup (SOAL UJIAN / CAT) di main-dock aktif sesuai grup yang sedang terbuka
+function markSideDockGroupButtons(activeGroup) {
+  document.querySelectorAll('[data-group]').forEach(btn => {
+    btn.classList.toggle('active-tab', btn.dataset.group === activeGroup);
+  });
+}
+
+// Dipanggil dari _doNav (app.js) setiap kali navigasi terjadi.
+// Jika halaman baru termasuk grup: buka/perbarui panel grup itu (tetap terbuka bila grupnya sama).
+// Jika bukan bagian grup manapun: tutup panel.
+function syncSideDockForPage(pageId) {
+  const group = groupForPage(pageId);
+  if (!group) { closeSideDock(); return; }
+  if (_sideDockOpenGroup !== group) {
+    openSideDock(group);
+  } else {
+    // Grup sama & panel sudah terbuka — cukup perbarui highlight item aktif, panel tidak ditutup
+    document.querySelectorAll('#side-dock-items .dock-item').forEach(b => {
+      b.classList.toggle('active-tab', b.dataset.page === pageId);
+    });
+    markSideDockGroupButtons(group);
+  }
+}
+
+// Pindahkan panel (side-dock / landing-dock) ke sisi lain — tombol titik-3 horizontal di puncak panel
+function toggleSideDockPosition(wrapId) {
+  const wrap = document.getElementById(wrapId);
+  if (wrap) wrap.classList.toggle('side-dock-right');
+  if (wrapId === 'side-dock-wrap') _syncDockLayoutOffset();
+}
+
+// Auto-save editor landing: setiap ketikan/perubahan di dalam panel langsung antre simpan otomatis
+// (tidak ada lagi tombol UPDATE manual — lihat ldQueueAutoSave di js/pages.js)
+document.addEventListener('DOMContentLoaded', () => {
+  const ldRoot = document.getElementById('ld-editor-main');
+  if (ldRoot && typeof ldQueueAutoSave === 'function') {
+    ldRoot.addEventListener('input', ldQueueAutoSave);
+    ldRoot.addEventListener('change', ldQueueAutoSave);
+  }
+});
+
+/* ── OVERRIDE LOGOUT → LANDING PAGE ── */
+function handleLogout() {
+  localStorage.removeItem('cbn_token');
+  localStorage.removeItem('cbn_user');
+  window.location.replace('landing.html');
+}
+
+
+
+</script>
+</html>

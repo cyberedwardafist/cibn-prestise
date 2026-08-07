@@ -1,0 +1,221 @@
+/* =============================================
+   TASKBAR.CSS - Bottom Navigation Bar
+   Responsive floating dock / taskbar
+
+   OVERFLOW LOGIC:
+   - Layar lebar  → semua .dock-item tampil, tombol "more" disembunyikan
+   - Layar sempit → item overflow disembunyikan ke menu titik-tiga
+   - JS (ResizeObserver) yang handle show/hide secara dinamis
+   ============================================= */
+
+/* ── DOCK WRAP ── */
+.dock-wrap {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    max-width: calc(100vw - 24px);
+}
+
+.dock {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 10px;
+    background: linear-gradient(
+        160deg,
+        rgba(255,255,255,0.78) 0%,
+        rgba(255,255,255,0.45) 40%,
+        rgba(180,210,240,0.35) 70%,
+        rgba(255,255,255,0.60) 100%
+    );
+    backdrop-filter: blur(40px) saturate(2.2) brightness(1.08);
+    -webkit-backdrop-filter: blur(40px) saturate(2.2) brightness(1.08);
+    border: 1px solid rgba(255,255,255,0.9);
+    border-bottom-color: rgba(255,255,255,0.5);
+    border-radius: 28px;
+    box-shadow:
+        0 2px 0 rgba(255,255,255,0.95) inset,
+        0 -1px 0 rgba(140,180,220,0.3) inset,
+        0 16px 48px rgba(19,50,89,0.22),
+        0 4px 12px rgba(19,50,89,0.12);
+    position: relative;
+    isolation: isolate;
+    overflow: visible;
+}
+
+.dock::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 10px; right: 10px;
+    height: 50%;
+    border-radius: 28px 28px 60% 60% / 28px 28px 40% 40%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 100%);
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* ── DOCK ITEM ── */
+.dock-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    padding: 7px 12px;
+    border-radius: 18px;
+    transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), background 0.2s, box-shadow 0.2s;
+    position: relative;
+    border: none;
+    background: transparent;
+    -webkit-tap-highlight-color: transparent;
+    z-index: 2;
+    flex-shrink: 0;
+}
+.dock-item:hover {
+    transform: translateY(-5px) scale(1.08);
+    background: rgba(255,255,255,0.65);
+    box-shadow: 0 4px 16px rgba(19,50,89,0.1), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+.dock-item.active-tab {
+    background: linear-gradient(160deg, rgba(255,255,255,0.75), rgba(220,235,255,0.45));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 2px 8px rgba(19,50,89,0.08);
+}
+.dock-item.active-tab .dock-icon svg { color: var(--blue); }
+.dock-item.active-tab::after {
+    content: '';
+    position: absolute;
+    bottom: 3px;
+    left: 50%; transform: translateX(-50%);
+    width: 16px; height: 3px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent), #2e72cc);
+    box-shadow: 0 0 8px rgba(26,90,160,0.6);
+}
+
+/* Item yang sedang disembunyikan oleh overflow JS */
+.dock-item.dock-hidden {
+    display: none;
+}
+
+.dock-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
+.dock-icon svg { width: 20px; height: 20px; color: var(--text-sub); transition: color 0.2s; }
+.dock-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-sub);
+    letter-spacing: 0.02em;
+    transition: color 0.2s;
+    font-family: var(--font-body);
+    white-space: nowrap;
+}
+.dock-item.active-tab .dock-label { color: var(--blue); }
+
+/* ── DOCK SEPARATOR ── */
+.dock-sep {
+    width: 1px;
+    height: 32px;
+    background: rgba(19,50,89,0.1);
+    margin: 0 4px;
+    flex-shrink: 0;
+}
+
+/* Separator juga ikut disembunyikan jika semua item di sekitarnya overflow */
+.dock-sep.dock-hidden {
+    display: none;
+}
+
+/* ── MORE BUTTON (titik tiga) ── */
+/*
+   #dock-more-btn disembunyikan by default.
+   JS akan memunculkannya (remove class dock-more-hidden)
+   hanya saat ada item yang masuk overflow.
+*/
+.dock-more-wrap {
+    position: relative;
+    flex-shrink: 0;
+    z-index: 2;
+}
+
+/* Sembunyikan tombol more saat tidak dibutuhkan */
+.dock-more-wrap.dock-more-hidden {
+    display: none;
+}
+
+.dock-more-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    padding: 7px 12px;
+    border-radius: 18px;
+    border: none;
+    background: transparent;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), background 0.2s;
+}
+.dock-more-btn:hover {
+    transform: translateY(-5px) scale(1.08);
+    background: rgba(255,255,255,0.65);
+    box-shadow: 0 4px 16px rgba(19,50,89,0.1), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+.dock-more-btn .dock-icon svg { color: var(--text-sub); }
+.dock-more-btn .dock-label { color: var(--text-sub); }
+
+/* ── MORE MENU (popup di atas dock) ── */
+.dock-more-menu {
+    position: absolute;
+    bottom: calc(100% + 12px);
+    right: 0;
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(30px) saturate(2);
+    -webkit-backdrop-filter: blur(30px) saturate(2);
+    border: 1.5px solid rgba(255,255,255,0.9);
+    border-radius: 16px;
+    box-shadow: 0 16px 40px rgba(19,50,89,0.2);
+    padding: 8px;
+    min-width: 160px;
+    display: none;
+    z-index: 300;
+    transform-origin: bottom right;
+}
+.dock-more-menu.open {
+    display: block;
+    animation: menuPop 0.2s cubic-bezier(.34,1.56,.64,1) forwards;
+}
+
+@keyframes menuPop {
+    from { transform: scale(0.85) translateY(8px); opacity: 0; }
+    to   { transform: scale(1)    translateY(0);   opacity: 1; }
+}
+
+/* Item di dalam popup menu */
+.dock-more-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--blue);
+    transition: background 0.15s;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+}
+.dock-more-item:hover  { background: rgba(19,50,89,0.07); }
+.dock-more-item.active { background: rgba(19,50,89,0.10); }
+.dock-more-item svg    { width: 16px; height: 16px; color: var(--text-sub); flex-shrink: 0; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 480px) {
+    .dock-item        { padding: 7px 9px; }
+    .dock-label       { font-size: 8px;  }
+    .dock-more-btn    { padding: 7px 9px; }
+}

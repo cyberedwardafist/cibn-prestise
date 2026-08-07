@@ -1,0 +1,494 @@
+/* =============================================
+   BASE.CSS - Citta Bhakti Nirbaya Admin
+   Base styles, CSS variables, glass components
+   ============================================= */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --bg: #e8eef6;
+    --blue: #133259;
+    --accent: #1a5aa0;
+    --accent2: #2666b8;
+    --glass-bg: rgba(255,255,255,0.45);
+    --glass-border: rgba(255,255,255,0.7);
+    --glass-shadow: 0 8px 32px rgba(19,50,89,0.10);
+    --text-main: #133259;
+    --text-sub: #5a7a9a;
+    --success: #16a34a;
+    --danger: #dc2626;
+    --warning: #d97706;
+    --font-head: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --sidebar-w: 240px;
+    --topbar-h: 60px;
+    --taskbar-h: 68px;
+}
+
+html, body {
+    width: 100%; height: 100%;
+    font-family: var(--font-body);
+    background: var(--bg);
+    overflow: hidden;
+}
+
+/* ── STATIC BACKGROUND (no animation) ── */
+.bg-static {
+    position: fixed; inset: 0; z-index: 0;
+    background: linear-gradient(135deg, #d8e4f0 0%, #e8eef6 40%, #dce8f4 70%, #e0ecf8 100%);
+}
+.bg-static::after {
+    content: '';
+    position: absolute; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    opacity: 0.5; pointer-events: none;
+}
+
+/* ── APP LAYOUT ── */
+.app-wrapper {
+    position: fixed; inset: 0; z-index: 1;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+}
+
+/* ── GLASS ── */
+.glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px) saturate(1.6);
+    -webkit-backdrop-filter: blur(24px) saturate(1.6);
+    border: 1.5px solid var(--glass-border);
+    border-radius: 20px;
+    box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.8);
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(19,50,89,0.2); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(19,50,89,0.35); }
+
+/* ── PAGE CONTAINER ── */
+.page-container {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+}
+
+.page {
+    position: absolute; inset: 0;
+    /* Di layar lebar/wide, sisi kiri-kanan otomatis dapat padding ekstra agar
+       konten (card, tabel, grid) tetap nyaman dibaca dan tidak melebar penuh
+       tanpa batas. Di layar sempit, ini otomatis kembali jadi padding 24px biasa. */
+    padding: 24px max(24px, calc((100% - 1400px) / 2)) calc(var(--taskbar-h) + 24px);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(40px) scale(0.98);
+    transition: opacity 0.35s cubic-bezier(.4,0,.2,1), transform 0.35s cubic-bezier(.4,0,.2,1);
+}
+.page.active {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateY(0) scale(1);
+}
+
+/* ── SECTION HEADER ── */
+.section-title {
+    font-family: var(--font-head);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--blue);
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+}
+.section-sub {
+    font-size: 13px;
+    color: var(--text-sub);
+    margin-bottom: 20px;
+}
+
+/* ── SUB-TABS ── */
+.sub-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.sub-tab {
+    padding: 8px 18px;
+    border-radius: 20px;
+    border: 1.5px solid rgba(19,50,89,0.12);
+    background: rgba(255,255,255,0.5);
+    color: var(--text-sub);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+.sub-tab:hover {
+    background: rgba(255,255,255,0.8);
+    color: var(--blue);
+    border-color: rgba(19,50,89,0.25);
+}
+.sub-tab.active {
+    background: var(--blue);
+    color: #fff;
+    border-color: var(--blue);
+    box-shadow: 0 4px 12px rgba(19,50,89,0.25);
+}
+
+/* ── SUB-PAGE ── */
+.sub-page { display: none; }
+.sub-page.active { display: block; }
+
+/* ── CARD ── */
+.card {
+    background: rgba(255,255,255,0.6);
+    border: 1.5px solid rgba(255,255,255,0.8);
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(19,50,89,0.07);
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+/* ── BUTTONS ── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 18px;
+    border-radius: 12px;
+    border: none;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+.btn-primary {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(26,90,160,0.3);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(26,90,160,0.4); }
+.btn-secondary {
+    background: rgba(19,50,89,0.07);
+    color: var(--blue);
+    border: 1.5px solid rgba(19,50,89,0.12);
+}
+.btn-secondary:hover { background: rgba(19,50,89,0.12); }
+.btn-danger {
+    background: rgba(220,38,38,0.08);
+    color: var(--danger);
+    border: 1.5px solid rgba(220,38,38,0.15);
+}
+.btn-danger:hover { background: rgba(220,38,38,0.15); }
+.btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+.btn-icon {
+    width: 32px; height: 32px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 8px;
+    background: rgba(19,50,89,0.07);
+    color: var(--blue);
+    border: 1.5px solid rgba(19,50,89,0.1);
+    cursor: pointer; transition: all 0.2s;
+}
+.btn-icon:hover { background: rgba(19,50,89,0.14); }
+.btn-icon.danger { color: var(--danger); background: rgba(220,38,38,0.06); border-color: rgba(220,38,38,0.12); }
+.btn-icon.danger:hover { background: rgba(220,38,38,0.14); }
+
+/* ── FORM ELEMENTS ── */
+.form-group { margin-bottom: 14px; }
+.form-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-sub);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+.form-input, .form-select, .form-textarea {
+    width: 100%;
+    padding: 11px 14px;
+    background: rgba(19,50,89,0.04);
+    border: 1.5px solid rgba(19,50,89,0.1);
+    border-radius: 12px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--blue);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(19,50,89,0.08);
+    background: rgba(255,255,255,0.8);
+}
+.form-input::placeholder { color: rgba(19,50,89,0.3); }
+.form-select { cursor: pointer; }
+.form-textarea { resize: vertical; min-height: 90px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* ── TABLE ── */
+.table-wrap { overflow-x: auto; }
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+thead th {
+    background: rgba(19,50,89,0.06);
+    color: var(--text-sub);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    text-align: left;
+    white-space: nowrap;
+}
+tbody td {
+    padding: 11px 14px;
+    color: var(--text-main);
+    border-bottom: 1px solid rgba(19,50,89,0.05);
+    vertical-align: middle;
+}
+tbody tr:hover { background: rgba(19,50,89,0.025); }
+tbody tr:last-child td { border-bottom: none; }
+
+/* ── STATUS BADGE ── */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+.badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.badge-active { background: rgba(22,163,74,0.12); color: var(--success); }
+.badge-active::before { background: var(--success); }
+.badge-pending { background: rgba(217,119,6,0.12); color: var(--warning); }
+.badge-pending::before { background: var(--warning); }
+.badge-suspend { background: rgba(220,38,38,0.12); color: var(--danger); }
+.badge-suspend::before { background: var(--danger); }
+
+/* ── SEARCH BAR ── */
+.search-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.search-input-wrap {
+    position: relative;
+    flex: 1;
+}
+.search-input-wrap svg {
+    position: absolute;
+    left: 12px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-sub);
+    width: 16px; height: 16px;
+    pointer-events: none;
+}
+.search-input {
+    width: 100%;
+    padding: 10px 14px 10px 38px;
+    background: rgba(255,255,255,0.7);
+    border: 1.5px solid rgba(19,50,89,0.1);
+    border-radius: 12px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--blue);
+    outline: none;
+    transition: border-color 0.2s;
+}
+.search-input:focus { border-color: var(--blue); }
+.search-input::placeholder { color: rgba(19,50,89,0.3); }
+
+/* ── PAGINATION ── */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+.page-btn {
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 8px;
+    border: 1.5px solid rgba(19,50,89,0.12);
+    background: rgba(255,255,255,0.6);
+    color: var(--text-sub);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.page-btn:hover { background: rgba(255,255,255,0.9); color: var(--blue); }
+.page-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+/* ── EMPTY STATE ── */
+.empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-sub);
+}
+.empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.35; }
+.empty-state p { font-size: 14px; }
+
+/* ── TOAST ── */
+.toast {
+    position: fixed;
+    bottom: calc(var(--taskbar-h) + 16px);
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--blue);
+    color: #fff;
+    padding: 12px 22px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 8px 28px rgba(19,50,89,0.35);
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    white-space: nowrap;
+    pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.success { background: var(--success); }
+.toast.danger { background: var(--danger); }
+
+/* ── SUCCESS/FAIL ANIMATION ── */
+@keyframes checkAnim {
+    0% { stroke-dashoffset: 60; }
+    100% { stroke-dashoffset: 0; }
+}
+@keyframes crossAnim {
+    0% { stroke-dashoffset: 40; }
+    100% { stroke-dashoffset: 0; }
+}
+.anim-check circle { stroke: var(--success); fill: rgba(22,163,74,0.1); }
+.anim-check path { stroke: var(--success); stroke-dasharray: 60; stroke-dashoffset: 60; animation: checkAnim 0.5s 0.1s forwards; }
+.anim-cross circle { stroke: var(--danger); fill: rgba(220,38,38,0.1); }
+.anim-cross path { stroke: var(--danger); stroke-dasharray: 40; stroke-dashoffset: 40; animation: crossAnim 0.4s 0.1s forwards; }
+
+/* ── RESPONSIVE HELPERS ── */
+@media (max-width: 640px) {
+    .form-row { grid-template-columns: 1fr; }
+    .hide-mobile { display: none !important; }
+}
+@media (min-width: 641px) {
+    .show-mobile-only { display: none !important; }
+}
+/* ── TABLET (641px–1024px): dikasih spacing sendiri, bukan pas-pasan desktop ── */
+@media (min-width: 641px) and (max-width: 1024px) {
+    .page { padding: 18px 18px calc(var(--taskbar-h) + 20px); }
+    .card { padding: 16px; }
+    .section-title { font-size: 20px; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SWIPE-CARD LIST — alternatif <table> di mobile untuk kolom "Aksi".
+   Di layar ≤768px, tabel biasa (.aksi-swipe-wrap) disembunyikan dan
+   diganti daftar kartu (.swipe-list) yang tombol aksinya disembunyikan
+   di belakang kartu — muncul dengan cara digeser (swipe), bukan makan
+   tempat sebagai tombol tetap. Geser kartu ke KIRI = aksi utama/edit
+   (nongol dari sisi kanan). Geser ke KANAN = aksi hapus/negatif
+   (nongol dari sisi kiri). Kalau ada 2 aksi di satu sisi, keduanya
+   sama-sama nongol berdampingan supaya tinggal pilih salah satu.
+   Kartu tanpa aksi sama sekali (mis. daftar Laporan/Review) bisa
+   langsung ditap di mana saja tanpa perlu digeser dulu.
+   ═══════════════════════════════════════════════════════════ */
+.aksi-swipe-wrap { display: block; }
+.swipe-list { display: none; flex-direction: column; gap: 8px; padding: 10px; }
+@media (max-width: 768px) {
+    .aksi-swipe-wrap { display: none; }
+    .swipe-list { display: flex; }
+}
+.swipe-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 14px;
+    -webkit-tap-highlight-color: transparent;
+}
+.swipe-card-actions {
+    position: absolute; top: 0; bottom: 0;
+    display: flex; align-items: stretch; z-index: 0;
+}
+.swipe-card-actions.sw-left { right: 0; }
+.swipe-card-actions.sw-right { left: 0; }
+.swipe-card-action {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; width: 64px; border: none; cursor: pointer; color: #fff;
+    font-size: 9.5px; font-weight: 700; font-family: var(--font-body);
+    letter-spacing: 0.02em;
+}
+.swipe-card-action svg { width: 18px; height: 18px; }
+.swipe-card-action.act-edit { background: var(--accent); }
+.swipe-card-action.act-danger { background: var(--danger); }
+.swipe-card-action.act-primary { background: var(--success); }
+.swipe-card-action.act-secondary { background: var(--blue); }
+.swipe-card-body {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 13px 14px; border-radius: inherit;
+    background: #f5f8fc;
+    border: 1.5px solid rgba(255,255,255,0.9);
+    box-shadow: 0 2px 10px rgba(19,50,89,0.06);
+    transition: transform 0.22s cubic-bezier(.4,0,.2,1);
+    touch-action: pan-y;
+    user-select: none;
+}
+.swipe-card-body.tappable { cursor: pointer; }
+.swipe-card-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.swipe-card-title { font-weight: 700; font-size: 13.5px; color: var(--blue); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.swipe-card-sub { font-size: 11.5px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.swipe-card-side { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+.swipe-card-hint {
+    width: 4px; height: 24px; border-radius: 3px;
+    background: rgba(19,50,89,0.14); flex-shrink: 0; margin-left: 2px;
+}
+.swipe-card-empty { text-align: center; padding: 32px 16px; color: var(--text-sub); font-size: 13px; }
+
+/* ── MODE PILIH MASSAL DI KARTU MOBILE (long-press ala galeri foto) ── */
+.swipe-card-body.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent), 0 2px 10px rgba(19,50,89,0.06);
+}
+.akun-select-all-mobile { display: none; }
+@media (max-width: 768px) { .akun-select-all-mobile { display: inline-flex; } }
+
+/* ── BULK SELECT TOOLBAR (Manajemen Akun) ── */
+.akun-check-col { width: 34px; }
+.akun-check-col input[type="checkbox"], td.akun-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--blue); cursor: pointer; }
+.bulk-bar {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: rgba(26,90,160,0.09);
+    border: 1.5px solid rgba(26,90,160,0.18);
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: var(--blue);
+    font-weight: 600;
+}
+.bulk-bar .bulk-bar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
