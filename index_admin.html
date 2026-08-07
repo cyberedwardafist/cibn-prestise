@@ -697,9 +697,49 @@ body.soal-building #side-dock-wrap.side-dock-right{
 <div class="page dock-avoid" id="page-laporan">
   <div class="section-title">Laporan Ujian</div>
   <div class="section-sub">Pantau dan unduh hasil ujian peserta</div>
-  <div class="search-bar"><div class="search-input-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari token / modul..." oninput="_lapSearch=this.value;_renderLapTable()"></div></div>
+  <div class="search-bar">
+    <div class="search-input-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari token / modul..." oninput="_lapSearch=this.value;_renderLapTable()"></div>
+    <select class="form-select" id="laporan-grub-filter" onchange="_lapGrubFilter=this.value;_renderLapTable()" style="width:auto;max-width:200px"><option value="">Semua Grup Token</option></select>
+  </div>
+  <div id="laporan-grub-dl-bar" style="display:none;align-items:center;gap:10px;margin-bottom:12px">
+    <button class="btn btn-primary btn-sm" onclick="openAdminUnduhLaporanGrup()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Unduh Laporan Grup
+    </button>
+    <span id="laporan-grub-dl-count" style="font-size:12px;color:var(--text-sub)"></span>
+  </div>
   <div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap"><table><thead><tr><th>#</th><th>Token</th><th>Modul</th><th class="hide-mobile">Tgl Selesai</th><th class="hide-mobile">Durasi</th><th>Skor</th><th>Aksi</th></tr></thead><tbody id="laporan-tbody"></tbody></table></div><div class="swipe-list" id="laporan-swipe-list"></div></div>
   <div id="laporan-pagination"></div>
+</div>
+
+<!-- ══ MODAL: UNDUH LAPORAN GRUP (ZIP per grup token) — Admin ══ -->
+<div class="overlay" id="admin-grub-dl-overlay">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Unduh Laporan Grup</div>
+      <button class="modal-close" onclick="closeModal('admin-grub-dl-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Grup Token</label>
+        <div style="font-size:14px;font-weight:700;color:var(--blue)" id="admin-grub-dl-nama">-</div>
+        <div style="font-size:11px;color:var(--text-sub)" id="admin-grub-dl-count">-</div>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Format File</label>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="token-mode-btn sub-tab active" id="admin-grub-dl-format-word" onclick="_setAdminGrubDlFormat('word')" style="flex:1">Word (.doc)</button>
+          <button type="button" class="token-mode-btn sub-tab" id="admin-grub-dl-format-excel" onclick="_setAdminGrubDlFormat('excel')" style="flex:1">Excel (.xlsx)</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-sub);margin-top:6px" id="admin-grub-dl-format-desc">Setiap laporan peserta akan disimpan sebagai file Word (.doc) di dalam ZIP.</div>
+      </div>
+      <button class="btn btn-primary" style="width:100%" id="admin-grub-dl-btn" onclick="prosesAdminUnduhLaporanGrup()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Unduh ZIP
+      </button>
+      <div id="admin-grub-dl-progress" style="font-size:11px;color:var(--text-sub);text-align:center;display:none"></div>
+    </div>
+  </div>
 </div>
 
 <!-- REVIEW (Reviewer view) -->
@@ -1965,6 +2005,14 @@ function adminCreateChartImage(details) {
 
 function adminDoDownloadExcel(lap, soalTampil, jawaban) {
   if (typeof XLSX === 'undefined') { if(typeof showToast==='function') showToast('Library XLSX tidak termuat', 'danger'); return; }
+  const wb = adminBuildExcelWorkbook(lap, soalTampil, jawaban);
+  const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g,'-');
+  XLSX.writeFile(wb, `Laporan_${lap.user_nama||lap.user_kode||'Peserta'}_${lap.modul_nama||'Ujian'}_${tgl}.xlsx`);
+  if(typeof showToast === 'function') showToast('File Excel berhasil diunduh', 'success');
+}
+
+/* ── Membangun workbook Excel (dipakai untuk unduh 1 laporan maupun tiap file di dalam ZIP laporan grup) ── */
+function adminBuildExcelWorkbook(lap, soalTampil, jawaban) {
   const soalAll = lap.soal_detail || [];
   const { perSoal: psArr, skData } = adminHitungSkor(soalAll, jawaban);
   const cleanT = t => t ? t.replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').trim() : '';
@@ -2053,12 +2101,26 @@ function adminDoDownloadExcel(lap, soalTampil, jawaban) {
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
 
-  const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g,'-');
-  XLSX.writeFile(wb, `Laporan_${lap.user_nama||lap.user_kode||'Peserta'}_${lap.modul_nama||'Ujian'}_${tgl}.xlsx`);
-  if(typeof showToast === 'function') showToast('File Excel berhasil diunduh', 'success');
+  return wb;
 }
 
 function adminDoDownloadWord(lap, soalTampil, jawaban) {
+  const html = adminBuildLaporanWordHtml(lap, soalTampil, jawaban);
+  const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g,'-');
+  const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Laporan_${(lap.user_nama||lap.user_kode||'Peserta')}_${(lap.modul_nama||'Ujian')}_${tgl}.doc`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  if (typeof showToast === 'function') showToast('File Word berhasil diunduh', 'success');
+}
+
+/* ── Membangun HTML laporan (dipakai untuk unduh 1 laporan maupun tiap file di dalam ZIP laporan grup) ── */
+function adminBuildLaporanWordHtml(lap, soalTampil, jawaban) {
   const soalAll = lap.soal_detail || [];
   const { perSoal: psArr, skData } = adminHitungSkor(soalAll, jawaban);
   const mcArr = psArr.filter(s => s.type !== 'sikap_kerja');
@@ -2284,20 +2346,7 @@ function adminDoDownloadWord(lap, soalTampil, jawaban) {
 
   html+=`</div></body></html>`;
 
-  // PERBAIKAN: sebelumnya hanya membuka tab print-preview (tidak benar-benar
-  // mengunduh file apapun walau tombolnya berlabel "Word"). Sekarang file .doc
-  // sungguhan diunduh ke perangkat (bisa dibuka di Word/LibreOffice/Google Docs).
-  const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g,'-');
-  const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Laporan_${(lap.user_nama||lap.user_kode||'Peserta')}_${(lap.modul_nama||'Ujian')}_${tgl}.doc`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-  if (typeof showToast === 'function') showToast('File Word berhasil diunduh', 'success');
+  return html;
 }
 </script>
 

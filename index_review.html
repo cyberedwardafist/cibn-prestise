@@ -584,6 +584,14 @@
         </div>
         <div style="font-size:11px;color:var(--text-sub);margin-top:6px" id="grub-dl-mode-desc">Nomor soal &amp; pilihan jawaban dikembalikan ke posisi asli di bank soal (soal nomor 1 tetap nomor 1, pilihan A tetap A).</div>
       </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Format File</label>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="token-mode-btn sub-tab active" id="grub-dl-format-word" onclick="_setGrubDlFormat('word')" style="flex:1">Word (.doc)</button>
+          <button type="button" class="token-mode-btn sub-tab" id="grub-dl-format-excel" onclick="_setGrubDlFormat('excel')" style="flex:1">Excel (.xlsx)</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-sub);margin-top:6px" id="grub-dl-format-desc">Setiap laporan peserta akan disimpan sebagai file Word (.doc) di dalam ZIP.</div>
+      </div>
       <button class="btn btn-primary" style="width:100%" id="grub-dl-btn" onclick="prosesUnduhLaporanGrup()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Unduh ZIP
@@ -1432,6 +1440,14 @@ function doDownload(which, format = 'word') {
 /* ── DOWNLOAD EXCEL (SheetJS) — Fixed: pakai logika admin ── */
 function doDownloadExcel(lap, soalTampil, jawaban, soalAll) {
   if (typeof XLSX === 'undefined') { showToast('Library XLSX tidak termuat', 'danger'); return; }
+  const wb = buildLaporanExcelWorkbook(lap, soalTampil, jawaban, soalAll);
+  const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g,'-');
+  XLSX.writeFile(wb, `Laporan_${lap.user_nama||lap.user_kode||'Peserta'}_${lap.modul_nama||'Ujian'}_${tgl}.xlsx`);
+  showToast('File Excel berhasil diunduh', 'success');
+}
+
+/* ── Membangun workbook Excel (dipakai untuk unduh 1 laporan maupun tiap file di dalam ZIP laporan grup) ── */
+function buildLaporanExcelWorkbook(lap, soalTampil, jawaban, soalAll) {
   const { perSoal: psArr, skData } = hitungSkorFromLap(soalAll, jawaban);
   const cleanT = t => t ? t.replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').trim() : '';
 
@@ -1522,9 +1538,7 @@ function doDownloadExcel(lap, soalTampil, jawaban, soalAll) {
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
 
-  const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g,'-');
-  XLSX.writeFile(wb, `Laporan_${lap.user_nama||lap.user_kode||'Peserta'}_${lap.modul_nama||'Ujian'}_${tgl}.xlsx`);
-  showToast('File Excel berhasil diunduh', 'success');
+  return wb;
 }
 
 /* ── HELPER: Fix path gambar untuk Word export ── */
@@ -1887,6 +1901,7 @@ function doDownloadWord(lap, soalTampil, jawaban, soalAll) {
 
 /* ── UNDUH LAPORAN GRUP (ZIP berisi 1 file Word per peserta dalam grup token terpilih) ── */
 let _grubDlMode = 'default';
+let _grubDlFormat = 'word';
 
 function openUnduhLaporanGrup() {
   if (!_rwGrubFilter) { showToast('Pilih grup token terlebih dahulu', 'danger'); return; }
@@ -1895,6 +1910,7 @@ function openUnduhLaporanGrup() {
   document.getElementById('grub-dl-nama').textContent = _rwGrubFilter;
   document.getElementById('grub-dl-count').textContent = `${data.length} laporan peserta`;
   _setGrubDlMode('default');
+  _setGrubDlFormat('word');
   const prog = document.getElementById('grub-dl-progress');
   prog.style.display = 'none'; prog.textContent = '';
   const btn = document.getElementById('grub-dl-btn'); if (btn) btn.disabled = false;
@@ -1911,11 +1927,22 @@ function _setGrubDlMode(mode) {
     : 'Nomor soal & pilihan jawaban dikembalikan ke posisi asli di bank soal (soal nomor 1 tetap nomor 1, pilihan A tetap A).';
 }
 
+function _setGrubDlFormat(format) {
+  _grubDlFormat = format;
+  document.getElementById('grub-dl-format-word')?.classList.toggle('active', format === 'word');
+  document.getElementById('grub-dl-format-excel')?.classList.toggle('active', format === 'excel');
+  const desc = document.getElementById('grub-dl-format-desc');
+  if (desc) desc.textContent = format === 'excel'
+    ? 'Setiap laporan peserta akan disimpan sebagai file Excel (.xlsx) di dalam ZIP.'
+    : 'Setiap laporan peserta akan disimpan sebagai file Word (.doc) di dalam ZIP.';
+}
+
 async function prosesUnduhLaporanGrup() {
   const grubNama = _rwGrubFilter;
   const list = _riwayatData.filter(l => l.grub_token === grubNama);
   if (!list.length) { showToast('Tidak ada laporan pada grup ini', 'danger'); return; }
   if (typeof JSZip === 'undefined') { showToast('Gagal memuat pustaka ZIP, cek koneksi internet lalu coba lagi', 'danger'); return; }
+  if (_grubDlFormat === 'excel' && typeof XLSX === 'undefined') { showToast('Gagal memuat pustaka Excel, cek koneksi internet lalu coba lagi', 'danger'); return; }
 
   const btn = document.getElementById('grub-dl-btn');
   const prog = document.getElementById('grub-dl-progress');
@@ -1925,6 +1952,7 @@ async function prosesUnduhLaporanGrup() {
   try {
     const zip = new JSZip();
     const usedNames = {};
+    const ext = _grubDlFormat === 'excel' ? 'xlsx' : 'doc';
     let sukses = 0;
     for (let i = 0; i < list.length; i++) {
       const row = list[i];
@@ -1936,14 +1964,19 @@ async function prosesUnduhLaporanGrup() {
       const jawaban = typeof lap.jawaban === 'string' ? JSON.parse(lap.jawaban) : (lap.jawaban || {});
       const soalAll = lap.soal_detail || [];
 
-      const html = buildLaporanWordHtml(lap, soalAll, jawaban, soalAll, _grubDlMode === 'acak');
-
       let baseName = `${(lap.user_nama||lap.user_kode||'Peserta')}_${(lap.modul_nama||'Ujian')}`.replace(/[\\/:*?"<>|]/g, '-').trim() || 'Peserta';
-      let fname = `${baseName}.doc`, n = 1;
-      while (usedNames[fname]) { n++; fname = `${baseName} (${n}).doc`; }
+      let fname = `${baseName}.${ext}`, n = 1;
+      while (usedNames[fname]) { n++; fname = `${baseName} (${n}).${ext}`; }
       usedNames[fname] = true;
 
-      zip.file(fname, '\ufeff' + html);
+      if (_grubDlFormat === 'excel') {
+        const wb = buildLaporanExcelWorkbook(lap, soalAll, jawaban, soalAll);
+        const arrBuf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        zip.file(fname, arrBuf);
+      } else {
+        const html = buildLaporanWordHtml(lap, soalAll, jawaban, soalAll, _grubDlMode === 'acak');
+        zip.file(fname, '\ufeff' + html);
+      }
       sukses++;
     }
 

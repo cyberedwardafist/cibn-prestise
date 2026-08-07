@@ -26,11 +26,22 @@ async function renderHome() {
 }
 
 // ── LAPORAN ──
-let _lapData = [], _lapSearch = '', _lapPage = 1;
+let _lapData = [], _lapSearch = '', _lapPage = 1, _lapGrubFilter = '';
 
 async function renderLaporan() {
     _lapData = await LaporanAPI.getAll().catch(() => []);
+    _renderLapGrubFilterOptions();
     _renderLapTable();
+}
+
+// Isi dropdown "Semua Grup Token" dari nilai grub_token unik yang ada di data laporan
+function _renderLapGrubFilterOptions() {
+    const sel = document.getElementById('laporan-grub-filter');
+    if (!sel) return;
+    const cur = _lapGrubFilter;
+    const grubs = Array.from(new Set((_lapData || []).map(l => l.grub_token).filter(Boolean))).sort((a, b) => String(a).toLowerCase().localeCompare(String(b).toLowerCase()));
+    sel.innerHTML = '<option value="">Semua Grup Token</option>' + grubs.map(g => `<option value="${String(g).replace(/"/g, '&quot;')}">${g}</option>`).join('');
+    if (grubs.includes(cur)) sel.value = cur; else _lapGrubFilter = '';
 }
 
 function _renderLapTable() {
@@ -39,6 +50,15 @@ function _renderLapTable() {
         const q = _lapSearch.toLowerCase();
         data = data.filter(l => (l.token_kode || '').toLowerCase().includes(q) || (l.modul_kode || '').toLowerCase().includes(q));
     }
+    if (_lapGrubFilter) data = data.filter(l => l.grub_token === _lapGrubFilter);
+
+    const dlBar = document.getElementById('laporan-grub-dl-bar');
+    if (dlBar) {
+        dlBar.style.display = _lapGrubFilter ? 'flex' : 'none';
+        const cntEl = document.getElementById('laporan-grub-dl-count');
+        if (cntEl && _lapGrubFilter) cntEl.textContent = `${data.length} laporan pada grup "${_lapGrubFilter}"`;
+    }
+
     const total = data.length, totalPg = Math.max(1, Math.ceil(total / 20));
     if (_lapPage > totalPg) _lapPage = 1;
     const start = (_lapPage - 1) * 20, slice = data.slice(start, start + 20);
@@ -276,6 +296,102 @@ function doDownloadAdmin(which, format = 'word') {
         if (typeof adminDoDownloadExcel === 'function') adminDoDownloadExcel(lap, soalTampil, jawaban);
     } else {
         if (typeof adminDoDownloadWord === 'function') adminDoDownloadWord(lap, soalTampil, jawaban);
+    }
+}
+
+// ── UNDUH LAPORAN GRUP (ZIP per grup token) — Admin ──
+let _adminGrubDlFormat = 'word';
+
+function openAdminUnduhLaporanGrup() {
+    if (!_lapGrubFilter) { showToast('Pilih grup token terlebih dahulu', 'danger'); return; }
+    const data = _lapData.filter(l => l.grub_token === _lapGrubFilter);
+    if (!data.length) { showToast('Tidak ada laporan pada grup ini', 'danger'); return; }
+    document.getElementById('admin-grub-dl-nama').textContent = _lapGrubFilter;
+    document.getElementById('admin-grub-dl-count').textContent = `${data.length} laporan peserta`;
+    _setAdminGrubDlFormat('word');
+    const prog = document.getElementById('admin-grub-dl-progress');
+    if (prog) { prog.style.display = 'none'; prog.textContent = ''; }
+    const btn = document.getElementById('admin-grub-dl-btn'); if (btn) btn.disabled = false;
+    openModal('admin-grub-dl-overlay');
+}
+
+function _setAdminGrubDlFormat(format) {
+    _adminGrubDlFormat = format;
+    document.getElementById('admin-grub-dl-format-word')?.classList.toggle('active', format === 'word');
+    document.getElementById('admin-grub-dl-format-excel')?.classList.toggle('active', format === 'excel');
+    const desc = document.getElementById('admin-grub-dl-format-desc');
+    if (desc) desc.textContent = format === 'excel'
+        ? 'Setiap laporan peserta akan disimpan sebagai file Excel (.xlsx) di dalam ZIP.'
+        : 'Setiap laporan peserta akan disimpan sebagai file Word (.doc) di dalam ZIP.';
+}
+
+async function prosesAdminUnduhLaporanGrup() {
+    const grubNama = _lapGrubFilter;
+    const list = _lapData.filter(l => l.grub_token === grubNama);
+    if (!list.length) { showToast('Tidak ada laporan pada grup ini', 'danger'); return; }
+    if (typeof JSZip === 'undefined') { showToast('Gagal memuat pustaka ZIP, cek koneksi internet lalu coba lagi', 'danger'); return; }
+    if (_adminGrubDlFormat === 'excel' && typeof XLSX === 'undefined') { showToast('Gagal memuat pustaka Excel, cek koneksi internet lalu coba lagi', 'danger'); return; }
+
+    const btn = document.getElementById('admin-grub-dl-btn');
+    const prog = document.getElementById('admin-grub-dl-progress');
+    if (btn) btn.disabled = true;
+    if (prog) prog.style.display = 'block';
+
+    try {
+        const zip = new JSZip();
+        const usedNames = {};
+        const ext = _adminGrubDlFormat === 'excel' ? 'xlsx' : 'doc';
+        let sukses = 0;
+        for (let i = 0; i < list.length; i++) {
+            const row = list[i];
+            const namaPeserta = row.user_nama || row.user_kode || 'Peserta';
+            if (prog) prog.textContent = `Memproses ${i + 1}/${list.length}: ${namaPeserta}...`;
+
+            const lap = await apiGet(`/laporan/${row.kode || row.id}`).catch(() => null);
+            if (!lap || !lap.soal_detail || !lap.soal_detail.length) continue;
+            const jawaban = typeof lap.jawaban === 'string' ? JSON.parse(lap.jawaban) : (lap.jawaban || {});
+            const soalAll = lap.soal_detail || [];
+
+            let baseName = `${(lap.user_nama || lap.user_kode || 'Peserta')}_${(lap.modul_nama || 'Ujian')}`.replace(/[\\/:*?"<>|]/g, '-').trim() || 'Peserta';
+            let fname = `${baseName}.${ext}`, n = 1;
+            while (usedNames[fname]) { n++; fname = `${baseName} (${n}).${ext}`; }
+            usedNames[fname] = true;
+
+            if (_adminGrubDlFormat === 'excel') {
+                if (typeof adminBuildExcelWorkbook !== 'function') continue;
+                const wb = adminBuildExcelWorkbook(lap, soalAll, jawaban);
+                const arrBuf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                zip.file(fname, arrBuf);
+            } else {
+                if (typeof adminBuildLaporanWordHtml !== 'function') continue;
+                const html = adminBuildLaporanWordHtml(lap, soalAll, jawaban);
+                zip.file(fname, '\ufeff' + html);
+            }
+            sukses++;
+        }
+
+        if (!sukses) { showToast('Tidak ada laporan yang berhasil diproses', 'danger'); return; }
+
+        if (prog) prog.textContent = 'Menyusun file ZIP...';
+        const blob = await zip.generateAsync({ type: 'blob' });
+        const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Laporan_Grup_${String(grubNama).replace(/[\\/:*?"<>|]/g, '-')}_${tgl}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
+
+        showToast(`Laporan grup berhasil diunduh (${sukses}/${list.length} peserta)`, 'success');
+        closeModal('admin-grub-dl-overlay');
+    } catch (e) {
+        console.error(e);
+        showToast('Gagal membuat file ZIP: ' + e.message, 'danger');
+    } finally {
+        if (btn) btn.disabled = false;
+        if (prog) prog.style.display = 'none';
     }
 }
 
