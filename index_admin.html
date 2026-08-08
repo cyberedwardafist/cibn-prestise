@@ -1819,6 +1819,7 @@ Pertanyaan terkait privasi: privacy@cibnakademi.id</textarea>
 <!-- Dipakai untuk bundling Export Massal soal (beberapa file .xlsx jadi 1 file .zip) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <!-- QR generator (dihosting lokal) — dipakai buat bikin QR Code token yang beneran bisa dipindai -->
+<script src="js/viewport-stabilize.js"></script>
 <script src="js/qrcode-gen.js"></script>
 <script src="js/api.js"></script>
 <script src="js/swipe.js"></script>
@@ -2393,6 +2394,7 @@ function populateLinkLandingDropdown(currentVal) {
 */
 
 // ── Main dock ──
+let _mainDockOverflowUpdate = null;
 function setupMainDockOverflow() {
   const dock     = document.getElementById('main-dock');
   if (!dock) return;
@@ -2450,6 +2452,7 @@ function setupMainDockOverflow() {
   new ResizeObserver(update).observe(dock);
   update();
   setTimeout(update, 300); // setelah font & layout settle
+  _mainDockOverflowUpdate = update; // dipanggil ulang lewat vp:settled, tanpa bikin observer baru
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -2556,6 +2559,12 @@ function _syncDockLayoutOffset() {
   document.documentElement.style.setProperty('--side-dock-offset', offset + 'px');
 }
 window.addEventListener('resize', () => { if (document.body.classList.contains('side-dock-open')) _syncDockLayoutOffset(); });
+// Setelah resize/rotasi benar-benar selesai (bkn tiap tick), hitung ulang sekali lagi
+// supaya offset & overflow dock akurat terhadap breakpoint final (fix glitch di tablet).
+document.addEventListener('vp:settled', () => {
+  if (document.body.classList.contains('side-dock-open')) _syncDockLayoutOffset();
+  if (_mainDockOverflowUpdate) _mainDockOverflowUpdate();
+});
 
 // Tandai tombol grup (SOAL UJIAN / CAT) di main-dock aktif sesuai grup yang sedang terbuka
 function markSideDockGroupButtons(activeGroup) {

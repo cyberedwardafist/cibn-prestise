@@ -32,6 +32,18 @@ html, body {
     overflow: hidden;
 }
 
+/* ── VIEWPORT STABILIZER ──
+   Selama resize/rotasi berlangsung (lihat js/viewport-stabilize.js),
+   semua transition & animation dimatikan sesaat supaya breakpoint yang
+   berubah cepat (mis. saat tablet diputar) tidak terlihat "loncat"/glitch.
+   Transition/animation nyala lagi otomatis begitu ukuran layar settle. */
+html.vp-resizing * ,
+html.vp-resizing *::before,
+html.vp-resizing *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+}
+
 /* ── STATIC BACKGROUND (no animation) ── */
 .bg-static {
     position: fixed; inset: 0; z-index: 0;

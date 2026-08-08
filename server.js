@@ -966,6 +966,27 @@ app.get('/api/user/notifikasi-expired', auth(['user','admin','review']), ah(asyn
 // ═══════════════════════════════════════════════════════════════════════════════
 // STATIC FILES & ERROR HANDLER
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// ── LAZY-LOAD MODULE FRAGMENTS ───────────────────────────────────────────────
+// Setiap halaman utama (ujian, admin, review, user, landing) dipecah jadi folder
+// berisi fragmen HTML+JS per tampilan/tab. Browser (lewat js/lazy-loader.js)
+// fetch fragmen ini hanya saat tampilan itu benar-benar dibuka — jadi shell HTML
+// awal (ujian.html, index_admin.html, dst) jauh lebih ringan, dan kalau ada
+// perbaikan di satu tampilan, browser cukup ambil ulang file itu saja (bukan
+// seluruh halaman) berkat cache singkat di bawah.
+//
+// Didaftarkan sebagai mount terpisah (bukan cuma ikut app.use(express.static(__dirname))
+// di bawah) supaya bisa dikasih header cache yang sesuai: pendek, karena modul-
+// modul ini masih sering direvisi, tapi tetap ada supaya browser tidak fetch
+// ulang fragmen yang sama berkali-kali dalam sesi yang sama.
+const LAZY_MODULES = ['ujian', 'admin', 'review', 'user', 'landing'];
+LAZY_MODULES.forEach((mod) => {
+    app.use('/' + mod, express.static(path.join(__dirname, mod), {
+        maxAge: '5m',
+        setHeaders(res) { res.setHeader('X-Lazy-Module', mod); }
+    }));
+});
+
 app.use(express.static(__dirname));
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use('/js',  express.static(path.join(__dirname, 'js')));

@@ -65,6 +65,14 @@
     }
     html, body { width:100%; height:100%; overflow:hidden; font-family:var(--font-body); background:var(--bg); }
 
+    /* ── VIEWPORT STABILIZER (lihat js/viewport-stabilize.js) ──
+       Mematikan transition/animation sesaat selama resize/rotasi berlangsung,
+       supaya breakpoint yang berubah cepat saat tablet diputar tidak "loncat"/glitch. */
+    html.vp-resizing *, html.vp-resizing *::before, html.vp-resizing *::after {
+        transition-duration: 0s !important;
+        animation-duration: 0s !important;
+    }
+
     /* ─── BACKGROUND ─── */
     .bg-scene { position:fixed; inset:0; z-index:0; overflow:hidden; }
     .bg-blob { position:absolute; border-radius:50%; filter:blur(80px); opacity:0.38; animation:blobDrift 18s ease-in-out infinite alternate; }
@@ -2514,6 +2522,16 @@ const EbookLib = {
     }
 };
 
+// Saat resize/rotasi tablet selesai (event dari js/viewport-stabilize.js), paksa
+// halaman ebook yang sedang tampil render ulang di ukuran kontainer yang baru —
+// tanpa ini, halaman ebook tetap di ukuran lama & terlihat glitch setelah diputar.
+document.addEventListener('vp:settled', function () {
+  if (typeof EbookReader !== 'undefined' && EbookReader.doc) {
+    [EbookReader.curPage - 1, EbookReader.curPage, EbookReader.curPage + 1].forEach(function (n) {
+      EbookReader._renderSwipeSlide(n);
+    });
+  }
+});
 const EbookReader = {
     kode: null, doc: null, totalPages: 0, curPage: 1, zoom: 1,
     _renderedSwipe: {}, _protectionBound: false,
@@ -2608,16 +2626,21 @@ const EbookReader = {
     },
     async _renderSwipeSlide(num) {
         if (num < 1 || num > this.totalPages) return;
-        if (this._renderedSwipe[num] === this.zoom) return; // already rendered at this exact zoom
+        const host = document.getElementById('ebook-reader-swipe');
+        // Kunci cache render mengikutkan ukuran kontainer, bukan cuma zoom — supaya
+        // saat tablet diputar (lebar/tinggi kontainer berubah tapi zoom tetap sama)
+        // halaman TIDAK dianggap "sudah dirender" dan ikut render ulang di ukuran baru.
+        // Ini yang sebelumnya bikin halaman ebook nyangkut di ukuran lama setelah rotasi.
+        const renderKey = this.zoom + ':' + (host ? host.clientWidth : 0) + 'x' + (host ? host.clientHeight : 0);
+        if (this._renderedSwipe[num] === renderKey) return; // already rendered at this exact zoom+size
         const renderZoom = this.zoom;
-        this._renderedSwipe[num] = renderZoom;
+        this._renderedSwipe[num] = renderKey;
         const slide = document.querySelector(`#ebook-swipe-track .ebook-swipe-page[data-page-num="${num}"]`);
         if (!slide) return;
         try {
             const page = await this.doc.getPage(num);
-            if (this._renderedSwipe[num] !== renderZoom) return; // superseded by a newer zoom change
+            if (this._renderedSwipe[num] !== renderKey) return; // superseded by a newer zoom/size change
             const baseViewport = page.getViewport({ scale: 1 });
-            const host = document.getElementById('ebook-reader-swipe');
             const availW = Math.max((host.clientWidth || 500) - 20, 50);
             const availH = Math.max((host.clientHeight || 700) - 20, 50);
             // Fit-inside scale so the whole page is visible at 100% zoom, then apply the
@@ -2636,7 +2659,7 @@ const EbookReader = {
             canvas.style.height = targetHeight + 'px';
             const ctx = canvas.getContext('2d');
             await page.render({ canvasContext: ctx, viewport }).promise;
-            if (this._renderedSwipe[num] !== renderZoom) return; // zoom changed again while rendering
+            if (this._renderedSwipe[num] !== renderKey) return; // zoom/size changed again while rendering
             this._drawWatermark(canvas, ctx);
             canvas.draggable = false; canvas.oncontextmenu = () => false;
             const cwrap = document.createElement('div');
@@ -2724,6 +2747,7 @@ const EbookReader = {
 };
 </script>
 <!-- jsQR untuk scan QR — dihosting lokal (bukan CDN luar) biar tetap jalan walau internet lambat/CDN diblokir jaringan -->
+<script src="js/viewport-stabilize.js"></script>
 <script src="js/jsQR.js"></script>
 </body>
 </html>
