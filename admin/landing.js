@@ -13,8 +13,10 @@ function renderLanding() {
     const pc = document.querySelector('.page-container');
     if (pc) pc.style.overflow = 'hidden';
 
-    // Init editor hanya sekali
-    if (!_ldEditorInitialized) {
+    // Init editor hanya sekali. _ldEditorInitialized tidak pernah dideklarasikan
+    // dengan let/var, jadi baca langsung (!_ldEditorInitialized) di percobaan
+    // PERTAMA akan ReferenceError — pakai typeof supaya aman.
+    if (typeof _ldEditorInitialized === 'undefined' || !_ldEditorInitialized) {
         _ldEditorInitialized = true;
         ldInitAllData();
     }
@@ -573,4 +575,3 @@ function ldUpdateTaksabar() {
 let _paketData = [], _keuanganSub = 'paket';
 // Cache paket landing (dari /api/landing) untuk dropdown link
 let _ldPaketCache = [];
-

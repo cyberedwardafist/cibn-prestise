@@ -6,7 +6,11 @@
 // yang sudah dimuat lebih dulu lewat shell index_admin.html.
 
 function renderKeuangan() {
-    renderKeuanganSub(_keuanganSub || 'paket');
+    // _keuanganSub dideklarasikan (let) di admin/landing.js — kalau tab Landing
+    // belum pernah dibuka, identifier itu belum exist sama sekali, jadi jangan
+    // baca langsung (ReferenceError). typeof aman dipakai untuk identifier
+    // yang belum pernah dideklarasikan.
+    renderKeuanganSub(typeof _keuanganSub !== 'undefined' ? _keuanganSub : 'paket');
 }
 
 function renderKeuanganSub(sub) {

@@ -370,6 +370,6 @@ async function prosesAdminUnduhLaporanGrup() {
     }
 }
 
-// ── LIBRARY ──
-let _libData=[],_libSearch='',_libType='all',_libKelompokFilter='all';
-const _libSelected=new Set();
+// (state LIBRARY dipindah ke admin/library.js — dulu salah taruh di sini,
+// jadi ReferenceError kalau tab Soal/Library/Modul dibuka sebelum pernah
+// buka tab Laporan/Token)

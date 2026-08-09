@@ -3,6 +3,13 @@
 // Bergantung pada helper global dari js/app.js (showToast, openModal, navigateTo, dst)
 // yang sudah dimuat lebih dulu lewat shell index_admin.html.
 
+// ── LIBRARY ── (state ini dipindah dari admin/laporan.js — sebelumnya
+// dideklarasikan di sana padahal cuma dipakai di sini, jadi kalau tab
+// Soal/Library/Modul dibuka sebelum pernah buka tab Laporan/Token,
+// identifier-nya belum exist sama sekali -> ReferenceError)
+let _libData=[],_libSearch='',_libType='all',_libKelompokFilter='all';
+const _libSelected=new Set();
+
 async function renderLibrary(){
     [_libData]=await Promise.all([SoalAPI.getAll().catch(()=>[]), _loadSoalKelompokList()]);
     // Buang seleksi lama yang kodenya sudah tidak ada lagi di data terbaru
