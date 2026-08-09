@@ -52,16 +52,22 @@ const LazyLoader = (function () {
     if (inFlight[key]) return inFlight[key];
 
     inFlight[key] = (async () => {
-      if (wantHtml) {
-        const html = await fetchText(basePath + '/' + name + '.html');
-        containerEl.innerHTML = html;
+      try {
+        if (wantHtml) {
+          const html = await fetchText(basePath + '/' + name + '.html');
+          containerEl.innerHTML = html;
+        }
+        if (wantJs) {
+          await injectScript(basePath + '/' + name + '.js');
+        }
+        loadedKeys.add(key);
+        return true;
+      } finally {
+        // Selalu bersihkan penanda "sedang dimuat" baik sukses maupun gagal,
+        // supaya kalau gagal (mis. jaringan putus) user bisa retry (pindah tab
+        // lagi) tanpa halaman ini permanen macet dalam status "loading".
+        delete inFlight[key];
       }
-      if (wantJs) {
-        await injectScript(basePath + '/' + name + '.js');
-      }
-      loadedKeys.add(key);
-      delete inFlight[key];
-      return true;
     })();
 
     return inFlight[key];
@@ -71,5 +77,38 @@ const LazyLoader = (function () {
     return loadedKeys.has(basePath + '/' + name);
   }
 
-  return { load, isLoaded };
+  // ── loadMany: untuk kasus 1 halaman butuh beberapa asset sekaligus, atau
+  // beberapa halaman berbagi 1 file JS yang sama (mis. 3 tab e-book pakai
+  // js/ebook.js yang sama, tapi masing-masing punya fragmen HTML sendiri). ──
+  // assets: array of { url, container?, append? } — kalau container diisi ->
+  // fragmen HTML: default innerHTML (ganti isi container), atau kalau
+  // append:true -> insertAdjacentHTML beforeend (tambah ke container tanpa
+  // menghapus isi sebelumnya — dipakai buat slot modal bersama yang diisi oleh
+  // beberapa tab berbeda). Tanpa container -> dianggap file <script> biasa.
+  // Setiap url hanya benar-benar di-fetch sekali walau dipanggil berkali-kali
+  // dari halaman berbeda atau navigasi bolak-balik (di-cache per URL).
+  function loadMany(assets) {
+    return Promise.all(assets.map((a) => {
+      const key = 'url::' + a.url;
+      if (loadedKeys.has(key)) return Promise.resolve();
+      if (inFlight[key]) return inFlight[key];
+      inFlight[key] = (async () => {
+        try {
+          if (a.container) {
+            const html = await fetchText(a.url);
+            if (a.append) a.container.insertAdjacentHTML('beforeend', html);
+            else a.container.innerHTML = html;
+          } else {
+            await injectScript(a.url);
+          }
+          loadedKeys.add(key);
+        } finally {
+          delete inFlight[key];
+        }
+      })();
+      return inFlight[key];
+    }));
+  }
+
+  return { load, isLoaded, loadMany };
 })();

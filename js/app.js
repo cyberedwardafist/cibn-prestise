@@ -38,13 +38,64 @@ function _doNav(pageId, subId) {
     _persistAdminNav();
     if (typeof syncSideDockForPage === 'function') syncSideDockForPage(pageId);
     closeDockMore();
-    if (subId) setTimeout(()=>switchSubPage(pageId, subId), 60);
-    renderPage(pageId);
+    // subId (sub-tab) sengaja DITUNGGU sampai modul halaman ini selesai lazy-load
+    // (lihat renderPage) sebelum switchSubPage dipanggil — kalau tidak, di koneksi
+    // lambat fungsi renderAkunSub/renderTokenSub dkk bisa saja belum ke-define.
+    renderPage(pageId, subId);
 }
 
-function renderPage(id) {
-    const map = { home:renderHome, akun:renderAkun, token:renderToken, laporan:renderLaporan, soal:renderSoal, library:renderLibrary, modul:renderModul, landing:renderLanding, keuangan:renderKeuangan, 'akun-admin':renderAkunAdmin, review:renderReviewPage, buku:renderBuku, 'ebook-library':renderEbookLibrary, 'ebook-modul':renderEbookModul };
-    if (map[id]) map[id]();
+function renderPage(id, subId) {
+    ensureAdminPageModule(id).then(() => {
+        const map = { home:renderHome, akun:renderAkun, token:renderToken, laporan:renderLaporan, soal:renderSoal, library:renderLibrary, modul:renderModul, landing:renderLanding, keuangan:renderKeuangan, 'akun-admin':renderAkunAdmin, review:renderReviewPage, buku:renderBuku, 'ebook-library':renderEbookLibrary, 'ebook-modul':renderEbookModul };
+        if (map[id]) map[id]();
+        if (subId) switchSubPage(id, subId);
+    }).catch(err => {
+        console.error('[lazy-load] Gagal memuat modul halaman "'+id+'":', err);
+        showToast('Gagal memuat halaman ini, coba muat ulang', 'danger');
+    });
+}
+
+// ── LAZY-LOAD PER TAB ──────────────────────────────────────────────────────
+// Peta tab admin -> fragmen HTML + file JS yang dibutuhkannya. 'home' sengaja
+// tidak ada di sini karena sudah dimuat eager (lihat admin/home.js di shell).
+// Beberapa tab berbagi 1 file JS yang sama (mis. buku/ebook-library/ebook-modul
+// sama-sama pakai js/ebook.js) — LazyLoader.loadMany men-dedup per-URL otomatis,
+// jadi file itu cuma benar-benar di-fetch sekali walau 3 tab memakainya.
+const ADMIN_PAGE_MODULES = {
+    akun:            { html: 'admin/akun.html',           js: ['js/akun.js', 'admin/akun-signup.js'], modals: 'admin/akun-modals.html' },
+    'akun-admin':    { html: 'admin/akun-admin.html',     js: ['admin/akun-admin.js'] },
+    // token butuh admin/laporan.js + shared-export.js juga: modal "detail token
+    // terpakai" punya tombol Review yang manggil openReviewLaporan() (didefinisikan
+    // di laporan.js), dan tombol unduh di dalamnya butuh shared-export.js.
+    token:           { html: 'admin/token.html',          js: ['admin/shared-export.js', 'admin/laporan.js', 'js/token.js'], modals: 'admin/token-modals.html' },
+    laporan:         { html: 'admin/laporan.html',        js: ['admin/shared-export.js', 'admin/laporan.js'], modals: 'admin/laporan-modals.html' },
+    review:          { html: 'admin/review.html',         js: ['admin/shared-export.js', 'admin/review.js'], modals: 'admin/review-modals.html' },
+    // soal/library/modul (fitur bank-soal) saling panggil fungsi satu sama lain
+    // (mis. library.js pakai helper dari soal.js, modul.js pakai helper dari
+    // library.js, soal.js refresh renderLibrary), jadi ketiganya dimuat sebagai
+    // satu bundel JS+modal supaya tidak ada risiko "function is not defined" —
+    // tapi fragmen HTML halamannya sendiri tetap terpisah per tab.
+    soal:            { html: 'admin/soal.html',           js: ['js/editor.js', 'js/soal.js', 'admin/library.js', 'admin/modul.js'], modals: 'admin/soal-modals.html' },
+    library:         { html: 'admin/library.html',        js: ['js/editor.js', 'js/soal.js', 'admin/library.js', 'admin/modul.js'], modals: 'admin/soal-modals.html' },
+    modul:           { html: 'admin/modul.html',          js: ['js/editor.js', 'js/soal.js', 'admin/library.js', 'admin/modul.js'], modals: 'admin/soal-modals.html' },
+    buku:            { html: 'admin/buku.html',           js: ['js/ebook.js'], modals: 'admin/ebook-modals.html' },
+    'ebook-library': { html: 'admin/ebook-library.html',  js: ['js/ebook.js'], modals: 'admin/ebook-modals.html' },
+    'ebook-modul':   { html: 'admin/ebook-modul.html',    js: ['js/ebook.js'], modals: 'admin/ebook-modals.html' },
+    landing:         { html: 'admin/landing.html',        js: ['admin/landing.js'] },
+    keuangan:        { html: 'admin/keuangan.html',       js: ['admin/keuangan.js'], modals: 'admin/keuangan-modals.html' },
+};
+function ensureAdminPageModule(pageId) {
+    const spec = ADMIN_PAGE_MODULES[pageId];
+    if (!spec) return Promise.resolve(); // 'home' atau id tak dikenal — tidak ada yang perlu dimuat
+    const container = document.getElementById('page-' + pageId);
+    const assets = [];
+    if (container) assets.push({ url: '/' + spec.html, container });
+    spec.js.forEach(url => assets.push({ url: '/' + url }));
+    if (spec.modals) {
+        const slot = document.getElementById('lazy-modals-slot');
+        if (slot) assets.push({ url: '/' + spec.modals, container: slot, append: true });
+    }
+    return LazyLoader.loadMany(assets);
 }
 
 function switchSubPage(pageId, subId) {

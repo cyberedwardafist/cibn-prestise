@@ -1,0 +1,57 @@
+  <div class="ebook-header-row">
+    <div class="history-title">E-Book</div>
+    <div class="ebook-count" id="ebook-count"></div>
+  </div>
+  <div class="ebook-toolbar">
+    <div class="ebook-search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="ebook-search-input" id="ebook-search-input" type="text" placeholder="Cari judul buku..." oninput="EbookLib.search(this.value)">
+      <button class="ebook-search-clear" id="ebook-search-clear" type="button" title="Hapus pencarian" onclick="EbookLib.clearSearch()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" width="11" height="11"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <select class="ebook-kelompok-select" id="ebook-kelompok-filter-select" onchange="EbookLib.filterKelompok(this.value)">
+      <option value="all">Semua Kelompok</option>
+    </select>
+  </div>
+  <div id="ebook-library-grid" class="ebook-grid"></div>
+
+<!-- modal fragment (ebook reader) -->
+<div class="ebook-reader-overlay" id="ebook-reader-overlay">
+  <div class="ebook-reader-top">
+    <button class="ebook-reader-back" onclick="EbookReader.close()" title="Kembali">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    </button>
+    <div class="ebook-reader-title" id="ebook-reader-title">—</div>
+    <div class="ebook-reader-page-ind" id="ebook-reader-page-ind">-/-</div>
+    <div class="ebook-zoom-controls">
+      <button class="ebook-zoom-btn" id="ebook-zoom-out" onclick="EbookReader.zoomOut()" title="Perkecil">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="16" height="16"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+      </button>
+      <div class="ebook-zoom-label" id="ebook-zoom-label">100%</div>
+      <button class="ebook-zoom-btn" id="ebook-zoom-in" onclick="EbookReader.zoomIn()" title="Perbesar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="16" height="16"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="ebook-reader-progress"><div class="ebook-reader-progress-fill" id="ebook-reader-progress-fill"></div></div>
+  <div class="ebook-reader-body" id="ebook-reader-body">
+    <div class="ebook-reader-loading" id="ebook-reader-loading">
+      <div class="ebk-spinner"></div>
+      <div>Memuat buku...</div>
+    </div>
+    <div class="ebook-reader-swipe" id="ebook-reader-swipe" style="display:none">
+      <div class="ebook-swipe-track" id="ebook-swipe-track"></div>
+      <button class="ebook-swipe-arrow left" id="ebook-swipe-prev" onclick="EbookReader.prevPage()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" width="17" height="17"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button class="ebook-swipe-arrow right" id="ebook-swipe-next" onclick="EbookReader.nextPage()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" width="17" height="17"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+    <div class="ebook-reader-blurcover" id="ebook-reader-blurcover">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="34" height="34"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      <div>Konten disembunyikan</div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,125 @@
+<!-- bulk-kelompok-lib-overlay -->
+<div class="overlay" id="bulk-kelompok-lib-overlay"><div class="modal modal-sm"><div class="modal-header"><div class="modal-title">Set Kelompok Massal</div><button class="modal-close" onclick="closeModal('bulk-kelompok-lib-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <p style="font-size:12.5px;color:var(--text-sub);margin-bottom:14px">Pindahkan <b id="bkl-count">0</b> soal terpilih ke kelompok berikut (menimpa kelompok lama masing-masing soal).</p>
+  <div class="form-group">
+    <label class="form-label">Kelompok Tujuan</label>
+    <select id="bkl-kelompok-select" class="form-input"><option value="">-- Tanpa Kelompok --</option></select>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('bulk-kelompok-lib-overlay')">Batal</button><button class="btn btn-primary" onclick="submitBulkSetKelompokLib()">Terapkan</button></div>
+</div></div>
+
+<!-- soal-kelompok-overlay -->
+<div class="overlay" id="soal-kelompok-overlay"><div class="modal"><div class="modal-header"><div class="modal-title">Kelola Kelompok Soal</div><button class="modal-close" onclick="closeModal('soal-kelompok-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <input id="soal-kelompok-new-input" class="form-input" type="text" placeholder="Nama kelompok baru" onkeydown="if(event.key==='Enter')addSoalKelompok()">
+    <button class="btn btn-primary" style="flex-shrink:0" onclick="addSoalKelompok()">Tambah</button>
+  </div>
+  <div id="soal-kelompok-manage-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('soal-kelompok-overlay')">Tutup</button></div>
+</div></div>
+
+<!-- preview-soal-overlay -->
+<div class="overlay" id="preview-soal-overlay"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title">Preview Soal</div><button class="modal-close" onclick="closeModal('preview-soal-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><div id="preview-soal-body" style="max-height:60vh;overflow-y:auto"></div><div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('preview-soal-overlay')">Tutup</button></div></div></div>
+
+<!-- edit-soal-info-overlay -->
+<div class="overlay" id="edit-soal-info-overlay"><div class="modal modal-sm">
+  <div class="modal-header">
+    <div class="modal-title">Edit Info Soal</div>
+    <button class="modal-close" onclick="closeModal('edit-soal-info-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Nama Soal</label>
+    <input id="esi-nama" class="form-input" type="text" placeholder="Contoh: Tes Pengetahuan Umum">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Kelompok <span style="font-weight:400;color:var(--text-sub)">(opsional)</span></label>
+    <select id="esi-kelompok-select" class="form-input"><option value="">-- Tanpa Kelompok --</option></select>
+  </div>
+  <div class="form-group" id="esi-type-wrap">
+    <label class="form-label">Tipe Soal</label>
+    <select id="esi-type" class="form-select">
+      <option value="multiple_choice">Multiple Choice</option>
+      <option value="linier">Linier (tidak bisa kembali)</option>
+    </select>
+    <div style="font-size:11px;color:var(--text-sub);margin-top:4px">Tipe hanya bisa ditukar antar Multiple Choice ↔ Linier</div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Timer Pengerjaan</label>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div style="text-align:center;flex:1"><input id="esi-jam" class="form-input" type="number" value="0" min="0" max="23" style="text-align:center"><div style="font-size:10px;color:var(--text-sub);margin-top:3px;font-weight:600">JAM</div></div>
+      <span style="color:var(--text-sub);font-weight:700;font-size:18px;margin-bottom:18px">:</span>
+      <div style="text-align:center;flex:1"><input id="esi-menit" class="form-input" type="number" value="0" min="0" max="59" style="text-align:center"><div style="font-size:10px;color:var(--text-sub);margin-top:3px;font-weight:600">MENIT</div></div>
+      <span style="color:var(--text-sub);font-weight:700;font-size:18px;margin-bottom:18px">:</span>
+      <div style="text-align:center;flex:1"><input id="esi-detik" class="form-input" type="number" value="0" min="0" max="59" style="text-align:center"><div style="font-size:10px;color:var(--text-sub);margin-top:3px;font-weight:600">DETIK</div></div>
+    </div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('edit-soal-info-overlay')">Batal</button><button class="btn btn-primary" onclick="saveSoalInfo()">Simpan</button></div>
+</div></div>
+
+<!-- item-editor-overlay -->
+<div class="overlay" id="item-editor-overlay"><div class="modal modal-sm"><div class="modal-header"><div class="modal-title" id="ie-label">Edit Item</div><button class="modal-close" onclick="closeItemEditor()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<div style="text-align:center;margin-bottom:16px">
+  <div id="ie-preview" style="width:80px;height:80px;border-radius:14px;background:rgba(19,50,89,0.06);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:32px;border:2px dashed rgba(19,50,89,0.15)">?</div>
+  <div style="font-size:11px;color:var(--text-sub)">Preview item</div>
+</div>
+<div class="form-group"><label class="form-label">Teks / Simbol / Angka / Emoji</label><input id="ie-teks" class="form-input" type="text" placeholder="Contoh: 9, ✓, →, ABC" oninput="applyItemTeks()"></div>
+<div style="text-align:center;margin:12px 0"><span style="font-size:12px;color:var(--text-sub)">— atau —</span></div>
+<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+  <button class="btn btn-secondary" onclick="triggerItemImage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Upload Gambar</button>
+  <button class="btn btn-secondary" onclick="clearItemVal()">Hapus</button>
+</div>
+<input type="file" id="ie-img-input" accept="image/*" style="display:none" onchange="onItemImageSelected(this)">
+</div></div>
+
+<!-- template-soal-overlay -->
+<div class="overlay" id="template-soal-overlay"><div class="modal modal-sm">
+  <div class="modal-header">
+    <div class="modal-title">Unduh Template Soal</div>
+    <button class="modal-close" onclick="closeModal('template-soal-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="section-sub" style="margin-top:-4px">Pilih tipe soal & sistem penilaian, lalu isi template dan upload kembali lewat tombol "Upload Soal".</div>
+  <div class="form-group">
+    <label class="form-label">Tipe Soal</label>
+    <select id="tpl-type" class="form-select" onchange="onTplTypeChange()">
+      <option value="multiple_choice">Multiple Choice</option>
+      <option value="linier">Linier (tidak bisa kembali)</option>
+      <option value="sikap_kerja">Sikap Kerja</option>
+    </select>
+  </div>
+  <div id="tpl-skor-wrap">
+    <div class="form-group">
+      <label class="form-label">Sistem Penilaian</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <label style="flex:1;min-width:130px;display:flex;align-items:flex-start;gap:8px;padding:12px;border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;cursor:pointer;background:rgba(255,255,255,0.6)">
+          <input type="radio" name="tpl_skor_type" value="benar_salah" checked style="margin-top:2px;accent-color:var(--blue)">
+          <div><div style="font-weight:700;font-size:13px">Benar / Salah</div><div style="font-size:11px;color:var(--text-sub)">Ada kunci jawaban</div></div>
+        </label>
+        <label style="flex:1;min-width:130px;display:flex;align-items:flex-start;gap:8px;padding:12px;border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;cursor:pointer;background:rgba(255,255,255,0.6)">
+          <input type="radio" name="tpl_skor_type" value="nilai_sendiri" style="margin-top:2px;accent-color:var(--blue)">
+          <div><div style="font-weight:700;font-size:13px">Nilai per Jawaban</div><div style="font-size:11px;color:var(--text-sub)">Tiap pilihan punya skor</div></div>
+        </label>
+      </div>
+    </div>
+  </div>
+  <div class="form-group" id="tpl-jumlah-wrap">
+    <label class="form-label">Jumlah Baris Soal di Template</label>
+    <input id="tpl-jumlah" class="form-input" type="number" value="10" min="1" max="200" style="max-width:120px">
+  </div>
+  <button class="btn btn-primary" style="width:100%;padding:12px" onclick="downloadSoalTemplate()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Download Template Excel
+  </button>
+</div></div>
+
+<!-- modul-form-overlay -->
+<div class="overlay" id="modul-form-overlay"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title" id="modul-form-title">Buat Modul</div><button class="modal-close" onclick="closeModal('modul-form-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><input type="hidden" id="modul-form-mode" value="add"><input type="hidden" id="modul-form-id" value=""><div class="form-row"><div class="form-group"><label class="form-label">Nama Modul</label><input id="modul-nama-input" class="form-input" type="text" placeholder="Nama paket ujian" oninput="setDirty('modul')"></div><div class="form-group"><label class="form-label">Nilai Minimum Lulus (%)</label><input id="modul-nilai-min-input" class="form-input" type="number" min="0" max="100" value="60" placeholder="60" oninput="setDirty('modul')"></div></div><div class="form-group"><label class="form-label">Kelompok <span style="font-weight:400;color:var(--text-sub)">(opsional)</span></label><select id="modul-kelompok-select" class="form-input" onchange="setDirty('modul')"><option value="">-- Tanpa Kelompok --</option></select></div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"><label class="form-label" style="margin-bottom:0" id="modul-picker-label">Pilih Soal & Urutan Tampil</label><span style="font-size:11px;color:var(--text-sub)" id="modul-picker-hint">Cari &amp; pilih soal yang ingin dimasukkan ke modul</span></div><div class="search-bar" id="modul-picker-searchbar" style="flex-wrap:wrap;gap:8px;margin-bottom:10px"><div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" id="modul-picker-search-input" placeholder="Cari nama / tipe..." oninput="_modulPickerSearch=this.value;_renderModulSoalPickerList()"></div><div id="modul-picker-filters"></div></div><div id="modul-soal-picker" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:8px"></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('modul-form-overlay')">Batal</button><button class="btn btn-secondary" id="modul-back-btn" style="display:none" onclick="_modulGoToSelectStep()">&larr; Kembali</button><button class="btn btn-primary" id="modul-next-btn" onclick="_modulGoToOrderStep()">Buat Modul</button><button class="btn btn-primary" id="modul-save-btn" style="display:none" onclick="submitModulForm()">Simpan Modul</button></div></div></div>
+
+<!-- modul-kelompok-overlay -->
+<div class="overlay" id="modul-kelompok-overlay"><div class="modal"><div class="modal-header"><div class="modal-title">Kelola Kelompok Modul</div><button class="modal-close" onclick="closeModal('modul-kelompok-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <input id="modul-kelompok-new-input" class="form-input" type="text" placeholder="Nama kelompok baru" onkeydown="if(event.key==='Enter')addModulKelompok()">
+    <button class="btn btn-primary" style="flex-shrink:0" onclick="addModulKelompok()">Tambah</button>
+  </div>
+  <div id="modul-kelompok-manage-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('modul-kelompok-overlay')">Tutup</button></div>
+</div></div>

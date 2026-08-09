@@ -1,0 +1,51 @@
+<!-- admin-grub-dl-overlay -->
+<div class="overlay" id="admin-grub-dl-overlay">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Unduh Laporan Grup</div>
+      <button class="modal-close" onclick="closeModal('admin-grub-dl-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Grup Token</label>
+        <div style="font-size:14px;font-weight:700;color:var(--blue)" id="admin-grub-dl-nama">-</div>
+        <div style="font-size:11px;color:var(--text-sub)" id="admin-grub-dl-count">-</div>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Format File</label>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="token-mode-btn sub-tab active" id="admin-grub-dl-format-word" onclick="_setAdminGrubDlFormat('word')" style="flex:1">Word (.doc)</button>
+          <button type="button" class="token-mode-btn sub-tab" id="admin-grub-dl-format-excel" onclick="_setAdminGrubDlFormat('excel')" style="flex:1">Excel (.xlsx)</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-sub);margin-top:6px" id="admin-grub-dl-format-desc">Setiap laporan peserta akan disimpan sebagai file Word (.doc) di dalam ZIP.</div>
+      </div>
+      <button class="btn btn-primary" style="width:100%" id="admin-grub-dl-btn" onclick="prosesAdminUnduhLaporanGrup()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Unduh ZIP
+      </button>
+      <div id="admin-grub-dl-progress" style="font-size:11px;color:var(--text-sub);text-align:center;display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- review-laporan-overlay -->
+<div class="overlay" id="review-laporan-overlay"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title">Review Hasil Ujian</div><button class="modal-close" onclick="closeModal('review-laporan-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><div id="review-laporan-body" style="max-height:60vh;overflow-y:auto"></div><div class="modal-footer" style="display:flex;gap:8px;flex-wrap:wrap;">
+  <button class="btn btn-primary" onclick="closeModal('review-laporan-overlay')" style="margin-left:auto">Tutup</button>
+</div></div></div>
+
+<!-- download-overlay -->
+<div class="overlay" id="download-overlay">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Pilih Format Unduhan</div>
+      <button class="modal-close" onclick="closeModal('download-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:15px">
+        <button class="btn btn-primary" onclick="doDownloadAdmin('all','word')">Semua (Word)</button>
+        <button class="btn btn-secondary" onclick="doDownloadAdmin('all','excel')" style="border-color:rgba(22,163,74,0.3);color:var(--success)">Semua (Excel)</button>
+      </div>
+      <div id="dl-per-soal-list" style="max-height:250px; overflow-y:auto; border-top:1px solid #eee; padding-top:12px;"></div>
+    </div>
+  </div>
+</div>

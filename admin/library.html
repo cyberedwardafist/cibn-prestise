@@ -1,0 +1,18 @@
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div><div class="section-title" style="margin-bottom:0">Library Soal</div><div class="section-sub">Semua soal yang telah dibuat</div></div>
+    <button class="btn btn-secondary" onclick="openManageSoalKelompok()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Kelola Kelompok</button>
+  </div>
+  <div class="search-bar" style="flex-wrap:wrap;gap:8px;margin-top:10px">
+    <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari nama / tipe..." oninput="_libSearch=this.value;_renderLibList()"></div>
+    <div id="library-filters"></div>
+    <button class="btn btn-secondary akun-select-all-mobile" onclick="toggleSelectAllLib(true)">Semua</button>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-sub);cursor:pointer;padding:0 4px" class="hide-mobile"><input type="checkbox" id="lib-select-all" onchange="toggleSelectAllLib(this.checked)" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer"> Pilih Semua</label>
+  </div>
+  <div class="bulk-bar" id="bulk-bar-lib"><span><b id="bulk-count-lib">0</b> soal dipilih</span><div class="bulk-bar-actions">
+    <button class="btn btn-secondary" onclick="clearLibSelection()">Batal</button>
+    <button class="btn btn-secondary" onclick="openBulkSetKelompokLib()">Set Kelompok</button>
+    <button class="btn btn-secondary" onclick="exportSelectedLibSoal()">Export ZIP</button>
+    <button class="btn btn-danger" onclick="deleteSelectedLibSoal()">Hapus Massal</button>
+  </div></div>
+  <div class="aksi-swipe-wrap" id="library-list"></div>
+  <div class="swipe-list" id="library-swipe-list"></div>
