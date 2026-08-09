@@ -116,6 +116,7 @@ let _bueRole='';
 async function openBulkEditAkun(role){
     const set=_akunSelected[role];
     if(!set||!set.size){showToast('Pilih minimal 1 akun dulu','danger');return;}
+    if(!await _ensureAkunModals())return;
     _bueRole=role;
     document.getElementById('bue-role').value=role;
     document.getElementById('bue-title').textContent=`Edit Massal — ${role==='admin'?'Admin':role==='review'?'Reviewer':'User'}`;
@@ -449,7 +450,25 @@ function _onUfDurasiChange(){
 
 // ── GENERIC USER FORM ──
 let _ufRole='',_ufKode='';
+// Modal form akun (#user-form-overlay, berisi #uf-title dkk) di-lazy-load lewat
+// admin/akun-modals.html (lihat ADMIN_PAGE_MODULES di js/app.js) dan SEHARUSNYA
+// sudah pasti ada di DOM begitu halaman Akun selesai dimuat. Tapi kalau proses
+// lazy-load itu sempat gagal (koneksi putus di tengah, dsb) dan pengguna sempat
+// melihat daftar akun dari render sebelumnya, klik Tambah/Edit bisa mendarat di
+// elemen yang belum ada → error "Cannot set properties of null". Guard ini
+// mendeteksi itu dan coba muat ulang modalnya dulu sebelum lanjut, alih-alih
+// langsung crash tanpa penjelasan ke pengguna.
+async function _ensureAkunModals(){
+    if(document.getElementById('uf-title'))return true;
+    if(typeof ensureAdminPageModule==='function'){
+        try{ await ensureAdminPageModule('akun'); }catch(e){}
+    }
+    if(document.getElementById('uf-title'))return true;
+    showToast('Gagal memuat form akun, silakan muat ulang halaman','danger');
+    return false;
+}
 async function openAddUser(role){
+    if(!await _ensureAkunModals())return;
     _ufRole=role;_ufKode='';
     document.getElementById('uf-title').textContent=`Tambah ${role==='admin'?'Admin':role==='review'?'Reviewer':'User'}`;
     document.getElementById('uf-mode').value='add';document.getElementById('uf-id').value='';document.getElementById('uf-role').value=role;
@@ -464,6 +483,7 @@ async function openAddUser(role){
     openModal('user-form-overlay');
 }
 async function openEditUser(role,kode,nama){
+    if(!await _ensureAkunModals())return;
     _ufRole=role;_ufKode=kode;
     document.getElementById('uf-title').textContent=`Edit ${nama}`;
     document.getElementById('uf-mode').value='edit';document.getElementById('uf-id').value=kode;document.getElementById('uf-role').value=role;
