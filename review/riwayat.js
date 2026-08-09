@@ -1203,6 +1203,12 @@ let _ruvState = {
 };
 
 async function openReviewUjian(laporanKode, modulNama, userNama) {
+  // Tombol "Review" ini letaknya DI DALAM popup Riwayat User (riwayat-user-overlay).
+  // MODE REVIEW dibuka menimpa di atasnya, tapi popup Riwayat User itu sendiri
+  // sebelumnya tidak pernah ditutup — jadi begitu MODE REVIEW ditutup (tombol X),
+  // popup Riwayat User yang lama masih "open" dan langsung kelihatan lagi.
+  // Tutup dulu di sini supaya cuma MODE REVIEW yang aktif.
+  closeModal('riwayat-user-overlay');
   document.getElementById('ruv-title').textContent = `${userNama} — ${modulNama}`;
   document.getElementById('ruv-content').innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;gap:12px;"><div style="width:28px;height:28px;border:3px solid rgba(19,50,89,0.1);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;"></div><p style="font-size:13px;color:var(--text-sub);">Memuat data...</p></div>';
   openModal('review-ujian-overlay');
