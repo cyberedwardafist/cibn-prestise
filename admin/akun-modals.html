@@ -1,5 +1,5 @@
 <!-- user-form-overlay -->
-<div class="overlay" id="user-form-overlay"><div class="modal"><div class="modal-header"><div class="modal-title" id="uf-title">Tambah Akun</div><button class="modal-close" onclick="closeModal('user-form-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<div class="overlay" id="user-form-overlay"><div class="modal"><div class="modal-header"><div class="modal-title" id="uf-title">Tambah Akun</div><button class="modal-close" onclick="closeModalCheckDirty('user-form-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
 <input type="hidden" id="uf-mode" value="add"><input type="hidden" id="uf-id" value=""><input type="hidden" id="uf-role" value="">
 <div id="uf-form-body">
   <div class="form-group"><label class="form-label">Nama Lengkap</label><input id="uf-nama" class="form-input" type="text" placeholder="Nama lengkap" oninput="setDirty('pengisian form akun')"></div>
@@ -30,7 +30,7 @@
     <div id="uf-durasi-preview" style="display:none;font-size:11.5px;color:var(--text-sub);margin-top:-6px"></div>
   </div>
 </div>
-<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('user-form-overlay')">Batal</button><button class="btn btn-primary" onclick="submitUserForm()">Proses</button></div>
+<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModalCheckDirty('user-form-overlay')">Batal</button><button class="btn btn-primary" onclick="submitUserForm()">Proses</button></div>
 </div></div>
 
 <!-- bulk-edit-overlay -->

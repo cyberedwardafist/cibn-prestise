@@ -1,5 +1,5 @@
 /* app.js v2 - Core: navigation, state, modal, toast */
-const AppState = { currentPage: 'home', currentSubPage: {}, isDirty: false, dirtyContext: null, pendingNav: null };
+const AppState = { currentPage: 'home', currentSubPage: {}, isDirty: false, dirtyContext: null, pendingNav: null, pendingModalClose: null };
 
 function showToast(msg, type='', dur=2600) {
     let t = document.getElementById('toast');
@@ -124,7 +124,7 @@ function showLeaveConfirm() {
     document.getElementById('leave-msg').textContent = `Yakin ingin membatalkan proses ${AppState.dirtyContext||'perubahan'}? Data yang diisi akan hilang.`;
     document.getElementById('leave-overlay').classList.add('open');
 }
-function closeLeaveConfirm() { document.getElementById('leave-overlay').classList.remove('open'); AppState.pendingNav=null; }
+function closeLeaveConfirm() { document.getElementById('leave-overlay').classList.remove('open'); AppState.pendingNav=null; AppState.pendingModalClose=null; }
 function confirmLeave() {
     // Soal Builder punya draft tersendiri di localStorage (cbn_soal_draft) yang
     // dipulihkan otomatis sekali tiap kali aplikasi di-reload (lihat js/soal.js).
@@ -135,16 +135,42 @@ function confirmLeave() {
     // popup konfirmasi ini muncul lagi padahal user cuma mau pindah halaman.
     if (typeof _soalDraftClear === 'function') _soalDraftClear();
     if (typeof SoalState !== 'undefined') { SoalState.mode = 'setup'; SoalState._editors = {}; }
-    clearDirty(); closeLeaveConfirm();
-    if (AppState.pendingNav) { const {pageId,subId}=AppState.pendingNav; AppState.pendingNav=null; _doNav(pageId,subId); }
+    clearDirty();
+    // Sumber trigger dialog ini ada 2 kemungkinan (saling eksklusif): pindah tab
+    // (pendingNav, lewat navigateTo) ATAU menutup modal form (pendingModalClose,
+    // lewat closeModalCheckDirty). closeLeaveConfirm() di bawah ini mereset
+    // keduanya, jadi baca dulu sebelum dipanggil.
+    const modalToClose = AppState.pendingModalClose;
+    const nav = AppState.pendingNav;
+    closeLeaveConfirm();
+    if (modalToClose) { closeModal(modalToClose); return; }
+    if (nav) { _doNav(nav.pageId, nav.subId); }
 }
+
+// Dipakai oleh tombol X / Batal / klik-di-luar pada modal FORM yang mengisi
+// AppState.isDirty lewat setDirty() (lihat DIRTY_TRACKED_OVERLAYS di bawah).
+// Kalau form-nya masih "kotor", tampilkan dialog konfirmasi yang sama dengan
+// yang dipakai navigateTo() — supaya saat dialog muncul, formnya MASIH terlihat
+// di belakang (bukan setelah modal sudah tertutup duluan). Modal yang memang
+// tidak pernah dirty (mis. modal hapus/detail) tetap pakai closeModal() biasa.
+function closeModalCheckDirty(id) {
+    if (AppState.isDirty) { AppState.pendingModalClose = id; showLeaveConfirm(); return; }
+    closeModal(id);
+}
+// Daftar id overlay form yang input-nya memanggil setDirty() — dipakai supaya
+// klik di luar modal (backdrop) juga lewat pengecekan dirty yang sama, bukan
+// langsung closeOverlay() mentah-mentah.
+const DIRTY_TRACKED_OVERLAYS = ['user-form-overlay', 'paket-form-overlay', 'modul-form-overlay', 'ebook-modul-form-overlay'];
 
 function toggleDockMore() { document.getElementById('dock-more-menu')?.classList.toggle('open'); }
 function closeDockMore() { document.getElementById('dock-more-menu')?.classList.remove('open'); }
 document.addEventListener('click', e=>{
     const btn=document.getElementById('btn-dock-more'), menu=document.getElementById('dock-more-menu');
     if(menu&&!menu.contains(e.target)&&btn&&!btn.contains(e.target)) closeDockMore();
-    if(e.target.classList.contains('overlay')&&e.target.id!=='leave-overlay') closeOverlay(e.target);
+    if(e.target.classList.contains('overlay')&&e.target.id!=='leave-overlay'){
+        if (DIRTY_TRACKED_OVERLAYS.includes(e.target.id)) closeModalCheckDirty(e.target.id);
+        else closeOverlay(e.target);
+    }
 });
 
 function openModal(id) { document.getElementById(id)?.classList.add('open'); }
