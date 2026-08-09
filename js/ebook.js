@@ -292,13 +292,40 @@ function _populateEbookModulKelompokSelect(selected) {
     sel.value = selected || '';
 }
 
+// ── PILIH BUKU & URUTAN TAMPIL (2 tahap: pilih -> urutkan) ──
+// Sama seperti "Pilih Soal & Urutan Tampil" di Modul Soal (lihat admin/modul.js):
+// Tahap 1 "select": cari & centang buku dari seluruh library (dengan filter kelompok).
+// Tahap 2 "order": hanya menampilkan buku yang sudah dipilih, tinggal diseret naik/turun
+// (atau pakai tombol panah) untuk menentukan urutan tampil, baru "Simpan Modul".
+// Buku tidak punya "Tipe" seperti soal, jadi filternya cuma Kelompok. Buku juga tidak
+// punya opsi acak/bobot (itu spesifik penilaian soal) — jadi tahap 1 di sini hanya
+// checkbox polos, tanpa panel opsi tambahan yang muncul di soal saat dicentang.
+let _ebookModulPickerStep = 'select', _ebookModulPickerSearch = '', _ebookModulPickerKelompokFilter = 'all';
+let _ebookModulOrder = [], _ebookModulDragFrom = null;
+
+function _ebookModulResetPickerState(existingKodes = []) {
+    _ebookModulOrder = [...existingKodes];
+    _ebookModulPickerSearch = ''; _ebookModulPickerKelompokFilter = 'all';
+    const si = document.getElementById('ebook-modul-picker-search-input'); if (si) si.value = '';
+}
+function _ebookModulInitPickerUI() {
+    _ebookModulPickerStep = 'select';
+    const sb = document.getElementById('ebook-modul-picker-searchbar'); if (sb) sb.style.display = '';
+    const hint = document.getElementById('ebook-modul-picker-hint'); if (hint) hint.textContent = 'Cari & pilih buku yang ingin dimasukkan ke modul';
+    const nb = document.getElementById('ebook-modul-next-btn'); if (nb) nb.style.display = '';
+    const bb = document.getElementById('ebook-modul-back-btn'); if (bb) bb.style.display = 'none';
+    const sv = document.getElementById('ebook-modul-save-btn'); if (sv) sv.style.display = 'none';
+    _renderEbookModulPickerFilters();
+    _renderEbookModulPickerList();
+}
 function openAddEbookModul() {
     document.getElementById('ebook-modul-form-mode').value = 'add';
     document.getElementById('ebook-modul-form-id').value = '';
     document.getElementById('ebook-modul-form-title').textContent = 'Buat Modul E-Book';
     document.getElementById('ebook-modul-nama-input').value = '';
     _populateEbookModulKelompokSelect('');
-    document.getElementById('ebook-modul-picker').innerHTML = _buildEbookPicker([]);
+    _ebookModulResetPickerState([]);
+    _ebookModulInitPickerUI();
     openModal('ebook-modul-form-overlay');
 }
 function openEditEbookModul(kode) {
@@ -308,30 +335,103 @@ function openEditEbookModul(kode) {
     document.getElementById('ebook-modul-form-title').textContent = 'Edit Modul E-Book';
     document.getElementById('ebook-modul-nama-input').value = m.nama;
     _populateEbookModulKelompokSelect(m.kelompok || '');
-    document.getElementById('ebook-modul-picker').innerHTML = _buildEbookPicker(m.ebook_list || []);
+    _ebookModulResetPickerState(m.ebook_list || []);
+    _ebookModulInitPickerUI();
     openModal('ebook-modul-form-overlay');
 }
-function _buildEbookPicker(existingKodes) {
-    if (!_ebookForModul.length) return '<p style="color:var(--text-sub);font-size:13px">Belum ada buku di library.</p>';
-    return _ebookForModul.map(b => {
-        const ck = existingKodes.includes(b.kode);
-        return `<label class="ebook-pick-item${ck ? ' checked' : ''}" id="ebpick-${b.kode}">
-          <input type="checkbox" data-ebook-kode="${b.kode}" ${ck ? 'checked' : ''} onchange="toggleEbookPick('${b.kode}',this.checked)" style="accent-color:var(--blue);width:16px;height:16px;flex-shrink:0">
-          <div class="ebook-pick-thumb">${b.poster ? `<img src="${b.poster}">` : _bookIconSvg(16)}</div>
-          <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;color:var(--blue);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.nama}</div><div style="font-size:11px;color:var(--text-sub)">${_ebookKelompokNama(b.kelompok) || 'Tanpa Kelompok'} · ${b.jumlah_halaman ? b.jumlah_halaman + ' lembar' : 'PDF'}</div></div>
-        </label>`;
-    }).join('');
+
+// -- Tahap 1: daftar buku dgn search + filter kelompok (dipakai ulang dari Library Buku) --
+function _renderEbookModulPickerFilters() {
+    if (!document.getElementById('ebook-modul-picker-filters')) return;
+    const validKodes = _ebookKelompokList.map(k => k.kode);
+    if (_ebookModulPickerKelompokFilter !== 'all' && _ebookModulPickerKelompokFilter !== 'none' && !validKodes.includes(_ebookModulPickerKelompokFilter)) _ebookModulPickerKelompokFilter = 'all';
+    const kelompokOptions = [{ value: 'all', label: 'Semua Kelompok' }, { value: 'none', label: 'Tanpa Kelompok' }, ..._ebookKelompokList.map(k => ({ value: k.kode, label: k.nama }))];
+    renderFilterDropdown('ebook-modul-picker-filters', { title: 'Kelompok', options: kelompokOptions, current: _ebookModulPickerKelompokFilter, onSelect: v => { _ebookModulPickerKelompokFilter = v; _renderEbookModulPickerFilters(); _renderEbookModulPickerList(); } });
 }
-function toggleEbookPick(kode, ck) {
+function _renderEbookModulPickerList() {
+    const el = document.getElementById('ebook-modul-picker'); if (!el) return;
+    if (!_ebookForModul.length) { el.innerHTML = '<p style="color:var(--text-sub);font-size:13px">Belum ada buku di library.</p>'; return; }
+    let data = _ebookForModul;
+    const q = (_ebookModulPickerSearch || '').toLowerCase();
+    if (q) data = data.filter(b => (b.nama || '').toLowerCase().includes(q) || (_ebookKelompokNama(b.kelompok) || '').toLowerCase().includes(q));
+    if (_ebookModulPickerKelompokFilter === 'none') data = data.filter(b => !b.kelompok);
+    else if (_ebookModulPickerKelompokFilter !== 'all') data = data.filter(b => b.kelompok === _ebookModulPickerKelompokFilter);
+    el.innerHTML = data.length ? data.map(b => _buildEbookModulPickCard(b)).join('') : '<p style="color:var(--text-sub);font-size:13px">Tidak ada buku yang cocok dengan pencarian/filter.</p>';
+}
+function _buildEbookModulPickCard(b) {
+    const ck = _ebookModulOrder.includes(b.kode);
+    return `<label class="ebook-pick-item${ck ? ' checked' : ''}" id="ebpick-${b.kode}">
+      <input type="checkbox" data-ebook-kode="${b.kode}" ${ck ? 'checked' : ''} onchange="toggleEbookModulBook('${b.kode}',this.checked)" style="accent-color:var(--blue);width:16px;height:16px;flex-shrink:0">
+      <div class="ebook-pick-thumb">${b.poster ? `<img src="${b.poster}">` : _bookIconSvg(16)}</div>
+      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;color:var(--blue);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.nama}</div><div style="font-size:11px;color:var(--text-sub)">${_ebookKelompokNama(b.kelompok) || 'Tanpa Kelompok'} · ${b.jumlah_halaman ? b.jumlah_halaman + ' lembar' : 'PDF'}</div></div>
+    </label>`;
+}
+function toggleEbookModulBook(kode, ck) {
+    if (ck) { if (!_ebookModulOrder.includes(kode)) _ebookModulOrder.push(kode); }
+    else { _ebookModulOrder = _ebookModulOrder.filter(k => k !== kode); }
     const el = document.getElementById(`ebpick-${kode}`); if (el) el.classList.toggle('checked', ck);
 }
+
+// -- Tahap 2: hanya buku terpilih, urutkan dgn drag naik/turun atau tombol panah --
+function _ebookModulGoToOrderStep() {
+    if (!_ebookModulOrder.length) { showToast('Pilih minimal 1 buku', 'danger'); return; }
+    _ebookModulPickerStep = 'order';
+    const sb = document.getElementById('ebook-modul-picker-searchbar'); if (sb) sb.style.display = 'none';
+    const hint = document.getElementById('ebook-modul-picker-hint'); if (hint) hint.textContent = 'Seret ke atas/bawah, atau pakai tombol panah untuk atur urutan tampil';
+    document.getElementById('ebook-modul-next-btn').style.display = 'none';
+    document.getElementById('ebook-modul-back-btn').style.display = '';
+    document.getElementById('ebook-modul-save-btn').style.display = '';
+    _renderEbookModulOrderList();
+}
+function _ebookModulGoToSelectStep() { _ebookModulInitPickerUI(); }
+function _renderEbookModulOrderList() {
+    const el = document.getElementById('ebook-modul-picker'); if (!el) return;
+    if (!_ebookModulOrder.length) { el.innerHTML = '<p style="color:var(--text-sub);font-size:13px">Belum ada buku dipilih. Klik "Kembali" untuk memilih buku.</p>'; return; }
+    el.innerHTML = _ebookModulOrder.map((kode, idx) => _buildEbookModulOrderCard(kode, idx)).join('');
+}
+function _buildEbookModulOrderCard(kode, idx) {
+    const b = _ebookForModul.find(x => x.kode === kode); if (!b) return '';
+    const last = _ebookModulOrder.length - 1;
+    return `<div class="modul-order-item" draggable="true" ondragstart="_ebookModulDragStart(event,'${kode}')" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');_ebookModulDrop(event,'${kode}')" style="padding:12px;background:rgba(19,50,89,0.03);border-radius:12px;border:1.5px solid var(--accent);margin-bottom:8px" id="ebord-${kode}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="cursor:grab;color:var(--text-sub);flex-shrink:0" title="Seret untuk urutkan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span>
+        <span style="font-weight:700;font-size:12px;color:var(--accent);width:22px;text-align:center;flex-shrink:0">${idx + 1}</span>
+        <div class="ebook-pick-thumb" style="flex-shrink:0">${b.poster ? `<img src="${b.poster}">` : _bookIconSvg(16)}</div>
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;color:var(--blue);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.nama}</div><div style="font-size:11px;color:var(--text-sub)">${_ebookKelompokNama(b.kelompok) || 'Tanpa Kelompok'}</div></div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button class="btn-icon" title="Naik" ${idx === 0 ? 'disabled style="opacity:.35;cursor:not-allowed"' : ''} onclick="_ebookModulMove('${kode}',-1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
+          <button class="btn-icon" title="Turun" ${idx === last ? 'disabled style="opacity:.35;cursor:not-allowed"' : ''} onclick="_ebookModulMove('${kode}',1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></button>
+          <button class="btn-icon danger" title="Batalkan pilihan" onclick="_ebookModulRemoveSelected('${kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+      </div>
+    </div>`;
+}
+function _ebookModulMove(kode, dir) {
+    const idx = _ebookModulOrder.indexOf(kode); if (idx < 0) return;
+    const ni = idx + dir; if (ni < 0 || ni >= _ebookModulOrder.length) return;
+    [_ebookModulOrder[idx], _ebookModulOrder[ni]] = [_ebookModulOrder[ni], _ebookModulOrder[idx]];
+    _renderEbookModulOrderList();
+}
+function _ebookModulRemoveSelected(kode) { _ebookModulOrder = _ebookModulOrder.filter(k => k !== kode); _renderEbookModulOrderList(); }
+function _ebookModulDragStart(e, kode) { _ebookModulDragFrom = kode; e.dataTransfer.effectAllowed = 'move'; }
+function _ebookModulDrop(e, kode) {
+    if (_ebookModulDragFrom === null || _ebookModulDragFrom === kode) { _ebookModulDragFrom = null; return; }
+    const fromIdx = _ebookModulOrder.indexOf(_ebookModulDragFrom), toIdx = _ebookModulOrder.indexOf(kode);
+    _ebookModulDragFrom = null;
+    if (fromIdx < 0 || toIdx < 0) return;
+    const moved = _ebookModulOrder.splice(fromIdx, 1)[0];
+    _ebookModulOrder.splice(toIdx, 0, moved);
+    _renderEbookModulOrderList();
+}
+
 async function submitEbookModulForm() {
     const mode = document.getElementById('ebook-modul-form-mode').value;
     const kode = document.getElementById('ebook-modul-form-id').value;
     const nama = document.getElementById('ebook-modul-nama-input').value.trim();
     if (!nama) { showToast('Nama modul wajib', 'danger'); return; }
     const kelompok = document.getElementById('ebook-modul-kelompok-select')?.value || '';
-    const ebook_list = [...document.querySelectorAll('#ebook-modul-picker [data-ebook-kode]:checked')].map(cb => cb.dataset.ebookKode);
+    if (!_ebookModulOrder.length) { showToast('Pilih minimal 1 buku', 'danger'); return; }
+    const ebook_list = [..._ebookModulOrder];
     try {
         if (mode === 'add') await EbookModulAPI.create({ nama, kelompok, ebook_list });
         else await EbookModulAPI.update(kode, { nama, kelompok, ebook_list });
