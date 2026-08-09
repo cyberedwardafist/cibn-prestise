@@ -3,6 +3,11 @@
 // Bergantung pada helper global dari js/app.js (showToast, openModal, navigateTo, dst)
 // yang sudah dimuat lebih dulu lewat shell index_admin.html.
 
+// ── REVIEW PAGE ── (state ini dipindah dari admin/keuangan.js — sebelumnya
+// dideklarasikan di sana padahal cuma dipakai di sini, jadi kalau tab Review
+// dibuka sebelum pernah buka tab Keuangan, identifier-nya belum exist -> ReferenceError)
+let _rvUsers=[],_rvSearch='';
+
 async function renderReviewPage(){_rvUsers=await ReviewAPI.getUsers().catch(()=>[]);_renderRvList();}
 function _renderRvList(){
     let data=_rvUsers;if(_rvSearch){const q=_rvSearch.toLowerCase();data=data.filter(u=>(u.nama||'').toLowerCase().includes(q)||(u.email||'').toLowerCase().includes(q));}

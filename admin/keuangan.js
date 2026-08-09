@@ -314,6 +314,3 @@ function filterTrx() {
         ).join('') + '</div>';
     } else if (pg) pg.innerHTML = '';
 }
-
-// ── REVIEW PAGE ──
-let _rvUsers=[],_rvSearch='';
