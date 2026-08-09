@@ -38,35 +38,57 @@ function renderAkunList() {
   });
 
   const wrap = document.getElementById('akun-list-wrap');
+  const swEl = document.getElementById('akun-swipe-list');
   if (!Object.keys(grouped).length) {
-    wrap.innerHTML = '<div class="empty-state"><p>Tidak ada user ditemukan</p></div>';
+    if (wrap) wrap.innerHTML = '<div class="empty-state"><p>Tidak ada user ditemukan</p></div>';
+    if (swEl) swEl.innerHTML = '<div class="swipe-card-empty">Tidak ada user ditemukan</div>';
     return;
   }
 
-  wrap.innerHTML = Object.entries(grouped).map(([grubKode, users]) => {
-    const grubNama = grubKode === '__none__' ? 'Tanpa Grup' : (_allGrubs.find(g => (g.kode||g.id) === grubKode)?.nama || grubKode);
-    const items = users.map((u, i) => {
-      const initials = (u.nama || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-      return `<div class="review-user-card" style="animation:fadeUp 0.2s ${i*0.03}s both">
-        <div class="user-avatar">${initials}</div>
-        <div class="user-info">
-          <div class="user-name">${u.nama}</div>
-          <div class="user-email">${u.email}</div>
-        </div>
-        <div class="user-actions">
-          <button class="btn btn-secondary btn-sm" onclick="openRiwayatUser('${u.kode||u.id}','${u.nama}')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span class="hide-mobile">Riwayat</span>
-          </button>
-        </div>
-      </div>`;
-    }).join('');
+  const groupIconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
 
-    return `<div class="grub-header">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      ${grubNama} <span class="grub-badge">${users.length} user</span>
-    </div>${items}`;
-  }).join('');
+  // ── Tampilan tablet/desktop/wide (>768px): kartu per grup, seperti sebelumnya ──
+  if (wrap) {
+    wrap.innerHTML = Object.entries(grouped).map(([grubKode, groupUsers]) => {
+      const grubNama = grubKode === '__none__' ? 'Tanpa Grup' : (_allGrubs.find(g => (g.kode||g.id) === grubKode)?.nama || grubKode);
+      const items = groupUsers.map((u, i) => {
+        const initials = (u.nama || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+        return `<div class="review-user-card" style="animation:fadeUp 0.2s ${i*0.03}s both">
+          <div class="user-avatar">${initials}</div>
+          <div class="user-info">
+            <div class="user-name">${u.nama}</div>
+            <div class="user-email">${u.email}</div>
+          </div>
+          <div class="user-actions">
+            <button class="btn btn-secondary btn-sm" onclick="openRiwayatUser('${u.kode||u.id}','${u.nama}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span class="hide-mobile">Riwayat</span>
+            </button>
+          </div>
+        </div>`;
+      }).join('');
+
+      return `<div class="grub-header">
+        ${groupIconSvg}
+        ${grubNama} <span class="grub-badge">${groupUsers.length} user</span>
+      </div>${items}`;
+    }).join('');
+  }
+
+  // ── Tampilan hp (≤768px): kartu geser (swipe-to-reveal), pola sama seperti
+  //    dipakai admin (js/swipe.js) — kartu bisa langsung ditap buat buka Riwayat. ──
+  if (swEl && window.SwipeCards) {
+    swEl.innerHTML = Object.entries(grouped).map(([grubKode, groupUsers]) => {
+      const grubNama = grubKode === '__none__' ? 'Tanpa Grup' : (_allGrubs.find(g => (g.kode||g.id) === grubKode)?.nama || grubKode);
+      const groupLabel = `<div class="grub-header" style="margin:14px 4px 6px">${groupIconSvg} ${grubNama} <span class="grub-badge">${groupUsers.length} user</span></div>`;
+      const cards = groupUsers.map(u => SwipeCards.buildSwipeCardHtml({
+        title: u.nama, sub: u.email, kode: u.kode || u.id,
+        onTapAttr: `onclick="openRiwayatUser('${u.kode||u.id}','${(u.nama||'').replace(/'/g, "\\'")}')"`
+      })).join('');
+      return groupLabel + cards;
+    }).join('');
+    SwipeCards.bindSwipeList(swEl);
+  }
 }
 
 /* ── RIWAYAT USER MODAL ── */

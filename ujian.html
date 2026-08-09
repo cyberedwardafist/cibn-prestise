@@ -148,7 +148,10 @@ html.vp-resizing *, html.vp-resizing *::before, html.vp-resizing *::after {
   padding:10px 12px;margin-top:10px;
   max-width:720px;width:100%;margin-left:auto;margin-right:auto;
 }
-#h-nav-bar-inlaid .nav-grid-v{flex-wrap:nowrap;overflow-x:auto;max-height:40px;flex:unset;align-content:unset;}
+/* Grid navigasi mode horizontal: WRAP ke baris baru (bukan discroll ke samping).
+   Lebar mengikuti #h-nav-bar-inlaid (max-width:720px, lihat di atas), jadi kalau
+   1 baris cuma muat ~10 nomor, nomor ke-11 dst otomatis lanjut ke baris baru. */
+#h-nav-bar-inlaid .nav-grid-v{flex-wrap:wrap;overflow:visible;max-height:none;flex:unset;align-content:flex-start;}
 
 /* ══ SIKAP KERJA ══ */
 #sk-layout{display:none;flex-direction:column;width:100%;height:100%;}
@@ -647,7 +650,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('app').style.display = 'flex';
     initAntiCheat();
     st.startTime = Date.now();
-    renderCurrent();
+    renderCurrent(true);
     startGroupTimer();
   } catch(e) {
     console.error('[CIBN PRESTISE] Gagal load exam data:', e);
@@ -760,9 +763,9 @@ function buildFlat() {
 
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 
-function renderCurrent(){
+function renderCurrent(resetScroll){
   const item=st.flat[st.curIdx];if(!item)return;
-  if(item.type==='sikap_kerja')renderSK(item);else renderMC(item);
+  if(item.type==='sikap_kerja')renderSK(item);else renderMC(item,resetScroll);
 }
 
 function getSoalKode(idx){return st.flat[idx]?.soalKode||null;}
@@ -790,14 +793,16 @@ function contentToHtml(v){
 }
 
 /* ──────── MC RENDER ──────── */
-function renderMC(item){
+function renderMC(item,resetScroll){
   document.getElementById('mc-layout').style.display='flex';
   document.getElementById('sk-layout').classList.remove('active');
   const {q,soalNama,type,qIdx,soalKode}=item;
   const key=`${soalKode}_${qIdx}`;
   const userAns=st.jawaban[key];
   const isFlagged=st.flagged.has(key);
-  if(document.getElementById('mc-scroll'))document.getElementById('mc-scroll').scrollTop=0;
+  // Auto-scroll ke atas HANYA saat pindah nomor soal (resetScroll===true),
+  // bukan saat re-render karena user memilih jawaban (pilihMC) atau toggle flag.
+  if(resetScroll&&document.getElementById('mc-scroll'))document.getElementById('mc-scroll').scrollTop=0;
   
   const setIt=st.flat.filter(f=>f.soalKode===soalKode&&f.type!=='sikap_kerja');
   const numInSet=setIt.findIndex(f=>f.qIdx===qIdx)+1;
@@ -957,7 +962,7 @@ function doNextSet(){
     // SIMPAN INDEX: Agar saat reload, sistem tahu user sudah di Soal B (Sikap Kerja)
     localStorage.setItem('cbn_progress_idx_' + st.examData.token.kode, st.curIdx);
     
-    renderCurrent();
+    renderCurrent(true);
     closeMobNav();
     _pendingNextIdx = null;
   }
@@ -971,7 +976,7 @@ function goSoal(idx){
   
   st.curIdx=idx;
   localStorage.setItem('cbn_progress_idx_' + st.examData.token.kode, st.curIdx);
-  renderCurrent();closeMobNav();
+  renderCurrent(true);closeMobNav();
 }
 
 function toggleFlag(){
@@ -1145,7 +1150,7 @@ function finishSK(){
     st.curIdx++;
     // SIMPAN INDEX UTAMA: Simpan posisi ke bagian soal berikutnya
     localStorage.setItem('cbn_progress_idx_' + token, st.curIdx);
-    renderCurrent();
+    renderCurrent(true);
   } else {
     doSelesai();
   }
@@ -1183,7 +1188,7 @@ function forceNextGroup(oldKode) {
    }
    if(nextIdx !== -1) {
       st.curIdx = nextIdx;
-      renderCurrent();
+      renderCurrent(true);
    } else {
       doSelesai();
    }
@@ -1224,18 +1229,24 @@ function renderNavGrid(){
 
 /* ──────── ORIENT ──────── */
 function toggleOrient(){
-  const navBox=document.getElementById('nav-box');
+  // Mode horizontal: sidebar kanan (timer + navigasi) disembunyikan seluruhnya
+  // -> kolom soal otomatis ke tengah (mc-layout sudah justify-content:center).
+  // Timer dipindah ke atas soal (pakai #mc-timer-top, sama seperti tampilan mobile).
+  const mcRight=document.getElementById('mc-right');
   const hbar=document.getElementById('h-nav-bar-inlaid');
+  const timerTop=document.getElementById('mc-timer-top');
   const btn=document.querySelector('.btn-toggle-orient');
   if(st.orient==='vertical'){
     st.orient='horizontal';
-    if(navBox)navBox.style.display='none';
+    if(mcRight)mcRight.style.display='none';
     if(hbar)hbar.style.display='block';
+    if(timerTop)timerTop.style.display='block';
     if(btn)btn.textContent='↕ Vertikal';
   } else {
     st.orient='vertical';
-    if(navBox)navBox.style.display='';
+    if(mcRight)mcRight.style.display='';
     if(hbar)hbar.style.display='none';
+    if(timerTop)timerTop.style.display='none';
     if(btn)btn.textContent='↔ Horizontal';
   }
   renderNavGrid();

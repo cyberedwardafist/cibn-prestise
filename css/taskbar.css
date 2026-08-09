@@ -219,3 +219,8 @@
     .dock-label       { font-size: 8px;  }
     .dock-more-btn    { padding: 7px 9px; }
 }
+
+/* Sembunyikan total dock utama (bottom nav mengambang) selama E-Book Reader
+   fullscreen sedang terbuka (lihat js EbookReader.open/close) — supaya tidak
+   ada bagian dock yang mengambang/tembus di atas reader, di hp/tablet/desktop. */
+body.ebook-reader-active .dock-wrap { display: none !important; }

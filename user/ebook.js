@@ -122,7 +122,23 @@ const EbookReader = {
     _renderedSwipe: {}, _protectionBound: false,
     ZOOM_MIN: 0.5, ZOOM_MAX: 3, ZOOM_STEP: 0.25,
 
+    // Pindahkan overlay reader jadi anak langsung <body> (sekali saja).
+    // #ebook-reader-overlay awalnya di-render di dalam #page-ebook, yaitu
+    // elemen `.page` yang selalu punya CSS `transform` (translateY/scale) —
+    // walau nilainya scale(1), transform SELALU membuat elemen itu jadi
+    // containing block baru buat descendant `position:fixed`. Akibatnya
+    // overlay reader ini (walau position:fixed;inset:0) jadi ikut terjebak/
+    // terpotong di ukuran & posisi scroll `.page`, bukan bener-bener
+    // fullscreen relatif ke viewport — inilah yang bikin tampilan reader
+    // "tidak fullscreen" di tablet. Reparent ke <body> (yang tidak pernah
+    // punya transform) supaya overlay ini benar-benar independen/fullscreen.
+    _ensureOverlayInBody() {
+        const overlay = document.getElementById('ebook-reader-overlay');
+        if (overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
+    },
+
     async open(kode) {
+        this._ensureOverlayInBody();
         const book = EbookLib.books.find(b => b.kode === kode);
         this.kode = kode; this.curPage = 1; this.doc = null; this.totalPages = 0;
         this._renderedSwipe = {}; this.zoom = 1;
@@ -132,6 +148,9 @@ const EbookReader = {
         this._updateZoomUI();
         const overlay = document.getElementById('ebook-reader-overlay');
         overlay.classList.add('open');
+        // Sembunyikan dock utama (bottom nav mengambang) selama reader terbuka,
+        // supaya tidak ada bagian dock yang "nembus"/mengambang di atas reader.
+        document.body.classList.add('ebook-reader-active');
         const loading = document.getElementById('ebook-reader-loading');
         loading.style.display = 'flex'; loading.innerHTML = '<div class="ebk-spinner"></div><div>Memuat buku...</div>';
         const swipeEl = document.getElementById('ebook-reader-swipe');
@@ -153,6 +172,7 @@ const EbookReader = {
     },
     close() {
         document.getElementById('ebook-reader-overlay').classList.remove('open');
+        document.body.classList.remove('ebook-reader-active');
         if (this.doc) { try { this.doc.destroy(); } catch (e) {} }
         this.doc = null;
         document.getElementById('ebook-swipe-track').innerHTML = '';
