@@ -311,6 +311,13 @@
 
   </div><!-- page-container -->
 
+  <!-- MODALS GLOBAL — dipakai lintas dock (Akun & Riwayat sama-sama butuh modal
+       riwayat/laporan/review). Ditaruh di luar .page-container supaya TIDAK ikut
+       opacity:0 saat dock pemiliknya (page-riwayat) sedang tidak aktif — kalau
+       ditaruh di dalam salah satu .page, modal yang dibuka dari dock LAIN akan
+       ter-render tapi tetap tak terlihat sampai dock pemiliknya dibuka. -->
+  <div id="review-modals-root"></div>
+
   <!-- TASKBAR -->
   <div class="dock-wrap">
     <div class="dock" id="main-dock">
@@ -438,24 +445,52 @@ function renderPage(id) {
 // atas) jadi tidak butuh modul apa pun.
 const REVIEW_PAGE_MODULES = {
     // akun butuh review/riwayat.js juga: tombol "Lihat Riwayat" di daftar user
-    // manggil openRiwayatUser() yang didefinisikan di riwayat.js.
-    akun:       { html: 'review/akun.html',      js: ['review/riwayat.js', 'review/akun.js'] },
-    riwayat:    { html: 'review/riwayat.html',    js: ['review/riwayat.js'] },
+    // manggil openRiwayatUser() yang didefinisikan di riwayat.js. Modal-nya
+    // (riwayat-user-overlay, laporan-overlay, dst) sekarang ada di file terpisah
+    // (review/riwayat-modals.html) yang di-load ke #review-modals-root — bukan
+    // ke dalam #page-akun / #page-riwayat — karena keduanya dipakai bersama oleh
+    // dock Akun & Riwayat. Ditandai needsModals supaya dock manapun yang dibuka
+    // duluan tetap bisa memicu modal ini. "MODE REVIEW" (review-ujian-overlay)
+    // juga dipecah jadi file sendiri (review/mode-review.html) dengan alasan sama.
+    akun:       { html: 'review/akun.html',      js: ['review/riwayat.js', 'review/akun.js'], needsModals: true },
+    riwayat:    { html: 'review/riwayat.html',    js: ['review/riwayat.js'], needsModals: true },
     'akun-saya':{ html: 'review/akun-saya.html',  js: ['review/akun-saya.js'] },
     ebook:      { html: 'review/ebook.html',      js: ['review/ebook.js'] },
 };
+// Fragmen modal bersama (dipakai lintas dock) yang di-load ke #review-modals-root.
+// append:true + URL yang sama dari dock manapun -> LazyLoader hanya benar-benar
+// fetch/inject SEKALI (di-cache per URL), aman dipanggil berulang dari 2 dock.
+const REVIEW_SHARED_MODALS = ['review/riwayat-modals.html', 'review/mode-review.html'];
 function ensureReviewPageModule(pageId) {
     const spec = REVIEW_PAGE_MODULES[pageId];
     if (!spec) return Promise.resolve();
     const container = document.getElementById('page-' + pageId);
     const assets = [];
     if (container) assets.push({ url: '/' + spec.html, container });
+    if (spec.needsModals) {
+        const modalsRoot = document.getElementById('review-modals-root');
+        if (modalsRoot) REVIEW_SHARED_MODALS.forEach(url => assets.push({ url: '/' + url, container: modalsRoot, append: true }));
+    }
     spec.js.forEach(url => assets.push({ url: '/' + url }));
     return LazyLoader.loadMany(assets);
 }
 
-function openModal(id) { document.getElementById(id)?.classList.add('open'); }
-function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+function openModal(id) {
+  document.getElementById(id)?.classList.add('open');
+  // "MODE REVIEW" (review-ujian-overlay) tampil fullscreen — dock/taskbar bawah
+  // otomatis disembunyikan selama overlay ini aktif (lihat body.mrv-active di
+  // review/mode-review.html). Dicek di sini (bukan di tombol yang manggilnya)
+  // supaya konsisten tertutup lewat jalur manapun (tombol X, klik backdrop, dst).
+  if (id === 'review-ujian-overlay') document.body.classList.add('mrv-active');
+}
+function closeModal(id) {
+  document.getElementById(id)?.classList.remove('open');
+  if (id === 'review-ujian-overlay') {
+    document.body.classList.remove('mrv-active');
+    // Pastikan drawer navigasi mobile ikut ketutup kalau masih terbuka saat MODE REVIEW ditutup.
+    if (typeof closeMrvMobNav === 'function') closeMrvMobNav();
+  }
+}
 
 function showToast(msg, type = '') {
   let t = document.getElementById('toast');

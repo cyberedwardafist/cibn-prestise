@@ -1221,6 +1221,23 @@ async function openReviewUjian(laporanKode, modulNama, userNama) {
   }
 }
 
+// ── MODE REVIEW · helper mobile drawer ──
+// Elemen navigasi (nav-grid/legend/skor sub) dirender SEKALI lalu isinya di-copy
+// ke pasangan ID desktop (sidebar) & mobile (drawer) sekaligus, supaya keduanya
+// selalu sinkron tanpa perlu re-render terpisah tiap drawer dibuka. Pola ini
+// sama seperti ['nav-grid','mob-nav-grid','h-nav-grid'] di ujian.html.
+function _mrvSetAll(ids, prop, val) {
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el[prop] = val; });
+}
+function openMrvMobNav() {
+  document.getElementById('mrv-mob-overlay')?.classList.add('open');
+  document.getElementById('mrv-mob-slide')?.classList.add('open');
+}
+function closeMrvMobNav() {
+  document.getElementById('mrv-mob-overlay')?.classList.remove('open');
+  document.getElementById('mrv-mob-slide')?.classList.remove('open');
+}
+
 function renderRuvSubTabs() {
   const tabs = document.getElementById('ruv-sub-tabs');
   tabs.innerHTML = _ruvState.subResults.map((s, i) => `
@@ -1249,29 +1266,29 @@ function loadRuvSub(idx) {
   // Hitung skor sub
   const { perSoal } = hitungSkorFromLap([sub], _ruvState.jawaban);
   const subSkor = perSoal[0]?.skor ?? 0;
-  document.getElementById('ruv-sub-score').textContent = subSkor;
+  _mrvSetAll(['ruv-sub-score', 'mrv-mob-sub-score'], 'textContent', subSkor);
 
   if (sub.type === 'sikap_kerja') {
     renderRuvSikapKerja(rawData, sub);
     document.getElementById('ruv-nav-btns').innerHTML = '';
-    document.getElementById('ruv-nav-grid').innerHTML = '';
+    _mrvSetAll(['ruv-nav-grid', 'mrv-mob-nav-grid'], 'innerHTML', '');
     document.getElementById('ruv-q-counter').textContent = '-';
     // Legenda untuk sikap kerja
-    document.getElementById('ruv-legend').innerHTML = `
+    _mrvSetAll(['ruv-legend', 'mrv-mob-legend'], 'innerHTML', `
       <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-sub);font-weight:600;"><div style="width:8px;height:8px;border-radius:2px;background:var(--success)"></div>Benar</div>
-      <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-sub);font-weight:600;"><div style="width:8px;height:8px;border-radius:2px;background:var(--danger)"></div>Salah</div>`;
+      <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-sub);font-weight:600;"><div style="width:8px;height:8px;border-radius:2px;background:var(--danger)"></div>Salah</div>`);
   } else {
     _ruvState.questions = rawData || [];
     const isNS = sub.skor_type === 'nilai_sendiri';
     // Update legenda sesuai mode
-    document.getElementById('ruv-legend').innerHTML = isNS ? `
+    _mrvSetAll(['ruv-legend', 'mrv-mob-legend'], 'innerHTML', isNS ? `
       <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-sub);font-weight:600;"><div style="width:8px;height:8px;border-radius:2px;background:var(--accent)"></div>Sudah dijawab</div>
       <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-sub);font-weight:600;"><div style="width:8px;height:8px;border-radius:2px;background:rgba(19,50,89,0.15)"></div>Tidak dijawab</div>
       <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-sub);font-weight:600;"><div style="width:8px;height:8px;border-radius:2px;background:var(--blue)"></div>Sedang dilihat</div>` : `
       <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-sub);font-weight:600;"><div style="width:8px;height:8px;border-radius:2px;background:var(--success)"></div>Benar</div>
       <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-sub);font-weight:600;"><div style="width:8px;height:8px;border-radius:2px;background:var(--danger)"></div>Salah</div>
       <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-sub);font-weight:600;"><div style="width:8px;height:8px;border-radius:2px;background:rgba(19,50,89,0.15)"></div>Tidak dijawab</div>
-      <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-sub);font-weight:600;"><div style="width:8px;height:8px;border-radius:2px;background:var(--blue)"></div>Sedang dilihat</div>`;
+      <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-sub);font-weight:600;"><div style="width:8px;height:8px;border-radius:2px;background:var(--blue)"></div>Sedang dilihat</div>`);
     renderRuvMC(sub);
   }
 }
@@ -1308,8 +1325,7 @@ function renderRuvMC(sub) {
   const kunci = q.kunci || [];
 
   // ── Nav Grid ──
-  const navGrid = document.getElementById('ruv-nav-grid');
-  navGrid.innerHTML = qs.map((qi, i) => {
+  const navGridHtml = qs.map((qi, i) => {
     // Cari jawaban untuk soal i
     const vJids = (qi.jawaban || []).map((j, ji) => j.id != null ? String(j.id) : String(ji));
     let iAns = allUserAns.filter(ansId => vJids.includes(String(ansId)));
@@ -1330,6 +1346,7 @@ function renderRuvMC(sub) {
     }
     return `<button onclick="_ruvGoTo(${i})" style="width:32px;height:32px;border-radius:7px;border:1.5px solid ${border};background:${bg};font-size:11px;font-weight:700;color:${color};cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;">${i+1}</button>`;
   }).join('');
+  _mrvSetAll(['ruv-nav-grid', 'mrv-mob-nav-grid'], 'innerHTML', navGridHtml);
   document.getElementById('ruv-q-counter').textContent = `${idx+1}/${qs.length}`;
 
   // ── Render Pilihan Jawaban ──
