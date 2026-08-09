@@ -864,20 +864,23 @@ app.get('/api/tokens/used', auth(['admin']), ah(async (req, res) => {
 }));
 app.get('/api/tokens/grub-list', auth(['admin','review']), ah(async (req, res) => { res.json(await db.prepare(`SELECT grub_token, COUNT(*) as jumlah_token FROM tokens WHERE grub_token IS NOT NULL AND TRIM(grub_token) <> '' GROUP BY grub_token ORDER BY LOWER(grub_token)`).all()); }));
 app.post('/api/tokens/generate', auth(['admin']), ah(async (req, res) => {
-    const { modul_kode, jumlah, mode, aktivasi, expired, izinkan_review, grub_token } = req.body;
+    const { modul_kode, jumlah, mode, aktivasi, expired, izinkan_review, grub_token, batas_keluar } = req.body;
     const izinReview = izinkan_review ? 1 : 0;
     const grubToken = (grub_token && String(grub_token).trim()) ? String(grub_token).trim() : null;
+    // batas_keluar: null/undefined = perlindungan keluar DIMATIKAN. Angka = batas maksimal
+    // pelanggaran (keluar dari ujian) yang ditoleransi sebelum ujian otomatis diselesaikan.
+    const batasKeluar = (batas_keluar === null || batas_keluar === undefined || batas_keluar === '') ? null : Math.max(1, parseInt(batas_keluar) || 3);
     let akt = null, exp = null; const now = new Date();
     if (mode === 'hari_ini') { akt = now.toISOString(); const e = new Date(now); e.setHours(23, 59, 59, 0); exp = e.toISOString(); }
     else if (mode === 'custom' && aktivasi && expired) { akt = new Date(aktivasi).toISOString(); exp = new Date(expired).toISOString(); }
     try {
         const tokens = await transaction(async (tdb) => {
-            const insert = tdb.prepare('INSERT INTO tokens (kode,modul_kode,aktivasi,expired,izinkan_review,grub_token) VALUES (?,?,?,?,?,?)');
+            const insert = tdb.prepare('INSERT INTO tokens (kode,modul_kode,aktivasi,expired,izinkan_review,grub_token,batas_keluar) VALUES (?,?,?,?,?,?,?)');
             const checkExist = tdb.prepare('SELECT id FROM tokens WHERE kode=?');
             const count = Math.min(jumlah, 200); const result = [];
             for (let i = 0; i < count; i++) {
                 let kode, tries = 0; do { kode = genTokenKode(); tries++; } while ((await checkExist.get(kode)) && tries < 10);
-                await insert.run(kode, modul_kode, akt, exp, izinReview, grubToken); result.push({ kode, modul_kode, aktivasi: akt, expired: exp, izinkan_review: izinReview, grub_token: grubToken });
+                await insert.run(kode, modul_kode, akt, exp, izinReview, grubToken, batasKeluar); result.push({ kode, modul_kode, aktivasi: akt, expired: exp, izinkan_review: izinReview, grub_token: grubToken, batas_keluar: batasKeluar });
             }
             return result;
         });
@@ -919,7 +922,7 @@ app.post('/api/exam/validate-token', auth(['user','admin','review']), ah(async (
     if (!modul) return res.status(404).json({ error: 'Modul tidak ditemukan' });
     const soalDetail = await buildSoalDetail(modul);
     if (!soalDetail.length) return res.status(400).json({ error: 'Modul tidak memiliki soal' });
-    res.json({ token: { kode: token.kode, aktivasi: token.aktivasi, expired: token.expired }, modul: { kode: modul.kode, nama: modul.nama }, soal: soalDetail });
+    res.json({ token: { kode: token.kode, aktivasi: token.aktivasi, expired: token.expired, batas_keluar: token.batas_keluar }, modul: { kode: modul.kode, nama: modul.nama }, soal: soalDetail });
 }));
 
 app.post('/api/exam/submit', auth(['user','admin','review']), ah(async (req, res) => {

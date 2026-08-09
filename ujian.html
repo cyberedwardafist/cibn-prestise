@@ -523,7 +523,7 @@ const API = window.location.origin + '/api';
 let st={
   examData:null,flat:[],jawaban:{},flagged:new Set(),
   curIdx:0,timerInterval:null, groupStats: {},
-  leaveCount:0,maxLeave:3,orient:'vertical',
+  leaveCount:0,maxLeave:3,antiCheatLeaveEnabled:true,orient:'vertical',
   startTime:null,skTimerInterval:null,skTimerSec:0
 };
 let _skItem=null,_skKolom=0,_skQ=0;
@@ -591,6 +591,19 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // --- PROSES PEMULIHAN DATA (RESTORE) ---
     const token = st.examData.token.kode;
+
+    // Batas keluar ujian per-token: NULL/undefined = perlindungan keluar DIMATIKAN
+    // (peserta bebas keluar tanpa batas). Angka = jumlah maksimal pelanggaran yang
+    // ditoleransi sebelum ujian otomatis diselesaikan. Dikonfigurasi admin saat
+    // membuat token (switch "Batas Keluar Ujian" di panel Buat Token).
+    const batasKeluarToken = st.examData.token.batas_keluar;
+    if (batasKeluarToken === null || batasKeluarToken === undefined) {
+      st.antiCheatLeaveEnabled = false;
+      st.maxLeave = Infinity;
+    } else {
+      st.antiCheatLeaveEnabled = true;
+      st.maxLeave = parseInt(batasKeluarToken) || 3;
+    }
     
     // 1. Pulihkan Jawaban & Index Soal Terakhir
     const savedJawaban = localStorage.getItem('cbn_progress_jawaban_' + token);
@@ -1367,6 +1380,9 @@ let _bt;
 function triggerBlur(){const el=document.getElementById('blur-shield');el.classList.add('active');clearTimeout(_bt);_bt=setTimeout(()=>el.classList.remove('active'),2200);}
 function handleLeave(reason){
   if(document.getElementById('hasil-page').classList.contains('active'))return;
+  // Perlindungan keluar dimatikan untuk token ini (lihat switch "Batas Keluar
+  // Ujian" saat pembuatan token) — jangan hitung/peringatkan sama sekali.
+  if(!st.antiCheatLeaveEnabled)return;
   st.leaveCount++;
   try{ localStorage.setItem('cbn_leavecount_' + st.examData.token.kode, st.leaveCount); }catch(e){}
   const sisa=st.maxLeave-st.leaveCount;

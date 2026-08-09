@@ -20,6 +20,11 @@ async function _initBuatToken(){
     const grChk=document.getElementById('token-grub-aktif');if(grChk)grChk.checked=false;
     const grInp=document.getElementById('token-grub-nama');if(grInp)grInp.value='';
     _toggleTokenGrub(false);
+    const bkChk=document.getElementById('token-batas-keluar-aktif');if(bkChk)bkChk.checked=true;
+    const bkInp=document.getElementById('token-batas-keluar-jumlah');if(bkInp)bkInp.value=3;
+    _toggleBatasKeluar(true);
+    const pgChk=document.getElementById('token-pengaturan-aktif');if(pgChk)pgChk.checked=false;
+    _setTokenPengaturanWrap(false);
     TokensAPI.getGrubList().then(function(list){
         var dl=document.getElementById('token-grub-suggest');
         if(dl)dl.innerHTML=(list||[]).map(function(g){return '<option value="'+String(g.grub_token||'').replace(/"/g,'&quot;')+'">';}).join('');
@@ -30,6 +35,57 @@ async function _initBuatToken(){
 function _toggleTokenGrub(on){
     var wrap=document.getElementById('token-grub-wrap');
     if(wrap)wrap.style.display=on?'block':'none';
+}
+function _toggleBatasKeluar(on){
+    var wrap=document.getElementById('token-batas-keluar-wrap');
+    if(wrap)wrap.style.display=on?'block':'none';
+}
+function _setTokenPengaturanWrap(on){
+    var wrap=document.getElementById('token-pengaturan-wrap');
+    if(wrap)wrap.style.display=on?'block':'none';
+}
+// Nilai default dari 3 opsi di dalam "Pengaturan" — dipakai untuk deteksi
+// perubahan (dirty check) dan untuk reset saat switch "Pengaturan" dimatikan.
+function _tokenPengaturanDefault(){
+    return { izinkanReview:false, grubAktif:false, grubNama:'', batasKeluarAktif:true, batasKeluarJumlah:3 };
+}
+function _tokenPengaturanIsDirty(){
+    const def=_tokenPengaturanDefault();
+    const izinkanReview=!!document.getElementById('token-izinkan-review')?.checked;
+    const grubAktif=!!document.getElementById('token-grub-aktif')?.checked;
+    const grubNama=(document.getElementById('token-grub-nama')?.value||'').trim();
+    const batasKeluarAktif=!!document.getElementById('token-batas-keluar-aktif')?.checked;
+    const batasKeluarJumlah=parseInt(document.getElementById('token-batas-keluar-jumlah')?.value)||0;
+    return izinkanReview!==def.izinkanReview||grubAktif!==def.grubAktif||grubNama!==def.grubNama||batasKeluarAktif!==def.batasKeluarAktif||batasKeluarJumlah!==def.batasKeluarJumlah;
+}
+function _tokenPengaturanReset(){
+    const def=_tokenPengaturanDefault();
+    const irChk=document.getElementById('token-izinkan-review');if(irChk)irChk.checked=def.izinkanReview;
+    const grChk=document.getElementById('token-grub-aktif');if(grChk)grChk.checked=def.grubAktif;
+    const grInp=document.getElementById('token-grub-nama');if(grInp)grInp.value=def.grubNama;
+    _toggleTokenGrub(def.grubAktif);
+    const bkChk=document.getElementById('token-batas-keluar-aktif');if(bkChk)bkChk.checked=def.batasKeluarAktif;
+    const bkInp=document.getElementById('token-batas-keluar-jumlah');if(bkInp)bkInp.value=def.batasKeluarJumlah;
+    _toggleBatasKeluar(def.batasKeluarAktif);
+}
+function _toggleTokenPengaturan(on){
+    const pgChk=document.getElementById('token-pengaturan-aktif');
+    if(on){ _setTokenPengaturanWrap(true); return; }
+    // Mematikan "Pengaturan": kalau ada perubahan dari default, konfirmasi dulu
+    // karena akan mengembalikan semua opsi di dalamnya ke pengaturan awal.
+    if(_tokenPengaturanIsDirty()){
+        showConfirm('Matikan Pengaturan?','Anda telah mengubah salah satu opsi (Izinkan Review, Aktifkan Grup Token, atau Batas Keluar Ujian). Mematikan "Pengaturan" akan mengembalikan semuanya ke pengaturan awal. Lanjutkan?','danger',()=>{
+            _tokenPengaturanReset();
+            _setTokenPengaturanWrap(false);
+            if(pgChk)pgChk.checked=false;
+        });
+        // Batalkan (kembalikan switch ke aktif) sambil menunggu konfirmasi user;
+        // kalau user pilih "Ya" di popup, _tokenPengaturanReset() di atas akan
+        // mengembalikan opsi ke default meski switch sempat balik nyala.
+        if(pgChk)pgChk.checked=true;
+    } else {
+        _setTokenPengaturanWrap(false);
+    }
 }
 
 function _setTokenMode(mode){
@@ -45,11 +101,14 @@ async function generateTokens(){
     const izinkanReview=document.getElementById('token-izinkan-review')?.checked?1:0;
     const grubAktif=document.getElementById('token-grub-aktif')?.checked;
     const grubNama=document.getElementById('token-grub-nama')?.value.trim()||'';
+    const batasKeluarAktif=document.getElementById('token-batas-keluar-aktif')?.checked;
+    const batasKeluarJumlah=Math.max(1,parseInt(document.getElementById('token-batas-keluar-jumlah')?.value)||3);
     if(!modul){showToast('Pilih modul terlebih dahulu','danger');return;}
     if(jml<1||jml>200){showToast('Jumlah token 1-200','danger');return;}
     if(grubAktif&&!grubNama){showToast('Nama grup token wajib diisi','danger');return;}
 
-    let payload={modul_kode:modul,jumlah:jml,mode,izinkan_review:izinkanReview};
+    const batasKeluar=batasKeluarAktif?batasKeluarJumlah:null;
+    let payload={modul_kode:modul,jumlah:jml,mode,izinkan_review:izinkanReview,batas_keluar:batasKeluar};
     if(grubAktif)payload.grub_token=grubNama;
     if(mode==='custom'){
         const tglM=document.getElementById('token-tgl-mulai').value,tglA=document.getElementById('token-tgl-akhir').value,jamM=document.getElementById('token-jam-mulai')?.value||'08:00',jamA=document.getElementById('token-jam-akhir')?.value||'23:59';
@@ -63,7 +122,7 @@ async function generateTokens(){
         if(!result||!result.length){showToast('Tidak ada token yang dibuat','danger');return;}
         // Server sekarang mengembalikan array objek {kode,modul_kode,aktivasi,expired}
         // Pastikan format konsisten
-        _genTokens=result.map(t=>typeof t==='string'?{kode:t,modul_kode:modul,aktivasi:payload.aktivasi||null,expired:payload.expired||null,izinkan_review:izinkanReview}:t);
+        _genTokens=result.map(t=>typeof t==='string'?{kode:t,modul_kode:modul,aktivasi:payload.aktivasi||null,expired:payload.expired||null,izinkan_review:izinkanReview,batas_keluar:batasKeluar}:t);
         _renderGenList(1);document.getElementById('token-dl-section').style.display='flex';
         showToast(`${_genTokens.length} token berhasil dibuat!`,'success');
     }catch(e){showToast('Gagal: '+e.message,'danger');}

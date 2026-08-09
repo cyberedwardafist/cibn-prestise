@@ -30,24 +30,48 @@
       <div class="form-group">
         <div class="switch-row">
           <div>
-            <div class="switch-label">Izinkan Review</div>
-            <div class="switch-desc">Jika aktif, peserta yang memakai kode ini akan melihat tombol "Lihat Hasil" setelah selesai ujian</div>
+            <div class="switch-label">Pengaturan</div>
+            <div class="switch-desc">Aktifkan untuk membuka opsi tambahan: Izinkan Review, Aktifkan Grup Token, dan Batas Keluar Ujian</div>
           </div>
-          <label class="switch"><input type="checkbox" id="token-izinkan-review"><span class="switch-slider"></span></label>
+          <label class="switch"><input type="checkbox" id="token-pengaturan-aktif" onchange="_toggleTokenPengaturan(this.checked)"><span class="switch-slider"></span></label>
         </div>
       </div>
-      <div class="form-group">
-        <div class="switch-row">
-          <div>
-            <div class="switch-label">Aktifkan Grup Token</div>
-            <div class="switch-desc">Jika aktif, seluruh token yang dibuat pada proses ini akan tergabung dalam 1 kelompok. Nama kelompok dipakai untuk filter & unduh laporan grup (ZIP) di panel Review.</div>
+      <div id="token-pengaturan-wrap" style="display:none">
+        <div class="form-group">
+          <div class="switch-row">
+            <div>
+              <div class="switch-label">Izinkan Review</div>
+              <div class="switch-desc">Jika aktif, peserta yang memakai kode ini akan melihat tombol "Lihat Hasil" setelah selesai ujian</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="token-izinkan-review"><span class="switch-slider"></span></label>
           </div>
-          <label class="switch"><input type="checkbox" id="token-grub-aktif" onchange="_toggleTokenGrub(this.checked)"><span class="switch-slider"></span></label>
         </div>
-        <div id="token-grub-wrap" style="display:none;margin-top:10px">
-          <label class="form-label">Nama Grup Token</label>
-          <input id="token-grub-nama" class="form-input" type="text" placeholder="Contoh: Batch Ujian Oktober - Kelas A" list="token-grub-suggest">
-          <datalist id="token-grub-suggest"></datalist>
+        <div class="form-group">
+          <div class="switch-row">
+            <div>
+              <div class="switch-label">Aktifkan Grup Token</div>
+              <div class="switch-desc">Jika aktif, seluruh token yang dibuat pada proses ini akan tergabung dalam 1 kelompok. Nama kelompok dipakai untuk filter & unduh laporan grup (ZIP) di panel Review.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="token-grub-aktif" onchange="_toggleTokenGrub(this.checked)"><span class="switch-slider"></span></label>
+          </div>
+          <div id="token-grub-wrap" style="display:none;margin-top:10px">
+            <label class="form-label">Nama Grup Token</label>
+            <input id="token-grub-nama" class="form-input" type="text" placeholder="Contoh: Batch Ujian Oktober - Kelas A" list="token-grub-suggest">
+            <datalist id="token-grub-suggest"></datalist>
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="switch-row">
+            <div>
+              <div class="switch-label">Batas Keluar Ujian</div>
+              <div class="switch-desc">Jika aktif, ujian otomatis diselesaikan setelah peserta keluar/berpindah halaman melebihi jumlah kali di bawah ini. Matikan untuk menonaktifkan perlindungan keluar ujian sepenuhnya (peserta bebas keluar tanpa batas).</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="token-batas-keluar-aktif" checked onchange="_toggleBatasKeluar(this.checked)"><span class="switch-slider"></span></label>
+          </div>
+          <div id="token-batas-keluar-wrap" style="margin-top:10px">
+            <label class="form-label">Maksimal Keluar (kali)</label>
+            <input id="token-batas-keluar-jumlah" class="form-input" type="number" value="3" min="1" max="99">
+          </div>
         </div>
       </div>
       <button class="btn btn-primary" style="width:100%" onclick="generateTokens()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Buat Token</button>

@@ -153,8 +153,15 @@ CREATE TABLE IF NOT EXISTS tokens (
     digunakan_oleh TEXT,
     created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     izinkan_review SMALLINT DEFAULT 0,
-    grub_token     TEXT
+    grub_token     TEXT,
+    batas_keluar   INTEGER
 );
+-- Batas maksimal "keluar dari ujian" (tab switch/blur/keluar fullscreen) sebelum
+-- ujian otomatis dianggap selesai. NULL = perlindungan keluar DIMATIKAN untuk
+-- token ini (peserta bebas keluar tanpa batas). Angka (mis. 3) = jumlah maksimal
+-- pelanggaran yang ditoleransi. Untuk instalasi lama yang tabel `tokens`-nya sudah
+-- ada dari sebelum kolom ini dibuat — aman dijalankan berkali-kali.
+ALTER TABLE tokens ADD COLUMN IF NOT EXISTS batas_keluar INTEGER;
 
 CREATE TABLE IF NOT EXISTS laporan (
     id                SERIAL PRIMARY KEY,
