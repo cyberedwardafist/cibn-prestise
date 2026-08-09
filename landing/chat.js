@@ -5,10 +5,10 @@
 // ── CHATBOT ──
 // Data chatbot diambil dari server lewat applyData(). Ini fallback jika server belum dikonfigurasi.
 const _defaultChatQuickReplies = {
-  '💎 info paket': 'Kami memiliki 3 paket: Starter (Rp149K/bln), Professional (Rp299K/bln), dan Enterprise (custom). Paket Professional paling populer!',
-  '📝 cara daftar': 'Daftar sangat mudah! Klik tombol "Masuk" lalu pilih "Daftar Sekarang". Prosesnya hanya 2 menit.',
-  '📚 materi': 'Kami punya 200+ modul mencakup Akuntansi, SDM, IT, Hukum, Perbankan, dan banyak lagi!',
-  '▶ coba ujian gratis': 'Klik tombol "Coba Ujian Gratis" di halaman ini untuk mencoba 5 soal demo tanpa perlu daftar!',
+  'info paket': 'Kami memiliki 3 paket: Starter (Rp149K/bln), Professional (Rp299K/bln), dan Enterprise (custom). Paket Professional paling populer!',
+  'cara daftar': 'Daftar sangat mudah! Klik tombol "Masuk" lalu pilih "Daftar Sekarang". Prosesnya hanya 2 menit.',
+  'materi': 'Kami punya 200+ modul mencakup Akuntansi, SDM, IT, Hukum, Perbankan, dan banyak lagi!',
+  'coba ujian gratis': 'Klik tombol "Coba Ujian Gratis" di halaman ini untuk mencoba 5 soal demo tanpa perlu daftar!',
 };
 const _defaultChatKeywords = [
   {keyword:'harga', reply:'Paket kami mulai dari Rp149K/bulan. Lihat detail lengkap di bagian Paket Harga di halaman ini!'},

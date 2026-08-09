@@ -29,7 +29,14 @@ function showRegister() {
 }
 function togglePass() {
   const p = document.getElementById('loginPass');
-  p.type = p.type === 'password' ? 'text' : 'password';
+  const btn = document.getElementById('passToggleBtn');
+  const showing = p.type === 'password';
+  p.type = showing ? 'text' : 'password';
+  if (btn) {
+    btn.innerHTML = showing
+      ? '<svg class="ico" viewBox="0 0 24 24"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A10.9 10.9 0 0 1 12 4c7 0 11 7 11 7a18.6 18.6 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
+      : '<svg class="ico" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+  }
 }
 
 // Simpan paket yang dipilih user saat klik tombol paket
@@ -43,7 +50,7 @@ async function doLogin() {
   if (!email.includes('@')) { err.style.display='block'; err.textContent='Format email tidak valid.'; return; }
   err.style.display = 'none';
   const btn = document.querySelector('#loginForm button[onclick="doLogin()"]');
-  if (btn) { btn.disabled = true; btn.textContent = 'Memproses...'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span>Memproses...</span>'; }
   try {
     const res = await fetch(API_BASE_LANDING + '/login', {
       method: 'POST',
@@ -62,7 +69,7 @@ async function doLogin() {
   } catch(e) {
     err.style.display = 'block';
     err.textContent = e.message || 'Gagal terhubung ke server. Pastikan server aktif.';
-    if (btn) { btn.disabled = false; btn.textContent = 'Masuk →'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<span>Masuk</span><svg class="ico" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>'; }
   }
 }
 
@@ -79,7 +86,7 @@ async function doRegister() {
   if (!agree) { err.style.display='block'; err.textContent='Anda harus menyetujui Syarat & Ketentuan.'; return; }
   err.style.display = 'none';
   const btn = document.querySelector('#registerForm button[onclick="doRegister()"]');
-  if (btn) { btn.disabled = true; btn.textContent = 'Memproses...'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span>Memproses...</span>'; }
   try {
     const nama = (fn + ' ' + ln).trim();
     const res = await fetch(API_BASE_LANDING + '/signup', {
@@ -93,20 +100,22 @@ async function doRegister() {
     const modal = document.querySelector('#loginOverlay .exam-modal');
     modal.innerHTML = `
       <div style="text-align:center;padding:2rem 1rem">
-        <div style="font-size:3.5rem;margin-bottom:1rem">✅</div>
-        <div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:700;color:#0f2d8a;margin-bottom:.5rem">Pendaftaran Berhasil!</div>
-        <p style="font-size:.88rem;color:#64748b;font-weight:300;line-height:1.7;margin-bottom:.5rem">
+        <div style="width:64px;height:64px;border-radius:50%;background:rgba(28,63,115,0.1);display:flex;align-items:center;justify-content:center;margin:0 auto 1.2rem;color:#0d2038">
+          <svg class="ico" viewBox="0 0 24 24" style="width:30px;height:30px"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:700;color:#0d2038;margin-bottom:.5rem">Pendaftaran Berhasil</div>
+        <p style="font-size:.88rem;color:#69768a;font-weight:300;line-height:1.7;margin-bottom:.5rem">
           Akun Anda sedang menunggu konfirmasi dari admin.<br>
           ${_selectedPaket ? `Paket yang dipilih: <strong>${_selectedPaket}</strong><br>` : ''}
           Anda akan dihubungi setelah diaktifkan.
         </p>
-        <button onclick="closeLogin()" style="margin-top:1.5rem;background:linear-gradient(135deg,#1a4fd6,#0f2d8a);color:#fff;border:none;padding:.85rem 2.2rem;border-radius:50px;font-size:.95rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Tutup</button>
+        <button onclick="closeLogin()" style="margin-top:1.5rem;background:#1c3f73;color:#fff;border:none;padding:.85rem 2.2rem;border-radius:50px;font-size:.95rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Tutup</button>
       </div>`;
     _selectedPaket = null;
   } catch(e) {
     err.style.display = 'block';
     err.textContent = e.message || 'Gagal terhubung ke server.';
-    if (btn) { btn.disabled = false; btn.textContent = 'Buat Akun →'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<span>Buat Akun</span><svg class="ico" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>'; }
   }
 }
 
@@ -119,8 +128,8 @@ function openSignup(paketName, paketPrice) {
   if (existing) existing.remove();
   const banner = document.createElement('div');
   banner.id = 'paketBanner';
-  banner.style.cssText = 'background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1.5px solid rgba(26,79,214,0.2);border-radius:12px;padding:.9rem 1.1rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem';
-  banner.innerHTML = '<div><div style="font-size:.7rem;font-weight:600;color:#1a4fd6;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.15rem">Paket Dipilih</div><div style="font-size:.92rem;font-weight:700;color:#0f2d8a">'+paketName+'</div></div><div style="font-size:.88rem;font-weight:600;color:#1a4fd6">'+paketPrice+'</div>';
+  banner.style.cssText = 'background:linear-gradient(135deg,#f3ecda,#eef1e0);border:1.5px solid rgba(28,63,115,0.16);border-radius:12px;padding:.9rem 1.1rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem';
+  banner.innerHTML = '<div><div style="font-size:.7rem;font-weight:600;color:#1c3f73;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.15rem">Paket Dipilih</div><div style="font-size:.92rem;font-weight:700;color:#0d2038">'+paketName+'</div></div><div style="font-size:.88rem;font-weight:600;color:#1c3f73">'+paketPrice+'</div>';
   regForm.insertBefore(banner, regForm.firstChild);
 }
 

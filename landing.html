@@ -4,92 +4,107 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CIBN Akademi – Pusat Ujian &amp; Sertifikasi Profesional</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/glass.css">
 <style>
 /* ── Khusus landing utama ── */
-.coba-card{background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 60%,var(--accent) 130%);border-radius:var(--radius-lg);padding:2.8rem 2rem;position:relative;overflow:hidden;text-align:center;color:#fff}
-.coba-card::before{content:'';position:absolute;top:-70px;right:-70px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,0.08)}
+.coba-card{background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 62%,#2c507e 130%);border-radius:var(--radius-lg);padding:2.9rem 2rem;position:relative;overflow:hidden;text-align:center;color:#fff}
+.coba-card::before{content:'';position:absolute;top:-70px;right:-70px;width:220px;height:220px;border-radius:50%;background:rgba(243,236,218,0.10)}
 .coba-card::after{content:'';position:absolute;bottom:-50px;left:-50px;width:170px;height:170px;border-radius:50%;background:rgba(255,255,255,0.06)}
-.coba-card h3{font-family:'Cormorant Garamond',serif;font-size:1.7rem;margin-bottom:.5rem;position:relative}
-.coba-card p{opacity:.8;font-size:.9rem;font-weight:300;margin-bottom:1.6rem;position:relative}
-.coba-btn{background:#fff;color:var(--primary-dark);border:none;padding:.85rem 2.1rem;border-radius:var(--radius-pill);font-size:.92rem;font-weight:700;cursor:pointer;transition:all .3s;position:relative;font-family:'DM Sans',sans-serif}
-.coba-btn:hover{transform:scale(1.04);box-shadow:0 12px 30px rgba(0,0,0,0.2)}
+.coba-card h3{font-family:'Cormorant Garamond',serif;font-size:1.7rem;font-weight:600;margin-bottom:.5rem;position:relative}
+.coba-card p{opacity:.82;font-size:.9rem;font-weight:300;margin-bottom:1.7rem;position:relative}
+.coba-btn{background:#fff;color:var(--primary-dark);border:none;padding:.85rem 2.1rem;border-radius:var(--radius-pill);font-size:.92rem;font-weight:700;cursor:pointer;transition:all .3s;position:relative;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:.55rem}
+.coba-btn:hover{transform:scale(1.04);box-shadow:0 14px 34px rgba(13,32,56,0.28)}
+.coba-btn .ico{width:16px;height:16px}
 
-.promo-banner{background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 100%);color:#fff;padding:2.6rem clamp(1.4rem,4vw,3rem)}
-.promo-banner .section-tag{background:rgba(255,255,255,0.14);color:#fff;border-color:rgba(255,255,255,0.2)}
-.promo-banner h2{font-family:'Cormorant Garamond',serif;font-size:clamp(1.7rem,3.4vw,2.4rem);font-weight:700;line-height:1.2;margin-bottom:.8rem}
-.promo-banner p{color:rgba(255,255,255,0.78);font-size:.9rem;font-weight:300;max-width:520px}
-.promo-card{padding:1.3rem;text-align:left}
-.promo-card-icon{font-size:1.5rem;margin-bottom:.5rem}
+.promo-banner{background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 100%);color:#fff;padding:2.7rem clamp(1.4rem,4vw,3rem)}
+.promo-banner .section-tag{background:rgba(243,236,218,0.16);color:#f3ecda;border-color:rgba(243,236,218,0.22)}
+.promo-banner h2{font-family:'Cormorant Garamond',serif;font-size:clamp(1.7rem,3.4vw,2.4rem);font-weight:600;line-height:1.2;margin-bottom:.8rem}
+.promo-banner p{color:rgba(255,255,255,0.8);font-size:.9rem;font-weight:300;max-width:520px}
+.promo-card{padding:1.35rem;text-align:left}
+.promo-card-icon{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;margin-bottom:.7rem;background:linear-gradient(150deg,rgba(28,63,115,0.1),rgba(227,213,172,0.55));color:var(--primary)}
+.promo-card-icon .ico{width:18px;height:18px}
 .promo-card h4{font-size:.88rem;font-weight:700;margin-bottom:.25rem;color:var(--ink)}
 .promo-card p{font-size:.78rem;color:var(--muted)}
 
-.hero-stat{text-align:center}
-
-.chat-toggle{position:fixed;bottom:2rem;right:2rem;width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--primary-dark));border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 30px rgba(79,70,229,0.4);z-index:999;transition:all .3s;color:#fff;font-size:1.4rem;overflow:hidden}
-.chat-toggle:hover{transform:scale(1.06)}
-.chat-toggle .notif{position:absolute;top:0;right:0;width:14px;height:14px;background:#ef4444;border-radius:50%;border:2px solid #fff;font-size:8px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff}
-.chat-box{position:fixed;bottom:6rem;right:2rem;width:340px;max-height:480px;z-index:999;display:none;flex-direction:column;overflow:hidden;animation:chatIn .3s cubic-bezier(.22,1,.36,1);background:var(--glass-strong);backdrop-filter:blur(24px) saturate(180%);border:1px solid var(--glass-border);border-radius:24px;box-shadow:var(--glass-shadow-lg)}
+.chat-toggle{position:fixed;bottom:2rem;right:2rem;width:58px;height:58px;border-radius:50%;background:var(--primary);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 14px 32px rgba(13,32,56,0.32);z-index:999;transition:all .3s;color:#fff;overflow:visible}
+.chat-toggle:hover{transform:scale(1.06);background:var(--primary-dark)}
+.chat-toggle .ico{width:24px;height:24px}
+.chat-toggle .notif{position:absolute;top:2px;right:2px;width:12px;height:12px;background:var(--cream-ink);border-radius:50%;border:2px solid #fff}
+.chat-box{position:fixed;bottom:6rem;right:2rem;width:340px;max-height:480px;z-index:999;display:none;flex-direction:column;overflow:hidden;animation:chatIn .3s cubic-bezier(.22,1,.36,1);background:var(--glass-strong);backdrop-filter:blur(24px) saturate(160%);border:1px solid var(--glass-border);border-radius:24px;box-shadow:var(--glass-shadow-lg)}
 .chat-box.show{display:flex}
 @keyframes chatIn{from{opacity:0;transform:translateY(16px) scale(.95)}to{opacity:1;transform:none}}
-.chat-header{background:linear-gradient(135deg,var(--primary-dark),var(--primary));padding:1rem 1.2rem;display:flex;align-items:center;gap:.8rem;border-radius:24px 24px 0 0}
-.chat-avatar{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:1rem;overflow:hidden;flex-shrink:0}
+.chat-header{background:var(--primary);padding:1rem 1.2rem;display:flex;align-items:center;gap:.8rem;border-radius:24px 24px 0 0}
+.chat-avatar{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;color:#fff}
+.chat-avatar .ico{width:18px;height:18px}
 .chat-header-info h4{color:#fff;font-size:.88rem;font-weight:600}
-.chat-header-info p{color:rgba(255,255,255,0.7);font-size:.72rem;font-weight:300}
-.chat-header-close{margin-left:auto;background:none;border:none;color:rgba(255,255,255,0.7);cursor:pointer;font-size:1rem;padding:.2rem}
+.chat-header-info p{color:rgba(255,255,255,0.72);font-size:.72rem;font-weight:300}
+.chat-header-close{margin-left:auto;background:none;border:none;color:rgba(255,255,255,0.75);cursor:pointer;padding:.2rem;display:flex}
+.chat-header-close .ico{width:16px;height:16px}
 .chat-messages{flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:.8rem;max-height:220px}
 .chat-msg{max-width:80%;font-size:.83rem;line-height:1.5;padding:.6rem .9rem;border-radius:14px;animation:msgIn .3s ease}
 @keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.chat-msg.bot{background:rgba(255,255,255,0.7);border:1px solid var(--glass-border);color:var(--ink);border-radius:4px 14px 14px 14px;align-self:flex-start}
-.chat-msg.user{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;border-radius:14px 4px 14px 14px;align-self:flex-end}
+.chat-msg.bot{background:rgba(255,255,255,0.75);border:1px solid var(--glass-border);color:var(--ink);border-radius:4px 14px 14px 14px;align-self:flex-start}
+.chat-msg.user{background:var(--primary);color:#fff;border-radius:14px 4px 14px 14px;align-self:flex-end}
 .chat-quick{display:flex;flex-wrap:wrap;gap:.4rem;padding:.5rem 1rem}
-.chat-quick-btn{background:rgba(255,255,255,0.6);border:1px solid var(--glass-border);color:var(--primary-dark);font-size:.72rem;padding:.3rem .7rem;border-radius:50px;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif}
+.chat-quick-btn{background:rgba(255,255,255,0.6);border:1px solid var(--glass-border);color:var(--primary-dark);font-size:.72rem;padding:.32rem .75rem;border-radius:50px;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:.35rem}
+.chat-quick-btn .ico{width:12px;height:12px}
 .chat-quick-btn:hover{background:var(--primary);color:#fff}
 .chat-input-row{display:flex;gap:.5rem;padding:.8rem 1rem;border-top:1px solid var(--glass-border)}
 .chat-input{flex:1;border:1.5px solid var(--glass-border);border-radius:50px;padding:.5rem .9rem;font-size:.83rem;font-family:'DM Sans',sans-serif;outline:none;color:var(--ink);background:rgba(255,255,255,0.6)}
 .chat-input:focus{border-color:var(--primary)}
-.chat-send{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0}
+.chat-send{background:var(--primary);color:#fff;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.chat-send .ico{width:14px;height:14px}
 
-.exam-overlay{display:none;position:fixed;inset:0;z-index:2000;background:rgba(30,27,58,0.45);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:1rem}
+.exam-overlay{display:none;position:fixed;inset:0;z-index:2000;background:rgba(13,32,56,0.42);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:1rem}
 .exam-overlay.show{display:flex}
-.exam-modal{background:var(--glass-strong);backdrop-filter:blur(30px) saturate(180%);border:1px solid var(--glass-border);border-radius:28px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;padding:2.5rem;position:relative;animation:modalIn .4s cubic-bezier(.22,1,.36,1);box-shadow:var(--glass-shadow-lg)}
+.exam-modal{background:var(--glass-strong);backdrop-filter:blur(30px) saturate(160%);border:1px solid var(--glass-border);border-radius:28px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;padding:2.5rem;position:relative;animation:modalIn .4s cubic-bezier(.22,1,.36,1);box-shadow:var(--glass-shadow-lg)}
 @keyframes modalIn{from{opacity:0;transform:scale(.92) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
-.exam-close{position:absolute;top:1.2rem;right:1.2rem;width:32px;height:32px;border-radius:50%;border:1px solid var(--glass-border);background:rgba(255,255,255,0.6);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:1rem}
+.exam-close{position:absolute;top:1.2rem;right:1.2rem;width:32px;height:32px;border-radius:50%;border:1px solid var(--glass-border);background:rgba(255,255,255,0.6);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.exam-close .ico{width:15px;height:15px}
 .exam-close:hover{background:#fff;color:var(--ink)}
-.exam-progress{height:4px;background:rgba(30,27,58,0.1);border-radius:2px;margin-bottom:2rem}
-.exam-progress-bar{height:100%;background:linear-gradient(to right,var(--primary),var(--primary-dark));border-radius:2px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.exam-progress{height:4px;background:rgba(13,32,56,0.09);border-radius:2px;margin-bottom:2rem}
+.exam-progress-bar{height:100%;background:var(--primary);border-radius:2px;transition:width .5s cubic-bezier(.4,0,.2,1)}
 .exam-q-num{font-size:.75rem;color:var(--muted);font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem}
 .exam-q-text{font-size:1.05rem;font-weight:600;color:var(--ink);line-height:1.5;margin-bottom:1.8rem}
 .exam-options{display:flex;flex-direction:column;gap:.7rem}
-.exam-opt{padding:1rem 1.2rem;border:1.5px solid var(--glass-border);border-radius:14px;cursor:pointer;font-size:.9rem;color:var(--ink);transition:all .25s;display:flex;align-items:center;gap:.8rem;font-weight:400;background:rgba(255,255,255,0.4)}
-.exam-opt:hover{border-color:var(--primary);color:var(--primary-dark);background:rgba(79,70,229,0.08)}
-.exam-opt.selected{border-color:var(--primary);background:rgba(79,70,229,0.12);color:var(--primary-dark);font-weight:600}
-.exam-opt.correct{border-color:#16a34a;background:#f0fdf4;color:#15803d}
-.exam-opt.wrong{border-color:#dc2626;background:#fef2f2;color:#b91c1c}
-.exam-opt-letter{width:26px;height:26px;border-radius:50%;background:rgba(30,27,58,0.1);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;transition:all .25s}
+.exam-opt{padding:1rem 1.2rem;border:1.5px solid var(--glass-border);border-radius:14px;cursor:pointer;font-size:.9rem;color:var(--ink);transition:all .25s;display:flex;align-items:center;gap:.8rem;font-weight:400;background:rgba(255,255,255,0.42)}
+.exam-opt:hover{border-color:var(--primary);color:var(--primary-dark);background:rgba(28,63,115,0.06)}
+.exam-opt.selected{border-color:var(--primary);background:rgba(28,63,115,0.1);color:var(--primary-dark);font-weight:600}
+.exam-opt.correct{border-color:#2f7a4f;background:#f2f8f4;color:#245f3d}
+.exam-opt.wrong{border-color:#b3543f;background:#fbf3f1;color:#8f3f2d}
+.exam-opt-letter{width:26px;height:26px;border-radius:50%;background:rgba(13,32,56,0.08);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;transition:all .25s}
 .exam-opt.selected .exam-opt-letter{background:var(--primary);color:#fff}
 .exam-nav{display:flex;justify-content:space-between;align-items:center;margin-top:2rem}
 .exam-score{text-align:center;padding:2rem 0}
-.exam-score-num{font-family:'Cormorant Garamond',serif;font-size:5rem;font-weight:700;color:var(--primary);line-height:1}
+.exam-score-num{font-family:'Cormorant Garamond',serif;font-size:5rem;font-weight:600;color:var(--primary);line-height:1}
 .exam-score-label{font-size:.9rem;color:var(--muted);margin-top:.5rem}
 .exam-score-msg{font-size:1.05rem;font-weight:600;color:var(--ink);margin-top:1rem}
 
 .login-input{width:100%;padding:.75rem 1rem;border:1.5px solid var(--glass-border);border-radius:14px;font-size:.9rem;font-family:'DM Sans',sans-serif;color:var(--ink);outline:none;transition:border .2s;background:rgba(255,255,255,0.55)}
 .login-input:focus{border-color:var(--primary)}
 .login-label{font-size:.78rem;font-weight:700;color:var(--ink);letter-spacing:.03em;display:block;margin-bottom:.4rem}
+.pass-toggle{position:absolute;right:.8rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted-soft);cursor:pointer;padding:.2rem;display:flex}
+.pass-toggle .ico{width:17px;height:17px}
+.social-auth-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:.5rem;border:1.5px solid var(--glass-border);background:rgba(255,255,255,0.5);border-radius:10px;padding:.65rem;font-size:.82rem;font-weight:500;color:var(--ink);cursor:pointer;font-family:'DM Sans',sans-serif}
+.social-auth-btn .ico{width:16px;height:16px}
+.social-auth-btn:hover{background:rgba(255,255,255,0.85)}
 
-.doc-modal-overlay{position:fixed;inset:0;background:rgba(30,27,58,0.4);backdrop-filter:blur(8px);z-index:9999;display:none;align-items:center;justify-content:center;padding:1rem}
+.doc-modal-overlay{position:fixed;inset:0;background:rgba(13,32,56,0.38);backdrop-filter:blur(8px);z-index:9999;display:none;align-items:center;justify-content:center;padding:1rem}
 .doc-modal-overlay.show{display:flex}
-.doc-modal-box{background:var(--glass-strong);backdrop-filter:blur(28px) saturate(180%);border:1px solid var(--glass-border);border-radius:24px;max-width:560px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:var(--glass-shadow-lg);animation:docIn .3s cubic-bezier(.22,1,.36,1)}
+.doc-modal-box{background:var(--glass-strong);backdrop-filter:blur(28px) saturate(160%);border:1px solid var(--glass-border);border-radius:24px;max-width:560px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:var(--glass-shadow-lg);animation:docIn .3s cubic-bezier(.22,1,.36,1)}
 @keyframes docIn{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}
 .doc-modal-header{padding:1.4rem 1.6rem 1rem;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .doc-modal-header h3{font-family:'Cormorant Garamond',serif;font-size:1.25rem;font-weight:700;color:var(--primary-dark)}
-.doc-modal-close{background:none;border:none;color:var(--muted-soft);font-size:1.3rem;cursor:pointer;padding:.2rem .5rem;border-radius:6px}
-.doc-modal-close:hover{background:rgba(0,0,0,0.05);color:var(--ink)}
+.doc-modal-close{background:none;border:none;color:var(--muted-soft);cursor:pointer;padding:.3rem;border-radius:6px;display:flex}
+.doc-modal-close .ico{width:16px;height:16px}
+.doc-modal-close:hover{background:rgba(13,32,56,0.05);color:var(--ink)}
 .doc-modal-body{overflow-y:auto;padding:1.4rem 1.6rem;flex:1;font-size:.87rem;color:var(--ink-soft);line-height:1.75;white-space:pre-wrap}
 .doc-modal-footer{padding:1rem 1.6rem;border-top:1px solid var(--glass-border);display:flex;justify-content:flex-end;flex-shrink:0}
-.doc-modal-btn{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;border:none;padding:.65rem 1.8rem;border-radius:50px;font-size:.88rem;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif}
+.doc-modal-btn{background:var(--primary);color:#fff;border:none;padding:.65rem 1.8rem;border-radius:50px;font-size:.88rem;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif}
+
+/* ── Hero, tanpa badge — hanya label tipis di atas judul ── */
+.hero-eyebrow .ico{width:14px;height:14px}
 </style>
 </head>
 <body data-page="landing">
@@ -112,7 +127,9 @@
 </nav>
 
 <div class="nav-mobile-menu" id="mobileMenu">
-  <button class="nav-mobile-close" onclick="closeMobileMenu()">✕</button>
+  <button class="nav-mobile-close" onclick="closeMobileMenu()">
+    <svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
   <a href="#fitur" onclick="closeMobileMenu()">Fitur</a>
   <a href="paket.html">Paket</a>
   <a href="materi.html">Materi</a>
@@ -125,7 +142,9 @@
 <!-- ══ DOC MODAL ══ -->
 <div class="doc-modal-overlay" id="docModalOverlay" onclick="if(event.target===this)closeDocModal()">
   <div class="doc-modal-box">
-    <div class="doc-modal-header"><h3 id="docModalTitle"></h3><button class="doc-modal-close" onclick="closeDocModal()">&#x2715;</button></div>
+    <div class="doc-modal-header"><h3 id="docModalTitle"></h3>
+      <button class="doc-modal-close" onclick="closeDocModal()"><svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
     <div class="doc-modal-body" id="docModalBody"></div>
     <div class="doc-modal-footer"><button class="doc-modal-btn" onclick="closeDocModal()">Saya Mengerti</button></div>
   </div>
@@ -134,7 +153,7 @@
 <!-- ══ LOGIN / REGISTER MODAL ══ -->
 <div class="exam-overlay" id="loginOverlay" onclick="if(event.target===this)closeLogin()">
   <div class="exam-modal" style="max-width:420px;padding:2.5rem">
-    <button class="exam-close" onclick="closeLogin()">&#x2715;</button>
+    <button class="exam-close" onclick="closeLogin()"><svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     <div style="text-align:center;margin-bottom:2rem">
       <div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:700;color:var(--primary-dark);margin-bottom:.3rem"><span style="color:var(--primary)">CIBN</span> Akademi</div>
       <p style="font-size:.85rem;color:var(--muted);font-weight:300" id="loginSubtitle">Masuk ke akun Anda</p>
@@ -146,15 +165,19 @@
           <label class="login-label">Password</label>
           <div style="position:relative">
             <input id="loginPass" type="password" placeholder="Masukkan password" class="login-input" style="padding-right:3rem" onkeydown="if(event.key==='Enter')doLogin()">
-            <button onclick="togglePass()" style="position:absolute;right:.8rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted-soft);cursor:pointer;font-size:.85rem;padding:.2rem">👁</button>
+            <button onclick="togglePass()" class="pass-toggle" id="passToggleBtn" type="button">
+              <svg class="ico" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
           </div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:.8rem">
           <label style="display:flex;align-items:center;gap:.4rem;color:var(--muted);cursor:pointer;font-weight:300"><input type="checkbox" style="accent-color:var(--primary)"> Ingat saya</label>
           <a href="#" style="color:var(--primary);text-decoration:none;font-weight:600">Lupa password?</a>
         </div>
-        <div id="loginError" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:.7rem 1rem;font-size:.82rem;color:#b91c1c"></div>
-        <button onclick="doLogin()" class="btn-primary" style="width:100%;justify-content:center;margin-top:.3rem">Masuk →</button>
+        <div id="loginError" style="display:none;background:#fbf3f1;border:1px solid #e3c3ba;border-radius:10px;padding:.7rem 1rem;font-size:.82rem;color:#8f3f2d"></div>
+        <button onclick="doLogin()" class="btn-primary" style="width:100%;justify-content:center;margin-top:.3rem">
+          <span>Masuk</span><svg class="ico" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
       </div>
       <div style="text-align:center;margin-top:1.5rem">
         <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1.2rem">
@@ -163,8 +186,8 @@
           <div style="flex:1;height:1px;background:var(--glass-border)"></div>
         </div>
         <div style="display:flex;gap:.8rem;justify-content:center">
-          <button style="flex:1;display:flex;align-items:center;justify-content:center;gap:.5rem;border:1.5px solid var(--glass-border);background:rgba(255,255,255,0.5);border-radius:10px;padding:.65rem;font-size:.82rem;font-weight:500;color:var(--ink);cursor:pointer;font-family:'DM Sans',sans-serif">🔵 Google</button>
-          <button style="flex:1;display:flex;align-items:center;justify-content:center;gap:.5rem;border:1.5px solid var(--glass-border);background:rgba(255,255,255,0.5);border-radius:10px;padding:.65rem;font-size:.82rem;font-weight:500;color:var(--ink);cursor:pointer;font-family:'DM Sans',sans-serif">🔗 LinkedIn</button>
+          <button class="social-auth-btn"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg> Google</button>
+          <button class="social-auth-btn"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="7.5" y1="10" x2="7.5" y2="17"/><circle cx="7.5" cy="7" r=".6"/><path d="M11.5 17v-4.2c0-1.6 1-2.6 2.5-2.6s2.5 1 2.5 2.6V17"/></svg> LinkedIn</button>
         </div>
         <p style="margin-top:1.2rem;font-size:.82rem;color:var(--muted);font-weight:300">Belum punya akun? <a href="#" onclick="showRegister()" style="color:var(--primary);font-weight:700;text-decoration:none">Daftar sekarang</a></p>
       </div>
@@ -181,8 +204,10 @@
           <input type="checkbox" id="regAgree" style="accent-color:var(--primary);margin-top:2px;flex-shrink:0">
           Saya menyetujui <a href="#" onclick="event.preventDefault();openDocModal('sk')" style="color:var(--primary);margin:0 3px">Syarat &amp; Ketentuan</a> dan <a href="#" onclick="event.preventDefault();openDocModal('kp')" style="color:var(--primary);margin-left:3px">Kebijakan Privasi</a>
         </label>
-        <div id="regError" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:.7rem 1rem;font-size:.82rem;color:#b91c1c"></div>
-        <button onclick="doRegister()" class="btn-primary" style="width:100%;justify-content:center;margin-top:.3rem">Buat Akun →</button>
+        <div id="regError" style="display:none;background:#fbf3f1;border:1px solid #e3c3ba;border-radius:10px;padding:.7rem 1rem;font-size:.82rem;color:#8f3f2d"></div>
+        <button onclick="doRegister()" class="btn-primary" style="width:100%;justify-content:center;margin-top:.3rem">
+          <span>Buat Akun</span><svg class="ico" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
       </div>
       <p style="text-align:center;margin-top:1.2rem;font-size:.82rem;color:var(--muted);font-weight:300">Sudah punya akun? <a href="#" onclick="showLogin()" style="color:var(--primary);font-weight:700;text-decoration:none">Masuk di sini</a></p>
     </div>
@@ -193,12 +218,12 @@
 <!-- ══ HERO ══ -->
 <section id="hero">
   <div class="wrap" style="text-align:center">
-    <div class="hero-badge reveal">Platform Ujian Sertifikasi Terpercaya</div>
+    <div class="hero-eyebrow reveal" style="justify-content:center;display:flex">Pusat Ujian &amp; Sertifikasi Privat</div>
     <h1 class="hero-h1 reveal reveal-delay-1">Raih Sertifikasi<br><span>Profesional Anda</span><br>Bersama Kami</h1>
     <p class="hero-sub reveal reveal-delay-2" style="margin-left:auto;margin-right:auto">Platform ujian online terdepan dengan materi komprehensif, sistem penilaian canggih, dan dukungan instruktur berpengalaman.</p>
     <div class="hero-btns reveal reveal-delay-3" style="justify-content:center">
-      <button class="btn-primary" onclick="openExam()">✦ Coba Ujian Gratis</button>
-      <a href="paket.html" class="btn-glass">Lihat Paket</a>
+      <button class="btn-primary" onclick="openExam()"><svg class="ico" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></svg><span>Coba Ujian Gratis</span></button>
+      <a href="paket.html" class="btn-glass"><span>Lihat Paket</span><svg class="ico" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     </div>
     <div class="bento reveal reveal-delay-3" style="max-width:760px;margin:0 auto">
       <div class="glass glass-hover c-4 hero-stat"><div class="stat-num">12K+</div><div class="stat-label">Peserta Aktif</div></div>
@@ -216,8 +241,8 @@
     <p class="section-sub reveal" style="margin:0 auto 2rem">Rasakan pengalaman ujian kami secara langsung. Akses soal terbatas dan langsung lihat nilaimu setelah selesai.</p>
     <div class="coba-card reveal">
       <h3>Tes Simulasi Ujian</h3>
-      <p>5 soal pilihan ganda · Nilai instan · Tanpa daftar</p>
-      <button class="coba-btn" onclick="openExam()">▶ Mulai Ujian Sekarang</button>
+      <p>5 soal pilihan ganda &middot; Nilai instan &middot; Tanpa daftar</p>
+      <button class="coba-btn" onclick="openExam()"><svg class="ico" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></svg>Mulai Ujian Sekarang</button>
     </div>
   </div>
 </section>
@@ -230,10 +255,22 @@
       <h2><span class="promo-h2-1">Promo Spesial</span><br><span class="promo-h2-2">Mei 2025</span></h2>
       <p class="promo-desc">Dapatkan akses premium dengan harga spesial. Berlaku sampai akhir bulan ini. Jangan lewatkan kesempatan emas untuk tingkatkan karirmu.</p>
     </div>
-    <div class="glass glass-hover c-3 promo-card reveal" data-promo-card><div class="promo-card-icon">🎓</div><h4>Diskon 40%</h4><p>Semua paket premium</p></div>
-    <div class="glass glass-hover c-3 promo-card reveal reveal-delay-1" data-promo-card><div class="promo-card-icon">📚</div><h4>Akses Gratis</h4><p>Modul bonus eksklusif</p></div>
-    <div class="glass glass-hover c-3 promo-card reveal reveal-delay-2" data-promo-card><div class="promo-card-icon">🏆</div><h4>Sertifikat</h4><p>Terakreditasi nasional</p></div>
-    <div class="glass glass-hover c-3 promo-card reveal reveal-delay-3" data-promo-card><div class="promo-card-icon">💬</div><h4>Mentoring</h4><p>1-on-1 dengan pakar</p></div>
+    <div class="glass glass-hover c-3 promo-card reveal" data-promo-card>
+      <div class="promo-card-icon"><svg class="ico" viewBox="0 0 24 24"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"/></svg></div>
+      <h4>Diskon 40%</h4><p>Semua paket premium</p>
+    </div>
+    <div class="glass glass-hover c-3 promo-card reveal reveal-delay-1" data-promo-card>
+      <div class="promo-card-icon"><svg class="ico" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+      <h4>Akses Gratis</h4><p>Modul bonus eksklusif</p>
+    </div>
+    <div class="glass glass-hover c-3 promo-card reveal reveal-delay-2" data-promo-card>
+      <div class="promo-card-icon"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg></div>
+      <h4>Sertifikat</h4><p>Terakreditasi nasional</p>
+    </div>
+    <div class="glass glass-hover c-3 promo-card reveal reveal-delay-3" data-promo-card>
+      <div class="promo-card-icon"><svg class="ico" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
+      <h4>Mentoring</h4><p>1-on-1 dengan pakar</p>
+    </div>
   </div>
 </section>
 
@@ -342,15 +379,21 @@
       </ul></div>
       <div class="footer-col footer-contact">
         <h5>Hubungi Kami</h5>
-        <p class="f-phone">📞 +62 21 5555 0100</p><p class="f-email">📧 hello@cibnakademi.id</p><p class="f-address">📍 Jakarta Selatan, DKI Jakarta</p>
+        <p class="f-phone"><svg class="ico" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.68 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.32 1.85.55 2.81.68A2 2 0 0 1 22 16.92z"/></svg><span>+62 21 5555 0100</span></p>
+        <p class="f-email"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22 6 12 13 2 6"/></svg><span>hello@cibnakademi.id</span></p>
+        <p class="f-address"><svg class="ico" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>Jakarta Selatan, DKI Jakarta</span></p>
         <div class="social-links">
-          <a href="#" class="social-btn" title="Instagram">ig</a><a href="#" class="social-btn" title="LinkedIn">in</a><a href="#" class="social-btn" title="YouTube">yt</a><a href="#" class="social-btn" title="Twitter/X">x</a><a href="#" class="social-btn" title="WhatsApp">wa</a>
+          <a href="#" class="social-btn" title="Instagram"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="6"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1"/></svg></a>
+          <a href="#" class="social-btn" title="LinkedIn"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="7.5" y1="10" x2="7.5" y2="17"/><circle cx="7.5" cy="7" r=".6"/><path d="M11.5 17v-4.2c0-1.6 1-2.6 2.5-2.6s2.5 1 2.5 2.6V17"/></svg></a>
+          <a href="#" class="social-btn" title="YouTube"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="4"/><polygon points="10 9 16 12 10 15 10 9" fill="currentColor" stroke="none"/></svg></a>
+          <a href="#" class="social-btn" title="Twitter/X"><svg class="ico" viewBox="0 0 24 24"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></a>
+          <a href="#" class="social-btn" title="WhatsApp"><svg class="ico" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></a>
         </div>
       </div>
     </div>
     <div class="footer-divider"></div>
     <div class="footer-bottom">
-      <div class="footer-copy f-copy">© 2025 CIBN Akademi. Hak Cipta Dilindungi Undang-Undang.</div>
+      <div class="footer-copy f-copy">&copy; 2025 CIBN Akademi. Hak Cipta Dilindungi Undang-Undang.</div>
       <div class="footer-copy f-reg">Terdaftar &amp; diawasi oleh OJK</div>
     </div>
   </div>
@@ -359,30 +402,33 @@
 <!-- ══ EXAM MODAL ══ -->
 <div class="exam-overlay" id="examOverlay">
   <div class="exam-modal">
-    <button class="exam-close" onclick="closeExam()">✕</button>
+    <button class="exam-close" onclick="closeExam()"><svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     <div class="exam-progress"><div class="exam-progress-bar" id="examBar" style="width:0%"></div></div>
     <div id="examContent"></div>
   </div>
 </div>
 
 <!-- ══ CHATBOT ══ -->
-<button class="chat-toggle" onclick="toggleChat()" id="chatToggle">💬<div class="notif">1</div></button>
+<button class="chat-toggle" onclick="toggleChat()" id="chatToggle">
+  <svg class="ico" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+  <div class="notif"></div>
+</button>
 <div class="chat-box" id="chatBox">
   <div class="chat-header">
-    <div class="chat-avatar">🤖</div>
-    <div class="chat-header-info"><h4>CIBN Assistant</h4><p>● Online · Siap membantu</p></div>
-    <button class="chat-header-close" onclick="toggleChat()">✕</button>
+    <div class="chat-avatar"><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 7V3M9 3h6"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/></svg></div>
+    <div class="chat-header-info"><h4>CIBN Assistant</h4><p>Online &middot; Siap membantu</p></div>
+    <button class="chat-header-close" onclick="toggleChat()"><svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
   </div>
-  <div class="chat-messages" id="chatMessages"><div class="chat-msg bot">Halo! Selamat datang di CIBN Akademi 👋 Ada yang bisa saya bantu?</div></div>
+  <div class="chat-messages" id="chatMessages"><div class="chat-msg bot">Halo, selamat datang di CIBN Akademi. Ada yang bisa saya bantu?</div></div>
   <div class="chat-quick" id="chatQuick">
-    <button class="chat-quick-btn" onclick="quickReply('💎 Info Paket')">💎 Info Paket</button>
-    <button class="chat-quick-btn" onclick="quickReply('📝 Cara Daftar')">📝 Cara Daftar</button>
-    <button class="chat-quick-btn" onclick="quickReply('📚 Materi')">📚 Materi</button>
-    <button class="chat-quick-btn" onclick="quickReply('▶ Coba Ujian Gratis')">▶ Coba Ujian Gratis</button>
+    <button class="chat-quick-btn" onclick="quickReply('Info Paket')"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg>Info Paket</button>
+    <button class="chat-quick-btn" onclick="quickReply('Cara Daftar')"><svg class="ico" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>Cara Daftar</button>
+    <button class="chat-quick-btn" onclick="quickReply('Materi')"><svg class="ico" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>Materi</button>
+    <button class="chat-quick-btn" onclick="quickReply('Coba Ujian Gratis')"><svg class="ico" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></svg>Coba Ujian Gratis</button>
   </div>
   <div class="chat-input-row">
     <input class="chat-input" id="chatInput" placeholder="Ketik pesan..." onkeydown="if(event.key==='Enter')sendChat()">
-    <button class="chat-send" onclick="sendChat()">→</button>
+    <button class="chat-send" onclick="sendChat()"><svg class="ico" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
   </div>
 </div>
 
@@ -391,6 +437,24 @@
 <script>
 const esc = GlassEsc;
 
+// ── Ikon SVG (garis tunggal, senada dengan seluruh halaman) ──
+const ICONS = {
+  gradcap: '<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"/>',
+  shield: '<path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6z"/><polyline points="9 12 11 14 15 10"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  book: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+  award: '<circle cx="12" cy="8" r="6"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/>',
+  users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  building: '<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 9h.01M15 9h.01M9 13h.01M15 13h.01M9 17h.01M15 17h.01"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>',
+  arrow: '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',
+  chevron: '<polyline points="6 9 12 15 18 9"/>',
+  star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+};
+function icon(name, extra) { return `<svg class="ico${extra?' '+extra:''}" viewBox="0 0 24 24">${ICONS[name]||''}</svg>`; }
+const FITUR_ICON_CYCLE = ['shield','target','book','award','users','clock'];
+const TENTANG_ICON_CYCLE = ['target','shield','building'];
+
 // ── Kartu bento generik untuk daftar (icon+title+desc) ──
 function bentoCard(i, inner, extraClass) {
   const span = i === 0 ? 'c-8' : 'c-4';
@@ -398,10 +462,10 @@ function bentoCard(i, inner, extraClass) {
 }
 function moreCard(href, label, span) {
   return `<div class="glass glass-hover more-card ${span||'c-4'} reveal">
-    <div class="bento-icon">→</div>
+    <div class="bento-icon">${icon('arrow')}</div>
     <h3 style="margin-bottom:.2rem">${esc(label)}</h3>
     <p style="margin-bottom:.4rem">Lihat semua di halaman khusus</p>
-    <a class="btn-glass" href="${esc(href)}">Buka Halaman →</a>
+    <a class="btn-glass" href="${esc(href)}"><span>Buka Halaman</span>${icon('arrow')}</a>
   </div>`;
 }
 
@@ -411,7 +475,7 @@ function renderFitur(f) {
   document.querySelector('#fitur .section-title').textContent = f.title || '';
   document.querySelector('#fitur .section-sub').textContent = f.sub || '';
   const cards = f.cards || [];
-  grid.innerHTML = cards.map((c, i) => bentoCard(i, `<div class="bento-icon">${c.icon}</div><h3>${esc(c.title)}</h3><p>${esc(c.desc)}</p>`)).join('');
+  grid.innerHTML = cards.map((c, i) => bentoCard(i, `<div class="bento-icon">${icon(FITUR_ICON_CYCLE[i % FITUR_ICON_CYCLE.length])}</div><h3>${esc(c.title)}</h3><p>${esc(c.desc)}</p>`)).join('');
 }
 
 function renderPaket(p, keuanganPakets) {
@@ -448,31 +512,31 @@ function renderMateri(m) {
 function renderTentang(t) {
   const grid = document.getElementById('tentangGrid'); if (!grid) return;
   const data = t && t.list && t.list.length ? t : { tag:'Kenali Kami', title:'Tentang CIBN Akademi', sub:'Nilai dan komitmen yang menjadi fondasi kami', list:[
-    {icon:'🎯', title:'Misi Kami', desc:'Membuka akses sertifikasi profesional berkualitas untuk seluruh talenta Indonesia.'},
-    {icon:'🤝', title:'Nilai Kami', desc:'Integritas, kualitas materi, dan dukungan penuh untuk kesuksesan peserta.'},
-    {icon:'🏢', title:'Perjalanan Kami', desc:'Berdiri sejak 2019, kini dipercaya ribuan profesional dan institusi terkemuka.'},
+    {title:'Misi Kami', desc:'Membuka akses sertifikasi profesional berkualitas untuk seluruh talenta Indonesia.'},
+    {title:'Nilai Kami', desc:'Integritas, kualitas materi, dan dukungan penuh untuk kesuksesan peserta.'},
+    {title:'Perjalanan Kami', desc:'Berdiri sejak 2019, kini dipercaya ribuan profesional dan institusi terkemuka.'},
   ]};
   document.querySelector('#tentang .section-tag').textContent = data.tag || 'Kenali Kami';
   document.querySelector('#tentang .section-title').textContent = data.title || '';
   document.querySelector('#tentang .section-sub').textContent = data.sub || '';
   const list = (data.list || []).slice(0, 3);
-  grid.innerHTML = list.map((item, i) => `<div class="glass glass-hover c-6 tentang-card reveal${i%2===1?' reveal-delay-1':''}"><div class="bento-icon">${item.icon||'✦'}</div><h3>${esc(item.title)}</h3><p>${esc(item.desc)}</p></div>`).join('') + moreCard('tentang.html', 'Selengkapnya Tentang Kami', 'c-6');
+  grid.innerHTML = list.map((item, i) => `<div class="glass glass-hover c-6 tentang-card reveal${i%2===1?' reveal-delay-1':''}"><div class="bento-icon">${icon(TENTANG_ICON_CYCLE[i % TENTANG_ICON_CYCLE.length])}</div><h3>${esc(item.title)}</h3><p>${esc(item.desc)}</p></div>`).join('') + moreCard('tentang.html', 'Selengkapnya Tentang Kami', 'c-6');
 }
 
 function renderTesti(t) {
   const grid = document.getElementById('testiGrid'); if (!grid || !t) return;
   document.querySelector('#testimoni .section-tag').textContent = t.tag || 'Apa Kata Mereka';
   document.querySelector('#testimoni .section-title').textContent = t.title || '';
-  const starStr = n => '★'.repeat(n||5) + (n<5 ? '☆'.repeat(5-n) : '');
+  const starRow = n => { const full = n || 5; let s = ''; for (let i = 0; i < 5; i++) s += icon('star', i < full ? '' : 'empty'); return s; };
   const list = (t.list || []).slice(0, 3);
-  grid.innerHTML = list.map((c, i) => `<div class="glass glass-hover c-6 testi-card reveal${i%2===1?' reveal-delay-1':''}"><div class="testi-stars">${starStr(c.stars)}</div><p class="testi-text">"${esc(c.text)}"</p><div class="testi-author"><div class="testi-avatar">${esc(c.initials)}</div><div><div class="testi-name">${esc(c.name)}</div><div class="testi-role">${esc(c.role)}</div></div></div></div>`).join('') + moreCard('testimoni.html', 'Lihat Semua Testimoni', 'c-6');
+  grid.innerHTML = list.map((c, i) => `<div class="glass glass-hover c-6 testi-card reveal${i%2===1?' reveal-delay-1':''}"><div class="testi-stars">${starRow(c.stars)}</div><p class="testi-text">&ldquo;${esc(c.text)}&rdquo;</p><div class="testi-author"><div class="testi-avatar">${esc(c.initials)}</div><div><div class="testi-name">${esc(c.name)}</div><div class="testi-role">${esc(c.role)}</div></div></div></div>`).join('') + moreCard('testimoni.html', 'Lihat Semua Testimoni', 'c-6');
 }
 
 function renderFaq(f) {
   const list = document.getElementById('faqList'); if (!list || !f) return;
   document.querySelector('#faq .section-tag').textContent = f.tag || 'FAQ';
   document.querySelector('#faq .section-title').textContent = f.title || '';
-  list.innerHTML = (f.list || []).map(item => `<div class="glass faq-item"><div class="faq-q" onclick="toggleFaq(this)">${esc(item.q)}<span class="faq-arrow">▾</span></div><div class="faq-a"><p>${esc(item.a)}</p></div></div>`).join('');
+  list.innerHTML = (f.list || []).map(item => `<div class="glass faq-item"><div class="faq-q" onclick="toggleFaq(this)">${esc(item.q)}<span class="faq-arrow">${icon('chevron')}</span></div><div class="faq-a"><p>${esc(item.a)}</p></div></div>`).join('');
 }
 
 function renderCoba(c) {
@@ -480,7 +544,8 @@ function renderCoba(c) {
   const s = document.getElementById('coba-ujian'); if (!s) return;
   const set = (sel, v) => { const el = s.querySelector(sel); if (el && v) el.textContent = v; };
   set('.section-tag', c.tag); set('.section-title', c.title); set('.section-sub', c.sub);
-  set('.coba-card h3', c.cardTitle); set('.coba-card p', c.cardDesc); set('.coba-btn', c.btn);
+  set('.coba-card h3', c.cardTitle); set('.coba-card p', c.cardDesc);
+  const btn = s.querySelector('.coba-btn'); if (btn && c.btn) { const sp = btn.querySelector('span'); if (sp) sp.textContent = c.btn; else btn.lastChild.textContent = ' ' + c.btn; }
 }
 function renderPromo(p) {
   if (!p) return;
@@ -493,7 +558,7 @@ function renderPromo(p) {
     const cards = s.querySelectorAll('[data-promo-card]');
     p.cards.forEach((c, i) => {
       if (!cards[i]) return;
-      cards[i].querySelector('.promo-card-icon').textContent = c.icon;
+      // Ikon tetap memakai set SVG bawaan halaman (tidak memakai ikon/emoji dari server).
       cards[i].querySelector('h4').textContent = c.title;
       cards[i].querySelector('p').textContent = c.desc;
     });
@@ -512,13 +577,12 @@ function renderMitra(m) {
 }
 function renderHero(h) {
   if (!h) return;
-  const badge = document.querySelector('.hero-badge'); if (badge) badge.innerHTML = h.badge || badge.innerHTML;
   const h1 = document.querySelector('h1.hero-h1');
   if (h1 && h.h1) h1.innerHTML = `${esc(h.h1[0])}<br><span>${esc(h.h1[1]||'')}</span><br>${esc(h.h1[2]||'')}`;
   const sub = document.querySelector('.hero-sub'); if (sub && h.sub) sub.textContent = h.sub;
   const btns = document.querySelectorAll('.hero-btns .btn-primary, .hero-btns .btn-glass');
-  if (btns[0] && h.btn1) btns[0].textContent = h.btn1;
-  if (btns[1] && h.btn2) btns[1].textContent = h.btn2;
+  if (btns[0] && h.btn1) { const sp = btns[0].querySelector('span'); if (sp) sp.textContent = h.btn1; }
+  if (btns[1] && h.btn2) { const sp = btns[1].querySelector('span'); if (sp) sp.textContent = h.btn2; }
   if (h.stats && h.stats.length >= 3) {
     const nums = document.querySelectorAll('.hero-stat .stat-num');
     const labels = document.querySelectorAll('.hero-stat .stat-label');
@@ -536,7 +600,7 @@ function applyChatAndDocs(D) {
     const fm = document.querySelector('.chat-msg.bot'); if (fm) fm.textContent = c.greeting;
     if (c.avatar) {
       const av = document.querySelector('.chat-avatar'); if (av) av.innerHTML = `<img src="${c.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
-      const tg = document.querySelector('.chat-toggle'); if (tg) tg.innerHTML = `<img src="${c.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"><div class="notif">1</div>`;
+      const tg = document.querySelector('.chat-toggle'); if (tg) tg.innerHTML = `<img src="${c.avatar}" style="width:32px;height:32px;object-fit:cover;border-radius:50%"><div class="notif"></div>`;
     }
     if (c.quickReplies) {
       const qc = document.getElementById('chatQuick');

@@ -54,9 +54,13 @@ function glassApplyNav(D) {
       el.innerHTML = `<span>${GlassEsc(n?.brand || 'CIBN')}</span> ${GlassEsc(n?.subbrand || 'Akademi')}`;
     });
     if (f.brandDesc) document.querySelectorAll('.footer-brand p').forEach(el => el.textContent = f.brandDesc);
-    if (f.phone) document.querySelectorAll('.footer-contact .f-phone').forEach(el => el.textContent = '📞 ' + f.phone);
-    if (f.email) document.querySelectorAll('.footer-contact .f-email').forEach(el => el.textContent = '📧 ' + f.email);
-    if (f.address) document.querySelectorAll('.footer-contact .f-address').forEach(el => el.textContent = '📍 ' + f.address);
+    const setContactText = (sel, v) => document.querySelectorAll(sel).forEach(el => {
+      const span = el.querySelector('span');
+      if (span) span.textContent = v; else el.textContent = v; // ikon SVG di dalamnya tetap utuh, hanya teksnya yang diganti
+    });
+    if (f.phone) setContactText('.footer-contact .f-phone', f.phone);
+    if (f.email) setContactText('.footer-contact .f-email', f.email);
+    if (f.address) setContactText('.footer-contact .f-address', f.address);
     document.querySelectorAll('.footer-copy.f-copy').forEach(el => { if (f.copy) el.textContent = f.copy; });
     document.querySelectorAll('.footer-copy.f-reg').forEach(el => { if (f.reg) el.textContent = f.reg; });
     if (f.platform && f.platform.length) {
