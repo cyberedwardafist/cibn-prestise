@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Testimoni – CIBN Akademi</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/glass.css">
+</head>
+<body data-page="sub" data-subpage="testimoni.html">
+
+<div class="blob-field"><div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div></div>
+
+<nav class="gnav" id="navbar">
+  <a class="nav-logo" href="landing.html"><span>CIBN</span> Akademi</a>
+  <ul class="nav-links">
+    <li><a href="landing.html#fitur">Fitur</a></li>
+    <li><a href="paket.html">Paket</a></li>
+    <li><a href="materi.html">Materi</a></li>
+    <li><a href="testimoni.html">Testimoni</a></li>
+    <li><a href="tentang.html">Tentang Kami</a></li>
+    <li><a href="landing.html#faq">FAQ</a></li>
+  </ul>
+  <a class="nav-cta" href="landing.html">Masuk</a>
+  <button class="nav-hamburger" onclick="toggleMobileMenu()" aria-label="Menu"><span></span><span></span><span></span></button>
+</nav>
+<div class="nav-mobile-menu" id="mobileMenu"><button class="nav-mobile-close" onclick="closeMobileMenu()">✕</button></div>
+
+<main>
+<section class="sub-hero">
+  <div class="wrap">
+    <a class="back-link" href="landing.html">← Kembali ke Beranda</a>
+    <div class="glass sub-hero-card reveal">
+      <div class="section-tag" id="tsTag">Apa Kata Mereka</div>
+      <h1 id="tsTitle">Ribuan Peserta Telah Merasakan</h1>
+      <p>Cerita nyata dari para peserta yang telah lulus bersama kami</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap bento" id="tsGrid"></div>
+</section>
+</main>
+
+<footer class="gfoot">
+  <div class="wrap glass footer-glass">
+    <div id="cibn-canvas-wrapper"><canvas id="cibn-canvas" height="120"></canvas></div>
+    <div class="footer-top">
+      <div class="footer-col footer-brand"><div class="nav-logo footer-brand-name" style="font-size:1.2rem"><span>CIBN</span> Akademi</div><p>Platform ujian dan sertifikasi profesional terpercaya di Indonesia.</p></div>
+      <div class="footer-col"><h5>Platform</h5><ul class="footer-platform-list"></ul></div>
+      <div class="footer-col"><h5>Perusahaan</h5><ul class="footer-perusahaan-list"></ul></div>
+      <div class="footer-col footer-contact"><h5>Hubungi Kami</h5><p class="f-phone">📞</p><p class="f-email">📧</p><p class="f-address">📍</p><div class="social-links"></div></div>
+    </div>
+    <div class="footer-divider"></div>
+    <div class="footer-bottom"><div class="footer-copy f-copy">© 2025 CIBN Akademi.</div><div class="footer-copy f-reg">Terdaftar &amp; diawasi oleh OJK</div></div>
+  </div>
+</footer>
+
+<script src="js/glass-common.js"></script>
+<script>
+const esc = GlassEsc;
+window.onLandingData = function (D) {
+  const t = D.testi || {};
+  document.getElementById('tsTag').textContent = t.tag || 'Apa Kata Mereka';
+  document.getElementById('tsTitle').textContent = t.title || 'Ribuan Peserta Telah Merasakan';
+  const starStr = n => '★'.repeat(n || 5) + (n < 5 ? '☆'.repeat(5 - n) : '');
+  const grid = document.getElementById('tsGrid');
+  const list = t.list || [];
+  grid.innerHTML = list.map((c, i) => `<div class="glass glass-hover c-6 testi-card reveal${i%2===1?' reveal-delay-1':''}"><div class="testi-stars">${starStr(c.stars)}</div><p class="testi-text">"${esc(c.text)}"</p><div class="testi-author"><div class="testi-avatar">${esc(c.initials)}</div><div><div class="testi-name">${esc(c.name)}</div><div class="testi-role">${esc(c.role)}</div></div></div></div>`).join('') || `<div class="glass c-12" style="text-align:center;padding:3rem"><p>Belum ada testimoni tersedia.</p></div>`;
+};
+loadLandingData();
+</script>
+</body>
+</html>

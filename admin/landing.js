@@ -84,6 +84,12 @@ let ldMateriData = [
     {title:'Asuransi & Investasi', desc:'Produk asuransi, analisis investasi, dan portofolio', tag:'32 Modul'},
 ];
 
+let ldTentangData = [
+    {icon:'🎯', title:'Misi Kami', desc:'Membuka akses sertifikasi profesional berkualitas untuk seluruh talenta Indonesia.'},
+    {icon:'🤝', title:'Nilai Kami', desc:'Integritas, kualitas materi, dan dukungan penuh untuk kesuksesan peserta.'},
+    {icon:'🏢', title:'Perjalanan Kami', desc:'Berdiri sejak 2019, kini dipercaya ribuan profesional dan institusi terkemuka.'},
+];
+
 let ldTestiData = [
     {stars:5, text:'Platform yang luar biasa! Saya lulus ujian WMI dalam sekali coba setelah berlatih intensif di sini. Materinya sangat komprehensif.', initials:'AR', name:'Ahmad Rizky', role:'Wealth Manager · BRI'},
     {stars:5, text:'Analitik performanya sangat detail. Saya bisa tahu persis kelemahan saya di bagian mana dan fokus belajar di sana.', initials:'DP', name:'Dewi Puspita', role:'Compliance Officer · Mandiri'},
@@ -156,6 +162,7 @@ function _ldApplyLoadedData(saved) {
                     setV('nav_m3_text', n.menus[2].text); setV('nav_m3_href', n.menus[2].href);
                     setV('nav_m4_text', n.menus[3].text); setV('nav_m4_href', n.menus[3].href);
                     setV('nav_m5_text', n.menus[4].text); setV('nav_m5_href', n.menus[4].href);
+                    if (n.menus.length >= 6) { setV('nav_m6_text', n.menus[5].text); setV('nav_m6_href', n.menus[5].href); }
                 }
             }
             if (saved.pageTitle) setV('page_title', saved.pageTitle);
@@ -202,6 +209,11 @@ function _ldApplyLoadedData(saved) {
                 setV('materi_tag', saved.materi.tag); setV('materi_title', saved.materi.title); setV('materi_sub', saved.materi.sub);
                 if (saved.materi.list) ldMateriData = saved.materi.list;
             }
+            // Tentang Kami
+            if (saved.tentang) {
+                setV('tentang_tag', saved.tentang.tag); setV('tentang_title', saved.tentang.title); setV('tentang_sub', saved.tentang.sub);
+                if (saved.tentang.list) ldTentangData = saved.tentang.list;
+            }
             // Testi
             if (saved.testi) {
                 setV('testi_tag', saved.testi.tag); setV('testi_title', saved.testi.title);
@@ -242,6 +254,7 @@ function _ldApplyLoadedData(saved) {
     ldRenderFiturCards();
     ldRenderPaket();
     ldRenderMateri();
+    ldRenderTentang();
     ldRenderTesti();
     ldRenderFaq();
     ldRenderSoal();
@@ -346,6 +359,22 @@ function ldRenderMateri() {
     ldQueueAutoSave();
 }
 function addMateri() { ldMateriData.push({title:'Materi Baru',desc:'Deskripsi materi baru',tag:'0 Modul'}); ldRenderMateri(); }
+
+// ── Tentang Kami ──
+function ldRenderTentang() {
+    const c = document.getElementById('tentang-list'); if (!c) return;
+    c.innerHTML = ldTentangData.map((t, i) => `
+        <div class="ld-repeat-item">
+            <div class="ld-repeat-hd"><span class="ld-repeat-title">${t.icon||'✦'} Poin ${i+1}</span><button class="ld-btn-remove" onclick="ldTentangData.splice(${i},1);ldRenderTentang()">Hapus</button></div>
+            <div class="ld-field-group ld-cols-2">
+                <div class="ld-field"><label>Ikon (emoji)</label><input type="text" value="${t.icon||''}" oninput="ldTentangData[${i}].icon=this.value"></div>
+                <div class="ld-field"><label>Judul</label><input type="text" value="${t.title||''}" oninput="ldTentangData[${i}].title=this.value"></div>
+                <div class="ld-field" style="grid-column:1/-1"><label>Deskripsi</label><textarea oninput="ldTentangData[${i}].desc=this.value">${t.desc||''}</textarea></div>
+            </div>
+        </div>`).join('');
+    ldQueueAutoSave();
+}
+function addTentang() { ldTentangData.push({icon:'✦',title:'Poin Baru',desc:'Deskripsi poin baru di sini.'}); ldRenderTentang(); }
 
 // ── Testimoni ──
 function ldRenderTesti() {
@@ -502,7 +531,8 @@ function ldExportHTML(auto=false) {
     const landingPayload = {
         nav: { brand:ldG('nav_brand'), subbrand:ldG('nav_subbrand'), cta:ldG('nav_cta'), menus:[
             {text:ldG('nav_m1_text'),href:ldG('nav_m1_href')},{text:ldG('nav_m2_text'),href:ldG('nav_m2_href')},
-            {text:ldG('nav_m3_text'),href:ldG('nav_m3_href')},{text:ldG('nav_m4_text'),href:ldG('nav_m4_href')},{text:ldG('nav_m5_text'),href:ldG('nav_m5_href')}
+            {text:ldG('nav_m3_text'),href:ldG('nav_m3_href')},{text:ldG('nav_m4_text'),href:ldG('nav_m4_href')},{text:ldG('nav_m5_text'),href:ldG('nav_m5_href')},
+            {text:ldG('nav_m6_text'),href:ldG('nav_m6_href')}
         ]},
         pageTitle: ldG('page_title'),
         hero: { badge:ldG('hero_badge'), h1:[ldG('hero_h1_1'),ldG('hero_h1_2'),ldG('hero_h1_3')], sub:ldG('hero_sub'), btn1:ldG('hero_btn1'), btn2:ldG('hero_btn2'), btn2href:ldG('hero_btn2_href'), stats:[{num:ldG('stat1_num'),label:ldG('stat1_label')},{num:ldG('stat2_num'),label:ldG('stat2_label')},{num:ldG('stat3_num'),label:ldG('stat3_label')}] },
@@ -512,6 +542,7 @@ function ldExportHTML(auto=false) {
         fitur: { tag:ldG('fitur_tag'), title:ldG('fitur_title'), sub:ldG('fitur_sub'), cards:ldFiturCards },
         paket: { tag:ldG('paket_tag'), title:ldG('paket_title'), sub:ldG('paket_sub'), list:ldPaketData },
         materi: { tag:ldG('materi_tag'), title:ldG('materi_title'), sub:ldG('materi_sub'), list:ldMateriData },
+        tentang: { tag:ldG('tentang_tag'), title:ldG('tentang_title'), sub:ldG('tentang_sub'), list:ldTentangData },
         testi: { tag:ldG('testi_tag'), title:ldG('testi_title'), list:ldTestiData },
         faq: { tag:ldG('faq_tag'), title:ldG('faq_title'), list:ldFaqData },
         soal: ldSoalData,

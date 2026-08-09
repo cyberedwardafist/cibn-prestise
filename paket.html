@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paket Harga – CIBN Akademi</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/glass.css">
+<style>
+.login-input{width:100%;padding:.75rem 1rem;border:1.5px solid var(--glass-border);border-radius:14px;font-size:.9rem;color:var(--ink);outline:none;background:rgba(255,255,255,0.55)}
+</style>
+</head>
+<body data-page="sub" data-subpage="paket.html">
+
+<div class="blob-field"><div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div></div>
+
+<nav class="gnav" id="navbar">
+  <a class="nav-logo" href="landing.html"><span>CIBN</span> Akademi</a>
+  <ul class="nav-links">
+    <li><a href="landing.html#fitur">Fitur</a></li>
+    <li><a href="paket.html">Paket</a></li>
+    <li><a href="materi.html">Materi</a></li>
+    <li><a href="testimoni.html">Testimoni</a></li>
+    <li><a href="tentang.html">Tentang Kami</a></li>
+    <li><a href="landing.html#faq">FAQ</a></li>
+  </ul>
+  <a class="nav-cta" href="landing.html">Masuk</a>
+  <button class="nav-hamburger" onclick="toggleMobileMenu()" aria-label="Menu"><span></span><span></span><span></span></button>
+</nav>
+<div class="nav-mobile-menu" id="mobileMenu"><button class="nav-mobile-close" onclick="closeMobileMenu()">✕</button></div>
+
+<main>
+<section class="sub-hero">
+  <div class="wrap">
+    <a class="back-link" href="landing.html">← Kembali ke Beranda</a>
+    <div class="glass sub-hero-card reveal">
+      <div class="section-tag" id="pkTag">Paket Harga</div>
+      <h1 id="pkTitle">Pilih Paket yang Tepat</h1>
+      <p id="pkSub">Investasi terbaik untuk karir profesional Anda</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap bento" id="pkGrid"></div>
+</section>
+</main>
+
+<footer class="gfoot">
+  <div class="wrap glass footer-glass">
+    <div id="cibn-canvas-wrapper"><canvas id="cibn-canvas" height="120"></canvas></div>
+    <div class="footer-top">
+      <div class="footer-col footer-brand"><div class="nav-logo footer-brand-name" style="font-size:1.2rem"><span>CIBN</span> Akademi</div><p>Platform ujian dan sertifikasi profesional terpercaya di Indonesia.</p></div>
+      <div class="footer-col"><h5>Platform</h5><ul class="footer-platform-list"></ul></div>
+      <div class="footer-col"><h5>Perusahaan</h5><ul class="footer-perusahaan-list"></ul></div>
+      <div class="footer-col footer-contact"><h5>Hubungi Kami</h5><p class="f-phone">📞</p><p class="f-email">📧</p><p class="f-address">📍</p><div class="social-links"></div></div>
+    </div>
+    <div class="footer-divider"></div>
+    <div class="footer-bottom"><div class="footer-copy f-copy">© 2025 CIBN Akademi.</div><div class="footer-copy f-reg">Terdaftar &amp; diawasi oleh OJK</div></div>
+  </div>
+</footer>
+
+<script src="js/glass-common.js"></script>
+<script>
+const esc = GlassEsc;
+window.onLandingData = function (D) {
+  const p = D.paket || {};
+  document.getElementById('pkTag').textContent = p.tag || 'Paket Harga';
+  document.getElementById('pkTitle').textContent = p.title || 'Pilih Paket yang Tepat';
+  document.getElementById('pkSub').textContent = p.sub || '';
+
+  fetch(window.location.origin + '/api/pakets/public').then(r => r.ok ? r.json() : []).catch(() => []).then(keuanganPakets => {
+    const grid = document.getElementById('pkGrid');
+    const list = p.list || [];
+    grid.innerHTML = list.map((pk, i) => {
+      const fl = (Array.isArray(pk.features) ? pk.features : (pk.features || '').split('\n')).filter(x => x.trim());
+      const linkedKeu = pk.link_keuangan ? (keuanganPakets || []).find(kp => (kp.kode || kp.id) === pk.link_keuangan) : null;
+      let displayPrice = pk.price, displayUnit = pk.unit;
+      if (linkedKeu) { const h = parseInt(linkedKeu.harga || 0); displayPrice = h > 0 ? 'Rp' + h.toLocaleString('id-ID') : pk.price; displayUnit = linkedKeu.periode || pk.unit || '/bulan'; }
+      return `<div class="glass glass-hover c-4 paket-card${pk.featured ? ' featured' : ''} reveal${i%3===1?' reveal-delay-1':i%3===2?' reveal-delay-2':''}">
+        <div class="paket-name">${esc(pk.name)}</div>
+        <div class="paket-price">${esc(displayPrice)} <span>${esc(displayUnit)}</span></div>
+        <p class="paket-desc">${esc(pk.desc)}</p>
+        <div class="paket-divider"></div>
+        <ul class="paket-features">${fl.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+        <button class="paket-btn" onclick="location.href='landing.html'">${esc(pk.btnText || 'Pilih Paket')}</button>
+      </div>`;
+    }).join('') || `<div class="glass c-12" style="text-align:center;padding:3rem"><p>Belum ada paket tersedia.</p></div>`;
+  });
+};
+loadLandingData();
+</script>
+</body>
+</html>

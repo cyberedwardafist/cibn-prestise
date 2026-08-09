@@ -10,16 +10,19 @@
           <div class="ld-field"><label>Menu 1 — Teks</label><input type="text" id="nav_m1_text" value="Fitur"></div>
           <div class="ld-field"><label>Menu 1 — Link</label><input type="text" id="nav_m1_href" value="#fitur"></div>
           <div class="ld-field"><label>Menu 2 — Teks</label><input type="text" id="nav_m2_text" value="Paket"></div>
-          <div class="ld-field"><label>Menu 2 — Link</label><input type="text" id="nav_m2_href" value="#paket"></div>
+          <div class="ld-field"><label>Menu 2 — Link</label><input type="text" id="nav_m2_href" value="paket.html"></div>
           <div class="ld-field"><label>Menu 3 — Teks</label><input type="text" id="nav_m3_text" value="Materi"></div>
-          <div class="ld-field"><label>Menu 3 — Link</label><input type="text" id="nav_m3_href" value="#materi"></div>
+          <div class="ld-field"><label>Menu 3 — Link</label><input type="text" id="nav_m3_href" value="materi.html"></div>
           <div class="ld-field"><label>Menu 4 — Teks</label><input type="text" id="nav_m4_text" value="Testimoni"></div>
-          <div class="ld-field"><label>Menu 4 — Link</label><input type="text" id="nav_m4_href" value="#testimoni"></div>
+          <div class="ld-field"><label>Menu 4 — Link</label><input type="text" id="nav_m4_href" value="testimoni.html"></div>
           <div class="ld-field"><label>Menu 5 — Teks</label><input type="text" id="nav_m5_text" value="FAQ"></div>
           <div class="ld-field"><label>Menu 5 — Link</label><input type="text" id="nav_m5_href" value="#faq"></div>
+          <div class="ld-field"><label>Menu 6 — Teks</label><input type="text" id="nav_m6_text" value="Tentang Kami"></div>
+          <div class="ld-field"><label>Menu 6 — Link</label><input type="text" id="nav_m6_href" value="tentang.html"></div>
           <div class="ld-field"><label>Tombol CTA Navbar</label><input type="text" id="nav_cta" value="Masuk"></div>
           <div class="ld-field"><label>Judul Tab Browser</label><input type="text" id="page_title" value="CIBN Akademi – Pusat Ujian & Sertifikasi Profesional"></div>
         </div>
+        <div class="ld-notice" style="margin-top:1rem">💡 Landing sekarang punya <strong>landing utama</strong> (halaman ini, scroll satu halaman) dan <strong>sub-landing</strong> — halaman terpisah untuk bagian yang berisi banyak item: <code>paket.html</code>, <code>materi.html</code>, <code>testimoni.html</code>, <code>tentang.html</code>. Isi menu di atas dengan <code>#anchor</code> untuk tetap di landing utama, atau <code>nama-halaman.html</code> untuk membuka sub-landing.</div>
       </div>
     </div>
 
@@ -179,6 +182,24 @@ BNSP</textarea>
         <div class="ld-card-hd"><div class="ld-sc-icon">📋</div><div><h3>Daftar Materi</h3><p>Setiap item memiliki nomor, judul, deskripsi, dan tag modul</p></div></div>
         <div id="materi-list"></div>
         <button class="ld-btn-add" onclick="addMateri()">+ Tambah Materi</button>
+      </div>
+    </div>
+
+    <!-- ═══ TENTANG KAMI ═══ -->
+    <div class="ld-panel" id="ld-panel-tentang">
+      <div class="ld-notice">📄 Bagian ini tampil sebagai pratinjau (3 item) di landing utama, dengan tombol "Lihat Selengkapnya" menuju halaman khusus <strong>tentang.html</strong> yang menampilkan seluruh item.</div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">🏢</div><div><h3>Header Section Tentang Kami</h3></div></div>
+        <div class="ld-field-group">
+          <div class="ld-field"><label>Tag</label><input type="text" id="tentang_tag" value="Kenali Kami"></div>
+          <div class="ld-field"><label>Judul</label><input type="text" id="tentang_title" value="Tentang CIBN Akademi"></div>
+          <div class="ld-field"><label>Sub-judul</label><input type="text" id="tentang_sub" value="Nilai dan komitmen yang menjadi fondasi kami"></div>
+        </div>
+      </div>
+      <div class="ld-card">
+        <div class="ld-card-hd"><div class="ld-sc-icon">✦</div><div><h3>Poin / Kartu Tentang Kami</h3><p>Misi, nilai, sejarah, tim, atau poin lain — bebas jumlahnya</p></div></div>
+        <div id="tentang-list"></div>
+        <button class="ld-btn-add" onclick="addTentang()">+ Tambah Poin</button>
       </div>
     </div>
 
