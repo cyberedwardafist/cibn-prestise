@@ -46,8 +46,16 @@ function _doNav(pageId, subId) {
 
 function renderPage(id, subId) {
     ensureAdminPageModule(id).then(() => {
-        const map = { home:renderHome, akun:renderAkun, token:renderToken, laporan:renderLaporan, soal:renderSoal, library:renderLibrary, modul:renderModul, landing:renderLanding, keuangan:renderKeuangan, 'akun-admin':renderAkunAdmin, review:renderReviewPage, buku:renderBuku, 'ebook-library':renderEbookLibrary, 'ebook-modul':renderEbookModul };
-        if (map[id]) map[id]();
+        // PENTING: peta ini pakai NAMA (string), bukan referensi fungsi langsung.
+        // Kalau ditulis { akun:renderAkun, token:renderToken, ... } maka SEMUA
+        // identifier itu di-evaluasi saat baris ini jalan — padahal modul lazy-load
+        // lain (yang belum pernah dibuka user) belum define fungsinya sama sekali,
+        // jadi langsung ReferenceError sebelum sempat cek map[id]. Dengan string +
+        // window[...], cuma nama fungsi utk id yang sedang aktif yang di-resolve,
+        // dan modul-nya sudah pasti sudah dimuat oleh ensureAdminPageModule di atas.
+        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul' };
+        const fn = map[id] && window[map[id]];
+        if (typeof fn === 'function') fn();
         if (subId) switchSubPage(id, subId);
     }).catch(err => {
         console.error('[lazy-load] Gagal memuat modul halaman "'+id+'":', err);
