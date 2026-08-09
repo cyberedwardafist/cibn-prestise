@@ -8,7 +8,12 @@
         "includeFiles": [
           "*.html",
           "css/**",
-          "js/**"
+          "js/**",
+          "admin/**",
+          "ujian/**",
+          "review/**",
+          "user/**",
+          "landing/**"
         ]
       }
     }
