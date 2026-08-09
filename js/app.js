@@ -126,6 +126,15 @@ function showLeaveConfirm() {
 }
 function closeLeaveConfirm() { document.getElementById('leave-overlay').classList.remove('open'); AppState.pendingNav=null; }
 function confirmLeave() {
+    // Soal Builder punya draft tersendiri di localStorage (cbn_soal_draft) yang
+    // dipulihkan otomatis sekali tiap kali aplikasi di-reload (lihat js/soal.js).
+    // Kalau user membatalkan lewat popup navigasi generik ini (bukan lewat tombol
+    // "Batal" di dalam builder), draft itu HARUS ikut dibersihkan di sini juga —
+    // kalau tidak, draft basi itu akan "hidup lagi" saat reload berikutnya dan
+    // langsung menandai isDirty=true meski user belum melakukan apa-apa, sehingga
+    // popup konfirmasi ini muncul lagi padahal user cuma mau pindah halaman.
+    if (typeof _soalDraftClear === 'function') _soalDraftClear();
+    if (typeof SoalState !== 'undefined') { SoalState.mode = 'setup'; SoalState._editors = {}; }
     clearDirty(); closeLeaveConfirm();
     if (AppState.pendingNav) { const {pageId,subId}=AppState.pendingNav; AppState.pendingNav=null; _doNav(pageId,subId); }
 }
