@@ -6,7 +6,7 @@
 // ── REVIEW PAGE ── (state ini dipindah dari admin/keuangan.js — sebelumnya
 // dideklarasikan di sana padahal cuma dipakai di sini, jadi kalau tab Review
 // dibuka sebelum pernah buka tab Keuangan, identifier-nya belum exist -> ReferenceError)
-var _rvUsers=[],_rvSearch='';
+let _rvUsers=[],_rvSearch='';
 
 async function renderReviewPage(){_rvUsers=await ReviewAPI.getUsers().catch(()=>[]);_renderRvList();}
 function _renderRvList(){
