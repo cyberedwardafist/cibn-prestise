@@ -661,13 +661,25 @@ app.post('/api/soal', auth(['admin']), ah(async (req, res) => {
     res.json({ kode, message: 'Berhasil' });
 }));
 app.put('/api/soal/:kode', auth(['admin']), ah(async (req, res) => {
-    const { nama, type, skor_type, opsi_jawaban, timer_jam, timer_menit, timer_detik, kelompok, data } = req.body;
-    const oldRow = await db.prepare('SELECT data FROM soal WHERE kode=?').get(req.params.kode);
-    const oldRefs = extractUploadFilenames(oldRow?.data);
+    const oldRow = await db.prepare('SELECT * FROM soal WHERE kode=?').get(req.params.kode);
+    if (!oldRow) return res.status(404).json({ error: 'Soal tidak ditemukan' });
+    const oldRefs = extractUploadFilenames(oldRow.data);
+
+    // Partial update: field yang tidak dikirim di body akan tetap pakai nilai lama,
+    // bukan ditimpa NULL (mencegah 400 "Kolom wajib diisi" saat update parsial, mis. bulk set kelompok).
+    const b = req.body || {};
+    const nama         = b.nama         !== undefined ? b.nama : oldRow.nama;
+    const type          = b.type         !== undefined ? b.type : oldRow.type;
+    const skor_type     = b.skor_type    !== undefined ? (b.skor_type || null) : oldRow.skor_type;
+    const opsi_jawaban  = b.opsi_jawaban !== undefined ? (b.opsi_jawaban || null) : oldRow.opsi_jawaban;
+    const timer_jam     = b.timer_jam    !== undefined ? (b.timer_jam || 0) : oldRow.timer_jam;
+    const timer_menit   = b.timer_menit  !== undefined ? (b.timer_menit || 30) : oldRow.timer_menit;
+    const timer_detik   = b.timer_detik  !== undefined ? (b.timer_detik || 0) : oldRow.timer_detik;
+    const kelompok      = b.kelompok     !== undefined ? ((b.kelompok || '').trim() || null) : oldRow.kelompok;
+    const data          = b.data         !== undefined ? JSON.stringify(b.data) : oldRow.data;
 
     await db.prepare('UPDATE soal SET nama=?,type=?,skor_type=?,opsi_jawaban=?,timer_jam=?,timer_menit=?,timer_detik=?,kelompok=?,data=? WHERE kode=?')
-        .run(nama, type, skor_type || null, opsi_jawaban || null, timer_jam || 0, timer_menit || 30, timer_detik || 0,
-             (kelompok || '').trim() || null, data ? JSON.stringify(data) : null, req.params.kode);
+        .run(nama, type, skor_type, opsi_jawaban, timer_jam, timer_menit, timer_detik, kelompok, data, req.params.kode);
 
     res.json({ message: 'Berhasil' });
     cleanupOrphanedUploads(oldRefs);
