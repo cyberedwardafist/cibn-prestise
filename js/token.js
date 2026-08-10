@@ -10,8 +10,8 @@ function renderTokenSub(sub){
 }
 async function _initBuatToken(){
     const sel=document.getElementById('token-modul-sel');if(!sel)return;
-    const moduls=await ModulAPI.getAll().catch(()=>[]);
-    sel.innerHTML='<option value="">-- Pilih Modul --</option>'+moduls.map(m=>`<option value="${m.kode||m.id}">${m.nama}</option>`).join('');
+    sel.value='';
+    const dt=document.getElementById('token-modul-display-text');if(dt){dt.textContent='-- Pilih Modul --';dt.style.color='rgba(19,50,89,0.35)';}
     const tw0=document.getElementById('token-generated-table-wrap');if(tw0)tw0.innerHTML='';
     const sw0=document.getElementById('token-generated-swipe-list');if(sw0)sw0.innerHTML='';
     const pg0=document.getElementById('token-generated-pagination');if(pg0)pg0.innerHTML='';
@@ -391,4 +391,57 @@ function _tudOpenReview(){
 function openTokenUsedReview(laporanKode){
     if(!laporanKode){showToast('Data review tidak tersedia untuk token ini','danger');return;}
     openReviewLaporan(laporanKode);
+}
+// ── POPUP PILIH MODUL (search + filter kelompok) — dipakai di Buat Token ──
+let _tokenModulPickerAll=[],_tokenModulPickerKelompok=[],_tokenModulPickerSearch='',_tokenModulPickerKelFilter='all',_tokenModulPickerLoaded=false;
+function _tokenModulKelNama(kode){if(!kode)return null;const k=_tokenModulPickerKelompok.find(x=>x.kode===kode);return k?k.nama:null;}
+async function openTokenModulPicker(){
+    const si=document.getElementById('token-modul-picker-search-input');if(si)si.value='';
+    _tokenModulPickerSearch='';_tokenModulPickerKelFilter='all';
+    openModal('token-modul-picker-overlay');
+    const listEl=document.getElementById('token-modul-picker-list');
+    if(listEl)listEl.innerHTML='<p style="color:var(--text-sub);font-size:13px">Memuat modul...</p>';
+    if(!_tokenModulPickerLoaded){
+        const [moduls,kelompok]=await Promise.all([ModulAPI.getAll().catch(()=>[]),ModulKelompokAPI.getAll().catch(()=>[])]);
+        _tokenModulPickerAll=moduls||[];_tokenModulPickerKelompok=kelompok||[];_tokenModulPickerLoaded=true;
+    }
+    _renderTokenModulPickerFilters();
+    _renderTokenModulPickerList();
+}
+function _renderTokenModulPickerFilters(){
+    const wrap=document.getElementById('token-modul-picker-filters');if(!wrap)return;
+    const validKodes=_tokenModulPickerKelompok.map(k=>k.kode);
+    if(_tokenModulPickerKelFilter!=='all'&&_tokenModulPickerKelFilter!=='none'&&!validKodes.includes(_tokenModulPickerKelFilter))_tokenModulPickerKelFilter='all';
+    const options=[{value:'all',label:'Semua Kelompok'},{value:'none',label:'Tanpa Kelompok'},..._tokenModulPickerKelompok.map(k=>({value:k.kode,label:k.nama}))];
+    renderFilterDropdown('token-modul-picker-filters',{title:'Kelompok',options,current:_tokenModulPickerKelFilter,onSelect:v=>{_tokenModulPickerKelFilter=v;_renderTokenModulPickerFilters();_renderTokenModulPickerList();}});
+}
+function _renderTokenModulPickerList(){
+    const el=document.getElementById('token-modul-picker-list');if(!el)return;
+    if(!_tokenModulPickerAll.length){el.innerHTML='<p style="color:var(--text-sub);font-size:13px">Belum ada modul. Buat modul dulu di menu Manajemen Modul.</p>';return;}
+    let data=_tokenModulPickerAll;
+    const q=(_tokenModulPickerSearch||'').toLowerCase();
+    if(q)data=data.filter(m=>(m.nama||'').toLowerCase().includes(q)||(_tokenModulKelNama(m.kelompok)||'').toLowerCase().includes(q));
+    if(_tokenModulPickerKelFilter==='none')data=data.filter(m=>!m.kelompok);
+    else if(_tokenModulPickerKelFilter!=='all')data=data.filter(m=>m.kelompok===_tokenModulPickerKelFilter);
+    el.innerHTML=data.length?data.map(m=>_buildTokenModulPickItem(m)).join(''):'<p style="color:var(--text-sub);font-size:13px">Tidak ada modul yang cocok dengan pencarian/filter.</p>';
+}
+function _buildTokenModulPickItem(m){
+    const kode=m.kode||m.id;
+    const current=document.getElementById('token-modul-sel')?.value;
+    const ck=current&&String(current)===String(kode);
+    const kelNama=_tokenModulKelNama(m.kelompok);
+    const jmlSoal=(m.soal_list||[]).length;
+    return `<div class="ebook-pick-item${ck?' checked':''}" style="cursor:pointer" onclick="selectTokenModul('${kode}')">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px;color:var(--blue);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.nama}</div>
+        <div style="font-size:11px;color:var(--text-sub)">${kelNama||'Tanpa Kelompok'} · ${jmlSoal} soal</div>
+      </div>
+      ${ck?'<svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" width="18" height="18" style="flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>':''}
+    </div>`;
+}
+function selectTokenModul(kode){
+    const m=_tokenModulPickerAll.find(x=>String(x.kode||x.id)===String(kode));if(!m)return;
+    const sel=document.getElementById('token-modul-sel');if(sel)sel.value=m.kode||m.id;
+    const dt=document.getElementById('token-modul-display-text');if(dt){dt.textContent=m.nama;dt.style.color='var(--blue)';}
+    closeModal('token-modul-picker-overlay');
 }

@@ -7,7 +7,14 @@
   </div>
   <div class="sub-page active dock-avoid-center" id="sub-token-buat">
     <div class="card" style="margin:0 auto 16px;max-width:560px">
-      <div class="form-group"><label class="form-label">Pilih Modul</label><select id="token-modul-sel" class="form-select"><option>-- Pilih Modul --</option></select></div>
+      <div class="form-group">
+        <label class="form-label">Pilih Modul</label>
+        <input type="hidden" id="token-modul-sel" value="">
+        <button type="button" class="form-select" id="token-modul-display-btn" onclick="openTokenModulPicker()" style="display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left">
+          <span id="token-modul-display-text" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(19,50,89,0.35)">-- Pilih Modul --</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+      </div>
       <div class="form-group">
         <label class="form-label">Waktu Aktif</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
