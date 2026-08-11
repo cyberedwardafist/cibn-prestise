@@ -431,7 +431,8 @@
     .rd-stat-lbl { font-size:10px; color:var(--text-sub); font-weight:600; margin-top:2px; }
     .rd-sec-ttl { font-family:var(--font-head); font-size:14px; font-weight:700; color:var(--blue); margin-bottom:10px; margin-top:16px; }
     .rd-soal-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-bottom:4px; }
-    .rd-soal-card { background:rgba(255,255,255,.65); border:1.5px solid rgba(255,255,255,.9); border-radius:12px; padding:12px; }
+    .rd-soal-card { background:rgba(255,255,255,.65); border:1.5px solid rgba(255,255,255,.9); border-radius:12px; padding:12px; overflow-wrap:break-word; }
+    .rd-soal-card img { max-width:100%; height:auto; display:block; border-radius:8px; margin:6px 0; object-fit:contain; }
     .rd-soal-nm { font-size:12px; font-weight:700; color:var(--blue); margin-bottom:4px; }
     .rd-soal-sk { font-family:var(--font-head); font-size:22px; font-weight:800; }
     .rd-soal-sk.ok { color:var(--success); } .rd-soal-sk.no { color:var(--danger); }

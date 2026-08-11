@@ -388,7 +388,7 @@ function _buildRiwayatSoalBlock(s, jawabanUser, urutanTampil) {
             }
             return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1.5px solid ${border};background:${bg};border-radius:8px;margin-bottom:5px">
                 <span style="font-weight:700;font-size:12px;color:var(--blue)">${letter}.</span>
-                <span style="font-size:13px;flex:1">${j.teks || j.value || '-'}</span>
+                <span style="font-size:13px;flex:1;min-width:0;overflow-wrap:break-word">${j.teks || j.value || '-'}</span>
                 ${badge}
             </div>`;
         }).join('');

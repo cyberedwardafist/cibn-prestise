@@ -94,7 +94,9 @@ html.vp-resizing *, html.vp-resizing *::before, html.vp-resizing *::after {
   font-weight:800;font-size:14px;color:var(--text-sub);transition:all 0.18s;
 }
 .a-opt.sel .a-letter{background:var(--accent);color:#fff;border-color:var(--accent);}
-.a-txt{flex:1;font-size:15px;line-height:1.5;color:var(--text-main);}
+.a-txt{flex:1;min-width:0;font-size:15px;line-height:1.5;color:var(--text-main);overflow-wrap:break-word;word-break:break-word;}
+.a-txt img{max-width:100%;height:auto;display:block;border-radius:6px;margin:4px 0;object-fit:contain;}
+.q-box{overflow-wrap:break-word;}
 
 .mc-nav-btns{
   background:rgba(255,255,255,0.6);border:1.5px solid rgba(255,255,255,0.85);

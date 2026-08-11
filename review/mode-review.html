@@ -38,7 +38,9 @@
 
 .mrv-body{flex:1;display:flex;overflow:hidden;}
 .mrv-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;padding:16px 20px 14px;}
-#ruv-content{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:16px;}
+#ruv-content{flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:12px;padding-bottom:16px;}
+#ruv-content img,#mrv-mob-slide img{max-width:100%;height:auto;display:block;border-radius:8px;margin:6px 0;object-fit:contain;}
+#ruv-content{overflow-wrap:break-word;}
 #ruv-nav-btns{background:rgba(255,255,255,0.6);border:1.5px solid rgba(255,255,255,0.85);border-radius:16px;padding:14px 18px;box-shadow:0 4px 14px rgba(19,50,89,0.05);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;}
 
 /* Sidebar navigasi (desktop/tablet) */

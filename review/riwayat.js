@@ -320,13 +320,13 @@ function renderReviewMC(qs, jawaban, idx) {
 
     return `<div style="display:flex;align-items:center;gap:13px;padding:12px 16px;border-radius:12px;border:1.5px solid ${borderColor};background:${bgColor};min-height:52px;margin-bottom:8px;">
       <div style="width:32px;height:32px;flex-shrink:0;border-radius:8px;border:1.5px solid rgba(19,50,89,0.05);background:${letterBg};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:${letterColor};">${letter}</div>
-      <div style="flex:1;font-size:14px;line-height:1.5;color:var(--text-main);">${j.teks||j.value||j.opsi||'-'}</div>
+      <div style="flex:1;min-width:0;font-size:14px;line-height:1.5;color:var(--text-main);overflow-wrap:break-word;">${j.teks||j.value||j.opsi||'-'}</div>
       ${badge}
     </div>`;
   }).join('');
 
   // ── Render Pembahasan (jika ada) ──
-  const pembHtml = q.pembahasan ? `<div style="background:rgba(26,90,160,0.05);border:1.5px solid rgba(26,90,160,0.12);border-radius:12px;padding:14px;margin-top:8px;">
+  const pembHtml = q.pembahasan ? `<div style="background:rgba(26,90,160,0.05);border:1.5px solid rgba(26,90,160,0.12);border-radius:12px;padding:14px;margin-top:8px;overflow-wrap:break-word;">
     <div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;">💡 Pembahasan</div>
     <div style="font-size:13px;line-height:1.7;color:var(--text-main);">${q.pembahasan}</div>
   </div>` : '';
@@ -337,7 +337,7 @@ function renderReviewMC(qs, jawaban, idx) {
       <div class="rv-left">
         <div class="rv-q-box" style="margin-bottom:12px;">
           <div style="font-size:11px;font-weight:700;color:var(--text-sub);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.06em">Soal ${idx+1} dari ${qs.length}</div>
-          <div style="font-size:15px;line-height:1.75;color:var(--text-main)">${q.soal||'<em>Kosong</em>'}</div>
+          <div style="font-size:15px;line-height:1.75;color:var(--text-main);overflow-wrap:break-word;">${q.soal||'<em>Kosong</em>'}</div>
         </div>
         <div class="rv-a-box">${aHtml}</div>
         ${pembHtml}
@@ -1396,12 +1396,12 @@ function renderRuvMC(sub) {
 
     return `<div style="display:flex;align-items:center;gap:13px;padding:14px 16px;border-radius:12px;border:1.5px solid ${borderColor};background:${bgColor};min-height:52px;">
       <div style="width:36px;height:36px;flex-shrink:0;border-radius:9px;border:1.5px solid rgba(19,50,89,0.12);background:${letterBg};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:${letterColor};">${letter}</div>
-      <div style="flex:1;font-size:15px;line-height:1.5;color:var(--text-main);">${j.teks||j.value||j.opsi||'-'}</div>
+      <div style="flex:1;min-width:0;font-size:15px;line-height:1.5;color:var(--text-main);overflow-wrap:break-word;">${j.teks||j.value||j.opsi||'-'}</div>
       ${badge}
     </div>`;
   }).join('');
 
-  const pembHtml = q.pembahasan ? `<div style="background:rgba(26,90,160,0.06);border:1.5px solid rgba(26,90,160,0.12);border-radius:12px;padding:14px;">
+  const pembHtml = q.pembahasan ? `<div style="background:rgba(26,90,160,0.06);border:1.5px solid rgba(26,90,160,0.12);border-radius:12px;padding:14px;overflow-wrap:break-word;">
     <div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;">💡 Pembahasan</div>
     <div style="font-size:14px;line-height:1.7;color:var(--text-main);">${q.pembahasan}</div>
   </div>` : '';
@@ -1409,9 +1409,9 @@ function renderRuvMC(sub) {
   document.getElementById('ruv-content').innerHTML = `
     <div style="background:rgba(255,255,255,0.72);border:1.5px solid rgba(255,255,255,0.9);border-radius:16px;padding:22px 24px;box-shadow:0 4px 16px rgba(19,50,89,0.06);flex-shrink:0;">
       <div style="font-size:11px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Soal ${idx+1} dari ${qs.length}</div>
-      <div style="font-size:16px;line-height:1.8;color:var(--text-main);">${q.soal||'<em>Kosong</em>'}</div>
+      <div style="font-size:16px;line-height:1.8;color:var(--text-main);overflow-wrap:break-word;">${q.soal||'<em>Kosong</em>'}</div>
     </div>
-    <div style="background:rgba(255,255,255,0.6);border:1.5px solid rgba(255,255,255,0.85);border-radius:16px;padding:18px 20px;box-shadow:0 4px 14px rgba(19,50,89,0.05);display:flex;flex-direction:column;gap:9px;flex-shrink:0;">${aHtml}</div>
+    <div style="background:rgba(255,255,255,0.6);border:1.5px solid rgba(255,255,255,0.85);border-radius:16px;padding:18px 20px;box-shadow:0 4px 14px rgba(19,50,89,0.05);display:flex;flex-direction:column;gap:9px;flex-shrink:0;overflow-wrap:break-word;">${aHtml}</div>
     ${pembHtml}`;
 
   // Nav buttons
