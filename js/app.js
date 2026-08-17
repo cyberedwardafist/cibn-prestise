@@ -174,7 +174,7 @@ document.addEventListener('click', e=>{
 });
 
 function openModal(id) { document.getElementById(id)?.classList.add('open'); }
-function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); if (typeof _closeAllFilterDD === 'function') _closeAllFilterDD(); }
 function openOverlay(el) { el.classList.add('open'); }
 function closeOverlay(el) { el.classList.remove('open'); }
 
@@ -265,6 +265,9 @@ function renderFilterDropdown(containerId, { options, current, onSelect, title, 
     const grpList = groups || [{ title, options, current, onSelect }];
     _filterDD[containerId] = { groups: grpList };
     const isActive = grpList.some(g => g.current && g.current !== 'all');
+    // Panel lama (kalau lagi kebuka) sempat dipindah ke <body> oleh _toggleFilterDD — buang dulu biar gak dobel/nyangkut.
+    const strayPanel = document.getElementById(`${containerId}-panel`);
+    if (strayPanel && strayPanel.parentElement === document.body) strayPanel.remove();
     wrap.innerHTML = `<div class="filter-dd-wrap">
       <button type="button" class="filter-dd-btn${isActive ? ' active' : ''}" title="${title || 'Filter'}" onclick="_toggleFilterDD('${containerId}')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
@@ -275,11 +278,40 @@ function renderFilterDropdown(containerId, { options, current, onSelect, title, 
       </div>
     </div>`;
 }
+// Panel dipindah ke <body> + position:fixed saat dibuka, supaya gak kepotong sama
+// overflow-y:auto / transform milik ancestor-nya (mis. .modal), berapapun tinggi/pendek modal-nya.
+function _closeAllFilterDD() {
+    document.querySelectorAll('.filter-dd-panel').forEach(p => { p.style.display = 'none'; });
+}
 function _toggleFilterDD(containerId) {
     const panel = document.getElementById(`${containerId}-panel`); if (!panel) return;
-    const willOpen = panel.style.display === 'none';
-    document.querySelectorAll('.filter-dd-panel').forEach(p => p.style.display = 'none');
-    panel.style.display = willOpen ? 'block' : 'none';
+    const willOpen = panel.style.display !== 'block';
+    _closeAllFilterDD();
+    if (!willOpen) return;
+    const wrap = panel.closest('.filter-dd-wrap');
+    const btn = wrap ? wrap.querySelector('.filter-dd-btn') : panel.previousElementSibling;
+    if (btn) {
+        const rect = btn.getBoundingClientRect();
+        document.body.appendChild(panel);
+        panel.style.position = 'fixed';
+        panel.style.zIndex = '600';
+        panel.style.top = (rect.bottom + 8) + 'px';
+        panel.style.left = '-9999px';
+        panel.style.right = 'auto';
+        panel.style.display = 'block';
+        const pw = panel.offsetWidth;
+        let left = rect.right - pw; // rata kanan ke tombol, kayak posisi absolute lama
+        if (left < 8) left = 8;
+        if (left + pw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - pw - 8);
+        panel.style.left = left + 'px';
+        // kalau kepanjangan ke bawah viewport, buka ke atas tombol aja
+        const maxH = parseFloat(getComputedStyle(panel).maxHeight) || 280;
+        if (rect.bottom + 8 + Math.min(panel.scrollHeight, maxH) > window.innerHeight - 8) {
+            panel.style.top = Math.max(8, rect.top - 8 - Math.min(panel.scrollHeight, maxH)) + 'px';
+        }
+    } else {
+        panel.style.display = 'block';
+    }
 }
 function _selectFilterDD(containerId, groupIdx, value) {
     const conf = _filterDD[containerId]; if (!conf) return;
@@ -287,5 +319,10 @@ function _selectFilterDD(containerId, groupIdx, value) {
     conf.groups[groupIdx].onSelect(value);
 }
 document.addEventListener('click', e => {
-    if (!e.target.closest('.filter-dd-wrap')) document.querySelectorAll('.filter-dd-panel').forEach(p => p.style.display = 'none');
+    if (!e.target.closest('.filter-dd-wrap') && !e.target.closest('.filter-dd-panel')) _closeAllFilterDD();
 });
+window.addEventListener('resize', _closeAllFilterDD);
+document.addEventListener('scroll', e => {
+    // reposisi ketutup aja kalau area yg discroll bukan si panel-nya sendiri (biar list di dalam panel tetep bisa discroll)
+    if (!e.target.closest || !e.target.closest('.filter-dd-panel')) _closeAllFilterDD();
+}, true);
