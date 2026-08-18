@@ -186,6 +186,19 @@ async function _initListToken(){
 }
 let _listTokenData=[],_ltSearch='',_ltFilter='',_ltGrubFilter='',_ltFilteredData=[];
 function _ltDateKey(tk){ return _localDateStr(tk.created_at||tk.token_created_at)||'0000-00-00'; }
+function _ltGroupHtml(group){
+    const items=group.items;
+    const label=group.key==='0000-00-00'?'Tanggal Tidak Diketahui':new Date(group.key).toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+    const rows=items.map((tk,i)=>`<tr style="animation:fadeUp 0.15s ${Math.min(i,9)*0.02}s both"><td>${i+1}</td><td><code style="font-family:monospace;font-weight:700;font-size:12px;color:var(--blue)">${tk.kode}</code></td><td class="hide-mobile" style="font-size:12px">${tk.modul_kode||'-'}</td><td class="hide-mobile" style="font-size:11px">${tk.aktivasi?new Date(tk.aktivasi).toLocaleDateString('id-ID'):'-'}</td><td class="hide-mobile" style="font-size:11px">${tk.expired?new Date(tk.expired).toLocaleDateString('id-ID'):'-'}</td><td class="hide-mobile"><span class="history-badge" style="${tk.izinkan_review?'background:rgba(22,163,74,.12);color:#16a34a':'background:rgba(19,50,89,.08);color:var(--text-sub)'}">${tk.izinkan_review?'✓ Ya':'Tidak'}</span></td><td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="openTokenQR('${tk.kode}','${tk.modul_kode||''}')">QR</button> <button class="btn-icon danger" onclick="hapusListToken('${tk.kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></td></tr>`).join('');
+    const cards=items.map(tk=>SwipeCards.buildSwipeCardHtml({
+        title:tk.kode,
+        sub:(tk.modul_kode||'-')+(tk.expired?` · exp ${new Date(tk.expired).toLocaleDateString('id-ID')}`:''),
+        leftActions:[{icon:'qr',label:'QR',cls:'act-secondary',onClick:`openTokenQR('${tk.kode}','${tk.modul_kode||''}')`}],
+        rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`hapusListToken('${tk.kode}')`}]
+    })).join('');
+    return `<div class="section-sub" style="font-weight:700;color:var(--blue);text-transform:none;margin:18px 0 8px">${label} <span style="font-weight:500;color:var(--text-sub);font-size:11px">(${items.length} token)</span></div>
+    <div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap"><table><thead><tr><th>#</th><th>Kode Token</th><th class="hide-mobile">Modul</th><th class="hide-mobile">Aktivasi</th><th class="hide-mobile">Expired</th><th class="hide-mobile">Review</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table></div><div class="swipe-list">${cards}</div></div>`;
+}
 function _renderListToken(){
     let data=_listTokenData;
     if(_ltSearch){const q=_ltSearch.toLowerCase();data=data.filter(t=>(t.kode||'').toLowerCase().includes(q));}
@@ -207,22 +220,18 @@ function _renderListToken(){
     const groups={};
     data.forEach(t=>{ const k=_ltDateKey(t); (groups[k]=groups[k]||[]).push(t); });
     const dayKeys=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
+    const groupList=dayKeys.map(k=>({key:k,items:groups[k]}));
 
-    wrap.innerHTML=dayKeys.map(k=>{
-        const items=groups[k];
-        const label=k==='0000-00-00'?'Tanggal Tidak Diketahui':new Date(k).toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-        const rows=items.map((tk,i)=>`<tr style="animation:fadeUp 0.15s ${i*0.02}s both"><td>${i+1}</td><td><code style="font-family:monospace;font-weight:700;font-size:12px;color:var(--blue)">${tk.kode}</code></td><td class="hide-mobile" style="font-size:12px">${tk.modul_kode||'-'}</td><td class="hide-mobile" style="font-size:11px">${tk.aktivasi?new Date(tk.aktivasi).toLocaleDateString('id-ID'):'-'}</td><td class="hide-mobile" style="font-size:11px">${tk.expired?new Date(tk.expired).toLocaleDateString('id-ID'):'-'}</td><td class="hide-mobile"><span class="history-badge" style="${tk.izinkan_review?'background:rgba(22,163,74,.12);color:#16a34a':'background:rgba(19,50,89,.08);color:var(--text-sub)'}">${tk.izinkan_review?'✓ Ya':'Tidak'}</span></td><td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="openTokenQR('${tk.kode}','${tk.modul_kode||''}')">QR</button> <button class="btn-icon danger" onclick="hapusListToken('${tk.kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></td></tr>`).join('');
-        const cards=items.map(tk=>SwipeCards.buildSwipeCardHtml({
-            title:tk.kode,
-            sub:(tk.modul_kode||'-')+(tk.expired?` · exp ${new Date(tk.expired).toLocaleDateString('id-ID')}`:''),
-            leftActions:[{icon:'qr',label:'QR',cls:'act-secondary',onClick:`openTokenQR('${tk.kode}','${tk.modul_kode||''}')`}],
-            rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`hapusListToken('${tk.kode}')`}]
-        })).join('');
-        return `<div class="section-sub" style="font-weight:700;color:var(--blue);text-transform:none;margin:18px 0 8px">${label} <span style="font-weight:500;color:var(--text-sub);font-size:11px">(${items.length} token)</span></div>
-        <div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap"><table><thead><tr><th>#</th><th>Kode Token</th><th class="hide-mobile">Modul</th><th class="hide-mobile">Aktivasi</th><th class="hide-mobile">Expired</th><th class="hide-mobile">Review</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table></div><div class="swipe-list">${cards}</div></div>`;
-    }).join('');
-
-    wrap.querySelectorAll('.swipe-list').forEach(el=>{ if(window.SwipeCards)SwipeCards.bindSwipeList(el); });
+    // Virtual scroll PER-GRUP-HARI: cuma grup yang lagi kelihatan + 1 layar buffer yang
+    // benar-benar dirender ke DOM. Estimasi tinggi tiap grup dari jumlah tokennya, biar
+    // grup hari ramai (banyak token) & grup hari sepi tetap dihitung proporsional.
+    VirtualList.renderGroups(wrap,{
+        items:groupList,
+        estimateHeight:(g)=>60+g.items.length*56,
+        renderItem:_ltGroupHtml,
+        emptyHtml:'<div class="empty-state"><p>Tidak ada token aktif</p></div>',
+        onRendered:()=>{ wrap.querySelectorAll('.swipe-list').forEach(el=>{ if(window.SwipeCards)SwipeCards.bindSwipeList(el); }); }
+    });
 }
 async function hapusListToken(kode){showConfirm('Hapus Token','Yakin hapus token ini?','danger',async()=>{await TokensAPI.delete(kode);showToast('Token dihapus','danger');await _initListToken();});}
 function openTokenQR(kode,modulKode){
@@ -322,6 +331,29 @@ function _setTuRange(range){
     if(w)w.style.display=range==='range'?'block':'none';
     _renderTokenUsed();
 }
+function _tuGroupHtml(group){
+    const items=group.items;
+    const label=group.key==='0000-00-00'?'Tanggal Tidak Diketahui':new Date(group.key).toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+    const rows=items.map((tk,i)=>{
+        const {mulai,selesai}=_tuMulaiSelesai(tk);
+        return `<tr style="animation:fadeUp 0.15s ${Math.min(i,9)*0.02}s both"><td>${i+1}</td><td><code style="font-family:monospace;font-weight:700;color:var(--blue);letter-spacing:0.08em;font-size:12px">${tk.kode}</code></td><td class="hide-mobile" style="font-size:12px">${tk.modul_nama||tk.modul_kode||'-'}</td><td class="hide-mobile" style="font-size:12px">${tk.user_nama||tk.digunakan_oleh||'-'}</td><td class="hide-mobile" style="font-size:11px">${selesai}</td><td><strong style="color:var(--blue)">${tk.skor!=null?Math.round(tk.skor):'-'}</strong></td><td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="openTokenUsedData('${tk.kode}')">Data</button> <button class="btn btn-secondary btn-sm" onclick="openTokenUsedReview('${tk.laporan_kode||''}')">Review</button> <button class="btn-icon danger" onclick="hapusTokenUsed('${tk.kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></td></tr>`;
+    }).join('');
+    const cards=items.map(tk=>{
+        const {mulai,selesai}=_tuMulaiSelesai(tk);
+        return SwipeCards.buildSwipeCardHtml({
+            title:tk.kode,
+            sub:(tk.user_nama||tk.digunakan_oleh||'-')+' · '+(tk.modul_nama||tk.modul_kode||'-'),
+            sideHtml:`<strong style="color:var(--blue);font-size:15px">${tk.skor!=null?Math.round(tk.skor):'-'}</strong>`,
+            leftActions:[
+                {icon:'eye',label:'Data',cls:'act-secondary',onClick:`openTokenUsedData('${tk.kode}')`},
+                {icon:'doc',label:'Review',cls:'act-primary',onClick:`openTokenUsedReview('${tk.laporan_kode||''}')`}
+            ],
+            rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`hapusTokenUsed('${tk.kode}')`}]
+        });
+    }).join('');
+    return `<div class="section-sub" style="font-weight:700;color:var(--blue);text-transform:none;margin:18px 0 8px">${label} <span style="font-weight:500;color:var(--text-sub);font-size:11px">(${items.length} token)</span></div>
+    <div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap"><table><thead><tr><th>#</th><th>Kode Token</th><th class="hide-mobile">Modul</th><th class="hide-mobile">Digunakan Oleh</th><th class="hide-mobile">Selesai</th><th>Nilai</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table></div><div class="swipe-list">${cards}</div></div>`;
+}
 function _renderTokenUsed(){
     let data=_tuData;
     if(_tuSearch){const q=_tuSearch.toLowerCase();data=data.filter(t=>(t.kode||'').toLowerCase().includes(q)||(t.user_nama||t.digunakan_oleh||'').toLowerCase().includes(q));}
@@ -344,32 +376,18 @@ function _renderTokenUsed(){
     const groups={};
     data.forEach(t=>{ const k=_tuDateKey(t); (groups[k]=groups[k]||[]).push(t); });
     const dayKeys=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
+    const groupList=dayKeys.map(k=>({key:k,items:groups[k]}));
 
-    wrap.innerHTML=dayKeys.map(k=>{
-        const items=groups[k];
-        const label=k==='0000-00-00'?'Tanggal Tidak Diketahui':new Date(k).toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-        const rows=items.map((tk,i)=>{
-            const {mulai,selesai}=_tuMulaiSelesai(tk);
-            return `<tr style="animation:fadeUp 0.15s ${i*0.02}s both"><td>${i+1}</td><td><code style="font-family:monospace;font-weight:700;color:var(--blue);letter-spacing:0.08em;font-size:12px">${tk.kode}</code></td><td class="hide-mobile" style="font-size:12px">${tk.modul_nama||tk.modul_kode||'-'}</td><td class="hide-mobile" style="font-size:12px">${tk.user_nama||tk.digunakan_oleh||'-'}</td><td class="hide-mobile" style="font-size:11px">${selesai}</td><td><strong style="color:var(--blue)">${tk.skor!=null?Math.round(tk.skor):'-'}</strong></td><td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="openTokenUsedData('${tk.kode}')">Data</button> <button class="btn btn-secondary btn-sm" onclick="openTokenUsedReview('${tk.laporan_kode||''}')">Review</button> <button class="btn-icon danger" onclick="hapusTokenUsed('${tk.kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></td></tr>`;
-        }).join('');
-        const cards=items.map(tk=>{
-            const {mulai,selesai}=_tuMulaiSelesai(tk);
-            return SwipeCards.buildSwipeCardHtml({
-                title:tk.kode,
-                sub:(tk.user_nama||tk.digunakan_oleh||'-')+' · '+(tk.modul_nama||tk.modul_kode||'-'),
-                sideHtml:`<strong style="color:var(--blue);font-size:15px">${tk.skor!=null?Math.round(tk.skor):'-'}</strong>`,
-                leftActions:[
-                    {icon:'eye',label:'Data',cls:'act-secondary',onClick:`openTokenUsedData('${tk.kode}')`},
-                    {icon:'doc',label:'Review',cls:'act-primary',onClick:`openTokenUsedReview('${tk.laporan_kode||''}')`}
-                ],
-                rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`hapusTokenUsed('${tk.kode}')`}]
-            });
-        }).join('');
-        return `<div class="section-sub" style="font-weight:700;color:var(--blue);text-transform:none;margin:18px 0 8px">${label} <span style="font-weight:500;color:var(--text-sub);font-size:11px">(${items.length} token)</span></div>
-        <div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap"><table><thead><tr><th>#</th><th>Kode Token</th><th class="hide-mobile">Modul</th><th class="hide-mobile">Digunakan Oleh</th><th class="hide-mobile">Selesai</th><th>Nilai</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table></div><div class="swipe-list">${cards}</div></div>`;
-    }).join('');
-
-    wrap.querySelectorAll('.swipe-list').forEach(el=>{ if(window.SwipeCards)SwipeCards.bindSwipeList(el); });
+    // Virtual scroll PER-GRUP-HARI — bagian ini paling rawan menumpuk karena TIDAK PERNAH
+    // dibersihkan otomatis (beda dengan List Token yang otomatis buang token expired).
+    // Data di sini terus bertambah selama aplikasi dipakai, jadi windowing di sini paling penting.
+    VirtualList.renderGroups(wrap,{
+        items:groupList,
+        estimateHeight:(g)=>60+g.items.length*56,
+        renderItem:_tuGroupHtml,
+        emptyHtml:'<div class="empty-state"><p>Tidak ada token terpakai</p></div>',
+        onRendered:()=>{ wrap.querySelectorAll('.swipe-list').forEach(el=>{ if(window.SwipeCards)SwipeCards.bindSwipeList(el); }); }
+    });
 }
 async function hapusTokenUsed(kode){showConfirm('Hapus Token','Yakin hapus data token ini? Riwayat pemakaiannya tidak lagi bisa dilihat dari sini.','danger',async()=>{await TokensAPI.delete(kode);showToast('Token dihapus','danger');await _initTokenUsed();});}
 function openTokenUsedData(kode){

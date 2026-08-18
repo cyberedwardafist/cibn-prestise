@@ -29,6 +29,17 @@ function _renderLibFilters(){
         {title:'Kelompok',options:kelompokOptions,current:_libKelompokFilter,onSelect:v=>{_libKelompokFilter=v;_renderLibFilters();_renderLibList();}}
     ]});
 }
+function _libCardHtml(s,i){const kode=s.kode||s.id;const kelNama=_soalKelompokNama(s.kelompok);const chk=_libSelected.has(kode)?'checked':'';return `<div class="lib-card" style="animation:fadeUp 0.25s ${Math.min(i,9)*0.04}s both"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px"><div style="display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0"><input type="checkbox" class="lib-row-check" data-kode="${kode}" ${chk} onchange="toggleLibSelect('${kode}',this.checked)" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer;margin-top:3px;flex-shrink:0"><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px;color:var(--blue);margin-bottom:6px">${s.nama}</div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="badge" style="background:rgba(26,90,160,0.1);color:var(--accent)">${(s.type||'').replace(/_/g,' ')}</span>${kelNama?`<span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue)">${kelNama}</span>`:''}<span style="font-size:11px;color:var(--text-sub)">${kode}</span><span style="font-size:11px;color:var(--text-sub)">${formatDate(s.created_at)}</span></div></div></div><div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="previewLibSoal('${kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Preview</button><button class="btn btn-primary btn-sm" onclick="editSoalFromLibrary('${kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button><button class="btn btn-secondary btn-sm" onclick="exportLibSoalToExcel('${kode}')" title="Unduh soal ini sebagai file Excel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button><button class="btn-icon danger" onclick="deleteLibSoal('${kode}','${s.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div></div>`;}
+function _libSwipeCardHtml(s){const kode=s.kode||s.id;const sel=_libSelected.has(kode);return SwipeCards.buildSwipeCardHtml({
+    title:s.nama,kode,selected:sel,
+    sub:(s.type||'').replace(/_/g,' ')+(_soalKelompokNama(s.kelompok)?' · '+_soalKelompokNama(s.kelompok):'')+' · '+formatDate(s.created_at),
+    leftActions:[
+        {icon:'eye',label:'Lihat',cls:'act-secondary',onClick:`previewLibSoal('${kode}')`},
+        {icon:'edit',label:'Edit',cls:'act-edit',onClick:`editSoalFromLibrary('${kode}')`},
+        {icon:'download',label:'Export',cls:'act-secondary',onClick:`exportLibSoalToExcel('${kode}')`}
+    ],
+    rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`deleteLibSoal('${kode}','${(s.nama||'').replace(/'/g,"\\'")}')`}]
+});}
 function _renderLibList(){
     let data=_libData;
     if(_libSearch)data=data.filter(s=>(s.nama||'').toLowerCase().includes(_libSearch.toLowerCase())||(s.type||'').toLowerCase().includes(_libSearch.toLowerCase())||(_soalKelompokNama(s.kelompok)||'').toLowerCase().includes(_libSearch.toLowerCase()));
@@ -36,20 +47,15 @@ function _renderLibList(){
     if(_libKelompokFilter==='none')data=data.filter(s=>!s.kelompok);
     else if(_libKelompokFilter!=='all')data=data.filter(s=>s.kelompok===_libKelompokFilter);
     const el=document.getElementById('library-list');if(!el)return;
-    el.innerHTML=data.length?data.map((s,i)=>{const kode=s.kode||s.id;const kelNama=_soalKelompokNama(s.kelompok);const chk=_libSelected.has(kode)?'checked':'';return `<div class="lib-card" style="animation:fadeUp 0.25s ${i*0.04}s both"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px"><div style="display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0"><input type="checkbox" class="lib-row-check" data-kode="${kode}" ${chk} onchange="toggleLibSelect('${kode}',this.checked)" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer;margin-top:3px;flex-shrink:0"><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px;color:var(--blue);margin-bottom:6px">${s.nama}</div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="badge" style="background:rgba(26,90,160,0.1);color:var(--accent)">${(s.type||'').replace(/_/g,' ')}</span>${kelNama?`<span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue)">${kelNama}</span>`:''}<span style="font-size:11px;color:var(--text-sub)">${kode}</span><span style="font-size:11px;color:var(--text-sub)">${formatDate(s.created_at)}</span></div></div></div><div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="previewLibSoal('${kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Preview</button><button class="btn btn-primary btn-sm" onclick="editSoalFromLibrary('${kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button><button class="btn btn-secondary btn-sm" onclick="exportLibSoalToExcel('${kode}')" title="Unduh soal ini sebagai file Excel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button><button class="btn-icon danger" onclick="deleteLibSoal('${kode}','${s.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div></div>`;}).join(''):'<div class="empty-state"><p>Belum ada soal di library</p></div>';
+    VirtualList.render(el,{items:data,rowHeight:96,tag:'div',
+        renderItem:_libCardHtml,
+        emptyHtml:'<div class="empty-state"><p>Belum ada soal di library</p></div>'});
     const swEl=document.getElementById('library-swipe-list');
     if(swEl&&window.SwipeCards){
-        swEl.innerHTML=data.length?data.map(s=>{const kode=s.kode||s.id;const sel=_libSelected.has(kode);return SwipeCards.buildSwipeCardHtml({
-            title:s.nama,kode,selected:sel,
-            sub:(s.type||'').replace(/_/g,' ')+(_soalKelompokNama(s.kelompok)?' · '+_soalKelompokNama(s.kelompok):'')+' · '+formatDate(s.created_at),
-            leftActions:[
-                {icon:'eye',label:'Lihat',cls:'act-secondary',onClick:`previewLibSoal('${kode}')`},
-                {icon:'edit',label:'Edit',cls:'act-edit',onClick:`editSoalFromLibrary('${kode}')`},
-                {icon:'download',label:'Export',cls:'act-secondary',onClick:`exportLibSoalToExcel('${kode}')`}
-            ],
-            rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`deleteLibSoal('${kode}','${(s.nama||'').replace(/'/g,"\\'")}')`}]
-        });}).join(''):'<div class="swipe-card-empty">Belum ada soal di library</div>';
-        SwipeCards.bindSwipeList(swEl,_libSelectOpts());
+        VirtualList.render(swEl,{items:data,rowHeight:78,tag:'div',
+            renderItem:_libSwipeCardHtml,
+            emptyHtml:'<div class="swipe-card-empty">Belum ada soal di library</div>',
+            onRendered:()=>SwipeCards.bindSwipeList(swEl,_libSelectOpts())});
     }
     _updateLibBulkBar();
 }

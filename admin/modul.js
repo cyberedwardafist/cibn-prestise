@@ -19,21 +19,27 @@ function _renderModulKelompokFilters(){
     const options=[{value:'all',label:'Semua Kelompok'},{value:'none',label:'Tanpa Kelompok'},..._modulKelompokList.map(k=>({value:k.kode,label:k.nama}))];
     renderFilterDropdown('modul-kelompok-filters',{options,current:_modulKelompokFilter,title:'Kelompok',onSelect:v=>{_modulKelompokFilter=v;_renderModulKelompokFilters();_renderModulList();}});
 }
+function _modulCardHtml(m,i){const kelNama=_modulKelompokNama(m.kelompok);return `<div class="modul-card" style="animation:fadeUp 0.25s ${Math.min(i,9)*0.05}s both"><div class="modul-card-left"><div class="modul-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div><div><div style="font-weight:700;font-size:14px;color:var(--blue)">${m.nama}</div><div style="font-size:11px;color:var(--text-sub);display:flex;gap:6px;flex-wrap:wrap;align-items:center">${(m.soal_list||[]).length} soal · ${m.kode||m.id}${kelNama?` · <span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue)">${kelNama}</span>`:''}</div></div></div><div style="display:flex;gap:8px"><button class="btn-icon" onclick="openEditModul('${m.kode||m.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon danger" onclick="deleteModulItem('${m.kode||m.id}','${m.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div>`;}
+function _modulSwipeCardHtml(m){return SwipeCards.buildSwipeCardHtml({
+    title:m.nama,
+    sub:(m.soal_list||[]).length+' soal'+(_modulKelompokNama(m.kelompok)?' · '+_modulKelompokNama(m.kelompok):'')+' · '+(m.kode||m.id),
+    leftActions:[{icon:'edit',label:'Edit',cls:'act-edit',onClick:`openEditModul('${m.kode||m.id}')`}],
+    rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`deleteModulItem('${m.kode||m.id}','${(m.nama||'').replace(/'/g,"\\'")}')`}]
+});}
 function _renderModulList(){
     let data=_modulData;
     if(_modulKelompokFilter==='none')data=data.filter(m=>!m.kelompok);
     else if(_modulKelompokFilter!=='all')data=data.filter(m=>m.kelompok===_modulKelompokFilter);
     const el=document.getElementById('modul-list');if(!el)return;
-    el.innerHTML=data.length?data.map((m,i)=>{const kelNama=_modulKelompokNama(m.kelompok);return `<div class="modul-card" style="animation:fadeUp 0.25s ${i*0.05}s both"><div class="modul-card-left"><div class="modul-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div><div><div style="font-weight:700;font-size:14px;color:var(--blue)">${m.nama}</div><div style="font-size:11px;color:var(--text-sub);display:flex;gap:6px;flex-wrap:wrap;align-items:center">${(m.soal_list||[]).length} soal · ${m.kode||m.id}${kelNama?` · <span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue)">${kelNama}</span>`:''}</div></div></div><div style="display:flex;gap:8px"><button class="btn-icon" onclick="openEditModul('${m.kode||m.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon danger" onclick="deleteModulItem('${m.kode||m.id}','${m.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div>`;}).join(''):'<div class="empty-state"><p>Belum ada modul</p></div>';
+    VirtualList.render(el,{items:data,rowHeight:78,tag:'div',
+        renderItem:_modulCardHtml,
+        emptyHtml:'<div class="empty-state"><p>Belum ada modul</p></div>'});
     const swEl=document.getElementById('modul-swipe-list');
     if(swEl&&window.SwipeCards){
-        swEl.innerHTML=data.length?data.map(m=>SwipeCards.buildSwipeCardHtml({
-            title:m.nama,
-            sub:(m.soal_list||[]).length+' soal'+(_modulKelompokNama(m.kelompok)?' · '+_modulKelompokNama(m.kelompok):'')+' · '+(m.kode||m.id),
-            leftActions:[{icon:'edit',label:'Edit',cls:'act-edit',onClick:`openEditModul('${m.kode||m.id}')`}],
-            rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`deleteModulItem('${m.kode||m.id}','${(m.nama||'').replace(/'/g,"\\'")}')`}]
-        })).join(''):'<div class="swipe-card-empty">Belum ada modul</div>';
-        SwipeCards.bindSwipeList(swEl);
+        VirtualList.render(swEl,{items:data,rowHeight:78,tag:'div',
+            renderItem:_modulSwipeCardHtml,
+            emptyHtml:'<div class="swipe-card-empty">Belum ada modul</div>',
+            onRendered:()=>SwipeCards.bindSwipeList(swEl)});
     }
 }
 function _populateModulKelompokSelect(selected){

@@ -11,24 +11,33 @@ function renderAkunSub(sub){
 // ── ADMIN LIST ──
 let _adminSearch='';
 let _adminListCache=[];
+function _adminRowHtml(a,i){const kode=a.kode||a.id;const chk=_akunSelected.admin.has(kode)?'checked':'';
+    return `<tr style="animation:fadeUp 0.2s ${Math.min(i,9)*0.03}s both"><td class="akun-check"><input type="checkbox" class="akun-row-check" data-kode="${kode}" ${chk} onchange="toggleAkunSelect('admin','${kode}',this.checked)"></td><td>${i+1}</td><td><strong>${a.nama}</strong></td><td>${a.email}</td><td class="hide-mobile"><span class="badge badge-${a.status}">${a.status}</span></td><td><div style="display:flex;gap:6px"><button class="btn-icon" onclick="openEditUser('admin','${kode}','${a.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon danger" onclick="deleteUserAkun('${kode}','${a.nama}','admin')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></td></tr>`;
+}
+function _adminCardHtml(a){const kode=a.kode||a.id;const sel=_akunSelected.admin.has(kode);
+    return SwipeCards.buildSwipeCardHtml({
+        title:a.nama,sub:a.email,kode,selected:sel,
+        sideHtml:`<span class="badge badge-${a.status}" style="font-size:10px">${a.status}</span>`,
+        leftActions:[{icon:'edit',label:'Edit',cls:'act-edit',onClick:`openEditUser('admin','${kode}','${a.nama}')`}],
+        rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`deleteUserAkun('${kode}','${a.nama}','admin')`}]
+    });
+}
 async function renderAdminList(){
     const data=await UsersAPI.getByRole('admin').catch(()=>[]);
     const list=filterList(data,_adminSearch,['nama','email']);
     _adminListCache=list;
     const tb=document.getElementById('admin-tbody');if(!tb)return;
-    tb.innerHTML=list.map((a,i)=>{const kode=a.kode||a.id;const chk=_akunSelected.admin.has(kode)?'checked':'';
-        return `<tr style="animation:fadeUp 0.2s ${i*0.03}s both"><td class="akun-check"><input type="checkbox" class="akun-row-check" data-kode="${kode}" ${chk} onchange="toggleAkunSelect('admin','${kode}',this.checked)"></td><td>${i+1}</td><td><strong>${a.nama}</strong></td><td>${a.email}</td><td class="hide-mobile"><span class="badge badge-${a.status}">${a.status}</span></td><td><div style="display:flex;gap:6px"><button class="btn-icon" onclick="openEditUser('admin','${kode}','${a.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon danger" onclick="deleteUserAkun('${kode}','${a.nama}','admin')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></td></tr>`;
-    }).join('')||`<tr><td colspan="6"><div class="empty-state"><p>Belum ada akun admin</p></div></td></tr>`;
+    // Virtual scroll: cuma baris yang kelihatan + 1 layar buffer yang benar-benar dirender ke DOM,
+    // sisanya diwakili spacer kosong. Baris di-render ulang otomatis saat discroll.
+    VirtualList.render(tb,{items:list,rowHeight:52,tag:'tr',colSpan:6,
+        renderItem:_adminRowHtml,
+        emptyHtml:`<tr><td colspan="6"><div class="empty-state"><p>Belum ada akun admin</p></div></td></tr>`});
     const swEl=document.getElementById('admin-swipe-list');
     if(swEl&&window.SwipeCards){
-        swEl.innerHTML=list.length?list.map(a=>{const kode=a.kode||a.id;const sel=_akunSelected.admin.has(kode);
-            return SwipeCards.buildSwipeCardHtml({
-            title:a.nama,sub:a.email,kode,selected:sel,
-            sideHtml:`<span class="badge badge-${a.status}" style="font-size:10px">${a.status}</span>`,
-            leftActions:[{icon:'edit',label:'Edit',cls:'act-edit',onClick:`openEditUser('admin','${kode}','${a.nama}')`}],
-            rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`deleteUserAkun('${kode}','${a.nama}','admin')`}]
-        });}).join(''):'<div class="swipe-card-empty">Belum ada akun admin</div>';
-        SwipeCards.bindSwipeList(swEl,_akunSelectOpts('admin'));
+        VirtualList.render(swEl,{items:list,rowHeight:78,tag:'div',
+            renderItem:_adminCardHtml,
+            emptyHtml:'<div class="swipe-card-empty">Belum ada akun admin</div>',
+            onRendered:()=>SwipeCards.bindSwipeList(swEl,_akunSelectOpts('admin'))});
     }
     _updateBulkBar('admin');
 }
@@ -36,24 +45,31 @@ async function renderAdminList(){
 // ── REVIEW LIST ──
 let _reviewSearch='';
 let _reviewListCache=[];
+function _reviewRowHtml(a,i){const kode=a.kode||a.id;const chk=_akunSelected.review.has(kode)?'checked':'';
+    return `<tr style="animation:fadeUp 0.2s ${Math.min(i,9)*0.03}s both"><td class="akun-check"><input type="checkbox" class="akun-row-check" data-kode="${kode}" ${chk} onchange="toggleAkunSelect('review','${kode}',this.checked)"></td><td>${i+1}</td><td><strong>${a.nama}</strong></td><td>${a.email}</td><td class="hide-mobile"><span class="badge badge-${a.status}">${a.status}</span></td><td><div style="display:flex;gap:6px"><button class="btn-icon" onclick="openEditUser('review','${kode}','${a.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon danger" onclick="deleteUserAkun('${kode}','${a.nama}','review')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></td></tr>`;
+}
+function _reviewCardHtml(a){const kode=a.kode||a.id;const sel=_akunSelected.review.has(kode);
+    return SwipeCards.buildSwipeCardHtml({
+        title:a.nama,sub:a.email,kode,selected:sel,
+        sideHtml:`<span class="badge badge-${a.status}" style="font-size:10px">${a.status}</span>`,
+        leftActions:[{icon:'edit',label:'Edit',cls:'act-edit',onClick:`openEditUser('review','${kode}','${a.nama}')`}],
+        rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`deleteUserAkun('${kode}','${a.nama}','review')`}]
+    });
+}
 async function renderReviewList(){
     const data=await UsersAPI.getByRole('review').catch(()=>[]);
     const list=filterList(data,_reviewSearch,['nama','email']);
     _reviewListCache=list;
     const tb=document.getElementById('review-tbody');if(!tb)return;
-    tb.innerHTML=list.map((a,i)=>{const kode=a.kode||a.id;const chk=_akunSelected.review.has(kode)?'checked':'';
-        return `<tr style="animation:fadeUp 0.2s ${i*0.03}s both"><td class="akun-check"><input type="checkbox" class="akun-row-check" data-kode="${kode}" ${chk} onchange="toggleAkunSelect('review','${kode}',this.checked)"></td><td>${i+1}</td><td><strong>${a.nama}</strong></td><td>${a.email}</td><td class="hide-mobile"><span class="badge badge-${a.status}">${a.status}</span></td><td><div style="display:flex;gap:6px"><button class="btn-icon" onclick="openEditUser('review','${kode}','${a.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon danger" onclick="deleteUserAkun('${kode}','${a.nama}','review')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></td></tr>`;
-    }).join('')||`<tr><td colspan="6"><div class="empty-state"><p>Belum ada akun reviewer</p></div></td></tr>`;
+    VirtualList.render(tb,{items:list,rowHeight:52,tag:'tr',colSpan:6,
+        renderItem:_reviewRowHtml,
+        emptyHtml:`<tr><td colspan="6"><div class="empty-state"><p>Belum ada akun reviewer</p></div></td></tr>`});
     const swEl=document.getElementById('review-swipe-list');
     if(swEl&&window.SwipeCards){
-        swEl.innerHTML=list.length?list.map(a=>{const kode=a.kode||a.id;const sel=_akunSelected.review.has(kode);
-            return SwipeCards.buildSwipeCardHtml({
-            title:a.nama,sub:a.email,kode,selected:sel,
-            sideHtml:`<span class="badge badge-${a.status}" style="font-size:10px">${a.status}</span>`,
-            leftActions:[{icon:'edit',label:'Edit',cls:'act-edit',onClick:`openEditUser('review','${kode}','${a.nama}')`}],
-            rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`deleteUserAkun('${kode}','${a.nama}','review')`}]
-        });}).join(''):'<div class="swipe-card-empty">Belum ada akun reviewer</div>';
-        SwipeCards.bindSwipeList(swEl,_akunSelectOpts('review'));
+        VirtualList.render(swEl,{items:list,rowHeight:78,tag:'div',
+            renderItem:_reviewCardHtml,
+            emptyHtml:'<div class="swipe-card-empty">Belum ada akun reviewer</div>',
+            onRendered:()=>SwipeCards.bindSwipeList(swEl,_akunSelectOpts('review'))});
     }
     _updateBulkBar('review');
 }
@@ -204,6 +220,24 @@ function _renderUserGrubFilters(){
 }
 
 let _userListCache=[];
+function _userRowHtml(u,i){
+    const kode=u.kode||u.id;const chk=_akunSelected.user.has(kode)?'checked':'';
+    const today=new Date(); today.setHours(0,0,0,0);
+    const akhir=u.langganan_akhir?new Date(u.langganan_akhir):null;
+    const langgananStatus=akhir?(akhir>=today?`<span style="color:#16a34a;font-size:11px">s/d ${formatDate(u.langganan_akhir)}</span>`:`<span style="color:#dc2626;font-size:11px">Exp ${formatDate(u.langganan_akhir)}</span>`):`<span style="color:#94a3b8;font-size:11px">-</span>`;
+    const paketBadge=u.paket_nama?`<span class="badge badge-aktif" style="font-size:10px;padding:2px 8px">${u.paket_nama}</span>`:`<span style="color:#94a3b8;font-size:11px">-</span>`;
+    return `<tr style="animation:fadeUp 0.2s ${Math.min(i,9)*0.03}s both"><td class="akun-check"><input type="checkbox" class="akun-row-check" data-kode="${kode}" ${chk} onchange="toggleAkunSelect('user','${kode}',this.checked)"></td><td>${i+1}</td><td><strong>${u.nama}</strong></td><td>${u.email}</td><td class="hide-mobile">${_userGrubNama(u.grub)||'-'}</td><td class="hide-mobile">${paketBadge}<br>${langgananStatus}</td><td class="hide-mobile"><span class="badge badge-${u.status}">${u.status}</span></td><td><div style="display:flex;gap:6px"><button class="btn-icon" onclick="openEditUser('user','${kode}','${u.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon danger" onclick="deleteUserAkun('${kode}','${u.nama}','user')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></td></tr>`;
+}
+function _userCardHtml(u){
+    const kode=u.kode||u.id;const sel=_akunSelected.user.has(kode);
+    const subTxt=u.email+(u.paket_nama?` · ${u.paket_nama}`:'');
+    return SwipeCards.buildSwipeCardHtml({
+        title:u.nama,sub:subTxt,kode,selected:sel,
+        sideHtml:`<span class="badge badge-${u.status}" style="font-size:10px">${u.status}</span>`,
+        leftActions:[{icon:'edit',label:'Edit',cls:'act-edit',onClick:`openEditUser('user','${kode}','${u.nama}')`}],
+        rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`deleteUserAkun('${kode}','${u.nama}','user')`}]
+    });
+}
 async function renderUserList(){
     const [users]=await Promise.all([UsersAPI.getByRole('user').catch(()=>[]),_loadUserGrubList()]);
     _renderUserGrubFilters();
@@ -212,27 +246,15 @@ async function renderUserList(){
     else if(_userGrubFilter!=='all')list=list.filter(u=>u.grub===_userGrubFilter);
     _userListCache=list;
     const tb=document.getElementById('user-tbody');if(!tb)return;
-    tb.innerHTML=list.map((u,i)=>{
-        const kode=u.kode||u.id;const chk=_akunSelected.user.has(kode)?'checked':'';
-        const today=new Date(); today.setHours(0,0,0,0);
-        const akhir=u.langganan_akhir?new Date(u.langganan_akhir):null;
-        const langgananStatus=akhir?(akhir>=today?`<span style="color:#16a34a;font-size:11px">s/d ${formatDate(u.langganan_akhir)}</span>`:`<span style="color:#dc2626;font-size:11px">Exp ${formatDate(u.langganan_akhir)}</span>`):`<span style="color:#94a3b8;font-size:11px">-</span>`;
-        const paketBadge=u.paket_nama?`<span class="badge badge-aktif" style="font-size:10px;padding:2px 8px">${u.paket_nama}</span>`:`<span style="color:#94a3b8;font-size:11px">-</span>`;
-        return `<tr style="animation:fadeUp 0.2s ${i*0.03}s both"><td class="akun-check"><input type="checkbox" class="akun-row-check" data-kode="${kode}" ${chk} onchange="toggleAkunSelect('user','${kode}',this.checked)"></td><td>${i+1}</td><td><strong>${u.nama}</strong></td><td>${u.email}</td><td class="hide-mobile">${_userGrubNama(u.grub)||'-'}</td><td class="hide-mobile">${paketBadge}<br>${langgananStatus}</td><td class="hide-mobile"><span class="badge badge-${u.status}">${u.status}</span></td><td><div style="display:flex;gap:6px"><button class="btn-icon" onclick="openEditUser('user','${kode}','${u.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon danger" onclick="deleteUserAkun('${kode}','${u.nama}','user')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></td></tr>`;
-    }).join('')||`<tr><td colspan="8"><div class="empty-state"><p>Belum ada user</p></div></td></tr>`;
+    VirtualList.render(tb,{items:list,rowHeight:56,tag:'tr',colSpan:8,
+        renderItem:_userRowHtml,
+        emptyHtml:`<tr><td colspan="8"><div class="empty-state"><p>Belum ada user</p></div></td></tr>`});
     const swEl=document.getElementById('user-swipe-list');
     if(swEl&&window.SwipeCards){
-        swEl.innerHTML=list.length?list.map(u=>{
-            const kode=u.kode||u.id;const sel=_akunSelected.user.has(kode);
-            const subTxt=u.email+(u.paket_nama?` · ${u.paket_nama}`:'');
-            return SwipeCards.buildSwipeCardHtml({
-                title:u.nama,sub:subTxt,kode,selected:sel,
-                sideHtml:`<span class="badge badge-${u.status}" style="font-size:10px">${u.status}</span>`,
-                leftActions:[{icon:'edit',label:'Edit',cls:'act-edit',onClick:`openEditUser('user','${kode}','${u.nama}')`}],
-                rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`deleteUserAkun('${kode}','${u.nama}','user')`}]
-            });
-        }).join(''):'<div class="swipe-card-empty">Belum ada user</div>';
-        SwipeCards.bindSwipeList(swEl,_akunSelectOpts('user'));
+        VirtualList.render(swEl,{items:list,rowHeight:82,tag:'div',
+            renderItem:_userCardHtml,
+            emptyHtml:'<div class="swipe-card-empty">Belum ada user</div>',
+            onRendered:()=>SwipeCards.bindSwipeList(swEl,_akunSelectOpts('user'))});
     }
     _updateBulkBar('user');
 }
