@@ -529,7 +529,7 @@ const CBN_DB = {
 const API = window.location.origin + '/api';
 let st={
   examData:null,flat:[],jawaban:{},flagged:new Set(),
-  curIdx:0,timerInterval:null, groupStats: {},
+  curIdx:0,timerInterval:null, groupStats: {}, activeKode:null,
   leaveCount:0,maxLeave:3,antiCheatLeaveEnabled:true,orient:'vertical',
   startTime:null,skTimerInterval:null,skTimerSec:0
 };
@@ -619,11 +619,18 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (savedIdx) st.curIdx = parseInt(savedIdx);
 
     // 2. Pulihkan Timer Multiple Choice / Linier
+    // Selain `sec` (cadangan tampilan), pulihkan juga `deadline` (timestamp absolut
+    // kapan waktu bagian ini habis). `deadline` dipakai sebagai sumber kebenaran
+    // waktu supaya waktu ujian tetap berjalan (dihitung dari jam dinding) meski
+    // peserta menutup/meninggalkan halaman lama dan JS berhenti berjalan.
     const savedTimers = localStorage.getItem('cbn_timers_' + token);
     if (savedTimers) {
         const parsedTimers = JSON.parse(savedTimers);
         Object.keys(parsedTimers).forEach(kode => {
-            if(st.groupStats[kode]) st.groupStats[kode].sec = parsedTimers[kode].sec;
+            if(st.groupStats[kode]) {
+                st.groupStats[kode].sec = parsedTimers[kode].sec;
+                if (parsedTimers[kode].deadline) st.groupStats[kode].deadline = parsedTimers[kode].deadline;
+            }
         });
     }
     
@@ -1053,19 +1060,26 @@ function renderSKKolom(ki) {
 
   document.getElementById('sk-kolom-lbl').textContent = `Kolom ${ki + 1} dari ${totalKolom}`;
   
+  // Sama seperti timer bagian soal: pakai deadline (jam dinding) sebagai sumber
+  // kebenaran, bukan sekadar "kurangi 1 tiap detik", supaya waktu tetap terpotong
+  // dengan benar walau peserta menutup/meninggalkan halaman lalu kembali lagi.
+  const savedDeadline = parseInt(localStorage.getItem('cbn_sk_deadline_' + token)) || null;
+  let skDeadline = savedDeadline && savedDeadline > Date.now() ? savedDeadline : (Date.now() + st.skTimerSec * 1000);
+  localStorage.setItem('cbn_sk_deadline_' + token, skDeadline);
+
   clearInterval(st.skTimerInterval);
-  updateSKTimer();
-  st.skTimerInterval = setInterval(() => {
-    st.skTimerSec--;
-    // SIMPAN SISA WAKTU: Update ke localStorage setiap detik
+  const tickSK = () => {
+    st.skTimerSec = Math.max(0, Math.round((skDeadline - Date.now()) / 1000));
     localStorage.setItem('cbn_sk_timer_' + token, st.skTimerSec);
-    
     updateSKTimer();
     if (st.skTimerSec <= 0) {
-      localStorage.removeItem('cbn_sk_timer_' + token); // Reset timer untuk kolom berikutnya
+      localStorage.removeItem('cbn_sk_timer_' + token);
+      localStorage.removeItem('cbn_sk_deadline_' + token);
       nextSKKolom();
     }
-  }, 1000);
+  };
+  tickSK(); // tampilkan & tangkap langsung kasus waktu sudah habis saat ditinggal
+  st.skTimerInterval = setInterval(tickSK, 1000);
 
   // Ambil sub-soal terakhir yang disimpan di kolom ini
   const savedQi = localStorage.getItem('cbn_sk_q_' + token);
@@ -1130,6 +1144,7 @@ function nextSKKolom() {
   clearInterval(st.skTimerInterval);
   const token = st.examData.token.kode;
   localStorage.removeItem('cbn_sk_timer_' + token); // Hapus sisa waktu kolom lama
+  localStorage.removeItem('cbn_sk_deadline_' + token);
   
   if (_skKolom + 1 < _skItem.kolom.length) {
     renderSKKolom(_skKolom + 1);
@@ -1149,6 +1164,7 @@ function finishSK(){
   localStorage.removeItem('cbn_sk_kolom_' + token);
   localStorage.removeItem('cbn_sk_q_' + token);
   localStorage.removeItem('cbn_sk_timer_' + token);
+  localStorage.removeItem('cbn_sk_deadline_' + token);
 
   if(st.curIdx + 1 < st.flat.length){
     st.curIdx++;
@@ -1160,27 +1176,62 @@ function finishSK(){
   }
 }
 
-/* ──────── TIMER ──────── */
-function startGroupTimer(){
-  clearInterval(st.timerInterval);updateTimerDisplay();
-  st.timerInterval=setInterval(()=>{
-    const cur = st.flat[st.curIdx];
-    if(!cur || cur.type === 'sikap_kerja') return;
-    
-    const kode = cur.soalKode;
-    if(st.groupStats[kode].sec <= 0){
-        return;
-    }
+/* ──────── TIMER ────────
+ * PENTING: timer bagian soal TIDAK BOLEH dihitung dengan cara "kurangi 1 detik
+ * setiap kali setInterval berbunyi". Cara itu hanya menghitung detik selama
+ * halaman benar-benar aktif berjalan di browser — begitu peserta menutup tab
+ * atau keluar dari halaman (apalagi sampai 1 jam), setInterval berhenti sama
+ * sekali dan tidak ada detik yang berkurang, sehingga saat peserta kembali,
+ * sisa waktunya masih persis seperti saat ditinggal (seolah waktu berhenti).
+ * Ini akar masalah "waktu ujian ikut berhenti saat ditinggal keluar halaman".
+ *
+ * Solusinya: hitung waktu berdasarkan `deadline` (timestamp absolut / jam
+ * dinding) kapan bagian soal ini seharusnya habis, lalu sisa waktu = deadline
+ * - waktu sekarang. Karena deadline adalah angka absolut yang disimpan ke
+ * localStorage, perhitungan ini tetap benar walau JS sempat berhenti total
+ * (tab ditutup / app diminimize lama) — begitu halaman dibuka lagi, sisa
+ * waktu otomatis terpotong sesuai lamanya peserta benar-benar pergi.
+ */
+function activateGroupDeadline(kode){
+  st.activeKode = kode;
+  const gs = st.groupStats[kode];
+  if(!gs) return;
+  // Mulai/lanjutkan hitung mundur dari sisa detik yang diketahui sekarang.
+  gs.deadline = Date.now() + Math.max(0, gs.sec) * 1000;
+  localStorage.setItem('cbn_timers_' + st.examData.token.kode, JSON.stringify(st.groupStats));
+}
 
-    st.groupStats[kode].sec--;
-    localStorage.setItem('cbn_timers_' + st.examData.token.kode, JSON.stringify(st.groupStats));
-    if(st.groupStats[kode].sec <= 0){
-      showToast('Waktu habis untuk bagian ini!','warning');
-      forceNextGroup(kode);
-    } else {
-      updateTimerDisplay();
-    }
-  },1000);
+function tickGroupTimer(){
+  const cur = st.flat[st.curIdx];
+  if(!cur || cur.type === 'sikap_kerja') return;
+
+  const kode = cur.soalKode;
+  const gs = st.groupStats[kode];
+  if(!gs) return;
+
+  // Bagian soal berganti (pindah ke kelompok soal lain) atau belum pernah
+  // punya deadline aktif -> mulai deadline baru berdasarkan sisa detiknya.
+  if(st.activeKode !== kode || gs.deadline == null){
+    activateGroupDeadline(kode);
+  }
+
+  const remaining = Math.max(0, Math.round((gs.deadline - Date.now()) / 1000));
+  gs.sec = remaining;
+  localStorage.setItem('cbn_timers_' + st.examData.token.kode, JSON.stringify(st.groupStats));
+
+  if(remaining <= 0){
+    showToast('Waktu habis untuk bagian ini!','warning');
+    forceNextGroup(kode);
+  } else {
+    updateTimerDisplay();
+  }
+}
+
+function startGroupTimer(){
+  clearInterval(st.timerInterval);
+  tickGroupTimer(); // hitung & tampilkan sisa waktu yg sebenarnya SEKARANG JUGA
+                     // (menangkap kasus waktu sudah habis saat peserta pergi lama)
+  st.timerInterval=setInterval(tickGroupTimer,1000);
 }
 
 function forceNextGroup(oldKode) {
