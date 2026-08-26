@@ -1230,7 +1230,7 @@ async function _embedImagesIntoXlsx(arrayBuffer, sheetName, positions) {
     });
     zip.file('[Content_Types].xml', ctXmlStr);
 
-    return await zip.generateAsync({ type: 'array' });
+    return await zip.generateAsync({ type: 'arraybuffer' });
 }
 
 // s = { nama, type, skor_type, opsi_jawaban, timer:{jam,menit,detik} atau timer_jam/menit/detik, data: [...] }
