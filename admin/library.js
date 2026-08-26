@@ -164,7 +164,7 @@ async function submitBulkSetKelompokLib(){
 
 async function previewLibSoal(kode){
     const s=await SoalAPI.getOne(kode).catch(()=>null);if(!s){showToast('Gagal memuat','danger');return;}
-    let html=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap"><div><div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--blue)">${s.nama}</div><div style="font-size:12px;color:var(--text-sub)">${s.type} · ${s.kode||s.id}</div></div><button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="closeModal('preview-soal-overlay');editSoalFromLibrary('${kode}')">✏ Edit Soal</button></div>`;
+    let html=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap"><div><div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--blue)">${s.nama_internal?`${s.nama} <span style="font-weight:400;color:var(--text-sub)">| ${s.nama_internal}</span>`:s.nama}</div><div style="font-size:12px;color:var(--text-sub)">${s.type} · ${s.kode||s.id}</div></div><button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="closeModal('preview-soal-overlay');editSoalFromLibrary('${kode}')">✏ Edit Soal</button></div>`;
     const data=s.data;
     if(s.type==='sikap_kerja'&&Array.isArray(data)){
         html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">`;

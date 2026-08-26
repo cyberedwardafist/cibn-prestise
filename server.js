@@ -909,7 +909,7 @@ app.delete('/api/ebook-modul/:kode', auth(['admin']), ah(async (req, res) => { a
 // ═══════════════════════════════════════════════════════════════════════════════
 app.get('/api/tokens', auth(['admin']), ah(async (req, res) => res.json(await db.prepare("SELECT * FROM tokens WHERE digunakan=0 ORDER BY created_at DESC").all())));
 app.get('/api/tokens/used', auth(['admin']), ah(async (req, res) => {
-    const rows = await db.prepare(`SELECT t.kode, t.modul_kode, t.aktivasi, t.expired, t.digunakan_oleh, t.izinkan_review, t.grub_token, t.created_at as token_created_at, l.kode as laporan_kode, l.tgl_selesai, l.waktu_pengerjaan, l.skor, l.created_at as laporan_created_at, u.nama as user_nama, m.nama as modul_nama FROM tokens t LEFT JOIN laporan l ON l.token_kode = t.kode LEFT JOIN users u ON t.digunakan_oleh = u.kode LEFT JOIN modul m ON t.modul_kode = m.kode WHERE t.digunakan = 1 ORDER BY COALESCE(l.tgl_selesai, l.created_at::text, t.created_at::text) DESC`).all();
+    const rows = await db.prepare(`SELECT t.kode, t.modul_kode, t.aktivasi, t.expired, t.digunakan_oleh, t.izinkan_review, t.grub_token, t.created_at as token_created_at, l.kode as laporan_kode, l.tgl_selesai, l.waktu_pengerjaan, l.skor, l.created_at as laporan_created_at, u.nama as user_nama, m.nama as modul_nama, m.nama_internal as modul_nama_internal FROM tokens t LEFT JOIN laporan l ON l.token_kode = t.kode LEFT JOIN users u ON t.digunakan_oleh = u.kode LEFT JOIN modul m ON t.modul_kode = m.kode WHERE t.digunakan = 1 ORDER BY COALESCE(l.tgl_selesai, l.created_at::text, t.created_at::text) DESC`).all();
     res.json(rows);
 }));
 app.get('/api/tokens/grub-list', auth(['admin','review']), ah(async (req, res) => { res.json(await db.prepare(`SELECT grub_token, COUNT(*) as jumlah_token FROM tokens WHERE grub_token IS NOT NULL AND TRIM(grub_token) <> '' GROUP BY grub_token ORDER BY LOWER(grub_token)`).all()); }));
@@ -940,13 +940,14 @@ app.post('/api/tokens/generate', auth(['admin']), ah(async (req, res) => {
 app.delete('/api/tokens/:kode', auth(['admin']), ah(async (req, res) => { await db.prepare('DELETE FROM tokens WHERE kode=?').run(req.params.kode); res.json({ message: 'Berhasil' }); }));
 
 app.get('/api/laporan', auth(['admin','review']), ah(async (req, res) => {
-    const rows = await db.prepare('SELECT l.*,u.nama as user_nama,m.nama as modul_nama,t.grub_token FROM laporan l LEFT JOIN users u ON l.user_kode=u.kode LEFT JOIN modul m ON l.modul_kode=m.kode LEFT JOIN tokens t ON l.token_kode=t.kode ORDER BY l.created_at DESC').all();
-    rows.forEach(r => { if (r.jawaban) try { r.jawaban = JSON.parse(r.jawaban); } catch (e) {} });
+    const rows = await db.prepare('SELECT l.*,u.nama as user_nama,m.nama as modul_nama,m.nama_internal as modul_nama_internal,t.grub_token FROM laporan l LEFT JOIN users u ON l.user_kode=u.kode LEFT JOIN modul m ON l.modul_kode=m.kode LEFT JOIN tokens t ON l.token_kode=t.kode ORDER BY l.created_at DESC').all();
+    rows.forEach(r => { if (r.jawaban) try { r.jawaban = JSON.parse(r.jawaban); } catch (e) {} if (req.user.role !== 'admin') delete r.modul_nama_internal; });
     res.json(rows);
 }));
 app.get('/api/laporan/:kode', auth(['admin','review']), ah(async (req, res) => {
-    const lap = await db.prepare('SELECT l.*,u.nama as user_nama,m.nama as modul_nama,t.grub_token FROM laporan l LEFT JOIN users u ON l.user_kode=u.kode LEFT JOIN modul m ON l.modul_kode=m.kode LEFT JOIN tokens t ON l.token_kode=t.kode WHERE l.kode=?').get(req.params.kode);
+    const lap = await db.prepare('SELECT l.*,u.nama as user_nama,m.nama as modul_nama,m.nama_internal as modul_nama_internal,t.grub_token FROM laporan l LEFT JOIN users u ON l.user_kode=u.kode LEFT JOIN modul m ON l.modul_kode=m.kode LEFT JOIN tokens t ON l.token_kode=t.kode WHERE l.kode=?').get(req.params.kode);
     if (!lap) return res.status(404).json({ error: 'Laporan tidak ditemukan' });
+    if (req.user.role !== 'admin') delete lap.modul_nama_internal;
     if (lap.jawaban) try { lap.jawaban = JSON.parse(lap.jawaban); } catch (e) {}
     if (lap.urutan_tampil) try { lap.urutan_tampil = JSON.parse(lap.urutan_tampil); } catch (e) { lap.urutan_tampil = null; }
     const modul = lap.modul_kode ? await db.prepare('SELECT * FROM modul WHERE kode=?').get(lap.modul_kode) : null;

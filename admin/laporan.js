@@ -145,10 +145,11 @@ function _buildSoalReviewBlock(s, jawabanUser, urutanTampil) {
     const kode = s.kode || s.id || s.nama;
     const dataSoalRaw = typeof s.data === 'string' ? (JSON.parse(s.data || '[]') || []) : (s.data || []);
     const isNS = s.skor_type === 'nilai_sendiri';
+    const namaTampilRv = s.nama_internal ? `${s.nama} <span style="font-weight:400;color:var(--text-sub)">| ${s.nama_internal}</span>` : s.nama;
 
     if (s.type === 'sikap_kerja') {
         return `<div class="card" style="padding:14px;margin-bottom:12px">
-            <div style="font-weight:700;color:var(--blue);margin-bottom:4px">${s.nama} <span class="badge" style="background:rgba(19,50,89,0.08);color:var(--text-sub);margin-left:6px">Sikap Kerja</span></div>
+            <div style="font-weight:700;color:var(--blue);margin-bottom:4px">${namaTampilRv} <span class="badge" style="background:rgba(19,50,89,0.08);color:var(--text-sub);margin-left:6px">Sikap Kerja</span></div>
             <div style="font-size:12px;color:var(--text-sub)">Gunakan grafik Sikap Kerja pada laporan untuk detail kolom.</div>
         </div>`;
     }
@@ -220,7 +221,7 @@ function _buildSoalReviewBlock(s, jawabanUser, urutanTampil) {
     }).join('');
 
     return `<div class="card" style="padding:14px;margin-bottom:12px">
-        <div style="font-weight:700;color:var(--blue);margin-bottom:10px">${s.nama}${isNS ? ' <span class="badge" style="background:rgba(26,90,160,0.1);color:var(--accent)">Nilai per Jawaban</span>' : ''}</div>
+        <div style="font-weight:700;color:var(--blue);margin-bottom:10px">${namaTampilRv}${isNS ? ' <span class="badge" style="background:rgba(26,90,160,0.1);color:var(--accent)">Nilai per Jawaban</span>' : ''}</div>
         ${qHtml || '<div style="font-size:12px;color:var(--text-sub)">Tidak ada soal.</div>'}
     </div>`;
 }
@@ -234,7 +235,7 @@ function downloadLaporan() {
     if (container) {
         container.innerHTML = (lap.soal_detail || []).map(s => `
             <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
-                <span style="flex:1;font-size:12px;font-weight:600;color:var(--blue)">${s.nama}</span>
+                <span style="flex:1;font-size:12px;font-weight:600;color:var(--blue)">${s.nama_internal ? `${s.nama} <span style="font-weight:400;color:var(--text-sub)">| ${s.nama_internal}</span>` : s.nama}</span>
                 <button class="btn btn-secondary btn-sm" onclick="doDownloadAdmin('${s.kode}','word')">Word</button>
                 <button class="btn btn-secondary btn-sm" onclick="doDownloadAdmin('${s.kode}','excel')" style="border-color:rgba(22,163,74,0.3);color:var(--success)">Excel</button>
             </div>`).join('');
@@ -250,7 +251,7 @@ function prepareDownloadOptions() {
     if (container) {
         container.innerHTML = (lap.soal_detail || []).map(s => `
             <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
-                <span style="flex:1;font-size:12px;font-weight:600;color:var(--blue)">${s.nama}</span>
+                <span style="flex:1;font-size:12px;font-weight:600;color:var(--blue)">${s.nama_internal ? `${s.nama} <span style="font-weight:400;color:var(--text-sub)">| ${s.nama_internal}</span>` : s.nama}</span>
                 <button class="btn btn-secondary btn-sm" onclick="doDownloadAdmin('${s.kode}','word')">Word</button>
                 <button class="btn btn-secondary btn-sm" onclick="doDownloadAdmin('${s.kode}','excel')" style="border-color:rgba(22,163,74,0.3);color:var(--success)">Excel</button>
             </div>`).join('');

@@ -336,13 +336,15 @@ function _tuGroupHtml(group){
     const label=group.key==='0000-00-00'?'Tanggal Tidak Diketahui':new Date(group.key).toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
     const rows=items.map((tk,i)=>{
         const {mulai,selesai}=_tuMulaiSelesai(tk);
-        return `<tr style="animation:fadeUp 0.15s ${Math.min(i,9)*0.02}s both"><td>${i+1}</td><td><code style="font-family:monospace;font-weight:700;color:var(--blue);letter-spacing:0.08em;font-size:12px">${tk.kode}</code></td><td class="hide-mobile" style="font-size:12px">${tk.modul_nama||tk.modul_kode||'-'}</td><td class="hide-mobile" style="font-size:12px">${tk.user_nama||tk.digunakan_oleh||'-'}</td><td class="hide-mobile" style="font-size:11px">${selesai}</td><td><strong style="color:var(--blue)">${tk.skor!=null?Math.round(tk.skor):'-'}</strong></td><td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="openTokenUsedData('${tk.kode}')">Data</button> <button class="btn btn-secondary btn-sm" onclick="openTokenUsedReview('${tk.laporan_kode||''}')">Review</button> <button class="btn-icon danger" onclick="hapusTokenUsed('${tk.kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></td></tr>`;
+        const modulTampilTu=tk.modul_nama_internal?`${tk.modul_nama} <span style="font-weight:400;color:var(--text-sub)">| ${tk.modul_nama_internal}</span>`:(tk.modul_nama||tk.modul_kode||'-');
+        return `<tr style="animation:fadeUp 0.15s ${Math.min(i,9)*0.02}s both"><td>${i+1}</td><td><code style="font-family:monospace;font-weight:700;color:var(--blue);letter-spacing:0.08em;font-size:12px">${tk.kode}</code></td><td class="hide-mobile" style="font-size:12px">${modulTampilTu}</td><td class="hide-mobile" style="font-size:12px">${tk.user_nama||tk.digunakan_oleh||'-'}</td><td class="hide-mobile" style="font-size:11px">${selesai}</td><td><strong style="color:var(--blue)">${tk.skor!=null?Math.round(tk.skor):'-'}</strong></td><td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="openTokenUsedData('${tk.kode}')">Data</button> <button class="btn btn-secondary btn-sm" onclick="openTokenUsedReview('${tk.laporan_kode||''}')">Review</button> <button class="btn-icon danger" onclick="hapusTokenUsed('${tk.kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></td></tr>`;
     }).join('');
     const cards=items.map(tk=>{
         const {mulai,selesai}=_tuMulaiSelesai(tk);
+        const modulTampilTuCard=tk.modul_nama_internal?`${tk.modul_nama} | ${tk.modul_nama_internal}`:(tk.modul_nama||tk.modul_kode||'-');
         return SwipeCards.buildSwipeCardHtml({
             title:tk.kode,
-            sub:(tk.user_nama||tk.digunakan_oleh||'-')+' · '+(tk.modul_nama||tk.modul_kode||'-'),
+            sub:(tk.user_nama||tk.digunakan_oleh||'-')+' · '+modulTampilTuCard,
             sideHtml:`<strong style="color:var(--blue);font-size:15px">${tk.skor!=null?Math.round(tk.skor):'-'}</strong>`,
             leftActions:[
                 {icon:'eye',label:'Data',cls:'act-secondary',onClick:`openTokenUsedData('${tk.kode}')`},
@@ -395,7 +397,7 @@ function openTokenUsedData(kode){
     if(!tk){showToast('Data token tidak ditemukan','danger');return;}
     const {mulai,selesai}=_tuMulaiSelesai(tk);
     document.getElementById('tud-kode').textContent=tk.kode;
-    document.getElementById('tud-modul').textContent=tk.modul_nama||tk.modul_kode||'-';
+    document.getElementById('tud-modul').textContent=tk.modul_nama_internal?`${tk.modul_nama} | ${tk.modul_nama_internal}`:(tk.modul_nama||tk.modul_kode||'-');
     document.getElementById('tud-user').textContent=tk.user_nama||tk.digunakan_oleh||'-';
     document.getElementById('tud-waktu').textContent=`${mulai}  s/d  ${selesai}`;
     document.getElementById('tud-skor').textContent=tk.skor!=null?Math.round(tk.skor):'-';
@@ -449,9 +451,10 @@ function _buildTokenModulPickItem(m){
     const ck=current&&String(current)===String(kode);
     const kelNama=_tokenModulKelNama(m.kelompok);
     const jmlSoal=(m.soal_list||[]).length;
+    const namaTampilTp=m.nama_internal?`${m.nama} <span style="font-weight:400;color:var(--text-sub)">| ${m.nama_internal}</span>`:m.nama;
     return `<div class="ebook-pick-item${ck?' checked':''}" style="cursor:pointer" onclick="selectTokenModul('${kode}')">
       <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:13px;color:var(--blue);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.nama}</div>
+        <div style="font-weight:700;font-size:13px;color:var(--blue);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namaTampilTp}</div>
         <div style="font-size:11px;color:var(--text-sub)">${kelNama||'Tanpa Kelompok'} · ${jmlSoal} soal</div>
       </div>
       ${ck?'<svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" width="18" height="18" style="flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>':''}
@@ -460,6 +463,6 @@ function _buildTokenModulPickItem(m){
 function selectTokenModul(kode){
     const m=_tokenModulPickerAll.find(x=>String(x.kode||x.id)===String(kode));if(!m)return;
     const sel=document.getElementById('token-modul-sel');if(sel)sel.value=m.kode||m.id;
-    const dt=document.getElementById('token-modul-display-text');if(dt){dt.textContent=m.nama;dt.style.color='var(--blue)';}
+    const dt=document.getElementById('token-modul-display-text');if(dt){dt.textContent=m.nama_internal?`${m.nama} | ${m.nama_internal}`:m.nama;dt.style.color='var(--blue)';}
     closeModal('token-modul-picker-overlay');
 }
