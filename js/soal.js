@@ -4,7 +4,7 @@
 
 const SoalState = {
     mode: 'setup', kode: null, editMode: false,
-    nama: '', type: 'multiple_choice', skor_type: 'benar_salah',
+    nama: '', nama_internal: '', type: 'multiple_choice', skor_type: 'benar_salah',
     opsi_jawaban: 1, timer: { jam: 0, menit: 30, detik: 0 },
     kelompok: '',   // kelompok = kode referensi ke soal_kelompok ('' = tanpa kelompok)
     pertanyaan: [], kolom: null, currentIdx: 0, navOpen: true,
@@ -35,7 +35,7 @@ function _soalDraftSave() {
     try {
         localStorage.setItem('cbn_soal_draft', JSON.stringify({
             kode: SoalState.kode, editMode: SoalState.editMode,
-            nama: SoalState.nama, type: SoalState.type, skor_type: SoalState.skor_type,
+            nama: SoalState.nama, nama_internal: SoalState.nama_internal, type: SoalState.type, skor_type: SoalState.skor_type,
             opsi_jawaban: SoalState.opsi_jawaban, timer: SoalState.timer,
             pertanyaan: SoalState.pertanyaan, kolom: SoalState.kolom, currentIdx: SoalState.currentIdx,
             _sikapView: (typeof _sikapView !== 'undefined') ? _sikapView : 'list',
@@ -55,7 +55,7 @@ function _tryRestoreSoalDraft() {
     if (!d || !d.nama || (!d.pertanyaan?.length && !d.kolom?.length)) return false;
 
     SoalState.kode = d.kode || null; SoalState.editMode = !!d.editMode;
-    SoalState.nama = d.nama; SoalState.type = d.type; SoalState.skor_type = d.skor_type;
+    SoalState.nama = d.nama; SoalState.nama_internal = d.nama_internal || ''; SoalState.type = d.type; SoalState.skor_type = d.skor_type;
     SoalState.opsi_jawaban = d.opsi_jawaban; SoalState.timer = d.timer || { jam:0, menit:30, detik:0 };
     SoalState.pertanyaan = d.pertanyaan || []; SoalState.kolom = d.kolom || null;
     SoalState.currentIdx = d.currentIdx || 0; SoalState._editors = {}; SoalState.mode = 'build';
@@ -119,6 +119,10 @@ function showSoalSetup() {
   <div class="form-group">
     <label class="form-label">Nama Soal</label>
     <input id="soal-nama" class="form-input" type="text" placeholder="Contoh: Tes Pengetahuan Umum" oninput="setDirty('pembuatan soal')">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Nama Internal <span style="font-weight:400;color:var(--text-sub)">(opsional, hanya terlihat di admin)</span></label>
+    <input id="soal-nama-internal" class="form-input" type="text" placeholder="Contoh: Versi A - revisi Juli" oninput="setDirty('pembuatan soal')">
   </div>
   <div class="form-group">
     <label class="form-label">Kelompok <span style="font-weight:400;color:var(--text-sub)">(opsional)</span></label>
@@ -190,6 +194,7 @@ function startBuatSoal() {
     const nama = document.getElementById('soal-nama')?.value?.trim();
     if (!nama) { showToast('Nama soal wajib diisi', 'danger'); return; }
     SoalState.nama = nama;
+    SoalState.nama_internal = document.getElementById('soal-nama-internal')?.value?.trim() || '';
     SoalState.kelompok = document.getElementById('soal-kelompok-select')?.value || '';
     SoalState.type = document.getElementById('soal-type').value;
     SoalState.skor_type = document.querySelector('input[name="skor_type"]:checked')?.value || 'benar_salah';
@@ -600,7 +605,7 @@ function backToEdit(){SoalState._editors={};_animateTo(_renderMCHtml);}
 async function simpanSoal(){
     syncEditors();
     if(!SoalState.nama){showToast('Nama soal wajib','danger');return;}
-    const payload={nama:SoalState.nama,type:SoalState.type,skor_type:SoalState.skor_type,opsi_jawaban:SoalState.opsi_jawaban,timer_jam:SoalState.timer.jam,timer_menit:SoalState.timer.menit,timer_detik:SoalState.timer.detik,kelompok:SoalState.kelompok||'',data:SoalState.type==='sikap_kerja'?SoalState.kolom:SoalState.pertanyaan};
+    const payload={nama:SoalState.nama,nama_internal:SoalState.nama_internal||'',type:SoalState.type,skor_type:SoalState.skor_type,opsi_jawaban:SoalState.opsi_jawaban,timer_jam:SoalState.timer.jam,timer_menit:SoalState.timer.menit,timer_detik:SoalState.timer.detik,kelompok:SoalState.kelompok||'',data:SoalState.type==='sikap_kerja'?SoalState.kolom:SoalState.pertanyaan};
     try {
         if(SoalState.kode) await SoalAPI.update(SoalState.kode,payload);
         else await SoalAPI.create(payload);
@@ -618,6 +623,7 @@ async function editSoalFromLibrary(kode){
         navigateTo('soal');
         setTimeout(()=>{
             SoalState.kode=kode; SoalState.editMode=true; SoalState.mode='build'; SoalState.nama=soal.nama;
+            SoalState.nama_internal=soal.nama_internal||'';
             SoalState.kelompok=soal.kelompok||'';
             SoalState.type=soal.type; SoalState.skor_type=soal.skor_type||'benar_salah';
             SoalState.opsi_jawaban=soal.opsi_jawaban||1;
@@ -635,6 +641,7 @@ async function editSoalFromLibrary(kode){
 // ══════════════ EDIT INFO SOAL (nama, timer, tipe) ══════════════
 async function openEditSoalInfoModal(){
     document.getElementById('esi-nama').value = SoalState.nama || '';
+    document.getElementById('esi-nama-internal').value = SoalState.nama_internal || '';
     const kelSel = document.getElementById('esi-kelompok-select');
     if (kelSel) {
         await _loadSoalKelompokList();
@@ -661,6 +668,7 @@ function saveSoalInfo(){
     const nama = document.getElementById('esi-nama')?.value?.trim();
     if (!nama) { showToast('Nama soal wajib diisi', 'danger'); return; }
     SoalState.nama = nama;
+    SoalState.nama_internal = document.getElementById('esi-nama-internal')?.value?.trim() || '';
     SoalState.kelompok = document.getElementById('esi-kelompok-select')?.value || '';
     SoalState.timer = {
         jam: parseInt(document.getElementById('esi-jam')?.value) || 0,
@@ -811,7 +819,7 @@ function _importSoalFromWorkbook(wb) {
     const timerDetik = parseInt(info['Timer Detik']) || 0;
 
     SoalState.mode = 'build'; SoalState.kode = null; SoalState.editMode = false; SoalState._editors = {};
-    SoalState.nama = nama; SoalState.type = type; SoalState.skor_type = skorType;
+    SoalState.nama = nama; SoalState.nama_internal = ''; SoalState.type = type; SoalState.skor_type = skorType;
     SoalState.opsi_jawaban = opsiJawaban;
     SoalState.timer = { jam: timerJam, menit: timerMenit, detik: timerDetik };
 

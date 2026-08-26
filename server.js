@@ -650,13 +650,14 @@ app.get('/api/soal/:kode', auth(['admin','review']), ah(async (req, res) => {
     const s = await db.prepare('SELECT * FROM soal WHERE kode=?').get(req.params.kode);
     if (!s) return res.status(404).json({ error: 'Tidak ditemukan' });
     if (s.data) try { s.data = JSON.parse(s.data); } catch (e) {}
+    if (req.user.role !== 'admin') delete s.nama_internal;
     res.json(s);
 }));
 app.post('/api/soal', auth(['admin']), ah(async (req, res) => {
-    const { nama, type, skor_type, opsi_jawaban, timer_jam, timer_menit, timer_detik, kelompok, data } = req.body;
+    const { nama, nama_internal, type, skor_type, opsi_jawaban, timer_jam, timer_menit, timer_detik, kelompok, data } = req.body;
     const kode = await genKode('SOL', 'soal');
-    await db.prepare('INSERT INTO soal (kode,nama,type,skor_type,opsi_jawaban,timer_jam,timer_menit,timer_detik,kelompok,data) VALUES (?,?,?,?,?,?,?,?,?,?)')
-        .run(kode, nama, type, skor_type || null, opsi_jawaban || null, timer_jam || 0, timer_menit || 30, timer_detik || 0,
+    await db.prepare('INSERT INTO soal (kode,nama,nama_internal,type,skor_type,opsi_jawaban,timer_jam,timer_menit,timer_detik,kelompok,data) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+        .run(kode, nama, (nama_internal || '').trim() || null, type, skor_type || null, opsi_jawaban || null, timer_jam || 0, timer_menit || 30, timer_detik || 0,
              (kelompok || '').trim() || null, data ? JSON.stringify(data) : null);
     res.json({ kode, message: 'Berhasil' });
 }));
@@ -668,7 +669,8 @@ app.put('/api/soal/:kode', auth(['admin']), ah(async (req, res) => {
     // Partial update: field yang tidak dikirim di body akan tetap pakai nilai lama,
     // bukan ditimpa NULL (mencegah 400 "Kolom wajib diisi" saat update parsial, mis. bulk set kelompok).
     const b = req.body || {};
-    const nama         = b.nama         !== undefined ? b.nama : oldRow.nama;
+    const nama          = b.nama          !== undefined ? b.nama : oldRow.nama;
+    const nama_internal = b.nama_internal !== undefined ? ((b.nama_internal || '').trim() || null) : oldRow.nama_internal;
     const type          = b.type         !== undefined ? b.type : oldRow.type;
     const skor_type     = b.skor_type    !== undefined ? (b.skor_type || null) : oldRow.skor_type;
     const opsi_jawaban  = b.opsi_jawaban !== undefined ? (b.opsi_jawaban || null) : oldRow.opsi_jawaban;
@@ -678,8 +680,8 @@ app.put('/api/soal/:kode', auth(['admin']), ah(async (req, res) => {
     const kelompok      = b.kelompok     !== undefined ? ((b.kelompok || '').trim() || null) : oldRow.kelompok;
     const data          = b.data         !== undefined ? JSON.stringify(b.data) : oldRow.data;
 
-    await db.prepare('UPDATE soal SET nama=?,type=?,skor_type=?,opsi_jawaban=?,timer_jam=?,timer_menit=?,timer_detik=?,kelompok=?,data=? WHERE kode=?')
-        .run(nama, type, skor_type, opsi_jawaban, timer_jam, timer_menit, timer_detik, kelompok, data, req.params.kode);
+    await db.prepare('UPDATE soal SET nama=?,nama_internal=?,type=?,skor_type=?,opsi_jawaban=?,timer_jam=?,timer_menit=?,timer_detik=?,kelompok=?,data=? WHERE kode=?')
+        .run(nama, nama_internal, type, skor_type, opsi_jawaban, timer_jam, timer_menit, timer_detik, kelompok, data, req.params.kode);
 
     res.json({ message: 'Berhasil' });
     cleanupOrphanedUploads(oldRefs);
@@ -717,9 +719,9 @@ app.post('/api/modul-kelompok', auth(['admin']), ah(async (req, res) => { const 
 app.put('/api/modul-kelompok/:kode', auth(['admin']), ah(async (req, res) => { await db.prepare('UPDATE modul_kelompok SET nama=? WHERE kode=?').run(req.body.nama.trim(), req.params.kode); res.json(await db.prepare('SELECT * FROM modul_kelompok WHERE kode=?').get(req.params.kode)); }));
 app.delete('/api/modul-kelompok/:kode', auth(['admin']), ah(async (req, res) => { await transaction(async (tdb) => { await tdb.prepare('DELETE FROM modul_kelompok WHERE kode=?').run(req.params.kode); await tdb.prepare('UPDATE modul SET kelompok=NULL WHERE kelompok=?').run(req.params.kode); }); res.json({ message: 'Berhasil' }); }));
 
-app.get('/api/modul', auth(['admin','review']), ah(async (req, res) => { const rows = await db.prepare('SELECT * FROM modul ORDER BY id').all(); rows.forEach(r => { if (r.soal_list) try { r.soal_list = JSON.parse(r.soal_list); } catch (e) { r.soal_list = []; } }); res.json(rows); }));
-app.post('/api/modul', auth(['admin']), ah(async (req, res) => { const kode = await genKode('MOD', 'modul'); await db.prepare('INSERT INTO modul (kode,nama,kelompok,soal_list) VALUES (?,?,?,?)').run(kode, req.body.nama, (req.body.kelompok || '').trim() || null, req.body.soal_list ? JSON.stringify(req.body.soal_list) : JSON.stringify([])); res.json({ kode, message: 'Berhasil' }); }));
-app.put('/api/modul/:kode', auth(['admin']), ah(async (req, res) => { await db.prepare('UPDATE modul SET nama=?,kelompok=?,soal_list=? WHERE kode=?').run(req.body.nama, (req.body.kelompok || '').trim() || null, req.body.soal_list ? JSON.stringify(req.body.soal_list) : JSON.stringify([]), req.params.kode); res.json({ message: 'Berhasil' }); }));
+app.get('/api/modul', auth(['admin','review']), ah(async (req, res) => { const rows = await db.prepare('SELECT * FROM modul ORDER BY id').all(); rows.forEach(r => { if (r.soal_list) try { r.soal_list = JSON.parse(r.soal_list); } catch (e) { r.soal_list = []; } if (req.user.role !== 'admin') delete r.nama_internal; }); res.json(rows); }));
+app.post('/api/modul', auth(['admin']), ah(async (req, res) => { const kode = await genKode('MOD', 'modul'); await db.prepare('INSERT INTO modul (kode,nama,nama_internal,kelompok,soal_list) VALUES (?,?,?,?,?)').run(kode, req.body.nama, (req.body.nama_internal || '').trim() || null, (req.body.kelompok || '').trim() || null, req.body.soal_list ? JSON.stringify(req.body.soal_list) : JSON.stringify([])); res.json({ kode, message: 'Berhasil' }); }));
+app.put('/api/modul/:kode', auth(['admin']), ah(async (req, res) => { await db.prepare('UPDATE modul SET nama=?,nama_internal=?,kelompok=?,soal_list=? WHERE kode=?').run(req.body.nama, (req.body.nama_internal || '').trim() || null, (req.body.kelompok || '').trim() || null, req.body.soal_list ? JSON.stringify(req.body.soal_list) : JSON.stringify([]), req.params.kode); res.json({ message: 'Berhasil' }); }));
 app.delete('/api/modul/:kode', auth(['admin']), ah(async (req, res) => { await transaction(async (tdb) => { await tdb.prepare('DELETE FROM modul WHERE kode=?').run(req.params.kode); await tdb.prepare('DELETE FROM tokens WHERE modul_kode=? AND digunakan=0').run(req.params.kode); }); res.json({ message: 'Berhasil' }); }));
 
 app.get('/api/ebook-kelompok', auth(['admin', 'review', 'user']), ah(async (req, res) => { res.json(await db.prepare('SELECT * FROM ebook_kelompok ORDER BY LOWER(nama)').all()); }));
@@ -916,7 +918,7 @@ app.get('/api/laporan/:kode', auth(['admin','review']), ah(async (req, res) => {
     const soalDetail = [];
     for (const sl of soal_list) {
         const s = await db.prepare('SELECT * FROM soal WHERE kode=?').get(sl.soal_kode);
-        if (s) { let data = null; try { data = JSON.parse(s.data || 'null'); } catch (e) {} soalDetail.push({ ...s, data }); }
+        if (s) { let data = null; try { data = JSON.parse(s.data || 'null'); } catch (e) {} if (req.user.role !== 'admin') delete s.nama_internal; soalDetail.push({ ...s, data }); }
     }
     lap.soal_detail = soalDetail; res.json(lap);
 }));
@@ -969,7 +971,7 @@ app.put('/api/me', auth(['admin','review','user']), ah(async (req, res) => { awa
 app.get('/api/review/users', auth(['review','admin']), ah(async (req, res) => res.json(await db.prepare("SELECT id,kode,nama,email,grub,status FROM users WHERE role='user' ORDER BY id").all())));
 app.get('/api/review/laporan/:user_kode', auth(['review','admin']), ah(async (req, res) => { const rows = await db.prepare('SELECT * FROM laporan WHERE user_kode=? ORDER BY created_at DESC').all(req.params.user_kode); rows.forEach(r => { if (r.jawaban) try { r.jawaban = JSON.parse(r.jawaban); } catch (e) {} }); res.json(rows); }));
 app.get('/api/user/riwayat', auth(['user','admin','review']), ah(async (req, res) => { const rows = await db.prepare('SELECT l.*,m.nama as modul_nama FROM laporan l LEFT JOIN modul m ON l.modul_kode=m.kode WHERE l.user_kode=? ORDER BY l.created_at DESC').all(req.user.kode); rows.forEach(r => { if (r.jawaban) try { r.jawaban = JSON.parse(r.jawaban); } catch (e) {} }); res.json(rows); }));
-app.get('/api/user/riwayat/:kode', auth(['user','admin','review']), ah(async (req, res) => { const lap = await db.prepare('SELECT * FROM laporan WHERE kode=?').get(req.params.kode); if (!lap) return res.status(404).json({ error: 'Laporan tidak ditemukan' }); if (req.user.role === 'user') { if (lap.user_kode !== req.user.kode) return res.status(403).json({ error: 'Forbidden' }); if (!lap.izinkan_review) return res.status(403).json({ error: 'Review untuk kode ini belum diizinkan' }); } if (lap.jawaban) try { lap.jawaban = JSON.parse(lap.jawaban); } catch (e) {} if (lap.urutan_tampil) try { lap.urutan_tampil = JSON.parse(lap.urutan_tampil); } catch (e) { lap.urutan_tampil = null; } const modul = lap.modul_kode ? await db.prepare('SELECT * FROM modul WHERE kode=?').get(lap.modul_kode) : null; let soalDetail = []; if (modul) { let soal_list = []; try { soal_list = JSON.parse(modul.soal_list || '[]'); } catch (e) {} for (const sl of soal_list) { const s = await db.prepare('SELECT * FROM soal WHERE kode=?').get(sl.soal_kode); if (s) { let data = null; try { data = JSON.parse(s.data || 'null'); } catch (e) {} soalDetail.push({...s, data}); } } } res.json({ laporan: lap, modul, soal: soalDetail }); }));
+app.get('/api/user/riwayat/:kode', auth(['user','admin','review']), ah(async (req, res) => { const lap = await db.prepare('SELECT * FROM laporan WHERE kode=?').get(req.params.kode); if (!lap) return res.status(404).json({ error: 'Laporan tidak ditemukan' }); if (req.user.role === 'user') { if (lap.user_kode !== req.user.kode) return res.status(403).json({ error: 'Forbidden' }); if (!lap.izinkan_review) return res.status(403).json({ error: 'Review untuk kode ini belum diizinkan' }); } if (lap.jawaban) try { lap.jawaban = JSON.parse(lap.jawaban); } catch (e) {} if (lap.urutan_tampil) try { lap.urutan_tampil = JSON.parse(lap.urutan_tampil); } catch (e) { lap.urutan_tampil = null; } const modul = lap.modul_kode ? await db.prepare('SELECT * FROM modul WHERE kode=?').get(lap.modul_kode) : null; if (modul) delete modul.nama_internal; let soalDetail = []; if (modul) { let soal_list = []; try { soal_list = JSON.parse(modul.soal_list || '[]'); } catch (e) {} for (const sl of soal_list) { const s = await db.prepare('SELECT * FROM soal WHERE kode=?').get(sl.soal_kode); if (s) { let data = null; try { data = JSON.parse(s.data || 'null'); } catch (e) {} delete s.nama_internal; soalDetail.push({...s, data}); } } } res.json({ laporan: lap, modul, soal: soalDetail }); }));
 app.get('/api/user/jadwal', auth(['user','admin','review']), ah(async (req, res) => { const me = await db.prepare('SELECT grub FROM users WHERE kode=?').get(req.user.kode); const rows = await db.prepare(`SELECT t.kode as token_kode, t.modul_kode, t.aktivasi as waktu_mulai, t.expired as waktu_selesai, t.digunakan, t.digunakan_oleh, m.nama as modul_nama, m.nama as nama FROM tokens t LEFT JOIN modul m ON t.modul_kode = m.kode WHERE t.digunakan_oleh = ? OR (t.grub_token IS NOT NULL AND t.grub_token = ? AND t.digunakan = 0) ORDER BY t.aktivasi DESC NULLS LAST, t.created_at DESC`).all(req.user.kode, me?.grub || null); res.json(rows); }));
 app.put('/api/user/password', auth(['user','admin','review']), ah(async (req, res) => { if (!req.body.password || req.body.password.length < 6) return res.status(400).json({ error: 'Password minimal 6 karakter' }); await db.prepare('UPDATE users SET password=? WHERE kode=?').run(bcrypt.hashSync(req.body.password, 10), req.user.kode); res.json({ message: 'Password berhasil diubah' }); }));
 app.get('/api/user/me', auth(['user','admin','review']), ah(async (req, res) => { const user = await db.prepare('SELECT id,kode,nama,email,grub,status FROM users WHERE kode=?').get(req.user.kode); if (!user) return res.status(404).json({ error: 'User tidak ditemukan' }); if (user.grub) { const g = await db.prepare('SELECT nama FROM grubs WHERE kode=?').get(user.grub); user.grub_nama = g?.nama || user.grub; } res.json(user); }));

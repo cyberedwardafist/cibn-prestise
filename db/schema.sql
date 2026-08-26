@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS soal (
     id            SERIAL PRIMARY KEY,
     kode          TEXT UNIQUE,
     nama          TEXT NOT NULL,
+    nama_internal TEXT,
     type          TEXT NOT NULL,
     skor_type     TEXT,
     opsi_jawaban  INTEGER,
@@ -99,12 +100,13 @@ CREATE TABLE IF NOT EXISTS modul_kelompok (
 );
 
 CREATE TABLE IF NOT EXISTS modul (
-    id         SERIAL PRIMARY KEY,
-    kode       TEXT UNIQUE,
-    nama       TEXT NOT NULL,
-    kelompok   TEXT,
-    soal_list  TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id            SERIAL PRIMARY KEY,
+    kode          TEXT UNIQUE,
+    nama          TEXT NOT NULL,
+    nama_internal TEXT,
+    kelompok      TEXT,
+    soal_list     TEXT,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS ebook_kelompok (
@@ -162,6 +164,14 @@ CREATE TABLE IF NOT EXISTS tokens (
 -- pelanggaran yang ditoleransi. Untuk instalasi lama yang tabel `tokens`-nya sudah
 -- ada dari sebelum kolom ini dibuat — aman dijalankan berkali-kali.
 ALTER TABLE tokens ADD COLUMN IF NOT EXISTS batas_keluar INTEGER;
+
+-- Nama internal (opsional) untuk soal & modul — HANYA ditampilkan di admin
+-- (Library Soal dan saat menyusun Modul), tidak pernah dikirim ke peserta ujian.
+-- Ditampilkan sebagai "nama soal | nama internal soal" di UI admin.
+-- Untuk instalasi lama yang tabelnya sudah ada dari sebelum kolom ini dibuat —
+-- aman dijalankan berkali-kali.
+ALTER TABLE soal  ADD COLUMN IF NOT EXISTS nama_internal TEXT;
+ALTER TABLE modul ADD COLUMN IF NOT EXISTS nama_internal TEXT;
 
 CREATE TABLE IF NOT EXISTS laporan (
     id                SERIAL PRIMARY KEY,
