@@ -5,7 +5,7 @@
 
 // ── SIGNUP REQUESTS ──
 let _signups=[];
-function _signupRowHtml(r,i){return `<tr style="animation:fadeUp 0.2s ${Math.min(i,9)*0.04}s both"><td>${i+1}</td><td><strong>${r.nama}</strong></td><td>${r.email}</td><td class="hide-mobile">${r.paket_nama?`<span class="badge badge-aktif" style="font-size:10px">${r.paket_nama}</span>`:'<span style="color:#94a3b8;font-size:11px">-</span>'}</td><td style="font-size:11px">${formatDateTime(r.created_at)}</td><td><div style="display:flex;gap:6px"><button class="btn btn-primary btn-sm" onclick="approveSignup(${r.id})">✓ Aktivasi</button><button class="btn btn-danger btn-sm" onclick="rejectSignup(${r.id})">✗ Tolak</button></div></td></tr>`;}
+function _signupRowHtml(r,i){return `<tr><td>${i+1}</td><td><strong>${r.nama}</strong></td><td>${r.email}</td><td class="hide-mobile">${r.paket_nama?`<span class="badge badge-aktif" style="font-size:10px">${r.paket_nama}</span>`:'<span style="color:#94a3b8;font-size:11px">-</span>'}</td><td style="font-size:11px">${formatDateTime(r.created_at)}</td><td><div style="display:flex;gap:6px"><button class="btn btn-primary btn-sm" onclick="approveSignup(${r.id})">✓ Aktivasi</button><button class="btn btn-danger btn-sm" onclick="rejectSignup(${r.id})">✗ Tolak</button></div></td></tr>`;}
 function _signupCardHtml(r){return SwipeCards.buildSwipeCardHtml({
     title:r.nama,sub:r.email+(r.paket_nama?` · ${r.paket_nama}`:''),
     leftActions:[{icon:'check',label:'Aktivasi',cls:'act-primary',onClick:`approveSignup(${r.id})`}],
