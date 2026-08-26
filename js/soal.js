@@ -810,6 +810,23 @@ function _resolveOoxmlPath(basePath, target) {
     return baseDir.join('/');
 }
 
+// Ambil elemen berdasarkan nama LOKAL saja (abaikan prefix namespace seperti "xdr:"/"a:").
+// getElementsByTagName biasa gagal total kalau qualified name-nya beda persis dengan yang
+// dicari (mis. cari "oneCellAnchor" tapi elemennya "xdr:oneCellAnchor" -> 0 hasil), padahal
+// hampir semua file .xlsx (baik dari Excel maupun hasil export kita sendiri) selalu pakai
+// prefix "xdr:"/"a:" untuk elemen drawing. Dengan local-name matching ini aman dari prefix apa pun.
+function _byLocalNameSoal(root, localName) {
+    const all = root.getElementsByTagName('*');
+    const out = [];
+    for (let i = 0; i < all.length; i++) {
+        const el = all[i];
+        const tag = el.tagName || el.nodeName || '';
+        const local = tag.includes(':') ? tag.split(':').pop() : tag;
+        if (local === localName) out.push(el);
+    }
+    return out;
+}
+
 // Membongkar gambar (drawing) di sheet "Soal" dari file .xlsx mentah (via JSZip),
 // lalu memetakannya ke { [rowIndex0Based]: { [colIndex0Based]: dataUrl } }.
 // rowIndex mengikuti indeks baris mentah sheet (0 = header), sama seperti indeks
@@ -866,15 +883,15 @@ async function _extractSoalImageMap(arrayBuffer) {
 
         const map = {};
         const anchors = [
-            ...Array.from(drawingXml.getElementsByTagName('oneCellAnchor')),
-            ...Array.from(drawingXml.getElementsByTagName('twoCellAnchor')),
+            ..._byLocalNameSoal(drawingXml, 'oneCellAnchor'),
+            ..._byLocalNameSoal(drawingXml, 'twoCellAnchor'),
         ];
         for (const anchor of anchors) {
-            const from = anchor.getElementsByTagName('from')[0];
+            const from = _byLocalNameSoal(anchor, 'from')[0];
             if (!from) continue;
-            const col = parseInt(from.getElementsByTagName('col')[0]?.textContent || '0', 10);
-            const row = parseInt(from.getElementsByTagName('row')[0]?.textContent || '0', 10);
-            const blip = anchor.getElementsByTagName('a:blip')[0];
+            const col = parseInt(_byLocalNameSoal(from, 'col')[0]?.textContent || '0', 10);
+            const row = parseInt(_byLocalNameSoal(from, 'row')[0]?.textContent || '0', 10);
+            const blip = _byLocalNameSoal(anchor, 'blip')[0];
             const embedId = blip?.getAttribute('r:embed');
             if (!embedId) continue;
             const mediaRel = drawingRelMap[embedId];
