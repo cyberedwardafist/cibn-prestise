@@ -531,7 +531,8 @@ let st={
   examData:null,flat:[],jawaban:{},flagged:new Set(),
   curIdx:0,timerInterval:null, groupStats: {}, activeKode:null,
   leaveCount:0,maxLeave:3,antiCheatLeaveEnabled:true,orient:'vertical',
-  startTime:null,skTimerInterval:null,skTimerSec:0
+  startTime:null,skTimerInterval:null,skTimerSec:0,
+  modeBebas:false,mainTimer:{sec:0,deadline:null}
 };
 let _skItem=null,_skKolom=0,_skQ=0;
 let _pendingNextIdx=null;
@@ -596,6 +597,17 @@ window.addEventListener('DOMContentLoaded', async () => {
     
     buildFlat(); 
 
+    // Mode Bebas Pindah Soal: modul memakai 1 timer utama (bukan timer per-soal)
+    // dan peserta boleh pindah antar bagian soal bebas sampai waktu habis.
+    // Hanya berlaku jika seluruh soal di modul ber-tipe multiple_choice (dijaga
+    // di sisi admin & server saat modul disimpan).
+    st.modeBebas = !!(st.examData.modul && st.examData.modul.mode_bebas);
+    if (st.modeBebas) {
+      const m = st.examData.modul;
+      const totalSec = ((m.timer_utama_jam || 0) * 3600) + ((m.timer_utama_menit || 0) * 60) + (m.timer_utama_detik || 0);
+      st.mainTimer = { sec: totalSec > 0 ? totalSec : 1800, deadline: null };
+    }
+
     // --- PROSES PEMULIHAN DATA (RESTORE) ---
     const token = st.examData.token.kode;
 
@@ -633,6 +645,18 @@ window.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
+
+    // 2b. Pulihkan Timer Utama Modul (khusus modul Mode Bebas Pindah Soal)
+    if (st.modeBebas) {
+        const savedMain = localStorage.getItem('cbn_maintimer_' + token);
+        if (savedMain) {
+            try {
+                const pm = JSON.parse(savedMain);
+                if (pm.sec != null) st.mainTimer.sec = pm.sec;
+                if (pm.deadline) st.mainTimer.deadline = pm.deadline;
+            } catch(e) {}
+        }
+    }
     
     // Tambahkan pemulihan untuk posisi Sikap Kerja
     const savedSKKolom = localStorage.getItem('cbn_sk_kolom_' + token);
@@ -656,7 +680,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    document.getElementById('hdr-modul').textContent = st.examData.modul?.nama || 'Ujian';
+    document.getElementById('hdr-modul').textContent = (st.examData.modul?.nama || 'Ujian') + (st.modeBebas ? ' · Mode Bebas' : '');
     document.getElementById('loading-screen').classList.remove('active');
     document.getElementById('app').style.display = 'flex';
     initAntiCheat();
@@ -791,6 +815,7 @@ function isLastInSet(idx){
 }
 
 function isCrossingSoalSet(curIdx,nextIdx){
+  if(st.modeBebas)return false; // Mode Bebas: bebas pindah antar bagian soal
   if(nextIdx>=st.flat.length||nextIdx<0)return false;
   return st.flat[curIdx]?.soalKode!==st.flat[nextIdx]?.soalKode;
 }
@@ -1227,11 +1252,40 @@ function tickGroupTimer(){
   }
 }
 
+// Timer utama modul (Mode Bebas Pindah Soal) — 1 timer tunggal untuk seluruh
+// modul, tidak per-bagian. Sama seperti timer per-bagian, dihitung dari
+// `deadline` (jam dinding) supaya tetap akurat walau tab ditutup/diminimize.
+function activateMainDeadline(){
+  if(st.mainTimer.deadline == null){
+    st.mainTimer.deadline = Date.now() + Math.max(0, st.mainTimer.sec) * 1000;
+    localStorage.setItem('cbn_maintimer_' + st.examData.token.kode, JSON.stringify(st.mainTimer));
+  }
+}
+
+function tickMainTimer(){
+  activateMainDeadline();
+  const remaining = Math.max(0, Math.round((st.mainTimer.deadline - Date.now()) / 1000));
+  st.mainTimer.sec = remaining;
+  localStorage.setItem('cbn_maintimer_' + st.examData.token.kode, JSON.stringify(st.mainTimer));
+
+  if(remaining <= 0){
+    showToast('Waktu ujian habis!','warning');
+    doSelesai();
+  } else {
+    updateTimerDisplay();
+  }
+}
+
 function startGroupTimer(){
   clearInterval(st.timerInterval);
-  tickGroupTimer(); // hitung & tampilkan sisa waktu yg sebenarnya SEKARANG JUGA
-                     // (menangkap kasus waktu sudah habis saat peserta pergi lama)
-  st.timerInterval=setInterval(tickGroupTimer,1000);
+  if(st.modeBebas){
+    tickMainTimer();
+    st.timerInterval=setInterval(tickMainTimer,1000);
+  } else {
+    tickGroupTimer(); // hitung & tampilkan sisa waktu yg sebenarnya SEKARANG JUGA
+                       // (menangkap kasus waktu sudah habis saat peserta pergi lama)
+    st.timerInterval=setInterval(tickGroupTimer,1000);
+  }
 }
 
 function forceNextGroup(oldKode) {
@@ -1250,9 +1304,14 @@ function forceNextGroup(oldKode) {
 }
 
 function updateTimerDisplay(){
-  const cur = st.flat[st.curIdx];
-  if(!cur || cur.type === 'sikap_kerja') return;
-  const s = st.groupStats[cur.soalKode].sec;
+  let s;
+  if(st.modeBebas){
+    s = st.mainTimer.sec;
+  } else {
+    const cur = st.flat[st.curIdx];
+    if(!cur || cur.type === 'sikap_kerja') return;
+    s = st.groupStats[cur.soalKode].sec;
+  }
 
   const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;
   const str=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
@@ -1265,7 +1324,11 @@ function updateTimerDisplay(){
 /* ──────── NAV GRID ──────── */
 function renderNavGrid(){
   const curKode = st.flat[st.curIdx]?.soalKode;
-  const mcIt=st.flat.filter(f=>f.type!=='sikap_kerja' && f.soalKode === curKode);
+  // Mode Bebas: tampilkan SEMUA soal di seluruh modul (bukan hanya bagian
+  // aktif) supaya peserta bisa lompat ke bagian manapun.
+  const mcIt = st.modeBebas
+    ? st.flat.filter(f=>f.type!=='sikap_kerja')
+    : st.flat.filter(f=>f.type!=='sikap_kerja' && f.soalKode === curKode);
   
   const html=mcIt.map((item, idx)=>{
     const fi=st.flat.indexOf(item),key=`${item.soalKode}_${item.qIdx}`;

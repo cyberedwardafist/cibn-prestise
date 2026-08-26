@@ -36,6 +36,7 @@ async function kirimHasilUjian(token, payload, attempt=1){
     localStorage.removeItem('cbn_progress_jawaban_' + token);
     localStorage.removeItem('cbn_progress_idx_' + token);
     localStorage.removeItem('cbn_timers_' + token);
+    localStorage.removeItem('cbn_maintimer_' + token);
     localStorage.removeItem('cbn_sk_timer_' + token);
     localStorage.removeItem('cbn_pending_submit_' + token);
     localStorage.removeItem('cbn_leavecount_' + token);

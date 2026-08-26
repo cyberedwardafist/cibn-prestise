@@ -100,13 +100,17 @@ CREATE TABLE IF NOT EXISTS modul_kelompok (
 );
 
 CREATE TABLE IF NOT EXISTS modul (
-    id            SERIAL PRIMARY KEY,
-    kode          TEXT UNIQUE,
-    nama          TEXT NOT NULL,
-    nama_internal TEXT,
-    kelompok      TEXT,
-    soal_list     TEXT,
-    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id                SERIAL PRIMARY KEY,
+    kode              TEXT UNIQUE,
+    nama              TEXT NOT NULL,
+    nama_internal     TEXT,
+    kelompok          TEXT,
+    soal_list         TEXT,
+    mode_bebas        SMALLINT DEFAULT 0,
+    timer_utama_jam   INTEGER DEFAULT 0,
+    timer_utama_menit INTEGER DEFAULT 0,
+    timer_utama_detik INTEGER DEFAULT 0,
+    created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS ebook_kelompok (
@@ -172,6 +176,17 @@ ALTER TABLE tokens ADD COLUMN IF NOT EXISTS batas_keluar INTEGER;
 -- aman dijalankan berkali-kali.
 ALTER TABLE soal  ADD COLUMN IF NOT EXISTS nama_internal TEXT;
 ALTER TABLE modul ADD COLUMN IF NOT EXISTS nama_internal TEXT;
+
+-- Mode Bebas Pindah Soal (khusus modul yang SELURUH soalnya ber-tipe
+-- multiple_choice): mengganti timer per-soal dengan 1 timer utama untuk
+-- seluruh modul, dan mengizinkan peserta pindah antar bagian soal secara
+-- bebas (bukan berurutan) sampai waktu utama habis.
+-- Untuk instalasi lama yang tabelnya sudah ada dari sebelum kolom ini dibuat —
+-- aman dijalankan berkali-kali.
+ALTER TABLE modul ADD COLUMN IF NOT EXISTS mode_bebas        SMALLINT DEFAULT 0;
+ALTER TABLE modul ADD COLUMN IF NOT EXISTS timer_utama_jam   INTEGER DEFAULT 0;
+ALTER TABLE modul ADD COLUMN IF NOT EXISTS timer_utama_menit INTEGER DEFAULT 0;
+ALTER TABLE modul ADD COLUMN IF NOT EXISTS timer_utama_detik INTEGER DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS laporan (
     id                SERIAL PRIMARY KEY,

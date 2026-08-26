@@ -720,8 +720,44 @@ app.put('/api/modul-kelompok/:kode', auth(['admin']), ah(async (req, res) => { a
 app.delete('/api/modul-kelompok/:kode', auth(['admin']), ah(async (req, res) => { await transaction(async (tdb) => { await tdb.prepare('DELETE FROM modul_kelompok WHERE kode=?').run(req.params.kode); await tdb.prepare('UPDATE modul SET kelompok=NULL WHERE kelompok=?').run(req.params.kode); }); res.json({ message: 'Berhasil' }); }));
 
 app.get('/api/modul', auth(['admin','review']), ah(async (req, res) => { const rows = await db.prepare('SELECT * FROM modul ORDER BY id').all(); rows.forEach(r => { if (r.soal_list) try { r.soal_list = JSON.parse(r.soal_list); } catch (e) { r.soal_list = []; } if (req.user.role !== 'admin') delete r.nama_internal; }); res.json(rows); }));
-app.post('/api/modul', auth(['admin']), ah(async (req, res) => { const kode = await genKode('MOD', 'modul'); await db.prepare('INSERT INTO modul (kode,nama,nama_internal,kelompok,soal_list) VALUES (?,?,?,?,?)').run(kode, req.body.nama, (req.body.nama_internal || '').trim() || null, (req.body.kelompok || '').trim() || null, req.body.soal_list ? JSON.stringify(req.body.soal_list) : JSON.stringify([])); res.json({ kode, message: 'Berhasil' }); }));
-app.put('/api/modul/:kode', auth(['admin']), ah(async (req, res) => { await db.prepare('UPDATE modul SET nama=?,nama_internal=?,kelompok=?,soal_list=? WHERE kode=?').run(req.body.nama, (req.body.nama_internal || '').trim() || null, (req.body.kelompok || '').trim() || null, req.body.soal_list ? JSON.stringify(req.body.soal_list) : JSON.stringify([]), req.params.kode); res.json({ message: 'Berhasil' }); }));
+// Mode Bebas Pindah Soal hanya boleh aktif kalau SELURUH soal di modul
+// ber-tipe multiple_choice (tidak ada linier/sikap_kerja) — dicek ulang di
+// server supaya tidak bisa dilewati walau validasi di admin (frontend) entah
+// bagaimana terlewat/di-bypass.
+async function assertModeBebasValid(modeBebas, soalList) {
+    if (!modeBebas) return;
+    if (!Array.isArray(soalList) || !soalList.length) {
+        throw Object.assign(new Error('Mode Bebas butuh minimal 1 soal'), { status: 400 });
+    }
+    for (const sl of soalList) {
+        const s = await db.prepare('SELECT type FROM soal WHERE kode=?').get(sl.soal_kode);
+        if (!s || s.type !== 'multiple_choice') {
+            throw Object.assign(new Error('Mode Bebas Pindah Soal hanya bisa diaktifkan jika semua soal di modul bertipe Multiple Choice'), { status: 400 });
+        }
+    }
+}
+
+app.post('/api/modul', auth(['admin']), ah(async (req, res) => {
+    const soal_list = req.body.soal_list || [];
+    const mode_bebas = req.body.mode_bebas ? 1 : 0;
+    try { await assertModeBebasValid(mode_bebas, soal_list); }
+    catch (e) { return res.status(e.status || 400).json({ error: e.message }); }
+    const kode = await genKode('MOD', 'modul');
+    await db.prepare('INSERT INTO modul (kode,nama,nama_internal,kelompok,soal_list,mode_bebas,timer_utama_jam,timer_utama_menit,timer_utama_detik) VALUES (?,?,?,?,?,?,?,?,?)')
+        .run(kode, req.body.nama, (req.body.nama_internal || '').trim() || null, (req.body.kelompok || '').trim() || null,
+             JSON.stringify(soal_list), mode_bebas, req.body.timer_utama_jam || 0, req.body.timer_utama_menit || 0, req.body.timer_utama_detik || 0);
+    res.json({ kode, message: 'Berhasil' });
+}));
+app.put('/api/modul/:kode', auth(['admin']), ah(async (req, res) => {
+    const soal_list = req.body.soal_list || [];
+    const mode_bebas = req.body.mode_bebas ? 1 : 0;
+    try { await assertModeBebasValid(mode_bebas, soal_list); }
+    catch (e) { return res.status(e.status || 400).json({ error: e.message }); }
+    await db.prepare('UPDATE modul SET nama=?,nama_internal=?,kelompok=?,soal_list=?,mode_bebas=?,timer_utama_jam=?,timer_utama_menit=?,timer_utama_detik=? WHERE kode=?')
+        .run(req.body.nama, (req.body.nama_internal || '').trim() || null, (req.body.kelompok || '').trim() || null,
+             JSON.stringify(soal_list), mode_bebas, req.body.timer_utama_jam || 0, req.body.timer_utama_menit || 0, req.body.timer_utama_detik || 0, req.params.kode);
+    res.json({ message: 'Berhasil' });
+}));
 app.delete('/api/modul/:kode', auth(['admin']), ah(async (req, res) => { await transaction(async (tdb) => { await tdb.prepare('DELETE FROM modul WHERE kode=?').run(req.params.kode); await tdb.prepare('DELETE FROM tokens WHERE modul_kode=? AND digunakan=0').run(req.params.kode); }); res.json({ message: 'Berhasil' }); }));
 
 app.get('/api/ebook-kelompok', auth(['admin', 'review', 'user']), ah(async (req, res) => { res.json(await db.prepare('SELECT * FROM ebook_kelompok ORDER BY LOWER(nama)').all()); }));
@@ -936,7 +972,7 @@ app.post('/api/exam/validate-token', auth(['user','admin','review']), ah(async (
     if (!modul) return res.status(404).json({ error: 'Modul tidak ditemukan' });
     const soalDetail = await buildSoalDetail(modul);
     if (!soalDetail.length) return res.status(400).json({ error: 'Modul tidak memiliki soal' });
-    res.json({ token: { kode: token.kode, aktivasi: token.aktivasi, expired: token.expired, batas_keluar: token.batas_keluar }, modul: { kode: modul.kode, nama: modul.nama }, soal: soalDetail });
+    res.json({ token: { kode: token.kode, aktivasi: token.aktivasi, expired: token.expired, batas_keluar: token.batas_keluar }, modul: { kode: modul.kode, nama: modul.nama, mode_bebas: !!modul.mode_bebas, timer_utama_jam: modul.timer_utama_jam || 0, timer_utama_menit: modul.timer_utama_menit || 0, timer_utama_detik: modul.timer_utama_detik || 0 }, soal: soalDetail });
 }));
 
 app.post('/api/exam/submit', auth(['user','admin','review']), ah(async (req, res) => {

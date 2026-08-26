@@ -19,10 +19,10 @@ function _renderModulKelompokFilters(){
     const options=[{value:'all',label:'Semua Kelompok'},{value:'none',label:'Tanpa Kelompok'},..._modulKelompokList.map(k=>({value:k.kode,label:k.nama}))];
     renderFilterDropdown('modul-kelompok-filters',{options,current:_modulKelompokFilter,title:'Kelompok',onSelect:v=>{_modulKelompokFilter=v;_renderModulKelompokFilters();_renderModulList();}});
 }
-function _modulCardHtml(m,i){const kelNama=_modulKelompokNama(m.kelompok);const namaTampil=m.nama_internal?`${m.nama} <span style="font-weight:400;color:var(--text-sub)">| ${m.nama_internal}</span>`:m.nama;return `<div class="modul-card" style="animation:fadeUp 0.25s ${Math.min(i,9)*0.05}s both"><div class="modul-card-left"><div class="modul-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div><div><div style="font-weight:700;font-size:14px;color:var(--blue)">${namaTampil}</div><div style="font-size:11px;color:var(--text-sub);display:flex;gap:6px;flex-wrap:wrap;align-items:center">${(m.soal_list||[]).length} soal · ${m.kode||m.id}${kelNama?` · <span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue)">${kelNama}</span>`:''}</div></div></div><div style="display:flex;gap:8px"><button class="btn-icon" onclick="openEditModul('${m.kode||m.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon danger" onclick="deleteModulItem('${m.kode||m.id}','${m.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div>`;}
+function _modulCardHtml(m,i){const kelNama=_modulKelompokNama(m.kelompok);const namaTampil=m.nama_internal?`${m.nama} <span style="font-weight:400;color:var(--text-sub)">| ${m.nama_internal}</span>`:m.nama;return `<div class="modul-card" style="animation:fadeUp 0.25s ${Math.min(i,9)*0.05}s both"><div class="modul-card-left"><div class="modul-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div><div><div style="font-weight:700;font-size:14px;color:var(--blue)">${namaTampil}</div><div style="font-size:11px;color:var(--text-sub);display:flex;gap:6px;flex-wrap:wrap;align-items:center">${(m.soal_list||[]).length} soal · ${m.kode||m.id}${kelNama?` · <span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue)">${kelNama}</span>`:''}${m.mode_bebas?` · <span class="badge" style="background:rgba(217,119,6,0.1);color:#d97706">⚡ Mode Bebas</span>`:''}</div></div></div><div style="display:flex;gap:8px"><button class="btn-icon" onclick="openEditModul('${m.kode||m.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon danger" onclick="deleteModulItem('${m.kode||m.id}','${m.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div>`;}
 function _modulSwipeCardHtml(m){return SwipeCards.buildSwipeCardHtml({
     title:m.nama_internal?`${m.nama} | ${m.nama_internal}`:m.nama,
-    sub:(m.soal_list||[]).length+' soal'+(_modulKelompokNama(m.kelompok)?' · '+_modulKelompokNama(m.kelompok):'')+' · '+(m.kode||m.id),
+    sub:(m.soal_list||[]).length+' soal'+(_modulKelompokNama(m.kelompok)?' · '+_modulKelompokNama(m.kelompok):'')+(m.mode_bebas?' · ⚡ Mode Bebas':'')+' · '+(m.kode||m.id),
     leftActions:[{icon:'edit',label:'Edit',cls:'act-edit',onClick:`openEditModul('${m.kode||m.id}')`}],
     rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`deleteModulItem('${m.kode||m.id}','${(m.nama||'').replace(/'/g,"\\'")}')`}]
 });}
@@ -53,7 +53,42 @@ function _populateModulKelompokSelect(selected){
 // Tahap 2 "order": hanya menampilkan soal yang sudah dipilih, tinggal diseret naik/turun
 // (atau pakai tombol panah) untuk menentukan urutan tampil, baru "Simpan Modul".
 let _modulPickerStep='select',_modulPickerSearch='',_modulPickerType='all',_modulPickerKelompokFilter='all';
-let _modulOrder=[],_modulOpts={},_modulDragFrom=null;
+let _modulOrder=[],_modulOpts={},_modulDragFrom=null,_modulModeBebas=false;
+
+// ── MODE BEBAS PINDAH SOAL ── (hanya untuk modul yang seluruh soalnya multiple_choice)
+function _modulAllMultipleChoice(){
+    return _modulOrder.length>0 && _modulOrder.every(kode=>{
+        const s=_soalForModul.find(x=>(x.kode||x.id)===kode);
+        return s && s.type==='multiple_choice';
+    });
+}
+function _modulSyncModeBebasUI(){
+    const toggle=document.getElementById('modul-modebebas-toggle');
+    if(!toggle)return;
+    const wrap=document.getElementById('modul-timerutama-wrap');
+    const hint=document.getElementById('modul-modebebas-hint');
+    const eligible=_modulAllMultipleChoice();
+    if(!eligible && _modulModeBebas){
+        _modulModeBebas=false;
+        showToast('Mode Bebas dimatikan otomatis: ada soal yang bukan Multiple Choice di modul ini','danger');
+    }
+    toggle.checked=_modulModeBebas;
+    toggle.disabled=!eligible;
+    if(wrap)wrap.style.display=_modulModeBebas?'block':'none';
+    if(hint)hint.textContent=eligible
+        ?'Timer per-soal diganti 1 timer utama modul; peserta boleh pindah antar bagian soal bebas sampai waktu habis. Hanya untuk modul yang seluruh soalnya bertipe Multiple Choice.'
+        :'Nonaktif: semua soal di modul ini harus bertipe Multiple Choice supaya Mode Bebas bisa diaktifkan.';
+}
+function onToggleModulModeBebas(checked){
+    if(checked && !_modulAllMultipleChoice()){
+        showToast('Mode Bebas hanya bisa diaktifkan jika semua soal di modul bertipe Multiple Choice','danger');
+        const toggle=document.getElementById('modul-modebebas-toggle');if(toggle)toggle.checked=false;
+        return;
+    }
+    _modulModeBebas=checked;
+    const wrap=document.getElementById('modul-timerutama-wrap');if(wrap)wrap.style.display=checked?'block':'none';
+    setDirty('modul');
+}
 
 function _modulResetPickerState(existing=[]){
     _modulOrder=[];_modulOpts={};
@@ -72,11 +107,12 @@ function _modulInitPickerUI(){
     const nb=document.getElementById('modul-next-btn');if(nb)nb.style.display='';
     const bb=document.getElementById('modul-back-btn');if(bb)bb.style.display='none';
     const sv=document.getElementById('modul-save-btn');if(sv)sv.style.display='none';
+    const mb=document.getElementById('modul-modebebas-block');if(mb)mb.style.display='none';
     _renderModulPickerFilters();
     _renderModulSoalPickerList();
 }
-function openAddModul(){document.getElementById('modul-form-mode').value='add';document.getElementById('modul-form-id').value='';document.getElementById('modul-form-title').textContent='Buat Modul Baru';document.getElementById('modul-nama-input').value='';document.getElementById('modul-nama-internal-input').value='';document.getElementById('modul-nilai-min-input').value=60;_populateModulKelompokSelect('');_modulResetPickerState([]);_modulInitPickerUI();openModal('modul-form-overlay');}
-function openEditModul(kode){const m=_modulData.find(x=>(x.kode||x.id)==kode);if(!m)return;document.getElementById('modul-form-mode').value='edit';document.getElementById('modul-form-id').value=kode;document.getElementById('modul-form-title').textContent='Edit Modul';document.getElementById('modul-nama-input').value=m.nama;document.getElementById('modul-nama-internal-input').value=m.nama_internal||'';_populateModulKelompokSelect(m.kelompok||'');_modulResetPickerState(m.soal_list||[]);_modulInitPickerUI();openModal('modul-form-overlay');}
+function openAddModul(){document.getElementById('modul-form-mode').value='add';document.getElementById('modul-form-id').value='';document.getElementById('modul-form-title').textContent='Buat Modul Baru';document.getElementById('modul-nama-input').value='';document.getElementById('modul-nama-internal-input').value='';document.getElementById('modul-nilai-min-input').value=60;_modulModeBebas=false;document.getElementById('modul-timer-jam').value=0;document.getElementById('modul-timer-menit').value=60;document.getElementById('modul-timer-detik').value=0;_populateModulKelompokSelect('');_modulResetPickerState([]);_modulInitPickerUI();openModal('modul-form-overlay');}
+function openEditModul(kode){const m=_modulData.find(x=>(x.kode||x.id)==kode);if(!m)return;document.getElementById('modul-form-mode').value='edit';document.getElementById('modul-form-id').value=kode;document.getElementById('modul-form-title').textContent='Edit Modul';document.getElementById('modul-nama-input').value=m.nama;document.getElementById('modul-nama-internal-input').value=m.nama_internal||'';_modulModeBebas=!!m.mode_bebas;document.getElementById('modul-timer-jam').value=m.timer_utama_jam||0;document.getElementById('modul-timer-menit').value=m.timer_utama_menit||0;document.getElementById('modul-timer-detik').value=m.timer_utama_detik||0;_populateModulKelompokSelect(m.kelompok||'');_modulResetPickerState(m.soal_list||[]);_modulInitPickerUI();openModal('modul-form-overlay');}
 
 // -- Tahap 1: daftar soal dgn search + filter tipe/kelompok (dipakai ulang dari Library) --
 function _renderModulPickerFilters(){
@@ -127,7 +163,9 @@ function _modulGoToOrderStep(){
     document.getElementById('modul-next-btn').style.display='none';
     document.getElementById('modul-back-btn').style.display='';
     document.getElementById('modul-save-btn').style.display='';
+    const mb=document.getElementById('modul-modebebas-block');if(mb)mb.style.display='block';
     _renderModulOrderList();
+    _modulSyncModeBebasUI();
 }
 function _modulGoToSelectStep(){_modulInitPickerUI();}
 function _renderModulOrderList(){
@@ -159,7 +197,7 @@ function _modulMove(kode,dir){
     [_modulOrder[idx],_modulOrder[ni]]=[_modulOrder[ni],_modulOrder[idx]];
     _renderModulOrderList();
 }
-function _modulRemoveSelected(kode){_modulOrder=_modulOrder.filter(k=>k!==kode);_renderModulOrderList();}
+function _modulRemoveSelected(kode){_modulOrder=_modulOrder.filter(k=>k!==kode);_renderModulOrderList();_modulSyncModeBebasUI();}
 function _modulDragStart(e,kode){_modulDragFrom=kode;e.dataTransfer.effectAllowed='move';}
 function _modulDrop(e,kode){
     if(_modulDragFrom===null||_modulDragFrom===kode){_modulDragFrom=null;return;}
@@ -177,8 +215,15 @@ async function submitModulForm(){
     const nama_internal=document.getElementById('modul-nama-internal-input')?.value?.trim()||'';
     const kelompok=document.getElementById('modul-kelompok-select')?.value||'';
     if(!_modulOrder.length){showToast('Pilih minimal 1 soal','danger');return;}
+    if(_modulModeBebas && !_modulAllMultipleChoice()){showToast('Mode Bebas hanya bisa diaktifkan jika semua soal di modul bertipe Multiple Choice','danger');return;}
+    const mode_bebas=_modulModeBebas?1:0;
+    const timer_utama_jam=parseInt(document.getElementById('modul-timer-jam')?.value)||0;
+    const timer_utama_menit=parseInt(document.getElementById('modul-timer-menit')?.value)||0;
+    const timer_utama_detik=parseInt(document.getElementById('modul-timer-detik')?.value)||0;
+    if(mode_bebas && (timer_utama_jam+timer_utama_menit+timer_utama_detik)<=0){showToast('Isi durasi Timer Utama Modul untuk Mode Bebas','danger');return;}
     const soal_list=_modulOrder.map(sk=>{const o=_modulOpts[sk]||{};return{soal_kode:sk,acak_soal:!!o.acak_soal,acak_jawaban:!!o.acak_jawaban,persen:o.persen||100};});
-    try{if(mode==='add')await ModulAPI.create({nama,nama_internal,kelompok,soal_list});else await ModulAPI.update(kode,{nama,nama_internal,kelompok,soal_list});clearDirty();closeModal('modul-form-overlay');showToast('Modul disimpan!','success');await renderModul();}catch(e){showToast('Gagal: '+e.message,'danger');}
+    const payload={nama,nama_internal,kelompok,soal_list,mode_bebas,timer_utama_jam,timer_utama_menit,timer_utama_detik};
+    try{if(mode==='add')await ModulAPI.create(payload);else await ModulAPI.update(kode,payload);clearDirty();closeModal('modul-form-overlay');showToast('Modul disimpan!','success');await renderModul();}catch(e){showToast('Gagal: '+e.message,'danger');}
 }
 function deleteModulItem(kode,nama){showConfirm('Hapus Modul',`Yakin hapus "${nama}"?`,'danger',async()=>{await ModulAPI.delete(kode);showToast('Modul dihapus','danger');await renderModul();});}
 
