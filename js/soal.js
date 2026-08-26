@@ -1020,6 +1020,219 @@ function _htmlToPlainSoal(html) {
     return (div.textContent || div.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+// ── Embed gambar ASLI ke .xlsx hasil export (kebalikan dari _extractSoalImageMap
+// yang dipakai saat import). _htmlToPlainSoal() di atas buang tag <img> waktu convert
+// ke plain text, jadi gambar di soal/opsi/pembahasan perlu ditempel manual di sini
+// sebagai drawing OOXML supaya benar-benar tampil di Excel, bukan cuma hilang. ──
+
+// Ambil semua src <img> dari sebuah string HTML.
+function _extractImgSrcs(html) {
+    if (!html) return [];
+    const div = document.createElement('div');
+    div.innerHTML = String(html);
+    return Array.from(div.querySelectorAll('img')).map(img => img.getAttribute('src')).filter(Boolean);
+}
+
+function _soalAbsSrc(src) {
+    if (!src) return src;
+    if (src.startsWith('http') || src.startsWith('data:')) return src;
+    try { return new URL(src, window.location.href).href; } catch (e) { return src; }
+}
+
+// Ambil bytes sebuah gambar (base64 + ekstensi) dari data URI atau URL/path server.
+async function _fetchImageBytesSoal(src) {
+    try {
+        if (src.startsWith('data:')) {
+            const m = /^data:image\/(\w+);base64,(.+)$/.exec(src);
+            if (!m) return null;
+            return { base64: m[2], ext: m[1] === 'jpg' ? 'jpeg' : m[1] };
+        }
+        const resp = await fetch(_soalAbsSrc(src));
+        if (!resp.ok) return null;
+        const blob = await resp.blob();
+        let ext = (blob.type.split('/')[1] || 'jpeg').toLowerCase();
+        if (ext === 'jpg') ext = 'jpeg';
+        if (!['png', 'jpeg', 'gif', 'bmp'].includes(ext)) ext = 'jpeg';
+        const base64 = await new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(String(r.result).split(',')[1] || '');
+            r.onerror = rej;
+            r.readAsDataURL(blob);
+        });
+        return { base64, ext };
+    } catch (err) {
+        console.warn('Gagal ambil gambar untuk export:', src, err);
+        return null;
+    }
+}
+
+// Kumpulkan posisi { row, col, srcs } gambar yang perlu ditempel, dengan row/col
+// 0-based mengikuti indeks baris/kolom mentah sheet (0 = header) — sama persis dengan
+// konvensi yang dipakai _extractSoalImageMap saat baca balik file ini via import.
+function _collectSoalImagePositions(s) {
+    const type = s.type || 'multiple_choice';
+    const skorType = s.skor_type || 'benar_salah';
+    const data = s.data || [];
+    const positions = [];
+
+    if (type === 'sikap_kerja') {
+        data.forEach((k, i) => {
+            const items = k.items || [];
+            [0, 1, 2, 3, 4].forEach(j => {
+                const v = items[j]?.nilai || '';
+                if (v && (v.startsWith('data:') || v.startsWith('/') || v.startsWith('http'))) {
+                    positions.push({ row: i + 1, col: j + 1, srcs: [v] });
+                }
+            });
+        });
+    } else {
+        const pembahasanCol = skorType === 'nilai_sendiri' ? 12 : 8;
+        data.forEach((q, idx) => {
+            const row = idx + 1;
+            const soalSrcs = _extractImgSrcs(q.soal);
+            if (soalSrcs.length) positions.push({ row, col: 1, srcs: soalSrcs });
+
+            const jawaban = q.jawaban || [];
+            for (let k = 0; k < 5; k++) {
+                const j = jawaban[k];
+                if (!j) continue;
+                const optSrcs = _extractImgSrcs(j.teks);
+                if (optSrcs.length) {
+                    const col = skorType === 'nilai_sendiri' ? 2 + k * 2 : 2 + k;
+                    positions.push({ row, col, srcs: optSrcs });
+                }
+            }
+            const pmSrcs = _extractImgSrcs(q.pembahasan);
+            if (pmSrcs.length) positions.push({ row, col: pembahasanCol, srcs: pmSrcs });
+        });
+    }
+    return positions;
+}
+
+// Suntik gambar sebagai drawing OOXML ke dalam file .xlsx yang sudah jadi (arrayBuffer
+// hasil XLSX.write). sheetName = nama sheet yang berisi data soal ('Soal' atau 'Kolom').
+async function _embedImagesIntoXlsx(arrayBuffer, sheetName, positions) {
+    if (!positions.length) return arrayBuffer;
+    if (typeof JSZip === 'undefined') { console.warn('JSZip tidak tersedia, gambar tidak bisa di-embed ke Excel'); return arrayBuffer; }
+
+    const flat = [];
+    positions.forEach(p => p.srcs.forEach(src => flat.push(src)));
+    const bytesList = await Promise.all(flat.map(_fetchImageBytesSoal));
+
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    const parser = new DOMParser();
+    const serializer = new XMLSerializer();
+    const readXml = async (path) => {
+        const f = zip.file(path);
+        if (!f) return null;
+        const doc = parser.parseFromString(await f.async('string'), 'application/xml');
+        return doc.getElementsByTagName('parsererror').length ? null : doc;
+    };
+
+    const wbXml = await readXml('xl/workbook.xml');
+    if (!wbXml) return arrayBuffer;
+    const wbRelsXml = await readXml('xl/_rels/workbook.xml.rels');
+    const wbRelMap = {};
+    if (wbRelsXml) Array.from(wbRelsXml.getElementsByTagName('Relationship')).forEach(r => { wbRelMap[r.getAttribute('Id')] = r.getAttribute('Target'); });
+
+    let sheetPath = null;
+    Array.from(wbXml.getElementsByTagName('sheet')).forEach(sh => {
+        if (sh.getAttribute('name') === sheetName) {
+            const rid = sh.getAttribute('r:id') || sh.getAttribute('id');
+            const target = rid && wbRelMap[rid];
+            if (target) sheetPath = _resolveOoxmlPath('xl/workbook.xml', target);
+        }
+    });
+    if (!sheetPath) return arrayBuffer;
+
+    const sheetParts = sheetPath.split('/');
+    const sheetFile = sheetParts.pop();
+    const sheetRelsPath = sheetParts.join('/') + '/_rels/' + sheetFile + '.rels';
+
+    let drawingIdx = 1;
+    while (zip.file(`xl/drawings/drawing${drawingIdx}.xml`)) drawingIdx++;
+    const drawingPath = `xl/drawings/drawing${drawingIdx}.xml`;
+    const drawingRelsPath = `xl/drawings/_rels/drawing${drawingIdx}.xml.rels`;
+
+    const existingMedia = Object.keys(zip.files).filter(f => f.startsWith('xl/media/')).length;
+    const drawingRels = [];
+    const anchorsXml = [];
+    let mediaCount = 0, anchorIdx = 0, fi = 0;
+
+    for (const p of positions) {
+        for (let si = 0; si < p.srcs.length; si++) {
+            const bytes = bytesList[fi++];
+            if (!bytes) continue;
+            mediaCount++;
+            const mediaName = `image${existingMedia + mediaCount}.${bytes.ext}`;
+            zip.file(`xl/media/${mediaName}`, bytes.base64, { base64: true });
+            const rid = `rIdImg${anchorIdx + 1}`;
+            drawingRels.push(`<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${mediaName}"/>`);
+            const colOffset = si * 120000;
+            anchorsXml.push(`
+  <xdr:oneCellAnchor>
+    <xdr:from><xdr:col>${p.col}</xdr:col><xdr:colOff>${colOffset}</xdr:colOff><xdr:row>${p.row}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>
+    <xdr:ext cx="600000" cy="600000"/>
+    <xdr:pic>
+      <xdr:nvPicPr><xdr:cNvPr id="${anchorIdx + 2}" name="Gambar${anchorIdx + 1}"/><xdr:cNvPicPr/></xdr:nvPicPr>
+      <xdr:blipFill><a:blip xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" r:embed="${rid}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>
+      <xdr:spPr><a:xfrm xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:off x="0" y="0"/><a:ext cx="600000" cy="600000"/></a:xfrm><a:prstGeom xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>
+    </xdr:pic>
+    <xdr:clientData/>
+  </xdr:oneCellAnchor>`);
+            anchorIdx++;
+        }
+    }
+    if (!anchorIdx) return arrayBuffer;
+
+    zip.file(drawingPath, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">${anchorsXml.join('')}
+</xdr:wsDr>`);
+
+    zip.file(drawingRelsPath, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${drawingRels.join('')}</Relationships>`);
+
+    let sheetRelsDoc = await readXml(sheetRelsPath);
+    let nextRid = 1;
+    if (sheetRelsDoc) {
+        Array.from(sheetRelsDoc.getElementsByTagName('Relationship')).forEach(r => {
+            const idNum = parseInt((r.getAttribute('Id') || '').replace('rId', ''), 10);
+            if (idNum >= nextRid) nextRid = idNum + 1;
+        });
+        const rel = sheetRelsDoc.createElement('Relationship');
+        rel.setAttribute('Id', `rId${nextRid}`);
+        rel.setAttribute('Type', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing');
+        rel.setAttribute('Target', `../drawings/drawing${drawingIdx}.xml`);
+        sheetRelsDoc.documentElement.appendChild(rel);
+        zip.file(sheetRelsPath, serializer.serializeToString(sheetRelsDoc));
+    } else {
+        zip.file(sheetRelsPath, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing${drawingIdx}.xml"/></Relationships>`);
+        nextRid = 1;
+    }
+    const drawingRidOnSheet = `rId${nextRid}`;
+
+    let sheetXmlStr = await zip.file(sheetPath).async('string');
+    if (!sheetXmlStr.includes('<drawing ')) {
+        sheetXmlStr = sheetXmlStr.replace('</worksheet>', `<drawing r:id="${drawingRidOnSheet}"/></worksheet>`);
+        zip.file(sheetPath, sheetXmlStr);
+    }
+
+    let ctXmlStr = await zip.file('[Content_Types].xml').async('string');
+    if (!ctXmlStr.includes(`/xl/drawings/drawing${drawingIdx}.xml`)) {
+        ctXmlStr = ctXmlStr.replace('</Types>', `<Override PartName="/xl/drawings/drawing${drawingIdx}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>`);
+    }
+    const mimeMap = { png: 'image/png', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp' };
+    Object.keys(mimeMap).forEach(ext => {
+        if (!ctXmlStr.includes(`Extension="${ext}"`)) {
+            ctXmlStr = ctXmlStr.replace('</Types>', `<Default Extension="${ext}" ContentType="${mimeMap[ext]}"/></Types>`);
+        }
+    });
+    zip.file('[Content_Types].xml', ctXmlStr);
+
+    return await zip.generateAsync({ type: 'array' });
+}
+
 // s = { nama, type, skor_type, opsi_jawaban, timer:{jam,menit,detik} atau timer_jam/menit/detik, data: [...] }
 // Membangun workbook-nya saja (dipakai ulang baik untuk download tunggal maupun bundel ZIP massal)
 function _buildSoalWorkbook(s) {
@@ -1087,17 +1300,41 @@ function _buildSoalWorkbook(s) {
     return wb;
 }
 
-// Dipakai oleh Export Massal (ZIP) — workbook dalam bentuk array buffer, bukan langsung diunduh
-function _buildSoalWorkbookBlob(s) {
+// Dipakai oleh Export Massal (ZIP) — workbook dalam bentuk array buffer, bukan langsung diunduh.
+// Gambar di soal/opsi/pembahasan ikut di-embed sebagai drawing asli, sama seperti export tunggal.
+async function _buildSoalWorkbookBlob(s) {
     const wb = _buildSoalWorkbook(s);
-    return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    let arr = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const positions = _collectSoalImagePositions(s);
+    if (positions.length) {
+        const sheetName = (s.type || 'multiple_choice') === 'sikap_kerja' ? 'Kolom' : 'Soal';
+        arr = await _embedImagesIntoXlsx(arr, sheetName, positions);
+    }
+    return arr;
 }
 
-function exportSoalDataToExcel(s) {
+async function exportSoalDataToExcel(s) {
     if (typeof XLSX === 'undefined') { showToast('Modul Excel belum siap, muat ulang halaman', 'danger'); return; }
+    const positions = _collectSoalImagePositions(s);
+    if (positions.length) showToast('Menyiapkan gambar untuk Excel...', 'success');
+
     const wb = _buildSoalWorkbook(s);
+    let arr = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    if (positions.length) {
+        const sheetName = (s.type || 'multiple_choice') === 'sikap_kerja' ? 'Kolom' : 'Soal';
+        arr = await _embedImagesIntoXlsx(arr, sheetName, positions);
+    }
+
     const safeName = (s.nama || 'Soal').replace(/[\\/:*?"<>|]/g, '_').slice(0, 60);
-    XLSX.writeFile(wb, `Export_Soal_${safeName}.xlsx`);
+    const blob = new Blob([arr], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Export_Soal_${safeName}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
     showToast('Soal berhasil diekspor ke Excel', 'success');
 }
 
@@ -1105,12 +1342,12 @@ function exportSoalDataToExcel(s) {
 async function exportLibSoalToExcel(kode) {
     const s = await SoalAPI.getOne(kode).catch(() => null);
     if (!s) { showToast('Gagal memuat data soal', 'danger'); return; }
-    exportSoalDataToExcel(s);
+    await exportSoalDataToExcel(s);
 }
 
 // Export soal yang SEDANG dibuka di builder (dipanggil dari tombol di layar Buat/Edit Soal)
-function exportCurrentSoalToExcel() {
-    exportSoalDataToExcel({
+async function exportCurrentSoalToExcel() {
+    await exportSoalDataToExcel({
         nama: SoalState.nama, type: SoalState.type, skor_type: SoalState.skor_type,
         opsi_jawaban: SoalState.opsi_jawaban, timer: SoalState.timer,
         data: SoalState.type === 'sikap_kerja' ? (SoalState.kolom || []) : (SoalState.pertanyaan || []),

@@ -127,7 +127,7 @@ async function exportSelectedLibSoal(){
     for(const kode of kodes){
         const s=await SoalAPI.getOne(kode).catch(()=>null);
         if(!s)continue;
-        const wbBlob=_buildSoalWorkbookBlob(s);
+        const wbBlob=await _buildSoalWorkbookBlob(s);
         let safeName=(s.nama||kode).replace(/[\\/:*?"<>|]/g,'_').slice(0,60)||kode;
         let finalName=safeName;let n=2;
         while(usedNames.has(finalName)){finalName=`${safeName}_${n++}`;}

@@ -116,6 +116,16 @@ function adminFixImgPaths(htmlStr) {
   return div.innerHTML;
 }
 
+// Sama seperti adminFixImgPaths tapi untuk satu string src mentah (dipakai di
+// item sikap_kerja yang nyimpan src gambar langsung, bukan sebagai tag <img>
+// di dalam HTML). Tanpa ini, path relatif (mis. "/uploads/soal/x.jpg") lolos
+// apa adanya ke file .doc dan jadi broken image saat dibuka di luar browser.
+function adminFixSrc(src) {
+  if (!src) return src;
+  if (src.startsWith('http') || src.startsWith('data:')) return src;
+  try { return new URL(src, window.location.href).href; } catch(e) { return src; }
+}
+
 function adminCreateChartImage(details) {
   const canvas = document.createElement('canvas');
   const W = 600, H = 250; 
@@ -434,12 +444,12 @@ function adminBuildLaporanWordHtml(lap, soalTampil, jawaban) {
           (kolom.items||[]).forEach((it,i)=>{
             const v=it.nilai??it.value??it;const sv=String(v||'');
             const img=sv.startsWith('data:')||sv.startsWith('/')||sv.startsWith('http');
-            html+=`<div style="text-align:center"><div class="sk-lbl">${String.fromCharCode(65+i)}</div><div class="sk-item">${img?`<img src="${sv}" style="max-height:30px;max-width:100%;">`:(sv||'?')}</div></div>`;
+            html+=`<div style="text-align:center"><div class="sk-lbl">${String.fromCharCode(65+i)}</div><div class="sk-item">${img?`<img src="${adminFixSrc(sv)}" style="max-height:30px;max-width:100%;">`:(sv||'?')}</div></div>`;
           });
           html+=`</div>`;
           const tampil=q.tampil||q.soal_item||[];
           html+=`<div style="font-size:10px;font-weight:700;color:#5a7a9a;margin:6px 0 4px;text-align:center">SOAL (4 Item)</div><div class="sk-q-row">`;
-          tampil.forEach(v=>{const sv=String(v||'');const img=sv.startsWith('data:')||sv.startsWith('/')||sv.startsWith('http');html+=`<div class="sk-q-item">${img?`<img src="${sv}" style="max-height:28px;max-width:100%;">`:(sv||'')}</div>`;});
+          tampil.forEach(v=>{const sv=String(v||'');const img=sv.startsWith('data:')||sv.startsWith('/')||sv.startsWith('http');html+=`<div class="sk-q-item">${img?`<img src="${adminFixSrc(sv)}" style="max-height:28px;max-width:100%;">`:(sv||'')}</div>`;});
           html+=`</div><div class="sk-choices">`;
           (kolom.items||[]).forEach((it,i)=>{
             const letter=String.fromCharCode(65+i);
@@ -447,7 +457,7 @@ function adminBuildLaporanWordHtml(lap, soalTampil, jawaban) {
             const img=sv.startsWith('data:')||sv.startsWith('/')||sv.startsWith('http');
             const picked=userAns===letter;const isKey=(q.kunci_huruf||q.kunci)===letter;
             let cls='sk-choice';if(picked&&isKey)cls+=' benar';else if(picked&&!isKey)cls+=' salah';else if(!picked&&isKey)cls+=' kunci';
-            html+=`<div class="${cls}"><div class="sk-ch-ltr">${letter}</div><div style="font-size:11px">${img?`<img src="${sv}" style="max-height:22px;max-width:100%;">`:(sv||'?')}</div></div>`;
+            html+=`<div class="${cls}"><div class="sk-ch-ltr">${letter}</div><div style="font-size:11px">${img?`<img src="${adminFixSrc(sv)}" style="max-height:22px;max-width:100%;">`:(sv||'?')}</div></div>`;
           });
           html+=`</div></div>`;
         });
