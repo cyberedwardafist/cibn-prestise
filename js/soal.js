@@ -780,10 +780,15 @@ function onUploadSoalFile(input) {
     if (!file) return;
     if (typeof XLSX === 'undefined') { showToast('Modul Excel belum siap, muat ulang halaman', 'danger'); input.value = ''; return; }
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
         try {
-            const wb = XLSX.read(e.target.result, { type: 'array' });
-            _importSoalFromWorkbook(wb);
+            const buf = e.target.result;
+            const wb = XLSX.read(buf, { type: 'array' });
+            // Gambar di Excel disimpan sebagai objek "drawing" yang melayang di atas sel,
+            // bukan sebagai isi sel — XLSX.js tidak membacanya. Kita bongkar file .xlsx
+            // sebagai arsip zip (JSZip) untuk mengambil gambar & posisi selnya secara manual.
+            const imageMap = await _extractSoalImageMap(buf);
+            _importSoalFromWorkbook(wb, imageMap);
         } catch (err) {
             console.error(err);
             showToast('Gagal membaca file. Pastikan format sesuai template.', 'danger');
@@ -792,6 +797,109 @@ function onUploadSoalFile(input) {
     };
     reader.onerror = () => { showToast('Gagal membaca file', 'danger'); input.value = ''; };
     reader.readAsArrayBuffer(file);
+}
+
+// Resolusi path relasi OOXML (mendukung Target berupa path absolut "/xl/..." maupun relatif "../media/...")
+function _resolveOoxmlPath(basePath, target) {
+    if (target.startsWith('/')) return target.slice(1);
+    const baseDir = basePath.split('/').slice(0, -1);
+    target.split('/').forEach(p => {
+        if (p === '..') baseDir.pop();
+        else if (p !== '.' && p !== '') baseDir.push(p);
+    });
+    return baseDir.join('/');
+}
+
+// Membongkar gambar (drawing) di sheet "Soal" dari file .xlsx mentah (via JSZip),
+// lalu memetakannya ke { [rowIndex0Based]: { [colIndex0Based]: dataUrl } }.
+// rowIndex mengikuti indeks baris mentah sheet (0 = header), sama seperti indeks
+// array hasil XLSX.utils.sheet_to_json({header:1}) — jadi tinggal dicocokkan langsung.
+async function _extractSoalImageMap(arrayBuffer) {
+    if (typeof JSZip === 'undefined') { console.warn('JSZip tidak tersedia, import gambar dilewati'); return {}; }
+    try {
+        const zip = await JSZip.loadAsync(arrayBuffer);
+        const parser = new DOMParser();
+        const readXml = async (path) => {
+            const f = zip.file(path);
+            if (!f) return null;
+            const doc = parser.parseFromString(await f.async('string'), 'application/xml');
+            return doc.getElementsByTagName('parsererror').length ? null : doc;
+        };
+        const readRelsFor = (path) => {
+            const parts = path.split('/');
+            const fname = parts.pop();
+            return readXml(parts.join('/') + '/_rels/' + fname + '.rels');
+        };
+        const relMapOf = (relsDoc) => {
+            const m = {};
+            if (!relsDoc) return m;
+            Array.from(relsDoc.getElementsByTagName('Relationship')).forEach(r => {
+                m[r.getAttribute('Id')] = { target: r.getAttribute('Target'), type: r.getAttribute('Type') || '' };
+            });
+            return m;
+        };
+
+        const wbXml = await readXml('xl/workbook.xml');
+        const wbRelMap = relMapOf(await readRelsFor('xl/workbook.xml'));
+        if (!wbXml) return {};
+
+        let soalSheetPath = null;
+        Array.from(wbXml.getElementsByTagName('sheet')).forEach(s => {
+            if (s.getAttribute('name') === 'Soal') {
+                const rid = s.getAttribute('r:id') || s.getAttribute('id');
+                const rel = rid && wbRelMap[rid];
+                if (rel) soalSheetPath = _resolveOoxmlPath('xl/workbook.xml', rel.target);
+            }
+        });
+        if (!soalSheetPath) return {};
+
+        const sheetRelMap = relMapOf(await readRelsFor(soalSheetPath));
+        let drawingPath = null;
+        Object.values(sheetRelMap).forEach(rel => {
+            if (rel.type.endsWith('/drawing')) drawingPath = _resolveOoxmlPath(soalSheetPath, rel.target);
+        });
+        if (!drawingPath) return {};
+
+        const drawingXml = await readXml(drawingPath);
+        if (!drawingXml) return {};
+        const drawingRelMap = relMapOf(await readRelsFor(drawingPath));
+
+        const map = {};
+        const anchors = [
+            ...Array.from(drawingXml.getElementsByTagName('oneCellAnchor')),
+            ...Array.from(drawingXml.getElementsByTagName('twoCellAnchor')),
+        ];
+        for (const anchor of anchors) {
+            const from = anchor.getElementsByTagName('from')[0];
+            if (!from) continue;
+            const col = parseInt(from.getElementsByTagName('col')[0]?.textContent || '0', 10);
+            const row = parseInt(from.getElementsByTagName('row')[0]?.textContent || '0', 10);
+            const blip = anchor.getElementsByTagName('a:blip')[0];
+            const embedId = blip?.getAttribute('r:embed');
+            if (!embedId) continue;
+            const mediaRel = drawingRelMap[embedId];
+            if (!mediaRel) continue;
+            const mediaPath = _resolveOoxmlPath(drawingPath, mediaRel.target);
+            const mf = zip.file(mediaPath);
+            if (!mf) continue;
+            const base64 = await mf.async('base64');
+            const ext = (mediaPath.split('.').pop() || 'jpeg').toLowerCase();
+            const mime = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : ext === 'bmp' ? 'image/bmp' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+            // Satu sel bisa punya lebih dari 1 gambar tertumpuk — simpan sebagai array, bukan ditimpa.
+            if (!map[row]) map[row] = {};
+            if (!map[row][col]) map[row][col] = [];
+            map[row][col].push(`data:${mime};base64,${base64}`);
+        }
+        return map;
+    } catch (err) {
+        console.error('Gagal ekstrak gambar dari Excel:', err);
+        return {};
+    }
+}
+
+function _imgTagSoal(dataUrls) {
+    const list = Array.isArray(dataUrls) ? dataUrls : [dataUrls];
+    return list.map(u => `<br><img src="${u}" style="max-width:100%;height:auto;border-radius:8px;margin-top:6px">`).join('');
 }
 
 function _sheetToRowsSoal(wb, name) {
@@ -807,7 +915,8 @@ function _readInfoSheetSoal(wb) {
     return map;
 }
 
-function _importSoalFromWorkbook(wb) {
+function _importSoalFromWorkbook(wb, imageMap) {
+    imageMap = imageMap || {};
     const info = _readInfoSheetSoal(wb);
     const nama = (info['Nama Soal'] && String(info['Nama Soal']).trim()) || ('Soal Import ' + new Date().toLocaleDateString('id-ID'));
     let type = String(info['Tipe Soal'] || 'multiple_choice').trim();
@@ -849,37 +958,55 @@ function _importSoalFromWorkbook(wb) {
         showToast(`Import berhasil! ${totalFilled}/10 kolom siap (soal otomatis dibuat)`, 'success');
         _sikapView = 'list'; _animateTo(_renderSikapList);
     } else {
-        const allRows = (_sheetToRowsSoal(wb, 'Soal') || []).slice(1);
-        const rows = allRows.filter(r => String(r[1] || '').trim() !== '');
+        // Simpan indeks baris asli (0-based, header=0) tiap baris SEBELUM difilter,
+        // supaya bisa dicocokkan balik ke imageMap (posisi gambar diambil dari baris mentah Excel).
+        const rawRows = _sheetToRowsSoal(wb, 'Soal') || [];
+        const allRows = rawRows.slice(1).map((r, i) => ({ r, excelRow: i + 1 }));
+        const rows = allRows.filter(({ r }) => String(r[1] || '').trim() !== '');
         if (!rows.length) { showToast('Sheet "Soal" kosong atau tidak ditemukan. Pastikan kolom Pertanyaan terisi.', 'danger'); return; }
-        const pertanyaan = rows.map((r, idx) => {
+        let totalGambar = 0;
+        const pertanyaan = rows.map(({ r, excelRow }, idx) => {
+            const rowImages = imageMap[excelRow] || {};
+            const imgFor = (col) => rowImages[col];
             let q;
             if (skorType === 'nilai_sendiri') {
                 const pairs = [[2, 3], [4, 5], [6, 7], [8, 9], [10, 11]];
                 const jawaban = [];
                 pairs.forEach(([ti, si], k) => {
-                    const teks = r[ti] !== undefined ? String(r[ti]).trim() : '';
-                    if (teks) jawaban.push({ id: 'A_' + idx + '_' + k, teks: _escHtmlSoal(teks), nilai: parseFloat(r[si]) || 0 });
+                    let teks = r[ti] !== undefined ? String(r[ti]).trim() : '';
+                    const img = imgFor(ti);
+                    if (img) { totalGambar += img.length; teks = _escHtmlSoal(teks) + _imgTagSoal(img); } else { teks = teks ? _escHtmlSoal(teks) : ''; }
+                    if (teks) jawaban.push({ id: 'A_' + idx + '_' + k, teks, nilai: parseFloat(r[si]) || 0 });
                 });
                 while (jawaban.length < 2) jawaban.push({ id: 'A_' + idx + '_x' + jawaban.length, teks: '', nilai: 0 });
-                q = { id: 'Q_' + Date.now() + '_' + idx, soal: _escHtmlSoal(r[1]), jawaban, kunci: [], pembahasan: _escHtmlSoal(r[12] || '') };
+                let soalTeks = _escHtmlSoal(r[1]);
+                if (imgFor(1)) { totalGambar += imgFor(1).length; soalTeks += _imgTagSoal(imgFor(1)); }
+                let pembahasanTeks = _escHtmlSoal(r[12] || '');
+                if (imgFor(12)) { totalGambar += imgFor(12).length; pembahasanTeks += _imgTagSoal(imgFor(12)); }
+                q = { id: 'Q_' + Date.now() + '_' + idx, soal: soalTeks, jawaban, kunci: [], pembahasan: pembahasanTeks };
             } else {
                 const teksIdx = [2, 3, 4, 5, 6];
                 const jawaban = [];
                 teksIdx.forEach((ti, k) => {
-                    const teks = r[ti] !== undefined ? String(r[ti]).trim() : '';
-                    if (teks) jawaban.push({ id: 'A_' + idx + '_' + k, teks: _escHtmlSoal(teks), nilai: 0 });
+                    let teks = r[ti] !== undefined ? String(r[ti]).trim() : '';
+                    const img = imgFor(ti);
+                    if (img) { totalGambar += img.length; teks = _escHtmlSoal(teks) + _imgTagSoal(img); } else { teks = teks ? _escHtmlSoal(teks) : ''; }
+                    if (teks) jawaban.push({ id: 'A_' + idx + '_' + k, teks, nilai: 0 });
                 });
                 while (jawaban.length < 2) jawaban.push({ id: 'A_' + idx + '_x' + jawaban.length, teks: '', nilai: 0 });
                 const kunciHuruf = String(r[7] || '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
                 const kunci = kunciHuruf.map(h => { const ki = h.charCodeAt(0) - 65; return jawaban[ki]?.id; }).filter(Boolean);
-                q = { id: 'Q_' + Date.now() + '_' + idx, soal: _escHtmlSoal(r[1]), jawaban, kunci, pembahasan: _escHtmlSoal(r[8] || '') };
+                let soalTeks = _escHtmlSoal(r[1]);
+                if (imgFor(1)) { totalGambar += imgFor(1).length; soalTeks += _imgTagSoal(imgFor(1)); }
+                let pembahasanTeks = _escHtmlSoal(r[8] || '');
+                if (imgFor(8)) { totalGambar += imgFor(8).length; pembahasanTeks += _imgTagSoal(imgFor(8)); }
+                q = { id: 'Q_' + Date.now() + '_' + idx, soal: soalTeks, jawaban, kunci, pembahasan: pembahasanTeks };
             }
             return q;
         });
         SoalState.pertanyaan = pertanyaan; SoalState.currentIdx = 0; SoalState.kolom = null;
         setDirty('import soal');
-        showToast(`Import berhasil! ${pertanyaan.length} soal siap direview`, 'success');
+        showToast(`Import berhasil! ${pertanyaan.length} soal siap direview${totalGambar ? ` (${totalGambar} gambar ikut terbawa)` : ''}`, 'success');
         _animateTo(_renderMCHtml);
     }
 }
