@@ -248,9 +248,6 @@ async function openAddPaket() {
     document.querySelectorAll('input[name="pf-aturan"]').forEach(cb=>cb.checked=false);
     document.querySelectorAll('.hak-sub').forEach(s=>{s.style.display='none';});
     document.querySelectorAll('.hak-chevron').forEach(c=>{c.style.transform='';});
-    var mn=document.getElementById('pf-maks-ujian');if(mn)mn.value='';
-    var dh=document.getElementById('pf-durasi-hari');if(dh)dh.value='';
-    var hn=document.getElementById('pf-hak-notes');if(hn)hn.value='';
     var mk=document.getElementById('pf-mentoring-kuota');if(mk)mk.value='';
     await Promise.all([_pfLoadModulPicker([]), _pfLoadMentoringPicker([])]);
     await _populateLinkLandingDropdown('');
@@ -294,9 +291,6 @@ async function openEditPaket(kode) {
     document.querySelectorAll('input[name="pf-aturan"]').forEach(cb=>{cb.checked=aturanArr.includes(cb.value);});
     document.querySelectorAll('.hak-sub').forEach(s=>{s.style.display='none';});
     document.querySelectorAll('.hak-chevron').forEach(c=>{c.style.transform='';});
-    var mn=document.getElementById('pf-maks-ujian');if(mn)mn.value=p.maks_ujian||'';
-    var dh=document.getElementById('pf-durasi-hari');if(dh)dh.value=p.durasi_hari||'';
-    var hn=document.getElementById('pf-hak-notes');if(hn)hn.value=p.hak_notes||'';
     var mk=document.getElementById('pf-mentoring-kuota');if(mk)mk.value=p.mentoring_kuota||'';
     await Promise.all([_pfLoadModulPicker(aturanArr.filter(v => v.startsWith('modul.item.'))), _pfLoadMentoringPicker(aturanArr.filter(v => v.startsWith('mentoring.modul.')))]);
     await _populateLinkLandingDropdown(p.link_landing || '');
@@ -368,9 +362,6 @@ async function submitPaket() {
         link_landing: (document.getElementById('pf-link-landing')?.value || ''),
         hak_akses: JSON.stringify(hak_akses),
         aturan_akses: JSON.stringify(aturan_akses),
-        maks_ujian: document.getElementById('pf-maks-ujian')?.value || '',
-        durasi_hari: document.getElementById('pf-durasi-hari')?.value || '',
-        hak_notes: document.getElementById('pf-hak-notes')?.value?.trim() || '',
         mentoring_kuota: document.getElementById('pf-mentoring-kuota')?.value || ''
     };
     const btn = document.querySelector('#paket-form-overlay .btn-primary');

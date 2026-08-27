@@ -94,6 +94,18 @@
             </div>
           </div>
 
+          <!-- Laporan -->
+          <div style="border:1.5px solid rgba(19,50,89,0.1);border-radius:10px;overflow:hidden;background:#fff">
+            <div style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;padding:9px 12px;color:var(--blue)" onclick="toggleHakSubMenu(this)">
+              <input type="checkbox" name="pf-hak" value="laporan" style="accent-color:var(--blue)"> 📊 Laporan & Statistik
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="margin-left:auto;opacity:.4;transition:transform .2s" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="hak-sub" style="display:none;padding:0 12px 10px 34px;border-top:1px solid rgba(19,50,89,0.06)">
+              <div style="margin-top:8px;padding:7px 10px;border:1.5px solid #16a34a;border-radius:8px;background:rgba(22,163,74,0.06);color:#16a34a;font-size:11px;font-weight:700;text-align:center">✅ HISTORI AKTIF</div>
+              <div style="font-size:10px;color:var(--text-sub);margin-top:6px;line-height:1.5">User dengan paket ini bisa mengakses menu Laporan (dock RIWAYAT).</div>
+            </div>
+          </div>
+
           <!-- Modul / Materi -->
           <div style="border:1.5px solid rgba(19,50,89,0.1);border-radius:10px;overflow:hidden;background:#fff">
             <div style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;padding:9px 12px;color:var(--blue)" onclick="toggleHakSubMenu(this)">
@@ -110,18 +122,6 @@
                 <div id="pf-modul-picker-filters"></div>
               </div>
               <div id="pf-modul-picker-list" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
-            </div>
-          </div>
-
-          <!-- Laporan -->
-          <div style="border:1.5px solid rgba(19,50,89,0.1);border-radius:10px;overflow:hidden;background:#fff">
-            <div style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;padding:9px 12px;color:var(--blue)" onclick="toggleHakSubMenu(this)">
-              <input type="checkbox" name="pf-hak" value="laporan" style="accent-color:var(--blue)"> 📊 Laporan & Statistik
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="margin-left:auto;opacity:.4;transition:transform .2s" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
-            </div>
-            <div class="hak-sub" style="display:none;padding:0 12px 10px 34px;border-top:1px solid rgba(19,50,89,0.06)">
-              <div style="margin-top:8px;padding:7px 10px;border:1.5px solid #16a34a;border-radius:8px;background:rgba(22,163,74,0.06);color:#16a34a;font-size:11px;font-weight:700;text-align:center">✅ HISTORI AKTIF</div>
-              <div style="font-size:10px;color:var(--text-sub);margin-top:6px;line-height:1.5">User dengan paket ini bisa mengakses menu Laporan (dock RIWAYAT).</div>
             </div>
           </div>
 
@@ -160,36 +160,6 @@
             </div>
           </div>
 
-          <!-- Library -->
-          <div style="border:1.5px solid rgba(19,50,89,0.1);border-radius:10px;overflow:hidden;background:#fff">
-            <div style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;padding:9px 12px;color:var(--blue)" onclick="toggleHakSubMenu(this)">
-              <input type="checkbox" name="pf-hak" value="library" style="accent-color:var(--blue)"> 🗂️ Library Soal
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="margin-left:auto;opacity:.4;transition:transform .2s" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
-            </div>
-            <div class="hak-sub" style="display:none;padding:0 12px 10px 34px;border-top:1px solid rgba(19,50,89,0.06)">
-              <div style="font-size:10px;color:var(--text-sub);margin:6px 0 4px">Aturan akses menu Library:</div>
-              <label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="library.baca" style="accent-color:var(--blue)"> Akses bank soal latihan</label>
-              <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" name="pf-aturan" value="library.download" style="accent-color:var(--blue)"> Download kumpulan soal</label>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Batas & Aturan Teknis -->
-        <div style="font-size:10px;font-weight:700;color:var(--blue);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;opacity:.7">Batas & Aturan Teknis</div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Maks. Ujian <span style="font-weight:400;color:var(--text-sub)">(kosong = ∞)</span></label>
-            <input id="pf-maks-ujian" class="form-input" type="number" min="0" placeholder="Contoh: 5" oninput="setDirty('paket')">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Durasi Akses (hari) <span style="font-weight:400;color:var(--text-sub)">(kosong = ikut periode)</span></label>
-            <input id="pf-durasi-hari" class="form-input" type="number" min="1" placeholder="Contoh: 30" oninput="setDirty('paket')">
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Catatan Internal Hak Akses</label>
-          <input id="pf-hak-notes" class="form-input" type="text" placeholder="Misal: Full access semua fitur, kecuali mentoring" oninput="setDirty('paket')">
         </div>
       </div>
     </div>
