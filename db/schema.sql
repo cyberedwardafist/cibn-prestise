@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS pakets (
     aturan_akses  TEXT,
     maks_ujian    TEXT,
     durasi_hari   TEXT,
-    hak_notes     TEXT
+    hak_notes     TEXT,
+    mentoring_kuota TEXT
 );
 
 CREATE TABLE IF NOT EXISTS user_pakets (
@@ -221,6 +222,7 @@ ALTER TABLE laporan ADD COLUMN IF NOT EXISTS izinkan_review SMALLINT;
 -- Poster modul e-book: modul e-book ditampilkan sebagai kartu poster tersendiri
 -- di akun user/review (guru), terpisah dari poster masing-masing buku di dalamnya.
 ALTER TABLE ebook_modul ADD COLUMN IF NOT EXISTS poster TEXT;
+ALTER TABLE pakets ADD COLUMN IF NOT EXISTS mentoring_kuota TEXT;
 
 CREATE TABLE IF NOT EXISTS landing (
     id   INTEGER PRIMARY KEY DEFAULT 1,
