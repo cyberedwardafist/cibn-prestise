@@ -714,6 +714,7 @@ function downloadSoalTemplate() {
     const infoRows = [
         ['Field', 'Isi'],
         ['Nama Soal', 'Contoh: Tes Wawasan Kebangsaan'],
+        ['Nama Internal', ''],
         ['Tipe Soal', type],
         ['Sistem Penilaian', type === 'sikap_kerja' ? '-' : skorType],
         ['Jumlah Jawaban Dipilih Peserta', type === 'sikap_kerja' ? '-' : 1],
@@ -734,6 +735,7 @@ function downloadSoalTemplate() {
             ['2. Isi item mulai dari A tanpa melompati kolom (jangan isi C jika B masih kosong).'],
             ['3. Gambar tidak bisa lewat Excel — tambahkan manual di aplikasi setelah upload.'],
             ['4. Kolom yang terisi lengkap (5 item) otomatis dibuatkan soal acak setelah file diupload.'],
+            ['5. "Nama Internal" di sheet Info bersifat opsional — hanya terlihat di admin, kosongkan jika tidak perlu.'],
         ];
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(petunjuk), 'Petunjuk');
     } else {
@@ -762,6 +764,7 @@ function downloadSoalTemplate() {
                 : ['3. Isi "Kunci Jawaban" dengan huruf pilihan yang benar (A/B/C/D/E). Pisahkan dengan koma jika lebih dari 1 kunci, contoh: A,C'],
             ['4. Kolom Pembahasan bersifat opsional.'],
             ['5. Kolom "No" hanya penomoran, tidak wajib berurutan.'],
+            ['6. "Nama Internal" di sheet Info bersifat opsional — hanya terlihat di admin, kosongkan jika tidak perlu.'],
         ];
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(petunjuk), 'Petunjuk');
     }
@@ -936,6 +939,7 @@ function _importSoalFromWorkbook(wb, imageMap) {
     imageMap = imageMap || {};
     const info = _readInfoSheetSoal(wb);
     const nama = (info['Nama Soal'] && String(info['Nama Soal']).trim()) || ('Soal Import ' + new Date().toLocaleDateString('id-ID'));
+    const namaInternal = (info['Nama Internal'] && String(info['Nama Internal']).trim()) || '';
     let type = String(info['Tipe Soal'] || 'multiple_choice').trim();
     if (!['multiple_choice', 'linier', 'sikap_kerja'].includes(type)) type = 'multiple_choice';
     const skorType = String(info['Sistem Penilaian'] || 'benar_salah').trim() === 'nilai_sendiri' ? 'nilai_sendiri' : 'benar_salah';
@@ -945,7 +949,7 @@ function _importSoalFromWorkbook(wb, imageMap) {
     const timerDetik = parseInt(info['Timer Detik']) || 0;
 
     SoalState.mode = 'build'; SoalState.kode = null; SoalState.editMode = false; SoalState._editors = {};
-    SoalState.nama = nama; SoalState.nama_internal = ''; SoalState.type = type; SoalState.skor_type = skorType;
+    SoalState.nama = nama; SoalState.nama_internal = namaInternal; SoalState.type = type; SoalState.skor_type = skorType;
     SoalState.opsi_jawaban = opsiJawaban;
     SoalState.timer = { jam: timerJam, menit: timerMenit, detik: timerDetik };
 
@@ -1260,6 +1264,7 @@ function _buildSoalWorkbook(s) {
     const infoRows = [
         ['Field', 'Isi'],
         ['Nama Soal', s.nama || ''],
+        ['Nama Internal', s.nama_internal || ''],
         ['Tipe Soal', type],
         ['Sistem Penilaian', type === 'sikap_kerja' ? '-' : skorType],
         ['Jumlah Jawaban Dipilih Peserta', type === 'sikap_kerja' ? '-' : (s.opsi_jawaban || 1)],
@@ -1365,7 +1370,7 @@ async function exportLibSoalToExcel(kode) {
 // Export soal yang SEDANG dibuka di builder (dipanggil dari tombol di layar Buat/Edit Soal)
 async function exportCurrentSoalToExcel() {
     await exportSoalDataToExcel({
-        nama: SoalState.nama, type: SoalState.type, skor_type: SoalState.skor_type,
+        nama: SoalState.nama, nama_internal: SoalState.nama_internal, type: SoalState.type, skor_type: SoalState.skor_type,
         opsi_jawaban: SoalState.opsi_jawaban, timer: SoalState.timer,
         data: SoalState.type === 'sikap_kerja' ? (SoalState.kolom || []) : (SoalState.pertanyaan || []),
     });

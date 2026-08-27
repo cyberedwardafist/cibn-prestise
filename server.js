@@ -907,15 +907,73 @@ app.delete('/api/ebook/:kode', auth(['admin']), ah(async (req, res) => {
     res.json({ message: 'Berhasil' });
 }));
 
-app.get('/api/ebook-modul-kelompok', auth(['admin', 'review']), ah(async (req, res) => { res.json(await db.prepare('SELECT * FROM ebook_modul_kelompok ORDER BY LOWER(nama)').all()); }));
+app.get('/api/ebook-modul-kelompok', auth(['admin', 'review', 'user']), ah(async (req, res) => { res.json(await db.prepare('SELECT * FROM ebook_modul_kelompok ORDER BY LOWER(nama)').all()); }));
 app.post('/api/ebook-modul-kelompok', auth(['admin']), ah(async (req, res) => { const kode = await genKode('EMKL', 'ebook_modul_kelompok'); await db.prepare('INSERT INTO ebook_modul_kelompok (kode,nama) VALUES (?,?)').run(kode, req.body.nama.trim()); res.json(await db.prepare('SELECT * FROM ebook_modul_kelompok WHERE kode=?').get(kode)); }));
 app.put('/api/ebook-modul-kelompok/:kode', auth(['admin']), ah(async (req, res) => { await db.prepare('UPDATE ebook_modul_kelompok SET nama=? WHERE kode=?').run(req.body.nama.trim(), req.params.kode); res.json(await db.prepare('SELECT * FROM ebook_modul_kelompok WHERE kode=?').get(req.params.kode)); }));
 app.delete('/api/ebook-modul-kelompok/:kode', auth(['admin']), ah(async (req, res) => { await transaction(async (tdb) => { await tdb.prepare('DELETE FROM ebook_modul_kelompok WHERE kode=?').run(req.params.kode); await tdb.prepare('UPDATE ebook_modul SET kelompok=NULL WHERE kelompok=?').run(req.params.kode); }); res.json({ message: 'Berhasil' }); }));
 
-app.get('/api/ebook-modul', auth(['admin', 'review']), ah(async (req, res) => { const rows = await db.prepare('SELECT * FROM ebook_modul ORDER BY id').all(); rows.forEach(r => { if (r.ebook_list) try { r.ebook_list = JSON.parse(r.ebook_list); } catch (e) { r.ebook_list = []; } }); res.json(rows); }));
-app.post('/api/ebook-modul', auth(['admin']), ah(async (req, res) => { const kode = await genKode('EBM', 'ebook_modul'); await db.prepare('INSERT INTO ebook_modul (kode,nama,kelompok,ebook_list) VALUES (?,?,?,?)').run(kode, req.body.nama.trim(), (req.body.kelompok || '').trim() || null, JSON.stringify(req.body.ebook_list || [])); res.json({ kode, message: 'Berhasil' }); }));
-app.put('/api/ebook-modul/:kode', auth(['admin']), ah(async (req, res) => { await db.prepare('UPDATE ebook_modul SET nama=?,kelompok=?,ebook_list=? WHERE kode=?').run(req.body.nama.trim(), (req.body.kelompok || '').trim() || null, JSON.stringify(req.body.ebook_list || []), req.params.kode); res.json({ message: 'Berhasil' }); }));
-app.delete('/api/ebook-modul/:kode', auth(['admin']), ah(async (req, res) => { await db.prepare('DELETE FROM ebook_modul WHERE kode=?').run(req.params.kode); res.json({ message: 'Berhasil' }); }));
+app.get('/api/ebook-modul', auth(['admin', 'review', 'user']), ah(async (req, res) => { const rows = await db.prepare('SELECT * FROM ebook_modul ORDER BY id').all(); rows.forEach(r => { if (r.ebook_list) try { r.ebook_list = JSON.parse(r.ebook_list); } catch (e) { r.ebook_list = []; } }); res.json(rows); }));
+
+app.post('/api/ebook-modul', auth(['admin']), (req, res) => {
+    uploadEbook.fields([{ name: 'poster', maxCount: 1 }])(req, res, async (err) => {
+        if (err) return res.status(400).json({ error: err.message });
+        try {
+            const { nama, kelompok } = req.body;
+            if (!nama || !nama.trim()) return res.status(400).json({ error: 'Nama modul wajib diisi' });
+            let ebook_list = []; try { ebook_list = JSON.parse(req.body.ebook_list || '[]'); } catch (e) { ebook_list = []; }
+
+            const folderName = safeFolderName(nama);
+            let posterUrl = null;
+            const posterFile = req.files?.poster?.[0];
+            if (posterFile) {
+                const imgExt = ALLOWED_IMAGE_MIME[posterFile.mimetype] || '.jpg';
+                const posterFileName = `ebook-modul/${folderName}/poster-${Date.now()}${imgExt}`;
+                await supabase.storage.from(BUCKET_NAME).upload(posterFileName, posterFile.buffer, { contentType: posterFile.mimetype });
+                posterUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl(posterFileName).data.publicUrl;
+            }
+
+            const kode = await genKode('EBM', 'ebook_modul');
+            await db.prepare('INSERT INTO ebook_modul (kode,nama,kelompok,ebook_list,poster) VALUES (?,?,?,?,?)')
+                .run(kode, nama.trim(), (kelompok || '').trim() || null, JSON.stringify(ebook_list), posterUrl);
+            res.json(await db.prepare('SELECT * FROM ebook_modul WHERE kode=?').get(kode));
+        } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+});
+
+app.put('/api/ebook-modul/:kode', auth(['admin']), (req, res) => {
+    uploadEbook.fields([{ name: 'poster', maxCount: 1 }])(req, res, async (err) => {
+        if (err) return res.status(400).json({ error: err.message });
+        try {
+            const old = await db.prepare('SELECT * FROM ebook_modul WHERE kode=?').get(req.params.kode);
+            if (!old) return res.status(404).json({ error: 'Tidak ditemukan' });
+
+            const { nama, kelompok } = req.body;
+            let ebook_list = []; try { ebook_list = JSON.parse(req.body.ebook_list || '[]'); } catch (e) { ebook_list = []; }
+            const folderName = safeFolderName(nama);
+
+            let newPosterUrl = old.poster;
+            const posterFile = req.files?.poster?.[0];
+            if (posterFile) {
+                const imgExt = ALLOWED_IMAGE_MIME[posterFile.mimetype] || '.jpg';
+                const posterFileName = `ebook-modul/${folderName}/poster-${Date.now()}${imgExt}`;
+                await supabase.storage.from(BUCKET_NAME).upload(posterFileName, posterFile.buffer, { contentType: posterFile.mimetype });
+                newPosterUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl(posterFileName).data.publicUrl;
+                if (old.poster) deleteUploadedFileByUrl(old.poster);
+            }
+
+            await db.prepare('UPDATE ebook_modul SET nama=?,kelompok=?,ebook_list=?,poster=? WHERE kode=?')
+                .run(nama.trim(), (kelompok || '').trim() || null, JSON.stringify(ebook_list), newPosterUrl, req.params.kode);
+            res.json(await db.prepare('SELECT * FROM ebook_modul WHERE kode=?').get(req.params.kode));
+        } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+});
+
+app.delete('/api/ebook-modul/:kode', auth(['admin']), ah(async (req, res) => {
+    const old = await db.prepare('SELECT * FROM ebook_modul WHERE kode=?').get(req.params.kode);
+    await db.prepare('DELETE FROM ebook_modul WHERE kode=?').run(req.params.kode);
+    if (old && old.poster) deleteUploadedFileByUrl(old.poster);
+    res.json({ message: 'Berhasil' });
+}));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ROUTES: TOKENS, LAPORAN, UJIAN

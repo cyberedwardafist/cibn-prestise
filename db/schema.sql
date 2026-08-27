@@ -218,6 +218,10 @@ CREATE TABLE IF NOT EXISTS laporan (
 -- endpoint /api/exam/submit, jadi tidak pernah NULL untuk data baru.
 ALTER TABLE laporan ADD COLUMN IF NOT EXISTS izinkan_review SMALLINT;
 
+-- Poster modul e-book: modul e-book ditampilkan sebagai kartu poster tersendiri
+-- di akun user/review (guru), terpisah dari poster masing-masing buku di dalamnya.
+ALTER TABLE ebook_modul ADD COLUMN IF NOT EXISTS poster TEXT;
+
 CREATE TABLE IF NOT EXISTS landing (
     id   INTEGER PRIMARY KEY DEFAULT 1,
     data TEXT

@@ -30,36 +30,46 @@ function _modulSwipeCardHtml(m){const kode=m.kode||m.id;const sel=_modulSelected
     leftActions:[{icon:'edit',label:'Edit',cls:'act-edit',onClick:`openEditModul('${kode}')`}],
     rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`deleteModulItem('${kode}','${(m.nama||'').replace(/'/g,"\\'")}')`}]
 });}
+function _modulGroupHtml(group){
+    const cardsHtml=group.items.map(_modulCardHtml).join('');
+    const swipeHtml=group.items.map(_modulSwipeCardHtml).join('');
+    return `<div class="section-sub" style="font-weight:700;color:var(--blue);text-transform:none;margin:18px 0 8px">${group.label} <span style="font-weight:500;color:var(--text-sub);font-size:11px">(${group.items.length} modul)</span></div>
+    <div class="aksi-swipe-wrap">${cardsHtml}</div>
+    <div class="swipe-list">${swipeHtml}</div>`;
+}
 function _renderModulList(){
     let data=_modulData;
     if(_modulKelompokFilter==='none')data=data.filter(m=>!m.kelompok);
     else if(_modulKelompokFilter!=='all')data=data.filter(m=>m.kelompok===_modulKelompokFilter);
-    const el=document.getElementById('modul-list');if(!el)return;
-    VirtualList.render(el,{items:data,rowHeight:78,tag:'div',
-        renderItem:_modulCardHtml,
-        emptyHtml:'<div class="empty-state"><p>Belum ada modul</p></div>'});
-    const swEl=document.getElementById('modul-swipe-list');
-    if(swEl&&window.SwipeCards){
-        VirtualList.render(swEl,{items:data,rowHeight:78,tag:'div',
-            renderItem:_modulSwipeCardHtml,
-            emptyHtml:'<div class="swipe-card-empty">Belum ada modul</div>',
-            onRendered:()=>SwipeCards.bindSwipeList(swEl,_modulSelectOpts())});
-    }
+    const el=document.getElementById('modul-groups');if(!el)return;
+    if(!data.length){el.innerHTML='<div class="empty-state"><p>Belum ada modul</p></div>';_updateModulBulkBar();return;}
+    // Kelompokkan per kelompok modul (pola sama seperti Token Terpakai yang dikelompokkan per hari)
+    const groups={};
+    data.forEach(m=>{ const k=m.kelompok||'__none__'; (groups[k]=groups[k]||[]).push(m); });
+    const orderedKeys=[..._modulKelompokList.map(k=>k.kode).filter(k=>groups[k]), ...(groups.__none__?['__none__']:[])];
+    const groupList=orderedKeys.map(k=>({key:k,label:k==='__none__'?'Tanpa Kelompok':_modulKelompokNama(k),items:groups[k]}));
+    VirtualList.renderGroups(el,{
+        items:groupList,
+        estimateHeight:(g)=>40+g.items.length*78,
+        renderItem:_modulGroupHtml,
+        emptyHtml:'<div class="empty-state"><p>Belum ada modul</p></div>',
+        onRendered:()=>{ if(window.SwipeCards)el.querySelectorAll('.swipe-list').forEach(sw=>SwipeCards.bindSwipeList(sw,_modulSelectOpts())); }
+    });
     _updateModulBulkBar();
 }
 
 // ── PILIH MASSAL (Modul) — pola sama seperti Library Soal ──
 function toggleModulSelect(kode,checked){
     if(checked)_modulSelected.add(kode);else _modulSelected.delete(kode);
-    document.querySelector(`#modul-swipe-list .swipe-card[data-kode="${kode}"] .swipe-card-body`)?.classList.toggle('selected',checked);
+    document.querySelector(`#modul-groups .swipe-card[data-kode="${kode}"] .swipe-card-body`)?.classList.toggle('selected',checked);
     _updateModulBulkBar();
 }
 function toggleSelectAllModul(checked){
-    document.querySelectorAll('#modul-list .modul-row-check').forEach(cb=>{
+    document.querySelectorAll('#modul-groups .modul-row-check').forEach(cb=>{
         cb.checked=checked;
         if(checked)_modulSelected.add(cb.dataset.kode);else _modulSelected.delete(cb.dataset.kode);
     });
-    document.querySelectorAll('#modul-swipe-list .swipe-card').forEach(card=>{
+    document.querySelectorAll('#modul-groups .swipe-card').forEach(card=>{
         const kode=card.dataset.kode;if(!kode)return;
         if(checked)_modulSelected.add(kode);else _modulSelected.delete(kode);
         card.querySelector('.swipe-card-body')?.classList.toggle('selected',checked);
@@ -68,8 +78,8 @@ function toggleSelectAllModul(checked){
 }
 function clearModulSelection(){
     _modulSelected.clear();
-    document.querySelectorAll('#modul-list .modul-row-check').forEach(cb=>cb.checked=false);
-    document.querySelectorAll('#modul-swipe-list .swipe-card-body').forEach(b=>b.classList.remove('selected'));
+    document.querySelectorAll('#modul-groups .modul-row-check').forEach(cb=>cb.checked=false);
+    document.querySelectorAll('#modul-groups .swipe-card-body').forEach(b=>b.classList.remove('selected'));
     _updateModulBulkBar();
 }
 // Mode pilih massal ala galeri foto di kartu mobile: tahan lama 1 kartu -> masuk mode pilih
@@ -87,7 +97,7 @@ function _updateModulBulkBar(){
     const cnt=document.getElementById('bulk-count-modul');if(cnt)cnt.textContent=n;
     const selAll=document.getElementById('modul-select-all');
     if(selAll){
-        const rows=Array.from(document.querySelectorAll('#modul-list .modul-row-check'));
+        const rows=Array.from(document.querySelectorAll('#modul-groups .modul-row-check'));
         selAll.checked=rows.length>0&&rows.every(cb=>_modulSelected.has(cb.dataset.kode));
     }
 }

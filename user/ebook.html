@@ -2,14 +2,24 @@
     <div class="history-title">E-Book</div>
     <div class="ebook-count" id="ebook-count"></div>
   </div>
+  <div class="ebook-detail-header" id="ebook-detail-header" style="display:none">
+    <button class="ebook-reader-back" onclick="EbookLib.closeModul()" title="Kembali ke daftar modul">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    </button>
+    <div class="ebook-detail-title" id="ebook-detail-title">—</div>
+  </div>
   <div class="ebook-toolbar">
     <div class="ebook-search-wrap">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input class="ebook-search-input" id="ebook-search-input" type="text" placeholder="Cari judul buku..." oninput="EbookLib.search(this.value)">
+      <input class="ebook-search-input" id="ebook-search-input" type="text" placeholder="Cari judul modul..." oninput="EbookLib.search(this.value)">
       <button class="ebook-search-clear" id="ebook-search-clear" type="button" title="Hapus pencarian" onclick="EbookLib.clearSearch()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" width="11" height="11"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
+    <select class="ebook-kelompok-select" id="ebook-sort-select" onchange="EbookLib.setSort(this.value)">
+      <option value="oldest">Terlama ke Terbaru</option>
+      <option value="newest">Terbaru ke Terlama</option>
+    </select>
     <select class="ebook-kelompok-select" id="ebook-kelompok-filter-select" onchange="EbookLib.filterKelompok(this.value)">
       <option value="all">Semua Kelompok</option>
     </select>

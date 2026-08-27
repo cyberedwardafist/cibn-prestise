@@ -258,11 +258,13 @@ function _renderEbookModulList() {
     const el = document.getElementById('ebook-modul-list'); if (!el) return;
     el.innerHTML = data.length ? data.map((m, i) => {
         const books = (m.ebook_list || []).map(k => _ebookForModul.find(b => b.kode === k)).filter(Boolean);
-        const stack = books.slice(0, 4).map(b => `<div class="stk">${b.poster ? `<img src="${b.poster}">` : _bookIconSvg(14)}</div>`).join('');
+        const posterHtml = m.poster
+            ? `<div class="stk" style="margin-left:0"><img src="${m.poster}"></div>`
+            : (books.slice(0, 4).map(b => `<div class="stk">${b.poster ? `<img src="${b.poster}">` : _bookIconSvg(14)}</div>`).join('') || `<div class="stk">${_bookIconSvg(14)}</div>`);
         const kelNama = _ebookModulKelompokNama(m.kelompok);
         return `<div class="ebook-modul-card" style="animation:fadeUp 0.25s ${i * 0.05}s both">
           <div class="modul-card-left">
-            <div class="ebook-modul-poster-stack">${stack || `<div class="stk">${_bookIconSvg(14)}</div>`}</div>
+            <div class="ebook-modul-poster-stack">${posterHtml}</div>
             <div><div style="font-weight:700;font-size:14px;color:var(--blue)">${m.nama}</div><div style="font-size:11px;color:var(--text-sub);display:flex;gap:6px;flex-wrap:wrap;align-items:center">${books.length} buku · ${m.kode}${kelNama ? ` · <span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue)">${kelNama}</span>` : ''}</div></div>
           </div>
           <div style="display:flex;gap:8px">
@@ -303,6 +305,22 @@ function _populateEbookModulKelompokSelect(selected) {
 let _ebookModulPickerStep = 'select', _ebookModulPickerSearch = '', _ebookModulPickerKelompokFilter = 'all';
 let _ebookModulOrder = [], _ebookModulDragFrom = null;
 
+// Poster modul (ditampilkan sbg kartu di user/review, terpisah dari poster tiap buku)
+const EbookModulFormState = { posterFile: null, posterPreviewUrl: null };
+function _renderEbookModulPosterPreview() {
+    const el = document.getElementById('ebook-modul-poster-preview'); if (!el) return;
+    el.innerHTML = EbookModulFormState.posterPreviewUrl ? `<img src="${EbookModulFormState.posterPreviewUrl}" alt="poster">` : _bookIconSvg(34);
+    const btn = document.getElementById('ebook-modul-poster-btn');
+    if (btn) btn.textContent = (EbookModulFormState.posterPreviewUrl ? '🖼️ Ganti Poster' : '🖼️ Upload Poster');
+}
+function onEbookModulPosterSelected(input) {
+    const file = input.files[0]; if (!file) return;
+    EbookModulFormState.posterFile = file;
+    const reader = new FileReader();
+    reader.onload = e => { EbookModulFormState.posterPreviewUrl = e.target.result; _renderEbookModulPosterPreview(); setDirty('modul e-book'); };
+    reader.readAsDataURL(file);
+}
+
 function _ebookModulResetPickerState(existingKodes = []) {
     _ebookModulOrder = [...existingKodes];
     _ebookModulPickerSearch = ''; _ebookModulPickerKelompokFilter = 'all';
@@ -324,6 +342,8 @@ function openAddEbookModul() {
     document.getElementById('ebook-modul-form-title').textContent = 'Buat Modul E-Book';
     document.getElementById('ebook-modul-nama-input').value = '';
     _populateEbookModulKelompokSelect('');
+    EbookModulFormState.posterFile = null; EbookModulFormState.posterPreviewUrl = null;
+    _renderEbookModulPosterPreview();
     _ebookModulResetPickerState([]);
     _ebookModulInitPickerUI();
     openModal('ebook-modul-form-overlay');
@@ -335,6 +355,8 @@ function openEditEbookModul(kode) {
     document.getElementById('ebook-modul-form-title').textContent = 'Edit Modul E-Book';
     document.getElementById('ebook-modul-nama-input').value = m.nama;
     _populateEbookModulKelompokSelect(m.kelompok || '');
+    EbookModulFormState.posterFile = null; EbookModulFormState.posterPreviewUrl = m.poster || null;
+    _renderEbookModulPosterPreview();
     _ebookModulResetPickerState(m.ebook_list || []);
     _ebookModulInitPickerUI();
     openModal('ebook-modul-form-overlay');
@@ -432,13 +454,23 @@ async function submitEbookModulForm() {
     const kelompok = document.getElementById('ebook-modul-kelompok-select')?.value || '';
     if (!_ebookModulOrder.length) { showToast('Pilih minimal 1 buku', 'danger'); return; }
     const ebook_list = [..._ebookModulOrder];
+
+    const fd = new FormData();
+    fd.append('nama', nama);
+    fd.append('kelompok', kelompok);
+    fd.append('ebook_list', JSON.stringify(ebook_list));
+    if (EbookModulFormState.posterFile) fd.append('poster', EbookModulFormState.posterFile);
+
+    const saveBtn = document.getElementById('ebook-modul-save-btn');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Menyimpan...'; }
     try {
-        if (mode === 'add') await EbookModulAPI.create({ nama, kelompok, ebook_list });
-        else await EbookModulAPI.update(kode, { nama, kelompok, ebook_list });
+        if (mode === 'add') await EbookModulAPI.create(fd);
+        else await EbookModulAPI.update(kode, fd);
         clearDirty(); closeModal('ebook-modul-form-overlay');
         showToast('Modul e-book disimpan!', 'success');
         await renderEbookModul();
     } catch (e) { showToast('Gagal: ' + e.message, 'danger'); }
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Simpan Modul'; }
 }
 function deleteEbookModulItem(kode, nama) {
     showConfirm('Hapus Modul', `Yakin hapus "${nama}"?`, 'danger', async () => {

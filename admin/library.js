@@ -40,38 +40,48 @@ function _libSwipeCardHtml(s){const kode=s.kode||s.id;const sel=_libSelected.has
     ],
     rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`deleteLibSoal('${kode}','${(s.nama||'').replace(/'/g,"\\'")}')`}]
 });}
+function _libGroupHtml(group){
+    const cardsHtml=group.items.map(_libCardHtml).join('');
+    const swipeHtml=group.items.map(_libSwipeCardHtml).join('');
+    return `<div class="section-sub" style="font-weight:700;color:var(--blue);text-transform:none;margin:18px 0 8px">${group.label} <span style="font-weight:500;color:var(--text-sub);font-size:11px">(${group.items.length} soal)</span></div>
+    <div class="aksi-swipe-wrap">${cardsHtml}</div>
+    <div class="swipe-list">${swipeHtml}</div>`;
+}
 function _renderLibList(){
     let data=_libData;
     if(_libSearch)data=data.filter(s=>(s.nama||'').toLowerCase().includes(_libSearch.toLowerCase())||(s.type||'').toLowerCase().includes(_libSearch.toLowerCase())||(_soalKelompokNama(s.kelompok)||'').toLowerCase().includes(_libSearch.toLowerCase()));
     if(_libType!=='all')data=data.filter(s=>s.type===_libType);
     if(_libKelompokFilter==='none')data=data.filter(s=>!s.kelompok);
     else if(_libKelompokFilter!=='all')data=data.filter(s=>s.kelompok===_libKelompokFilter);
-    const el=document.getElementById('library-list');if(!el)return;
-    VirtualList.render(el,{items:data,rowHeight:96,tag:'div',
-        renderItem:_libCardHtml,
-        emptyHtml:'<div class="empty-state"><p>Belum ada soal di library</p></div>'});
-    const swEl=document.getElementById('library-swipe-list');
-    if(swEl&&window.SwipeCards){
-        VirtualList.render(swEl,{items:data,rowHeight:78,tag:'div',
-            renderItem:_libSwipeCardHtml,
-            emptyHtml:'<div class="swipe-card-empty">Belum ada soal di library</div>',
-            onRendered:()=>SwipeCards.bindSwipeList(swEl,_libSelectOpts())});
-    }
+    const el=document.getElementById('library-groups');if(!el)return;
+    if(!data.length){el.innerHTML='<div class="empty-state"><p>Belum ada soal di library</p></div>';_updateLibBulkBar();return;}
+    // Kelompokkan per kelompok soal (pola sama seperti Token Terpakai yang dikelompokkan per hari)
+    const groups={};
+    data.forEach(s=>{ const k=s.kelompok||'__none__'; (groups[k]=groups[k]||[]).push(s); });
+    const orderedKeys=[..._soalKelompokList.map(k=>k.kode).filter(k=>groups[k]), ...(groups.__none__?['__none__']:[])];
+    const groupList=orderedKeys.map(k=>({key:k,label:k==='__none__'?'Tanpa Kelompok':_soalKelompokNama(k),items:groups[k]}));
+    VirtualList.renderGroups(el,{
+        items:groupList,
+        estimateHeight:(g)=>40+g.items.length*96,
+        renderItem:_libGroupHtml,
+        emptyHtml:'<div class="empty-state"><p>Belum ada soal di library</p></div>',
+        onRendered:()=>{ if(window.SwipeCards)el.querySelectorAll('.swipe-list').forEach(sw=>SwipeCards.bindSwipeList(sw,_libSelectOpts())); }
+    });
     _updateLibBulkBar();
 }
 
 // ── PILIH MASSAL (Library Soal) — pola sama seperti Manajemen Akun ──
 function toggleLibSelect(kode,checked){
     if(checked)_libSelected.add(kode);else _libSelected.delete(kode);
-    document.querySelector(`#library-swipe-list .swipe-card[data-kode="${kode}"] .swipe-card-body`)?.classList.toggle('selected',checked);
+    document.querySelector(`#library-groups .swipe-card[data-kode="${kode}"] .swipe-card-body`)?.classList.toggle('selected',checked);
     _updateLibBulkBar();
 }
 function toggleSelectAllLib(checked){
-    document.querySelectorAll('#library-list .lib-row-check').forEach(cb=>{
+    document.querySelectorAll('#library-groups .lib-row-check').forEach(cb=>{
         cb.checked=checked;
         if(checked)_libSelected.add(cb.dataset.kode);else _libSelected.delete(cb.dataset.kode);
     });
-    document.querySelectorAll('#library-swipe-list .swipe-card').forEach(card=>{
+    document.querySelectorAll('#library-groups .swipe-card').forEach(card=>{
         const kode=card.dataset.kode;if(!kode)return;
         if(checked)_libSelected.add(kode);else _libSelected.delete(kode);
         card.querySelector('.swipe-card-body')?.classList.toggle('selected',checked);
@@ -80,8 +90,8 @@ function toggleSelectAllLib(checked){
 }
 function clearLibSelection(){
     _libSelected.clear();
-    document.querySelectorAll('#library-list .lib-row-check').forEach(cb=>cb.checked=false);
-    document.querySelectorAll('#library-swipe-list .swipe-card-body').forEach(b=>b.classList.remove('selected'));
+    document.querySelectorAll('#library-groups .lib-row-check').forEach(cb=>cb.checked=false);
+    document.querySelectorAll('#library-groups .swipe-card-body').forEach(b=>b.classList.remove('selected'));
     _updateLibBulkBar();
 }
 // Mode pilih massal ala galeri foto di kartu mobile: tahan lama 1 kartu -> masuk mode pilih
@@ -99,7 +109,7 @@ function _updateLibBulkBar(){
     const cnt=document.getElementById('bulk-count-lib');if(cnt)cnt.textContent=n;
     const selAll=document.getElementById('lib-select-all');
     if(selAll){
-        const rows=Array.from(document.querySelectorAll('#library-list .lib-row-check'));
+        const rows=Array.from(document.querySelectorAll('#library-groups .lib-row-check'));
         selAll.checked=rows.length>0&&rows.every(cb=>_libSelected.has(cb.dataset.kode));
     }
 }

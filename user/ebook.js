@@ -33,17 +33,22 @@ function loadPdfJs() {
 }
 
 const EbookLib = {
-    books: [], kelompok: [], _search: '', _kelompokFilter: 'all',
+    modules: [], modulKelompok: [], books: [], ebookKelompok: [],
+    _search: '', _kelompokFilter: 'all', _sort: 'oldest', _openModulKode: null,
     async load() {
         const grid = document.getElementById('ebook-library-grid');
-        if (grid) grid.innerHTML = '<div class="jadwal-empty"><p>Memuat buku...</p></div>';
+        if (grid) grid.innerHTML = '<div class="jadwal-empty"><p>Memuat modul...</p></div>';
         try {
-            const [books, kelompok] = await Promise.all([
+            const [modules, modulKelompok, books, ebookKelompok] = await Promise.all([
+                ebookApiFetch('/ebook-modul'),
+                ebookApiFetch('/ebook-modul-kelompok').catch(() => []),
                 ebookApiFetch('/ebook'),
                 ebookApiFetch('/ebook-kelompok').catch(() => [])
             ]);
+            this.modules = Array.isArray(modules) ? modules : [];
+            this.modulKelompok = Array.isArray(modulKelompok) ? modulKelompok : [];
             this.books = Array.isArray(books) ? books : [];
-            this.kelompok = Array.isArray(kelompok) ? kelompok : [];
+            this.ebookKelompok = Array.isArray(ebookKelompok) ? ebookKelompok : [];
             this._populateKelompokSelect();
             this._render();
         } catch (e) {
@@ -53,7 +58,7 @@ const EbookLib = {
     _populateKelompokSelect() {
         const sel = document.getElementById('ebook-kelompok-filter-select'); if (!sel) return;
         const cur = sel.value || 'all';
-        sel.innerHTML = '<option value="all">Semua Kelompok</option>' + this.kelompok.map(k => `<option value="${k.kode}">${_ebkEsc(k.nama)}</option>`).join('');
+        sel.innerHTML = '<option value="all">Semua Kelompok</option>' + this.modulKelompok.map(k => `<option value="${k.kode}">${_ebkEsc(k.nama)}</option>`).join('');
         sel.value = [...sel.options].some(o => o.value === cur) ? cur : 'all';
     },
     search(v) { this._search = v; this._toggleClearBtn(); this._render(); },
@@ -69,7 +74,9 @@ const EbookLib = {
         if (btn) btn.classList.toggle('show', !!(this._search || '').trim());
     },
     filterKelompok(v) { this._kelompokFilter = v; this._render(); },
-    _kelompokNama(kode) { const k = this.kelompok.find(x => x.kode === kode); return k ? k.nama : ''; },
+    setSort(v) { this._sort = v; this._render(); },
+    _modulKelompokNama(kode) { const k = this.modulKelompok.find(x => x.kode === kode); return k ? k.nama : ''; },
+    _ebookKelompokNama(kode) { const k = this.ebookKelompok.find(x => x.kode === kode); return k ? k.nama : ''; },
     _spineColor(kode) {
         if (!kode) return 'var(--accent)';
         let h = 0; for (let i = 0; i < kode.length; i++) h = (h * 31 + kode.charCodeAt(i)) % 360;
@@ -77,30 +84,98 @@ const EbookLib = {
     },
     _updateCount() {
         const el = document.getElementById('ebook-count'); if (!el) return;
-        const n = this.books.length;
-        el.textContent = n ? `${n} buku` : '';
+        if (this._openModulKode) {
+            const m = this.modules.find(x => x.kode === this._openModulKode);
+            const n = m ? (m.ebook_list || []).length : 0;
+            el.textContent = n ? `${n} buku` : '';
+        } else {
+            const n = this.modules.length;
+            el.textContent = n ? `${n} modul` : '';
+        }
+    },
+    openModul(kode) {
+        this._openModulKode = kode;
+        this.clearSearch();
+    },
+    closeModul() {
+        this._openModulKode = null;
+        this.clearSearch();
+    },
+    _syncToolbarUI() {
+        const detailHeader = document.getElementById('ebook-detail-header');
+        const kelompokSel = document.getElementById('ebook-kelompok-filter-select');
+        const sortSel = document.getElementById('ebook-sort-select');
+        const searchInput = document.getElementById('ebook-search-input');
+        const isDetail = !!this._openModulKode;
+        if (detailHeader) detailHeader.style.display = isDetail ? 'flex' : 'none';
+        if (kelompokSel) kelompokSel.style.display = isDetail ? 'none' : '';
+        if (sortSel) sortSel.style.display = isDetail ? 'none' : '';
+        if (searchInput) searchInput.placeholder = isDetail ? 'Cari judul buku...' : 'Cari judul modul...';
+        if (isDetail) {
+            const m = this.modules.find(x => x.kode === this._openModulKode);
+            const titleEl = document.getElementById('ebook-detail-title');
+            if (titleEl) titleEl.textContent = m ? m.nama : 'Modul';
+        }
     },
     _render() {
         const grid = document.getElementById('ebook-library-grid'); if (!grid) return;
         this._updateCount();
-        let data = this.books;
-        if (this._kelompokFilter !== 'all') data = data.filter(b => (b.kelompok || '') === this._kelompokFilter);
+        this._syncToolbarUI();
+        if (this._openModulKode) this._renderModulDetail(grid);
+        else this._renderModulList(grid);
+    },
+    _renderModulList(grid) {
+        let data = this.modules;
+        if (this._kelompokFilter !== 'all') data = data.filter(m => (m.kelompok || '') === this._kelompokFilter);
         const q = (this._search || '').trim().toLowerCase();
-        if (q) data = data.filter(b => (b.nama || '').toLowerCase().includes(q) || this._kelompokNama(b.kelompok).toLowerCase().includes(q));
+        if (q) data = data.filter(m => (m.nama || '').toLowerCase().includes(q) || this._modulKelompokNama(m.kelompok).toLowerCase().includes(q));
+        data = [...data].sort((a, b) => {
+            const ta = new Date(a.created_at || 0).getTime(), tb = new Date(b.created_at || 0).getTime();
+            return this._sort === 'newest' ? tb - ta : ta - tb;
+        });
         if (!data.length) {
-            if (this.books.length && (q || this._kelompokFilter !== 'all')) {
+            if (this.modules.length && (q || this._kelompokFilter !== 'all')) {
                 grid.innerHTML = '<div class="jadwal-empty"><p>Tidak ditemukan</p><small>Coba kata kunci lain atau ganti kelompok</small><div class="ebk-empty-actions"><button type="button" class="ebk-clear-filter" onclick="EbookLib.clearSearch();document.getElementById(\'ebook-kelompok-filter-select\').value=\'all\';EbookLib.filterKelompok(\'all\')">Hapus filter</button></div></div>';
             } else {
-                grid.innerHTML = '<div class="jadwal-empty"><p>Belum ada buku</p><small>Buku yang ditambahkan admin akan muncul di sini</small></div>';
+                grid.innerHTML = '<div class="jadwal-empty"><p>Belum ada modul e-book</p><small>Modul yang ditambahkan admin akan muncul di sini</small></div>';
             }
             return;
         }
-        grid.innerHTML = data.map(b => `
+        grid.innerHTML = data.map(m => {
+            const books = (m.ebook_list || []).map(k => this.books.find(b => b.kode === k)).filter(Boolean);
+            const posterHtml = m.poster ? `<img src="${m.poster}" alt="">` : (books[0] && books[0].poster ? `<img src="${books[0].poster}" alt="">` : _ebkBookIcon());
+            return `
+          <div class="ebook-card" style="--ebk-spine:${this._spineColor(m.kelompok || m.kode)}" onclick="EbookLib.openModul('${m.kode}')">
+            <div class="ebook-poster">${posterHtml}</div>
+            <div class="ebook-card-body">
+              <div class="ebook-card-nama">${_ebkEsc(m.nama)}</div>
+              ${this._modulKelompokNama(m.kelompok) ? `<div class="ebook-card-kelompok">${_ebkEsc(this._modulKelompokNama(m.kelompok))}</div>` : ''}
+              <div class="ebook-card-meta">${_ebkPdfIcon()} ${books.length} buku</div>
+            </div>
+          </div>`;
+        }).join('');
+    },
+    _renderModulDetail(grid) {
+        const m = this.modules.find(x => x.kode === this._openModulKode);
+        if (!m) {
+            grid.innerHTML = '<div class="jadwal-empty"><p>Modul tidak ditemukan</p></div>';
+            return;
+        }
+        let books = (m.ebook_list || []).map(k => this.books.find(b => b.kode === k)).filter(Boolean);
+        const q = (this._search || '').trim().toLowerCase();
+        if (q) books = books.filter(b => (b.nama || '').toLowerCase().includes(q));
+        if (!books.length) {
+            grid.innerHTML = q
+                ? '<div class="jadwal-empty"><p>Tidak ditemukan</p><small>Coba kata kunci lain</small></div>'
+                : '<div class="jadwal-empty"><p>Belum ada buku di modul ini</p></div>';
+            return;
+        }
+        grid.innerHTML = books.map(b => `
           <div class="ebook-card" style="--ebk-spine:${this._spineColor(b.kelompok)}" onclick="EbookReader.open('${b.kode}')">
             <div class="ebook-poster">${b.poster ? `<img src="${b.poster}" alt="">` : _ebkBookIcon()}</div>
             <div class="ebook-card-body">
               <div class="ebook-card-nama">${_ebkEsc(b.nama)}</div>
-              ${this._kelompokNama(b.kelompok) ? `<div class="ebook-card-kelompok">${_ebkEsc(this._kelompokNama(b.kelompok))}</div>` : ''}
+              ${this._ebookKelompokNama(b.kelompok) ? `<div class="ebook-card-kelompok">${_ebkEsc(this._ebookKelompokNama(b.kelompok))}</div>` : ''}
               <div class="ebook-card-meta">${_ebkPdfIcon()} ${b.jumlah_halaman ? b.jumlah_halaman + ' lembar' : 'PDF'}</div>
             </div>
           </div>`).join('');

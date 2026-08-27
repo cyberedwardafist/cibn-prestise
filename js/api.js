@@ -229,8 +229,8 @@ const EbookAPI = {
 // ── EBOOK MODUL API (paket buku) ──
 const EbookModulAPI = {
     async getAll() { return await apiGet('/ebook-modul') || []; },
-    async create(data) { return await apiPost('/ebook-modul', data); },
-    async update(kode, data) { return await apiPut(`/ebook-modul/${kode}`, data); },
+    async create(formData) { return await apiEbookSubmit('POST', '/ebook-modul', formData); },
+    async update(kode, formData) { return await apiEbookSubmit('PUT', `/ebook-modul/${kode}`, formData); },
     async delete(kode) { return await apiDel(`/ebook-modul/${kode}`); }
 };
 
