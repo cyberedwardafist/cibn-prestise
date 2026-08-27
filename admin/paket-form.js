@@ -70,26 +70,63 @@ function _pfToggleModulPick(kode, ck) {
 // Pola sama seperti picker Modul di atas, tapi listnya diambil dari data MODUL
 // (paket soal ujian, admin/modul.js), bukan Modul E-Book. Sesuai arahan: baru
 // tampilan search/filter/list-nya dulu, belum dihubungkan ke fungsi booking.
+// Sama seperti "Pilih Buku & Urutan Tampil" di Modul E-Book (js/ebook.js):
+// Tahap 1 "select": cari & centang modul, dibatasi oleh Kuota (kalau diisi).
+// Tahap 2 "order": hanya modul terpilih, diseret naik/turun (atau tombol panah)
+// utk atur urutan tampil. Urutan+pilihan disimpan lewat hidden checkbox
+// name="pf-aturan" (di #pf-mentoring-order-inputs) berurutan sesuai _pfMentoringOrder,
+// jadi submitPaket() yg baca semua checkbox pf-aturan:checked otomatis dapat urutan
+// yg benar tanpa perlu diubah.
 let _pfMentoringModulList = [], _pfMentoringKelompokList = [];
 let _pfMentoringPickerSearch = '', _pfMentoringPickerKelompokFilter = 'all';
-let _pfMentoringPickerSelected = new Set();
+let _pfMentoringPickerStep = 'select';
+let _pfMentoringOrder = [];
+let _pfMentoringDragFrom = null;
 
 async function _pfLoadMentoringPicker(selectedKodes = []) {
-    _pfMentoringPickerSelected = new Set(selectedKodes);
+    _pfMentoringOrder = selectedKodes.map(v => v.replace('mentoring.modul.', ''));
     _pfMentoringPickerSearch = ''; _pfMentoringPickerKelompokFilter = 'all';
     const si = document.getElementById('pf-mentoring-picker-search-input'); if (si) si.value = '';
     [_pfMentoringModulList, _pfMentoringKelompokList] = await Promise.all([
         (typeof ModulAPI !== 'undefined' ? ModulAPI.getAll().catch(() => []) : Promise.resolve([])),
         (typeof ModulKelompokAPI !== 'undefined' ? ModulKelompokAPI.getAll().catch(() => []) : Promise.resolve([]))
     ]);
+    _pfMentoringInitPickerUI();
+}
+function _pfMentoringInitPickerUI() {
+    _pfMentoringPickerStep = 'select';
+    const sb = document.getElementById('pf-mentoring-picker-searchbar'); if (sb) sb.style.display = '';
+    const hint = document.getElementById('pf-mentoring-picker-hint'); if (hint) hint.textContent = 'Cari & pilih modul untuk sesi mentoring';
+    const nb = document.getElementById('pf-mentoring-next-btn'); if (nb) nb.style.display = '';
+    const bb = document.getElementById('pf-mentoring-back-btn'); if (bb) bb.style.display = 'none';
     _renderPfMentoringPickerFilters();
     _renderPfMentoringPicker();
+    _pfSyncMentoringHiddenInputs();
 }
+
+// Kuota = null artinya kosong/0 = tak terbatas (∞)
+function _pfMentoringKuota() {
+    const v = parseInt(document.getElementById('pf-mentoring-kuota')?.value || '');
+    return (isNaN(v) || v <= 0) ? null : v;
+}
+function onPfMentoringKuotaChange() {
+    setDirty('paket');
+    const kuota = _pfMentoringKuota();
+    // Kalau kuota diperkecil dan modul terpilih sudah kelebihan, potong dari yg paling akhir
+    if (kuota !== null && _pfMentoringOrder.length > kuota) {
+        _pfMentoringOrder = _pfMentoringOrder.slice(0, kuota);
+        _pfSyncMentoringHiddenInputs();
+        showToast(`Kuota diperkecil jadi ${kuota}, kelebihan pilihan modul otomatis dilepas`, 'info');
+    }
+    if (_pfMentoringPickerStep === 'select') _renderPfMentoringPicker(); else _renderPfMentoringOrderList();
+}
+
 function _renderPfMentoringPickerFilters() {
     if (!document.getElementById('pf-mentoring-picker-filters')) return;
     const options = [{ value: 'all', label: 'Semua Kelompok' }, { value: 'none', label: 'Tanpa Kelompok' }, ..._pfMentoringKelompokList.map(k => ({ value: k.kode, label: k.nama }))];
     renderFilterDropdown('pf-mentoring-picker-filters', { title: 'Kelompok', options, current: _pfMentoringPickerKelompokFilter, onSelect: v => { _pfMentoringPickerKelompokFilter = v; _renderPfMentoringPickerFilters(); _renderPfMentoringPicker(); } });
 }
+// -- Tahap 1: daftar modul dgn search + filter kelompok, dibatasi kuota --
 function _renderPfMentoringPicker() {
     const el = document.getElementById('pf-mentoring-picker-list'); if (!el) return;
     if (!_pfMentoringModulList.length) { el.innerHTML = '<p style="color:var(--text-sub);font-size:12px">Belum ada modul. Buat dulu di menu Modul.</p>'; return; }
@@ -98,25 +135,99 @@ function _renderPfMentoringPicker() {
     if (q) data = data.filter(m => (m.nama || '').toLowerCase().includes(q));
     if (_pfMentoringPickerKelompokFilter === 'none') data = data.filter(m => !m.kelompok);
     else if (_pfMentoringPickerKelompokFilter !== 'all') data = data.filter(m => m.kelompok === _pfMentoringPickerKelompokFilter);
-    el.innerHTML = data.length ? data.map(m => _pfMentoringPickCardHtml(m)).join('') : '<p style="color:var(--text-sub);font-size:12px">Tidak ada modul yang cocok.</p>';
+    const kuota = _pfMentoringKuota();
+    const kuotaInfo = kuota !== null ? `<div style="font-size:10px;color:var(--text-sub);margin-bottom:6px">Terpilih ${_pfMentoringOrder.length}/${kuota} modul${_pfMentoringOrder.length >= kuota ? ' — kuota penuh' : ''}</div>` : '';
+    el.innerHTML = kuotaInfo + (data.length ? data.map(m => _pfMentoringPickCardHtml(m)).join('') : '<p style="color:var(--text-sub);font-size:12px">Tidak ada modul yang cocok.</p>');
 }
 function _pfMentoringKelompokNama(kode) { const k = _pfMentoringKelompokList.find(x => x.kode === kode); return k ? k.nama : ''; }
 function _pfMentoringPickCardHtml(m) {
     const kode = m.kode || m.id;
-    const val = 'mentoring.modul.' + kode;
-    const ck = _pfMentoringPickerSelected.has(val);
+    const ck = _pfMentoringOrder.includes(kode);
+    const kuota = _pfMentoringKuota();
+    const kuotaFull = kuota !== null && _pfMentoringOrder.length >= kuota;
+    const disabled = !ck && kuotaFull;
     const kelNama = _pfMentoringKelompokNama(m.kelompok);
     const namaTampil = m.nama_internal ? `${m.nama} | ${m.nama_internal}` : m.nama;
-    return `<label class="ebook-pick-item${ck ? ' checked' : ''}" id="pfmentpick-${kode}">
-      <input type="checkbox" name="pf-aturan" value="${val}" ${ck ? 'checked' : ''} onchange="_pfToggleMentoringPick('${kode}',this.checked)" style="accent-color:var(--blue);width:16px;height:16px;flex-shrink:0">
+    return `<label class="ebook-pick-item${ck ? ' checked' : ''}" id="pfmentpick-${kode}" style="${disabled ? 'opacity:.45;cursor:not-allowed' : ''}">
+      <input type="checkbox" ${ck ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="_pfToggleMentoringPick('${kode}',this.checked)" style="accent-color:var(--blue);width:16px;height:16px;flex-shrink:0">
       <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;color:var(--blue);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namaTampil}</div><div style="font-size:11px;color:var(--text-sub)">${(m.soal_list || []).length} soal${kelNama ? ' · ' + kelNama : ''}</div></div>
     </label>`;
 }
 function _pfToggleMentoringPick(kode, ck) {
-    const val = 'mentoring.modul.' + kode;
-    if (ck) _pfMentoringPickerSelected.add(val); else _pfMentoringPickerSelected.delete(val);
-    const el = document.getElementById(`pfmentpick-${kode}`); if (el) el.classList.toggle('checked', ck);
+    const kuota = _pfMentoringKuota();
+    if (ck) {
+        if (kuota !== null && _pfMentoringOrder.length >= kuota) { showToast(`Kuota cuma ${kuota} modul, sudah penuh`, 'danger'); _renderPfMentoringPicker(); return; }
+        if (!_pfMentoringOrder.includes(kode)) _pfMentoringOrder.push(kode);
+    } else {
+        _pfMentoringOrder = _pfMentoringOrder.filter(k => k !== kode);
+    }
+    _pfSyncMentoringHiddenInputs();
     setDirty('paket');
+    _renderPfMentoringPicker(); // render ulang supaya status disabled kartu lain ikut update
+}
+
+// -- Tahap 2: hanya modul terpilih, urutkan dgn drag naik/turun atau tombol panah --
+function _pfMentoringGoToOrderStep() {
+    if (!_pfMentoringOrder.length) { showToast('Pilih minimal 1 modul', 'danger'); return; }
+    _pfMentoringPickerStep = 'order';
+    const sb = document.getElementById('pf-mentoring-picker-searchbar'); if (sb) sb.style.display = 'none';
+    const hint = document.getElementById('pf-mentoring-picker-hint'); if (hint) hint.textContent = 'Seret ke atas/bawah, atau pakai tombol panah untuk atur urutan tampil';
+    document.getElementById('pf-mentoring-next-btn').style.display = 'none';
+    document.getElementById('pf-mentoring-back-btn').style.display = '';
+    _renderPfMentoringOrderList();
+}
+function _pfMentoringGoToSelectStep() { _pfMentoringInitPickerUI(); }
+function _renderPfMentoringOrderList() {
+    const el = document.getElementById('pf-mentoring-picker-list'); if (!el) return;
+    if (!_pfMentoringOrder.length) { el.innerHTML = '<p style="color:var(--text-sub);font-size:12px">Belum ada modul dipilih. Klik "Kembali" untuk memilih modul.</p>'; return; }
+    el.innerHTML = _pfMentoringOrder.map((kode, idx) => _buildPfMentoringOrderCard(kode, idx)).join('');
+}
+function _buildPfMentoringOrderCard(kode, idx) {
+    const m = _pfMentoringModulList.find(x => (x.kode || x.id) === kode); if (!m) return '';
+    const last = _pfMentoringOrder.length - 1;
+    const namaTampil = m.nama_internal ? `${m.nama} | ${m.nama_internal}` : m.nama;
+    return `<div class="modul-order-item" draggable="true" ondragstart="_pfMentoringDragStart(event,'${kode}')" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');_pfMentoringDrop(event,'${kode}')" style="padding:10px;background:rgba(19,50,89,0.03);border-radius:10px;border:1.5px solid var(--accent);margin-bottom:6px" id="pfmentord-${kode}">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="cursor:grab;color:var(--text-sub);flex-shrink:0" title="Seret untuk urutkan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span>
+        <span style="font-weight:700;font-size:11px;color:var(--accent);width:18px;text-align:center;flex-shrink:0">${idx + 1}</span>
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12px;color:var(--blue);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namaTampil}</div></div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button type="button" class="btn-icon" title="Naik" ${idx === 0 ? 'disabled style="opacity:.35;cursor:not-allowed"' : ''} onclick="_pfMentoringMove('${kode}',-1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
+          <button type="button" class="btn-icon" title="Turun" ${idx === last ? 'disabled style="opacity:.35;cursor:not-allowed"' : ''} onclick="_pfMentoringMove('${kode}',1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></button>
+          <button type="button" class="btn-icon danger" title="Batalkan pilihan" onclick="_pfMentoringRemoveSelected('${kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+      </div>
+    </div>`;
+}
+function _pfMentoringMove(kode, dir) {
+    const idx = _pfMentoringOrder.indexOf(kode); if (idx < 0) return;
+    const ni = idx + dir; if (ni < 0 || ni >= _pfMentoringOrder.length) return;
+    [_pfMentoringOrder[idx], _pfMentoringOrder[ni]] = [_pfMentoringOrder[ni], _pfMentoringOrder[idx]];
+    _pfSyncMentoringHiddenInputs();
+    _renderPfMentoringOrderList();
+}
+function _pfMentoringRemoveSelected(kode) {
+    _pfMentoringOrder = _pfMentoringOrder.filter(k => k !== kode);
+    _pfSyncMentoringHiddenInputs();
+    _renderPfMentoringOrderList();
+}
+function _pfMentoringDragStart(e, kode) { _pfMentoringDragFrom = kode; e.dataTransfer.effectAllowed = 'move'; }
+function _pfMentoringDrop(e, kode) {
+    if (_pfMentoringDragFrom === null || _pfMentoringDragFrom === kode) { _pfMentoringDragFrom = null; return; }
+    const fromIdx = _pfMentoringOrder.indexOf(_pfMentoringDragFrom), toIdx = _pfMentoringOrder.indexOf(kode);
+    _pfMentoringDragFrom = null;
+    if (fromIdx < 0 || toIdx < 0) return;
+    const moved = _pfMentoringOrder.splice(fromIdx, 1)[0];
+    _pfMentoringOrder.splice(toIdx, 0, moved);
+    _pfSyncMentoringHiddenInputs();
+    _renderPfMentoringOrderList();
+}
+// Tulis ulang hidden checkbox name="pf-aturan" berurutan sesuai _pfMentoringOrder.
+// submitPaket() baca semua input[name="pf-aturan"]:checked apa adanya sesuai urutan
+// DOM, jadi urutan modul otomatis kebawa ke aturan_akses tanpa ubah logic submit.
+function _pfSyncMentoringHiddenInputs() {
+    const el = document.getElementById('pf-mentoring-order-inputs'); if (!el) return;
+    el.innerHTML = _pfMentoringOrder.map(kode => `<input type="checkbox" name="pf-aturan" value="mentoring.modul.${kode}" checked style="display:none">`).join('');
 }
 
 async function openAddPaket() {
