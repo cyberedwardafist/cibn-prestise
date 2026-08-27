@@ -90,7 +90,10 @@ const ADMIN_PAGE_MODULES = {
     'ebook-library': { html: 'admin/ebook-library.html',  js: ['js/ebook.js'], modals: 'admin/ebook-modals.html' },
     'ebook-modul':   { html: 'admin/ebook-modul.html',    js: ['js/ebook.js'], modals: 'admin/ebook-modals.html' },
     landing:         { html: 'admin/landing.html',        js: ['admin/landing.js'] },
-    keuangan:        { html: 'admin/keuangan.html',       js: ['admin/keuangan.js'], modals: 'admin/keuangan-modals.html' },
+    // Form Tambah/Edit Paket dipisah dari keuangan.js/keuangan-modals.html jadi
+    // admin/paket-form.js + admin/paket-form.html (tampil fullscreen) — biar file
+    // keuangan.js tetap ringan tiap kali cuma form paket-nya yang diubah.
+    keuangan:        { html: 'admin/keuangan.html',       js: ['admin/keuangan.js', 'admin/paket-form.js'], modals: 'admin/paket-form.html' },
 };
 function ensureAdminPageModule(pageId) {
     const spec = ADMIN_PAGE_MODULES[pageId];
