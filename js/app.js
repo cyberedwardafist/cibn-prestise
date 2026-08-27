@@ -93,7 +93,7 @@ const ADMIN_PAGE_MODULES = {
     // Form Tambah/Edit Paket dipisah dari keuangan.js/keuangan-modals.html jadi
     // admin/paket-form.js + admin/paket-form.html (tampil fullscreen) — biar file
     // keuangan.js tetap ringan tiap kali cuma form paket-nya yang diubah.
-    keuangan:        { html: 'admin/keuangan.html',       js: ['admin/keuangan.js', 'admin/paket-form.js'], modals: 'admin/paket-form.html' },
+    keuangan:        { html: 'admin/keuangan.html',       js: ['admin/keuangan.js', 'admin/paket-form.js', 'admin/paket-daterange.js'], modals: 'admin/paket-form.html' },
 };
 function ensureAdminPageModule(pageId) {
     const spec = ADMIN_PAGE_MODULES[pageId];

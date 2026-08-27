@@ -29,15 +29,28 @@
       <div class="form-row">
         <div class="form-group"><label class="form-label">Harga (Rp)</label><input id="pf-harga" class="form-input" type="number" placeholder="299000" oninput="setDirty('paket')"></div>
         <div class="form-group"><label class="form-label">Durasi / Periode</label>
-          <select id="pf-periode" class="form-select" onchange="(function(v){var c=document.getElementById('pf-periode-custom');if(c)c.style.display=v==='custom'?'block':'none'})(this.value)">
+          <select id="pf-periode" class="form-select" onchange="onPaketPeriodeChange(this.value)">
             <option value="/bulan">Per Bulan</option>
             <option value="/tahun">Per Tahun</option>
             <option value="/hari">Per Hari</option>
             <option value="sekali bayar">Sekali Bayar (lifetime)</option>
-            <option value="custom">Custom (isi sendiri)...</option>
+            <option value="custom">Custom (pilih tanggal di kalender)</option>
           </select>
-          <input id="pf-periode-custom" class="form-input" type="text" placeholder="Contoh: /3 bulan, /minggu, /semester..." style="margin-top:6px;display:none" oninput="setDirty('paket')">
         </div>
+      </div>
+      <!-- Nilai hasil pilihan kalender disimpan di 2 hidden input ini (format ISO
+           yyyy-mm-dd). Logic & render kalendernya ada di admin/paket-daterange.js —
+           widget-nya sendiri, BUKAN <input type="date"> bawaan browser. Ditaruh
+           full-width di luar .form-row (bukan di kolom sempit) supaya 2 kalendernya
+           muat berdampingan. -->
+      <input type="hidden" id="pf-periode-start">
+      <input type="hidden" id="pf-periode-end">
+      <div id="pf-periode-daterange" class="form-group" style="display:none">
+        <div class="cal-daterange-wrap">
+          <div class="cal-widget" id="pf-cal-start"></div>
+          <div class="cal-widget" id="pf-cal-end"></div>
+        </div>
+        <div class="cal-daterange-summary" id="pf-periode-summary"></div>
       </div>
       <div class="form-group"><label class="form-label">Deskripsi Singkat</label><input id="pf-desc" class="form-input" type="text" placeholder="Cocok untuk pemula" oninput="setDirty('paket')"></div>
       <div class="form-group">

@@ -5,6 +5,10 @@
 // lewat ADMIN_PAGE_MODULES.keuangan di js/app.js).
 // Butuh _paketData & _ldPaketCache (dideklarasikan di admin/keuangan.js) serta
 // helper global dari js/app.js (showToast, openModal, closeModal, dst).
+// Widget kalender utk Periode=Custom ada di admin/paket-daterange.js (fungsi
+// onPaketPeriodeChange/initPaketDateRange/paketPeriodeDiffDays dipakai di sini).
+
+const PAKET_PERIODE_PRESET = ['/bulan', '/tahun', '/hari', 'sekali bayar'];
 
 let _editPaketKode = null;
 
@@ -20,7 +24,8 @@ async function openAddPaket() {
     document.getElementById('pf-fitur').value = '';
     document.getElementById('pf-warna').value = 'blue';
     document.getElementById('pf-popular').checked = false;
-    var _ci = document.getElementById('pf-periode-custom'); if(_ci){_ci.style.display='none';_ci.value='';}
+    var _dr = document.getElementById('pf-periode-daterange'); if(_dr) _dr.style.display = 'none';
+    PaketCalState = null; // reset kalender, di-init ulang kalau user pilih Custom lagi
     document.querySelectorAll('input[name="pf-hak"]').forEach(cb=>cb.checked=false);
     document.querySelectorAll('input[name="pf-aturan"]').forEach(cb=>cb.checked=false);
     document.querySelectorAll('.hak-sub').forEach(s=>{s.style.display='none';});
@@ -41,12 +46,24 @@ async function openEditPaket(kode) {
     document.getElementById('pf-nama').value = p.nama || '';
     document.getElementById('pf-icon').value = p.icon || '📦';
     document.getElementById('pf-harga').value = p.harga || '';
-    var _pOpts = ['/bulan','/tahun','/hari','sekali bayar'];
     var _pVal = p.periode || (p.periode_tipe ? '/'+p.periode_tipe : '/bulan');
     var _pEl = document.getElementById('pf-periode');
-    var _cEl = document.getElementById('pf-periode-custom');
-    if(_pOpts.includes(_pVal)){if(_pEl)_pEl.value=_pVal;if(_cEl){_cEl.style.display='none';_cEl.value='';}}
-    else{if(_pEl)_pEl.value='custom';if(_cEl){_cEl.style.display='block';_cEl.value=_pVal;}}
+    var _dr = document.getElementById('pf-periode-daterange');
+    if (PAKET_PERIODE_PRESET.includes(_pVal)) {
+        if (_pEl) _pEl.value = _pVal;
+        if (_dr) _dr.style.display = 'none';
+        PaketCalState = null;
+    } else {
+        // Periode-nya dulu diisi lewat kalender (bukan salah satu preset) — buka
+        // lagi kalendernya. Tanggal absolut aslinya nggak disimpan di database,
+        // jadi direkonstruksi mulai hari ini sepanjang periode_hari yang tersimpan.
+        if (_pEl) _pEl.value = 'custom';
+        if (_dr) _dr.style.display = 'block';
+        const durasi = parseInt(p.periode_hari) || 30;
+        const todayISO = _paketCalISO(_paketCalToday());
+        const endD = new Date(); endD.setDate(endD.getDate() + durasi - 1);
+        initPaketDateRange(todayISO, _paketCalISO(endD));
+    }
     document.getElementById('pf-desc').value = p.deskripsi || p.desc || '';
     document.getElementById('pf-fitur').value = Array.isArray(p.fitur) ? p.fitur.join('\n') : (p.fitur || '');
     document.getElementById('pf-warna').value = p.warna || 'blue';
@@ -98,21 +115,29 @@ async function submitPaket() {
     if (!nama) { showToast('Nama paket wajib diisi', 'danger'); return; }
     const hak_akses = [...document.querySelectorAll('input[name="pf-hak"]:checked')].map(cb=>cb.value);
     const aturan_akses = [...document.querySelectorAll('input[name="pf-aturan"]:checked')].map(cb=>cb.value);
-    const periodeVal = (function(){
-        var sel = document.getElementById('pf-periode').value;
-        if (sel === 'custom') { var c = document.getElementById('pf-periode-custom'); return (c && c.value.trim()) ? c.value.trim() : '/bulan'; }
-        return sel;
-    })();
-    // Hitung periode_hari dari periodeVal
-    const periodeToHari = {'/hari':1,'/minggu':7,'/bulan':30,'/tahun':365,'sekali bayar':36500};
-    const periode_hari = periodeToHari[periodeVal] || 30;
+    const periodeSel = document.getElementById('pf-periode').value;
+    let periodeVal, periode_hari, periode_tipe;
+    if (periodeSel === 'custom') {
+        if (!PaketCalState || PaketCalState.end < PaketCalState.start) {
+            showToast('Pilih tanggal mulai & selesai di kalender dulu', 'danger');
+            return;
+        }
+        periode_hari = paketPeriodeDiffDays();
+        periodeVal = `/${periode_hari} hari`;
+        periode_tipe = 'hari';
+    } else {
+        periodeVal = periodeSel;
+        const periodeToHari = {'/hari':1,'/minggu':7,'/bulan':30,'/tahun':365,'sekali bayar':36500};
+        periode_hari = periodeToHari[periodeVal] || 30;
+        periode_tipe = periodeVal.replace('/','').split(' ')[0] || 'bulan';
+    }
     const paket = {
         nama,
         deskripsi: document.getElementById('pf-desc').value.trim(),
         icon: document.getElementById('pf-icon').value.trim() || '📦',
         harga: parseInt(document.getElementById('pf-harga').value || '0'),
         periode: periodeVal,
-        periode_tipe: periodeVal.replace('/','').split(' ')[0] || 'bulan',
+        periode_tipe,
         periode_hari,
         fitur: document.getElementById('pf-fitur').value.trim(),
         warna: document.getElementById('pf-warna').value,
