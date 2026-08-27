@@ -749,13 +749,26 @@ app.post('/api/modul', auth(['admin']), ah(async (req, res) => {
     res.json({ kode, message: 'Berhasil' });
 }));
 app.put('/api/modul/:kode', auth(['admin']), ah(async (req, res) => {
-    const soal_list = req.body.soal_list || [];
-    const mode_bebas = req.body.mode_bebas ? 1 : 0;
+    const oldRow = await db.prepare('SELECT * FROM modul WHERE kode=?').get(req.params.kode);
+    if (!oldRow) return res.status(404).json({ error: 'Modul tidak ditemukan' });
+
+    // Partial update: field yang tidak dikirim di body akan tetap pakai nilai lama,
+    // bukan ditimpa NULL (mencegah data modul hilang saat update parsial, mis. bulk set kelompok).
+    const b = req.body || {};
+    let oldSoalList; try { oldSoalList = JSON.parse(oldRow.soal_list || '[]'); } catch (e) { oldSoalList = []; }
+    const nama              = b.nama              !== undefined ? b.nama : oldRow.nama;
+    const nama_internal     = b.nama_internal      !== undefined ? ((b.nama_internal || '').trim() || null) : oldRow.nama_internal;
+    const kelompok          = b.kelompok           !== undefined ? ((b.kelompok || '').trim() || null) : oldRow.kelompok;
+    const soal_list         = b.soal_list          !== undefined ? (b.soal_list || []) : oldSoalList;
+    const mode_bebas        = b.mode_bebas         !== undefined ? (b.mode_bebas ? 1 : 0) : oldRow.mode_bebas;
+    const timer_utama_jam   = b.timer_utama_jam    !== undefined ? (b.timer_utama_jam || 0) : oldRow.timer_utama_jam;
+    const timer_utama_menit = b.timer_utama_menit  !== undefined ? (b.timer_utama_menit || 0) : oldRow.timer_utama_menit;
+    const timer_utama_detik = b.timer_utama_detik  !== undefined ? (b.timer_utama_detik || 0) : oldRow.timer_utama_detik;
+
     try { await assertModeBebasValid(mode_bebas, soal_list); }
     catch (e) { return res.status(e.status || 400).json({ error: e.message }); }
     await db.prepare('UPDATE modul SET nama=?,nama_internal=?,kelompok=?,soal_list=?,mode_bebas=?,timer_utama_jam=?,timer_utama_menit=?,timer_utama_detik=? WHERE kode=?')
-        .run(req.body.nama, (req.body.nama_internal || '').trim() || null, (req.body.kelompok || '').trim() || null,
-             JSON.stringify(soal_list), mode_bebas, req.body.timer_utama_jam || 0, req.body.timer_utama_menit || 0, req.body.timer_utama_detik || 0, req.params.kode);
+        .run(nama, nama_internal, kelompok, JSON.stringify(soal_list), mode_bebas, timer_utama_jam, timer_utama_menit, timer_utama_detik, req.params.kode);
     res.json({ message: 'Berhasil' });
 }));
 app.delete('/api/modul/:kode', auth(['admin']), ah(async (req, res) => { await transaction(async (tdb) => { await tdb.prepare('DELETE FROM modul WHERE kode=?').run(req.params.kode); await tdb.prepare('DELETE FROM tokens WHERE modul_kode=? AND digunakan=0').run(req.params.kode); }); res.json({ message: 'Berhasil' }); }));

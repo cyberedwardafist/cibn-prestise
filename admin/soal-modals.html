@@ -8,6 +8,16 @@
   <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('bulk-kelompok-lib-overlay')">Batal</button><button class="btn btn-primary" onclick="submitBulkSetKelompokLib()">Terapkan</button></div>
 </div></div>
 
+<!-- bulk-kelompok-modul-overlay -->
+<div class="overlay" id="bulk-kelompok-modul-overlay"><div class="modal modal-sm"><div class="modal-header"><div class="modal-title">Set Kelompok Massal</div><button class="modal-close" onclick="closeModal('bulk-kelompok-modul-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <p style="font-size:12.5px;color:var(--text-sub);margin-bottom:14px">Pindahkan <b id="bkm-count">0</b> modul terpilih ke kelompok berikut (menimpa kelompok lama masing-masing modul).</p>
+  <div class="form-group">
+    <label class="form-label">Kelompok Tujuan</label>
+    <select id="bkm-kelompok-select" class="form-input"><option value="">-- Tanpa Kelompok --</option></select>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('bulk-kelompok-modul-overlay')">Batal</button><button class="btn btn-primary" onclick="submitBulkSetKelompokModul()">Terapkan</button></div>
+</div></div>
+
 <!-- soal-kelompok-overlay -->
 <div class="overlay" id="soal-kelompok-overlay"><div class="modal"><div class="modal-header"><div class="modal-title">Kelola Kelompok Soal</div><button class="modal-close" onclick="closeModal('soal-kelompok-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
   <div style="display:flex;gap:8px;margin-bottom:14px">

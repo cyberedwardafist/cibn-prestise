@@ -3,8 +3,12 @@
 // Bergantung pada helper global dari js/app.js (showToast, openModal, navigateTo, dst)
 // yang sudah dimuat lebih dulu lewat shell index_admin.html.
 
+const _modulSelected=new Set();
 async function renderModul(){
     [_modulData,_soalForModul]=await Promise.all([ModulAPI.getAll().catch(()=>[]),SoalAPI.getAll().catch(()=>[]),_loadSoalKelompokList(),_loadModulKelompokList()]);
+    // Buang seleksi lama yang kodenya sudah tidak ada lagi di data terbaru (pola sama seperti Library)
+    const validKodes=new Set(_modulData.map(m=>m.kode||m.id));
+    Array.from(_modulSelected).forEach(k=>{if(!validKodes.has(k))_modulSelected.delete(k);});
     _renderModulKelompokFilters();
     _renderModulList();
 }
@@ -19,12 +23,12 @@ function _renderModulKelompokFilters(){
     const options=[{value:'all',label:'Semua Kelompok'},{value:'none',label:'Tanpa Kelompok'},..._modulKelompokList.map(k=>({value:k.kode,label:k.nama}))];
     renderFilterDropdown('modul-kelompok-filters',{options,current:_modulKelompokFilter,title:'Kelompok',onSelect:v=>{_modulKelompokFilter=v;_renderModulKelompokFilters();_renderModulList();}});
 }
-function _modulCardHtml(m,i){const kelNama=_modulKelompokNama(m.kelompok);const namaTampil=m.nama_internal?`${m.nama} <span style="font-weight:400;color:var(--text-sub)">| ${m.nama_internal}</span>`:m.nama;return `<div class="modul-card"><div class="modul-card-left"><div class="modul-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div><div><div style="font-weight:700;font-size:14px;color:var(--blue)">${namaTampil}</div><div style="font-size:11px;color:var(--text-sub);display:flex;gap:6px;flex-wrap:wrap;align-items:center">${(m.soal_list||[]).length} soal · ${m.kode||m.id}${kelNama?` · <span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue)">${kelNama}</span>`:''}${m.mode_bebas?` · <span class="badge" style="background:rgba(217,119,6,0.1);color:#d97706">⚡ Mode Bebas</span>`:''}</div></div></div><div style="display:flex;gap:8px"><button class="btn-icon" onclick="openEditModul('${m.kode||m.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon danger" onclick="deleteModulItem('${m.kode||m.id}','${m.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div>`;}
-function _modulSwipeCardHtml(m){return SwipeCards.buildSwipeCardHtml({
-    title:m.nama_internal?`${m.nama} | ${m.nama_internal}`:m.nama,
-    sub:(m.soal_list||[]).length+' soal'+(_modulKelompokNama(m.kelompok)?' · '+_modulKelompokNama(m.kelompok):'')+(m.mode_bebas?' · ⚡ Mode Bebas':'')+' · '+(m.kode||m.id),
-    leftActions:[{icon:'edit',label:'Edit',cls:'act-edit',onClick:`openEditModul('${m.kode||m.id}')`}],
-    rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`deleteModulItem('${m.kode||m.id}','${(m.nama||'').replace(/'/g,"\\'")}')`}]
+function _modulCardHtml(m,i){const kode=m.kode||m.id;const kelNama=_modulKelompokNama(m.kelompok);const chk=_modulSelected.has(kode)?'checked':'';const namaTampil=m.nama_internal?`${m.nama} <span style="font-weight:400;color:var(--text-sub)">| ${m.nama_internal}</span>`:m.nama;return `<div class="modul-card"><div class="modul-card-left"><input type="checkbox" class="modul-row-check" data-kode="${kode}" ${chk} onchange="toggleModulSelect('${kode}',this.checked)" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer;flex-shrink:0"><div class="modul-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div><div><div style="font-weight:700;font-size:14px;color:var(--blue)">${namaTampil}</div><div style="font-size:11px;color:var(--text-sub);display:flex;gap:6px;flex-wrap:wrap;align-items:center">${(m.soal_list||[]).length} soal · ${kode}${kelNama?` · <span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue)">${kelNama}</span>`:''}${m.mode_bebas?` · <span class="badge" style="background:rgba(217,119,6,0.1);color:#d97706">⚡ Mode Bebas</span>`:''}</div></div></div><div style="display:flex;gap:8px"><button class="btn-icon" onclick="openEditModul('${kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon danger" onclick="deleteModulItem('${kode}','${m.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div>`;}
+function _modulSwipeCardHtml(m){const kode=m.kode||m.id;const sel=_modulSelected.has(kode);return SwipeCards.buildSwipeCardHtml({
+    title:m.nama_internal?`${m.nama} | ${m.nama_internal}`:m.nama,kode,selected:sel,
+    sub:(m.soal_list||[]).length+' soal'+(_modulKelompokNama(m.kelompok)?' · '+_modulKelompokNama(m.kelompok):'')+(m.mode_bebas?' · ⚡ Mode Bebas':'')+' · '+kode,
+    leftActions:[{icon:'edit',label:'Edit',cls:'act-edit',onClick:`openEditModul('${kode}')`}],
+    rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`deleteModulItem('${kode}','${(m.nama||'').replace(/'/g,"\\'")}')`}]
 });}
 function _renderModulList(){
     let data=_modulData;
@@ -39,8 +43,84 @@ function _renderModulList(){
         VirtualList.render(swEl,{items:data,rowHeight:78,tag:'div',
             renderItem:_modulSwipeCardHtml,
             emptyHtml:'<div class="swipe-card-empty">Belum ada modul</div>',
-            onRendered:()=>SwipeCards.bindSwipeList(swEl)});
+            onRendered:()=>SwipeCards.bindSwipeList(swEl,_modulSelectOpts())});
     }
+    _updateModulBulkBar();
+}
+
+// ── PILIH MASSAL (Modul) — pola sama seperti Library Soal ──
+function toggleModulSelect(kode,checked){
+    if(checked)_modulSelected.add(kode);else _modulSelected.delete(kode);
+    document.querySelector(`#modul-swipe-list .swipe-card[data-kode="${kode}"] .swipe-card-body`)?.classList.toggle('selected',checked);
+    _updateModulBulkBar();
+}
+function toggleSelectAllModul(checked){
+    document.querySelectorAll('#modul-list .modul-row-check').forEach(cb=>{
+        cb.checked=checked;
+        if(checked)_modulSelected.add(cb.dataset.kode);else _modulSelected.delete(cb.dataset.kode);
+    });
+    document.querySelectorAll('#modul-swipe-list .swipe-card').forEach(card=>{
+        const kode=card.dataset.kode;if(!kode)return;
+        if(checked)_modulSelected.add(kode);else _modulSelected.delete(kode);
+        card.querySelector('.swipe-card-body')?.classList.toggle('selected',checked);
+    });
+    _updateModulBulkBar();
+}
+function clearModulSelection(){
+    _modulSelected.clear();
+    document.querySelectorAll('#modul-list .modul-row-check').forEach(cb=>cb.checked=false);
+    document.querySelectorAll('#modul-swipe-list .swipe-card-body').forEach(b=>b.classList.remove('selected'));
+    _updateModulBulkBar();
+}
+// Mode pilih massal ala galeri foto di kartu mobile: tahan lama 1 kartu -> masuk mode pilih
+function _modulSelectOpts(){
+    return {
+        selectable:true,
+        isSelectMode:()=>_modulSelected.size>0,
+        onLongPress:(kode,card)=>{ toggleModulSelect(kode,true); card.querySelector('.swipe-card-body')?.classList.add('selected'); },
+        onTapSelect:(kode,card)=>{ const willSelect=!_modulSelected.has(kode); toggleModulSelect(kode,willSelect); card.querySelector('.swipe-card-body')?.classList.toggle('selected',willSelect); }
+    };
+}
+function _updateModulBulkBar(){
+    const n=_modulSelected.size;
+    const bar=document.getElementById('bulk-bar-modul');if(bar)bar.style.display=n?'flex':'none';
+    const cnt=document.getElementById('bulk-count-modul');if(cnt)cnt.textContent=n;
+    const selAll=document.getElementById('modul-select-all');
+    if(selAll){
+        const rows=Array.from(document.querySelectorAll('#modul-list .modul-row-check'));
+        selAll.checked=rows.length>0&&rows.every(cb=>_modulSelected.has(cb.dataset.kode));
+    }
+}
+function deleteSelectedModul(){
+    const kodes=Array.from(_modulSelected);
+    if(!kodes.length){showToast('Pilih minimal 1 modul dulu','danger');return;}
+    showConfirm('Hapus Modul Massal',`Yakin hapus ${kodes.length} modul terpilih? Tindakan ini tidak bisa dibatalkan.`,'danger',async()=>{
+        const results=await Promise.allSettled(kodes.map(k=>ModulAPI.delete(k)));
+        const gagal=results.filter(r=>r.status==='rejected').length;
+        clearModulSelection();
+        await renderModul();
+        if(gagal)showToast(`${kodes.length-gagal} modul terhapus, ${gagal} gagal`,'danger');
+        else showToast(`${kodes.length} modul berhasil dihapus`,'danger');
+    });
+}
+async function openBulkSetKelompokModul(){
+    if(!_modulSelected.size){showToast('Pilih minimal 1 modul dulu','danger');return;}
+    await _loadModulKelompokList();
+    document.getElementById('bkm-count').textContent=_modulSelected.size;
+    document.getElementById('bkm-kelompok-select').innerHTML='<option value="">-- Tanpa Kelompok --</option>'+_modulKelompokList.map(k=>`<option value="${k.kode}">${k.nama}</option>`).join('');
+    openModal('bulk-kelompok-modul-overlay');
+}
+async function submitBulkSetKelompokModul(){
+    const kodes=Array.from(_modulSelected);
+    if(!kodes.length){showToast('Tidak ada modul terpilih','danger');return;}
+    const kelompok=document.getElementById('bkm-kelompok-select').value||null;
+    const results=await Promise.allSettled(kodes.map(k=>ModulAPI.update(k,{kelompok})));
+    const gagal=results.filter(r=>r.status==='rejected').length;
+    closeModal('bulk-kelompok-modul-overlay');
+    clearModulSelection();
+    await renderModul();
+    if(gagal)showToast(`${kodes.length-gagal} modul dipindah, ${gagal} gagal`,'danger');
+    else showToast(`${kodes.length} modul berhasil dipindah kelompok`,'success');
 }
 function _populateModulKelompokSelect(selected){
     const sel=document.getElementById('modul-kelompok-select');if(!sel)return;
