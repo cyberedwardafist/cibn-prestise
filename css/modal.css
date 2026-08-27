@@ -178,26 +178,36 @@
     .soal-nav-panel { width: 100%; height: 180px; top: auto; bottom: var(--taskbar-h); right: 0; left: 0; border-left: none; border-top: 1.5px solid rgba(255,255,255,0.8); }
 }
 
-/* ── FULLSCREEN OVERLAY VARIANT ──
-   Dipakai untuk form yang kontennya panjang/kompleks (mis. form Paket) supaya
-   nggak sesak di modal kecil. Cukup tambah class "overlay-fullscreen" di
-   .overlay dan "modal-fullscreen" di .modal — base .overlay/.modal lain
-   nggak kesentuh sama sekali. */
+/* ── FULLSCREEN VARIANT — bukan popup, halaman penuh sungguhan ──
+   Dipakai untuk form yang kontennya panjang/kompleks (mis. form Paket).
+   Beda dari modal biasa: TIDAK ada backdrop gelap/blur yang nge-dim
+   halaman di belakang, TIDAK ada efek kaca/border/shadow melayang ala
+   dialog box — background solid nutup 100% layar, jadi kerasa kayak
+   pindah ke halaman baru, bukan popup yang muncul di atas halaman lama.
+   Cukup tambah class "overlay-fullscreen" di .overlay dan
+   "modal-fullscreen" di .modal — base .overlay/.modal lain nggak
+   kesentuh sama sekali. */
 .overlay-fullscreen {
     padding: 0;
     align-items: stretch;
     justify-content: stretch;
+    background: var(--bg);
+    backdrop-filter: none;
 }
 .modal-fullscreen {
     width: 100%; max-width: 100%;
     height: 100%; max-height: 100%;
     border-radius: 0;
     padding: 0;
+    margin: 0;
     display: flex;
     flex-direction: column;
-    transform: translateY(24px);
+    background: var(--bg);
+    backdrop-filter: none;
+    border: none;
+    box-shadow: none;
+    transform: none;
 }
-.overlay-fullscreen.open .modal-fullscreen { transform: translateY(0); }
 .modal-fullscreen .modal-header {
     flex-shrink: 0;
     margin-bottom: 0;
@@ -227,7 +237,11 @@
 }
 .modal-fullscreen .modal-footer .btn { flex: 1; max-width: 240px; }
 @media (max-width: 640px) {
+    .modal-fullscreen .modal-header { padding: 12px 16px; }
+    .modal-fullscreen .modal-title { font-size: 16px; }
     .modal-fullscreen .modal-body-scroll { padding: 16px 16px 24px; }
+    .modal-fullscreen .modal-footer { padding: 12px 16px; gap: 8px; }
+    .modal-fullscreen .modal-footer .btn { max-width: none; }
 }
 
 /* ── MODUL: kartu urutan tampil (drag & drop) ── */
