@@ -313,8 +313,11 @@ function _toggleFilterDD(containerId) {
     const willOpen = panel.style.display !== 'block';
     _closeAllFilterDD();
     if (!willOpen) return;
-    const wrap = panel.closest('.filter-dd-wrap');
-    const btn = wrap ? wrap.querySelector('.filter-dd-btn') : panel.previousElementSibling;
+    // Cari tombol lewat containerId (bukan closest() dari panel), soalnya panel bisa udah
+    // kepindah ke <body> dari kali sebelumnya dibuka — closest('.filter-dd-wrap') bakal null
+    // dan jatuh ke fallback yang salah, bikin posisi ngaco (kepojok kiri-atas).
+    const containerEl = document.getElementById(containerId);
+    const btn = containerEl ? containerEl.querySelector('.filter-dd-btn') : null;
     if (btn) {
         const rect = btn.getBoundingClientRect();
         document.body.appendChild(panel);
