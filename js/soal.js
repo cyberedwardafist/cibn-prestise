@@ -1010,7 +1010,18 @@ async function _importSoalFromWorkbook(wb, imageMap) {
         // supaya bisa dicocokkan balik ke imageMap (posisi gambar diambil dari baris mentah Excel).
         const rawRows = _sheetToRowsSoal(wb, 'Soal') || [];
         const allRows = rawRows.slice(1).map((r, i) => ({ r, excelRow: i + 1 }));
-        const rows = allRows.filter(({ r }) => String(r[1] || '').trim() !== '');
+        // Baris dianggap valid kalau kolom Pertanyaan (B) ada teksnya, ATAU ada gambar
+        // yang nempel di kolom Pertanyaan (soal bergambar tanpa teks, mis. soal pola/bangun ruang),
+        // ATAU minimal ada isi lain di baris itu (jawaban/skor/pembahasan) yang menandakan baris
+        // itu memang soal beneran, cuma teks pertanyaannya sengaja dikosongkan.
+        // Baris yang benar-benar kosong total (semua kolom kosong) tetap dibuang.
+        const rows = allRows.filter(({ r, excelRow }) => {
+            const hasPertanyaanText = String(r[1] || '').trim() !== '';
+            if (hasPertanyaanText) return true;
+            const hasPertanyaanImage = !!(imageMap[excelRow] && imageMap[excelRow][1]);
+            if (hasPertanyaanImage) return true;
+            return r.some((cell, ci) => ci !== 0 && String(cell || '').trim() !== '');
+        });
         if (!rows.length) { showToast('Sheet "Soal" kosong atau tidak ditemukan. Pastikan kolom Pertanyaan terisi.', 'danger'); return; }
         let totalGambar = 0;
         const pertanyaan = rows.map(({ r, excelRow }, idx) => {
