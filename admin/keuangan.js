@@ -20,7 +20,7 @@ function renderKeuanganSub(sub) {
     _keuanganSub = sub;
     document.querySelectorAll('#page-keuangan .sub-tab').forEach(t => t.classList.toggle('active', t.dataset.sub === sub));
     document.querySelectorAll('#page-keuangan .sub-page').forEach(p => p.classList.toggle('active', p.id === `sub-keuangan-${sub}`));
-    if (sub === 'paket') renderPaketGrid();
+    if (sub === 'paket') renderPaketGrid().then(() => { if (typeof _tryRestorePaketDraft === 'function') _tryRestorePaketDraft(); });
     else if (sub === 'gateway') loadGatewayConfig();
     else if (sub === 'transaksi') renderTrxList();
 }

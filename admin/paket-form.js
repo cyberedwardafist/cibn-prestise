@@ -12,6 +12,115 @@ const PAKET_PERIODE_PRESET = ['/bulan', '/tahun', '/hari', 'sekali bayar'];
 
 let _editPaketKode = null;
 
+// Switch "MODUL"/"MENTORING" di panel Hak Akses (menggantikan checkbox header lama)
+// selain menandai hak akses menu itu, juga jadi gerbang tampil/sembunyi konten
+// (search+list dst) di bawahnya. _pfSyncHakContentWraps dipanggil tiap kali checked-
+// state pf-hak di-set dari kode (bukan diklik user, mis. saat buka form Tambah/Edit
+// atau pulihkan draft) supaya wrapper kontennya ikut sinkron.
+function _pfSyncHakContentWraps(hakArr) {
+    const mw = document.getElementById('pf-modul-content-wrap'); if (mw) mw.style.display = (hakArr || []).includes('modul') ? '' : 'none';
+    const mtw = document.getElementById('pf-mentoring-content-wrap'); if (mtw) mtw.style.display = (hakArr || []).includes('mentoring') ? '' : 'none';
+}
+// Dipanggil dari onchange tiap switch pf-hak (CAT/HISTORI/MODUL/MENTORING) di
+// admin/paket-form.html. wrapId opsional — cuma dipakai switch MODUL & MENTORING
+// yang kontennya ikut perlu disembunyikan saat switch-nya dimatikan.
+function onPfHakSwitchToggle(cb, wrapId) {
+    setDirty('paket');
+    if (!wrapId) return;
+    const el = document.getElementById(wrapId);
+    if (el) el.style.display = cb.checked ? '' : 'none';
+}
+
+/* ── DRAFT AUTO-SAVE — form Tambah/Edit Paket ──
+   Sama seperti draft Soal Builder (js/soal.js, localStorage cbn_soal_draft):
+   supaya (1) modal Tambah/Edit Paket TETAP TERBUKA & (2) isian yang sudah
+   diketik TIDAK HILANG kalau halaman di-refresh / Ctrl+Shift+R.
+   - Ditulis LANGSUNG (bukan debounce) sesaat modal dibuka (baseline), lalu
+     di-refresh lewat debounce tiap ada perubahan (dipanggil dari setDirty('paket')
+     di js/app.js).
+   - Dipulihkan otomatis SEKALI tiap kali aplikasi baru dimuat, saat tab
+     Keuangan > Paket dibuka (lihat admin/keuangan.js renderKeuanganSub).
+   - Dihapus begitu modal ditutup dgn cara apa pun (Batal/X/backdrop/berhasil
+     Simpan) — lihat hook di closeModal() (js/app.js). */
+let _pfDraftTimer = null;
+let _pfDraftRestoreChecked = false;
+function _pfDraftSave() {
+    const overlay = document.getElementById('paket-form-overlay');
+    if (!overlay || !overlay.classList.contains('open')) return;
+    try {
+        const periodeSel = document.getElementById('pf-periode')?.value || '/bulan';
+        const draft = {
+            mode: _editPaketKode ? 'edit' : 'add',
+            kode: _editPaketKode,
+            nama: document.getElementById('pf-nama')?.value || '',
+            icon: document.getElementById('pf-icon')?.value || '',
+            harga: document.getElementById('pf-harga')?.value || '',
+            periode: periodeSel,
+            periodeCustomStart: (periodeSel === 'custom' && typeof PaketCalState !== 'undefined' && PaketCalState) ? _paketCalISO(PaketCalState.start) : null,
+            periodeCustomEnd: (periodeSel === 'custom' && typeof PaketCalState !== 'undefined' && PaketCalState) ? _paketCalISO(PaketCalState.end) : null,
+            desc: document.getElementById('pf-desc')?.value || '',
+            fitur: document.getElementById('pf-fitur')?.value || '',
+            warna: document.getElementById('pf-warna')?.value || 'blue',
+            popular: !!document.getElementById('pf-popular')?.checked,
+            linkLanding: document.getElementById('pf-link-landing')?.value || '',
+            mentoringKuota: document.getElementById('pf-mentoring-kuota')?.value || '',
+            hak: [...document.querySelectorAll('input[name="pf-hak"]:checked')].map(cb => cb.value),
+            aturan: [...document.querySelectorAll('input[name="pf-aturan"]:checked')].map(cb => cb.value)
+        };
+        localStorage.setItem('cbn_paket_draft', JSON.stringify(draft));
+    } catch (e) {}
+}
+function _pfQueueAutoSave() { clearTimeout(_pfDraftTimer); _pfDraftTimer = setTimeout(_pfDraftSave, 500); }
+function _pfDraftClear() { clearTimeout(_pfDraftTimer); try { localStorage.removeItem('cbn_paket_draft'); } catch (e) {} }
+
+async function _tryRestorePaketDraft() {
+    if (_pfDraftRestoreChecked) return;
+    _pfDraftRestoreChecked = true;
+    let raw;
+    try { raw = localStorage.getItem('cbn_paket_draft'); } catch (e) { return; }
+    if (!raw) return;
+    let d;
+    try { d = JSON.parse(raw); } catch (e) { return; }
+    if (!d || !d.mode) { _pfDraftClear(); return; }
+    if (d.mode === 'edit' && !_paketData.find(x => (x.kode || x.id) == d.kode)) {
+        // Paketnya sudah tidak ada (mis. dihapus admin lain) -> draft basi, buang.
+        _pfDraftClear();
+        return;
+    }
+    if (d.mode === 'edit') await openEditPaket(d.kode); else await openAddPaket();
+    // openAddPaket/openEditPaket di atas mengisi form dari data ASLI (server) &
+    // langsung menulis draft baseline baru (lihat pemanggilan _pfDraftSave() di
+    // ujung fungsi keduanya) — timpa lagi di sini dgn nilai draft yg belum
+    // sempat ke-Simpan sebelum halaman di-refresh.
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null) el.value = v; };
+    setVal('pf-nama', d.nama); setVal('pf-icon', d.icon); setVal('pf-harga', d.harga);
+    setVal('pf-desc', d.desc); setVal('pf-fitur', d.fitur); setVal('pf-warna', d.warna);
+    setVal('pf-link-landing', d.linkLanding); setVal('pf-mentoring-kuota', d.mentoringKuota);
+    const popEl = document.getElementById('pf-popular'); if (popEl) popEl.checked = !!d.popular;
+    if (d.periode) {
+        const perEl = document.getElementById('pf-periode'); if (perEl) perEl.value = d.periode;
+        if (d.periode === 'custom' && d.periodeCustomStart && d.periodeCustomEnd) {
+            const dr = document.getElementById('pf-periode-daterange'); if (dr) dr.style.display = 'block';
+            initPaketDateRange(d.periodeCustomStart, d.periodeCustomEnd);
+        }
+    }
+    document.querySelectorAll('input[name="pf-hak"]').forEach(cb => { cb.checked = (d.hak || []).includes(cb.value); });
+    _pfSyncHakContentWraps(d.hak || []);
+    const aturan = d.aturan || [];
+    // modul.item.* & mentoring.modul.* dipulihkan lewat picker-nya masing-masing
+    // (bukan di-set manual checked) supaya kartu (nama modul, dst) ikut ke-render.
+    await Promise.all([
+        _pfLoadModulPicker(aturan.filter(v => v.startsWith('modul.item.'))),
+        _pfLoadMentoringPicker(aturan.filter(v => v.startsWith('mentoring.modul.')))
+    ]);
+    document.querySelectorAll('input[name="pf-aturan"]').forEach(cb => {
+        if (cb.value.startsWith('modul.item.') || cb.value.startsWith('mentoring.modul.')) return;
+        cb.checked = aturan.includes(cb.value);
+    });
+    setDirty('paket');
+    showToast('Draf paket yang belum tersimpan berhasil dipulihkan ✓', 'success');
+}
+
 // ── PICKER "Modul / Materi" (hak akses -> pilih Modul E-Book tertentu) ──
 // Dipakai ulang polanya dari picker "Pilih Buku" di Modul E-Book (js/ebook.js),
 // tapi disederhanakan: cuma list + cari + filter kelompok, tanpa langkah urutan
@@ -244,14 +353,16 @@ async function openAddPaket() {
     document.getElementById('pf-popular').checked = false;
     var _dr = document.getElementById('pf-periode-daterange'); if(_dr) _dr.style.display = 'none';
     PaketCalState = null; // reset kalender, di-init ulang kalau user pilih Custom lagi
-    document.querySelectorAll('input[name="pf-hak"]').forEach(cb=>cb.checked=false);
+    document.querySelectorAll('input[name="pf-hak"]').forEach(cb=>cb.checked=true);
     document.querySelectorAll('input[name="pf-aturan"]').forEach(cb=>cb.checked=false);
     document.querySelectorAll('.hak-sub').forEach(s=>{s.style.display='none';});
     document.querySelectorAll('.hak-chevron').forEach(c=>{c.style.transform='';});
+    _pfSyncHakContentWraps(['ujian','laporan','modul','mentoring']);
     var mk=document.getElementById('pf-mentoring-kuota');if(mk)mk.value='';
     await Promise.all([_pfLoadModulPicker([]), _pfLoadMentoringPicker([])]);
     await _populateLinkLandingDropdown('');
     openModal('paket-form-overlay');
+    _pfDraftSave();
 }
 
 async function openEditPaket(kode) {
@@ -291,10 +402,12 @@ async function openEditPaket(kode) {
     document.querySelectorAll('input[name="pf-aturan"]').forEach(cb=>{cb.checked=aturanArr.includes(cb.value);});
     document.querySelectorAll('.hak-sub').forEach(s=>{s.style.display='none';});
     document.querySelectorAll('.hak-chevron').forEach(c=>{c.style.transform='';});
+    _pfSyncHakContentWraps(hakArr);
     var mk=document.getElementById('pf-mentoring-kuota');if(mk)mk.value=p.mentoring_kuota||'';
     await Promise.all([_pfLoadModulPicker(aturanArr.filter(v => v.startsWith('modul.item.'))), _pfLoadMentoringPicker(aturanArr.filter(v => v.startsWith('mentoring.modul.')))]);
     await _populateLinkLandingDropdown(p.link_landing || '');
     openModal('paket-form-overlay');
+    _pfDraftSave();
 }
 
 // Populate dropdown link ke paket landing (membaca dari server)

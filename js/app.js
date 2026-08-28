@@ -120,8 +120,23 @@ function switchSubPage(pageId, subId) {
     else if (pageId==='token') renderTokenSub(subId);
 }
 
-function setDirty(ctx='perubahan') { AppState.isDirty=true; AppState.dirtyContext=ctx; }
+function setDirty(ctx='perubahan') {
+    AppState.isDirty=true; AppState.dirtyContext=ctx;
+    // Form Tambah/Edit Paket punya draft sendiri (localStorage cbn_paket_draft,
+    // lihat admin/paket-form.js) yang di-refresh tiap ada perubahan di form itu,
+    // sama seperti pola draft Soal Builder di bawah.
+    if (ctx === 'paket' && typeof _pfQueueAutoSave === 'function') _pfQueueAutoSave();
+}
 function clearDirty() { AppState.isDirty=false; AppState.dirtyContext=null; }
+
+// Peringatan bawaan browser saat mau refresh/tutup tab padahal ada form yang
+// masih "kotor" (belum diklik Simpan). Teks dialognya sendiri tidak bisa
+// dikustomisasi (dibatasi browser demi keamanan) — cuma bisa memicu/tidak.
+window.addEventListener('beforeunload', (e) => {
+    if (!AppState.isDirty) return;
+    e.preventDefault();
+    e.returnValue = '';
+});
 
 function showLeaveConfirm() {
     document.getElementById('leave-msg').textContent = `Yakin ingin membatalkan proses ${AppState.dirtyContext||'perubahan'}? Data yang diisi akan hilang.`;
@@ -177,7 +192,14 @@ document.addEventListener('click', e=>{
 });
 
 function openModal(id) { document.getElementById(id)?.classList.add('open'); }
-function closeModal(id) { document.getElementById(id)?.classList.remove('open'); if (typeof _closeAllFilterDD === 'function') _closeAllFilterDD(); }
+function closeModal(id) {
+    document.getElementById(id)?.classList.remove('open');
+    // Modal ditutup (Batal/X/backdrop/berhasil Simpan) -> draft refresh-nya sudah
+    // tidak relevan lagi, buang supaya tidak "hidup lagi" & salah nandain dirty
+    // saat modal ini dibuka lagi dari nol nanti (lihat admin/paket-form.js).
+    if (id === 'paket-form-overlay' && typeof _pfDraftClear === 'function') _pfDraftClear();
+    if (typeof _closeAllFilterDD === 'function') _closeAllFilterDD();
+}
 function openOverlay(el) { el.classList.add('open'); }
 function closeOverlay(el) { el.classList.remove('open'); }
 
