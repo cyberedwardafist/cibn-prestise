@@ -78,8 +78,9 @@ nav.gnav{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:100
   display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.68rem .8rem .68rem 1.5rem;
   background:var(--glass-strong);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);
   border:1px solid var(--glass-border);border-radius:var(--radius-pill);box-shadow:var(--glass-shadow);transition:box-shadow .3s}
-.nav-logo{font-family:'Cormorant Garamond',serif;font-size:1.32rem;font-weight:600;letter-spacing:.01em;color:var(--primary-dark);text-decoration:none;white-space:nowrap;display:inline-flex;align-items:baseline;gap:.35rem}
-.nav-logo span{color:var(--primary);font-weight:700}
+.nav-logo{text-decoration:none;white-space:nowrap;display:inline-flex;align-items:center;gap:.5rem}
+.nav-logo img{height:34px;width:auto;object-fit:contain;display:block}
+.nav-logo.footer-brand-name img{height:40px}
 .nav-links{display:flex;gap:.2rem;list-style:none;align-items:center}
 .nav-links a{font-size:.82rem;font-weight:600;letter-spacing:.01em;color:var(--ink-soft);text-decoration:none;padding:.55rem .95rem;border-radius:var(--radius-pill);transition:all .25s;white-space:nowrap}
 .nav-links a:hover{color:var(--primary-dark);background:rgba(28,63,115,0.07)}

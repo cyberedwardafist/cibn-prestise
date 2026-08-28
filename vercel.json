@@ -9,6 +9,7 @@
           "*.html",
           "css/**",
           "js/**",
+          "logo/**",
           "admin/**",
           "ujian/**",
           "review/**",

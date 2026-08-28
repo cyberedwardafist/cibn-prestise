@@ -36,7 +36,8 @@ html.vp-resizing *, html.vp-resizing *::before, html.vp-resizing *::after {
 
 .uj-header{height:52px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:rgba(255,255,255,0.75);backdrop-filter:blur(20px);border-bottom:1.5px solid rgba(255,255,255,0.85);box-shadow:0 2px 12px rgba(19,50,89,0.08);gap:12px;}
 .uj-logo{display:flex;align-items:center;gap:8px;flex-shrink:0;}
-.uj-logo-mark{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,var(--blue),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--font-head);font-size:12px;font-weight:800;}
+.uj-logo-mark{width:28px;height:28px;display:flex;align-items:center;justify-content:center;}
+.uj-logo-mark img{width:100%;height:100%;object-fit:contain;}
 .uj-logo-txt{font-family:var(--font-head);font-size:13px;font-weight:700;color:var(--blue);}
 .uj-modul-name{flex:1;font-family:var(--font-head);font-size:13px;font-weight:700;color:var(--blue);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 8px;}
 .uj-header-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
@@ -392,7 +393,7 @@ html.vp-resizing *, html.vp-resizing *::before, html.vp-resizing *::after {
 <div id="app" style="display:none;">
   <div class="uj-header">
     <div class="uj-logo">
-      <div class="uj-logo-mark">CP</div>
+      <div class="uj-logo-mark"><img src="logo/logo-icon.png" alt="CIBN PRESTISE"></div>
       <div class="uj-logo-txt">CIBN PRESTISE</div>
     </div>
     <div class="uj-modul-name" id="hdr-modul">Ujian</div>
