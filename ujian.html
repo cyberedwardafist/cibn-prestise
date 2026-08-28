@@ -680,7 +680,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    document.getElementById('hdr-modul').textContent = (st.examData.modul?.nama || 'Ujian') + (st.modeBebas ? ' · Mode Bebas' : '');
+    document.getElementById('hdr-modul').textContent = (st.examData.modul?.nama || 'Ujian');
     document.getElementById('loading-screen').classList.remove('active');
     document.getElementById('app').style.display = 'flex';
     initAntiCheat();
