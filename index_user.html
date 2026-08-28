@@ -962,6 +962,27 @@ async function resumePendingExamSubmits() {
     }
 }
 
+/* ─── HAK AKSES DOCK (CAT & HISTORI selalu aktif; E-BOOK & Mentoring
+   bergantung paket aktif user — lihat GET /api/user/akses di server.js &
+   switch CAT/HISTORI/E-BOOK/MENTORING di admin/paket-form.html) ─── */
+// Default fail-open (semua diizinkan) SEBELUM /user/akses selesai dimuat, atau
+// kalau gagal dimuat (mis. offline) — supaya user yang sedang offline nggak
+// mendadak kehilangan akses dock yang sebelumnya memang boleh dia pakai.
+let _userAkses = { hak_akses: ['ujian', 'laporan', 'modul', 'mentoring'] };
+const DOCK_AKSES_MAP = { ebook: 'modul', jadwal: 'mentoring' }; // page lain (home/token/riwayat/profil) selalu boleh
+function _dockPageAllowed(pageId) {
+    const need = DOCK_AKSES_MAP[pageId];
+    if (!need) return true;
+    return (_userAkses.hak_akses || []).includes(need);
+}
+function applyDockAkses() {
+    Object.keys(DOCK_AKSES_MAP).forEach(pageId => {
+        const allowed = _dockPageAllowed(pageId);
+        const dockBtn = document.querySelector(`.dock-item[data-page="${pageId}"]`);
+        if (dockBtn) dockBtn.style.display = allowed ? '' : 'none';
+    });
+}
+
 /* ─── INIT ─── */
 let _userInfo = null;
 document.addEventListener('DOMContentLoaded', async () => {
@@ -988,12 +1009,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Load paket status untuk tombol profil
         loadMyPaketsStatus();
     } catch(e) { /* offline – use token data */ }
+    try {
+        const ak = await apiFetch('/user/akses');
+        if (ak && Array.isArray(ak.hak_akses)) _userAkses = ak;
+    } catch(e) { /* offline / gagal muat — biarkan default fail-open di atas */ }
+    applyDockAkses();
     resumePendingExamSubmits();
     let lastPage = 'home';
     try {
         const saved = localStorage.getItem('cbn_user_lastpage');
         if (saved && saved !== 'ujian' && saved !== 'result' && document.getElementById('page-' + saved)) lastPage = saved;
     } catch(e) {}
+    if (!_dockPageAllowed(lastPage)) lastPage = 'home';
     goPage(lastPage);
 });
 
@@ -1011,6 +1038,10 @@ function buildParticles() {
 
 /* ─── NAVIGATION ─── */
 function goPage(pageId) {
+    if (!_dockPageAllowed(pageId)) {
+        showToast(pageId === 'ebook' ? 'Paket kamu belum mencakup akses E-BOOK' : 'Paket kamu belum mencakup akses Mentoring');
+        pageId = 'home';
+    }
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.dock-item').forEach(d => d.classList.remove('active-tab'));
     const page = document.getElementById('page-' + pageId);
@@ -1251,6 +1282,9 @@ async function belіPaket() {
         showToast(res.message || 'Paket berhasil diaktifkan ✓');
         await loadMyPakets();
         await checkNotifExpired();
+        // Paket aktif berubah -> hak akses dock (E-BOOK/Mentoring) bisa ikut berubah
+        try { const ak = await apiFetch('/user/akses'); if (ak && Array.isArray(ak.hak_akses)) _userAkses = ak; } catch(e) {}
+        applyDockAkses();
         btn.textContent = 'Aktifkan Paket'; btn.style.opacity = '.5'; btn.disabled = true;
         _selectedPaketKode = null;
         document.querySelectorAll('.paket-card').forEach(c => c.classList.remove('selected'));

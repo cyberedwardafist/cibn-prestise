@@ -130,6 +130,7 @@ async function _tryRestorePaketDraft() {
 let _pfModulEbookList = [], _pfModulEkelompokList = [];
 let _pfModulPickerSearch = '', _pfModulPickerKelompokFilter = 'all';
 let _pfModulPickerSelected = new Set();
+let _pfModulPickerStep = 'select';
 
 async function _pfLoadModulPicker(selectedKodes = []) {
     _pfModulPickerSelected = new Set(selectedKodes);
@@ -139,8 +140,43 @@ async function _pfLoadModulPicker(selectedKodes = []) {
         (typeof EbookModulAPI !== 'undefined' ? EbookModulAPI.getAll().catch(() => []) : Promise.resolve([])),
         (typeof EbookModulKelompokAPI !== 'undefined' ? EbookModulKelompokAPI.getAll().catch(() => []) : Promise.resolve([]))
     ]);
+    _pfModulInitPickerUI();
+}
+// Reset picker "E-BOOK" balik ke tahap 1 (cari & pilih) — dipanggil tiap kali
+// picker dimuat ulang (buka form Tambah/Edit) & saat tombol "Kembali" di tahap
+// "Lihat E-BOOK" diklik.
+function _pfModulInitPickerUI() {
+    _pfModulPickerStep = 'select';
+    const sb = document.getElementById('pf-modul-picker-searchbar'); if (sb) sb.style.display = '';
+    const hint = document.getElementById('pf-modul-picker-hint'); if (hint) hint.textContent = 'User dengan paket ini akan mengakses menu E-BOOK. Pilih modul e-book mana saja yang boleh diakses:';
+    const nb = document.getElementById('pf-modul-next-btn'); if (nb) nb.style.display = '';
+    const bb = document.getElementById('pf-modul-back-btn'); if (bb) bb.style.display = 'none';
     _renderPfModulPickerFilters();
     _renderPfModulPicker();
+}
+// Tahap 2 "Lihat E-BOOK": tampilkan HANYA modul e-book yang sudah dicentang,
+// sbg ringkasan sebelum Simpan. Bukan langkah atur urutan (e-book tidak
+// punya urutan tampil) — checkbox di sini tetap aktif, jadi masih bisa
+// dilepas centangnya dari tahap ini juga (tetap sinkron 2 arah dgn tahap 1).
+function _pfModulGoToViewStep() {
+    if (!_pfModulPickerSelected.size) { showToast('Pilih minimal 1 modul e-book dulu', 'danger'); return; }
+    _pfModulPickerStep = 'view';
+    const sb = document.getElementById('pf-modul-picker-searchbar'); if (sb) sb.style.display = 'none';
+    const hint = document.getElementById('pf-modul-picker-hint'); if (hint) hint.textContent = `${_pfModulPickerSelected.size} modul e-book terpilih untuk paket ini:`;
+    const nb = document.getElementById('pf-modul-next-btn'); if (nb) nb.style.display = 'none';
+    const bb = document.getElementById('pf-modul-back-btn'); if (bb) bb.style.display = '';
+    _renderPfModulViewList();
+}
+function _pfModulGoToSelectStep() { _pfModulInitPickerUI(); }
+function _renderPfModulViewList() {
+    const el = document.getElementById('pf-modul-picker-list'); if (!el) return;
+    if (!_pfModulPickerSelected.size) { el.innerHTML = '<p style="color:var(--text-sub);font-size:12px">Belum ada modul e-book dipilih. Klik "Kembali" untuk memilih.</p>'; return; }
+    const kodes = [..._pfModulPickerSelected].map(v => v.replace('modul.item.', ''));
+    el.innerHTML = kodes.map(kode => {
+        const m = _pfModulEbookList.find(x => (x.kode || x.id) === kode);
+        if (!m) return '';
+        return _pfModulPickCardHtml(m);
+    }).join('');
 }
 function _renderPfModulPickerFilters() {
     if (!document.getElementById('pf-modul-picker-filters')) return;
@@ -171,8 +207,12 @@ function _pfModulPickCardHtml(m) {
 function _pfToggleModulPick(kode, ck) {
     const val = 'modul.item.' + kode;
     if (ck) _pfModulPickerSelected.add(val); else _pfModulPickerSelected.delete(val);
-    const el = document.getElementById(`pfmpick-${kode}`); if (el) el.classList.toggle('checked', ck);
     setDirty('paket');
+    // Tahap "Lihat E-BOOK" cuma nampilin yg terpilih — kalau dilepas centangnya
+    // di situ, kartunya harus langsung hilang (render ulang list, bukan cuma
+    // toggle class .checked kayak di tahap "select").
+    if (_pfModulPickerStep === 'view') { _renderPfModulViewList(); return; }
+    const el = document.getElementById(`pfmpick-${kode}`); if (el) el.classList.toggle('checked', ck);
 }
 
 // ── PICKER "Mentoring & Konsultasi" (hak akses -> tampilan saja, fungsi belum diaktifkan) ──
@@ -398,7 +438,13 @@ async function openEditPaket(kode) {
     document.getElementById('pf-popular').checked = !!p.popular;
     const hakArr = Array.isArray(p.hak_akses) ? p.hak_akses : (p.hak_akses ? (() => { try { return JSON.parse(p.hak_akses); } catch(e) { return []; } })() : []);
     const aturanArr = Array.isArray(p.aturan_akses) ? p.aturan_akses : (p.aturan_akses ? (() => { try { return JSON.parse(p.aturan_akses); } catch(e) { return []; } })() : []);
-    document.querySelectorAll('input[name="pf-hak"]').forEach(cb=>{cb.checked=hakArr.includes(cb.value);});
+    // CAT ('ujian') & HISTORI ('laporan') selalu ON — akses dasar yg nggak bisa
+    // dimatikan per paket (switch-nya sendiri sudah disabled+checked di HTML),
+    // jadi nggak baca dari hakArr sama sekali, termasuk utk paket lama yg belum
+    // punya kedua value ini di hak_akses tersimpannya.
+    document.querySelectorAll('input[name="pf-hak"]').forEach(cb=>{
+        cb.checked = (cb.value === 'ujian' || cb.value === 'laporan') ? true : hakArr.includes(cb.value);
+    });
     document.querySelectorAll('input[name="pf-aturan"]').forEach(cb=>{cb.checked=aturanArr.includes(cb.value);});
     document.querySelectorAll('.hak-sub').forEach(s=>{s.style.display='none';});
     document.querySelectorAll('.hak-chevron').forEach(c=>{c.style.transform='';});

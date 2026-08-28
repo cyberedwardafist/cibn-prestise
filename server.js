@@ -1096,6 +1096,31 @@ app.get('/api/user/riwayat/:kode', auth(['user','admin','review']), ah(async (re
 app.get('/api/user/jadwal', auth(['user','admin','review']), ah(async (req, res) => { const me = await db.prepare('SELECT grub FROM users WHERE kode=?').get(req.user.kode); const rows = await db.prepare(`SELECT t.kode as token_kode, t.modul_kode, t.aktivasi as waktu_mulai, t.expired as waktu_selesai, t.digunakan, t.digunakan_oleh, m.nama as modul_nama, m.nama as nama FROM tokens t LEFT JOIN modul m ON t.modul_kode = m.kode WHERE t.digunakan_oleh = ? OR (t.grub_token IS NOT NULL AND t.grub_token = ? AND t.digunakan = 0) ORDER BY t.aktivasi DESC NULLS LAST, t.created_at DESC`).all(req.user.kode, me?.grub || null); res.json(rows); }));
 app.put('/api/user/password', auth(['user','admin','review']), ah(async (req, res) => { if (!req.body.password || req.body.password.length < 6) return res.status(400).json({ error: 'Password minimal 6 karakter' }); await db.prepare('UPDATE users SET password=? WHERE kode=?').run(bcrypt.hashSync(req.body.password, 10), req.user.kode); res.json({ message: 'Password berhasil diubah' }); }));
 app.get('/api/user/me', auth(['user','admin','review']), ah(async (req, res) => { const user = await db.prepare('SELECT id,kode,nama,email,grub,status FROM users WHERE kode=?').get(req.user.kode); if (!user) return res.status(404).json({ error: 'User tidak ditemukan' }); if (user.grub) { const g = await db.prepare('SELECT nama FROM grubs WHERE kode=?').get(user.grub); user.grub_nama = g?.nama || user.grub; } res.json(user); }));
+// Hak akses DOCK user, digabung dari SELURUH paket aktif (belum expired) milik
+// user tsb — kalau salah satu paket aktif mengizinkan (mis. 'modul' utk E-BOOK),
+// user dapat akses walau paket lain miliknya tidak. CAT ('ujian') & HISTORI
+// ('laporan') SELALU ikut dikembalikan aktif — akses dasar, tidak bergantung
+// hak_akses paket manapun (selaras dgn switch CAT/HISTORI yg dikunci ON di
+// admin/paket-form.html). Dipakai index_user.html utk sembunyikan/kunci dock
+// E-BOOK & JADWAL kalau user tidak/belum punya paket yang mengizinkannya.
+app.get('/api/user/akses', auth(['user','admin','review']), ah(async (req, res) => {
+    const rows = await db.prepare(`SELECT p.hak_akses FROM user_pakets up JOIN pakets p ON up.paket_kode = p.kode WHERE up.user_kode=? AND up.status='aktif' AND up.akhir::date >= CURRENT_DATE`).all(req.user.kode);
+    const hak = new Set(['ujian', 'laporan']);
+    rows.forEach(r => {
+        // hak_akses NULL/kosong = paket lama yg belum pernah disimpan lewat form
+        // "Hak Akses Paket" yg baru -> anggap penuh (perilaku lama sebelum fitur
+        // ini ada), supaya user yang sudah aktif nggak tiba-tiba kehilangan akses
+        // E-BOOK/Mentoring yang sebelumnya memang bisa mereka pakai.
+        if (r.hak_akses === null || r.hak_akses === undefined || r.hak_akses === '') {
+            hak.add('modul'); hak.add('mentoring');
+            return;
+        }
+        let arr = [];
+        try { arr = JSON.parse(r.hak_akses); } catch (e) { arr = []; }
+        (arr || []).forEach(v => hak.add(v));
+    });
+    res.json({ hak_akses: [...hak] });
+}));
 app.get('/api/public/pakets', auth(['user','admin','review']), ah(async (req, res) => { const rows = await db.prepare("SELECT kode,nama,deskripsi,periode_tipe,periode_hari,harga,fitur FROM pakets WHERE status='aktif' ORDER BY harga ASC").all(); rows.forEach(r => { if (r.fitur) try { r.fitur = JSON.parse(r.fitur); } catch (e) { r.fitur = []; } }); res.json(rows); }));
 app.get('/api/user/pakets', auth(['user','admin','review']), ah(async (req, res) => { const today = new Date(); today.setHours(0,0,0,0); const rows = await db.prepare(`SELECT up.*, p.periode_tipe as template_tipe FROM user_pakets up LEFT JOIN pakets p ON up.paket_kode=p.kode WHERE up.user_kode=? ORDER BY up.akhir ASC`).all(req.user.kode); rows.forEach(r => { const akhir = new Date(r.akhir); akhir.setHours(0,0,0,0); r.sisa_hari = Math.ceil((akhir - today) / (1000*60*60*24)); r.is_expired = r.sisa_hari < 0; r.is_soon_expired = r.sisa_hari >= 0 && r.sisa_hari <= 7; }); res.json(rows); }));
 app.post('/api/user/pakets', auth(['user']), ah(async (req, res) => { const user_kode = req.user.kode; const { paket_kode } = req.body; if (!paket_kode) return res.status(400).json({ error: 'Paket wajib dipilih' }); const paket = await db.prepare("SELECT * FROM pakets WHERE kode=? AND status='aktif'").get(paket_kode); if (!paket) return res.status(404).json({ error: 'Paket tidak ditemukan atau tidak aktif' }); const { mulai, akhir, extended } = await hitungMulaiAkhirPaket(user_kode, paket_kode, paket.periode_hari); const kode = await genKode('UP', 'user_pakets'); try { await transaction(async (tdb) => { await tdb.prepare('INSERT INTO user_pakets (kode,user_kode,paket_kode,paket_nama,periode_hari,mulai,akhir,status) VALUES (?,?,?,?,?,?,?,?)').run(kode, user_kode, paket_kode, paket.nama, paket.periode_hari, mulai, akhir, 'aktif'); await syncUserPaketLegacy(user_kode, tdb); }); res.json({ kode, mulai, akhir, extended, paket_nama: paket.nama, message: `Paket "${paket.nama}" berhasil diaktifkan` }); } catch (e) { res.status(500).json({ error: e.message }); } }));
