@@ -1,0 +1,92 @@
+/* =============================================
+   CUSTOM-SELECT.CSS — Citta Bhakti Nirbaya
+   Mengganti tampilan dropdown <select> bawaan browser
+   dengan panel bergaya CSS sendiri (dipakai bareng js/custom-select.js).
+   Elemen <select> asli tetap ada di DOM (disembunyikan) supaya semua
+   kode lama yang baca/isi .value / .innerHTML tetap jalan normal.
+   ============================================= */
+
+.cs-native { display: none !important; }
+
+/* Tombol pengganti tampilan select (mewarisi class & style asli select,
+   jadi ukuran/posisinya persis sama seperti sebelumnya) */
+.cs-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    text-align: left;
+    font-family: inherit;
+    background-color: rgba(19,50,89,0.04);
+}
+.cs-trigger-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+.cs-trigger-label.cs-placeholder { color: rgba(19,50,89,0.35); }
+.cs-caret {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    color: var(--text-sub);
+    transition: transform 0.2s;
+}
+.cs-trigger.cs-open .cs-caret { transform: rotate(180deg); }
+.cs-trigger:disabled,
+.cs-trigger.cs-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Panel list opsi — satu panel dipakai bergantian untuk semua select,
+   ditempel ke <body> + position:fixed supaya tidak pernah terpotong
+   oleh overflow milik modal/parent manapun. */
+.cs-panel {
+    position: fixed;
+    z-index: 650;
+    background: #fff;
+    border: 1.5px solid rgba(19,50,89,0.1);
+    border-radius: 14px;
+    box-shadow: 0 12px 32px rgba(19,50,89,0.18);
+    padding: 6px;
+    max-height: 280px;
+    overflow-y: auto;
+    display: none;
+}
+.cs-panel.cs-show { display: block; }
+
+.cs-item {
+    padding: 9px 10px;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--blue);
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.cs-item:hover,
+.cs-item.cs-highlight { background: rgba(19,50,89,0.08); }
+.cs-item.cs-selected { background: var(--blue); color: #fff; }
+.cs-item.cs-selected:hover,
+.cs-item.cs-selected.cs-highlight { background: var(--accent2); }
+.cs-item.cs-disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.cs-item svg { flex-shrink: 0; }
+.cs-item-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.cs-empty {
+    padding: 14px 10px;
+    font-size: 12.5px;
+    color: var(--text-sub);
+    text-align: center;
+}
