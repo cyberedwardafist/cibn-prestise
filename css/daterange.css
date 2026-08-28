@@ -112,5 +112,13 @@
 }
 
 @media (max-width: 560px) {
+    /* PENTING: .cal-widget pakai `flex: 1 1 220px` yang di layout row (default)
+       artinya "lebar dasar 220px". Begitu wrap-nya jadi flex-direction:column
+       di sini, flex-basis itu otomatis jadi acuan TINGGI (bukan lebar) —
+       220px jelas kurang buat grid 6 baris (~280px+), jadi baris terakhir
+       kalender kepotong/tumpah ke luar box (lanjut nimpa field di bawahnya).
+       Makanya di mode column ini flex-basis-nya wajib di-reset ke auto biar
+       tingginya balik ngikutin isi (content-based), bukan angka 220 itu. */
     .cal-daterange-wrap { flex-direction: column; }
+    .cal-widget { flex: 1 1 auto; width: 100%; min-width: 0; }
 }
