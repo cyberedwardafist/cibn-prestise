@@ -4,6 +4,7 @@
 // yang sudah dimuat lebih dulu lewat shell index_admin.html.
 
 const _modulSelected=new Set();
+let _modSearch='';
 async function renderModul(){
     [_modulData,_soalForModul]=await Promise.all([ModulAPI.getAll().catch(()=>[]),SoalAPI.getAll().catch(()=>[]),_loadSoalKelompokList(),_loadModulKelompokList()]);
     // Buang seleksi lama yang kodenya sudah tidak ada lagi di data terbaru (pola sama seperti Library)
@@ -41,6 +42,7 @@ function _renderModulList(){
     let data=_modulData;
     if(_modulKelompokFilter==='none')data=data.filter(m=>!m.kelompok);
     else if(_modulKelompokFilter!=='all')data=data.filter(m=>m.kelompok===_modulKelompokFilter);
+    if(_modSearch){const q=_modSearch.toLowerCase();data=data.filter(m=>(m.nama||'').toLowerCase().includes(q)||(m.nama_internal||'').toLowerCase().includes(q)||(m.kode||m.id||'').toString().toLowerCase().includes(q));}
     const el=document.getElementById('modul-groups');if(!el)return;
     if(!data.length){el.innerHTML='<div class="empty-state"><p>Belum ada modul</p></div>';_updateModulBulkBar();return;}
     // Kelompokkan per kelompok modul (pola sama seperti Token Terpakai yang dikelompokkan per hari)
