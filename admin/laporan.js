@@ -23,7 +23,7 @@ function _renderLapTable() {
     let data = _lapData;
     if (_lapSearch) {
         const q = _lapSearch.toLowerCase();
-        data = data.filter(l => (l.token_kode || '').toLowerCase().includes(q) || (l.modul_kode || '').toLowerCase().includes(q));
+        data = data.filter(l => (l.token_kode || '').toLowerCase().includes(q) || (l.modul_kode || '').toLowerCase().includes(q) || (l.modul_nama || '').toLowerCase().includes(q) || (l.modul_nama_internal || '').toLowerCase().includes(q));
     }
     if (_lapGrubFilter) data = data.filter(l => l.grub_token === _lapGrubFilter);
 

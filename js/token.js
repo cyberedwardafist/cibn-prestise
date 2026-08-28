@@ -440,7 +440,7 @@ function _renderTokenModulPickerList(){
     if(!_tokenModulPickerAll.length){el.innerHTML='<p style="color:var(--text-sub);font-size:13px">Belum ada modul. Buat modul dulu di menu Manajemen Modul.</p>';return;}
     let data=_tokenModulPickerAll;
     const q=(_tokenModulPickerSearch||'').toLowerCase();
-    if(q)data=data.filter(m=>(m.nama||'').toLowerCase().includes(q)||(_tokenModulKelNama(m.kelompok)||'').toLowerCase().includes(q));
+    if(q)data=data.filter(m=>(m.nama||'').toLowerCase().includes(q)||(m.nama_internal||'').toLowerCase().includes(q)||(_tokenModulKelNama(m.kelompok)||'').toLowerCase().includes(q));
     if(_tokenModulPickerKelFilter==='none')data=data.filter(m=>!m.kelompok);
     else if(_tokenModulPickerKelFilter!=='all')data=data.filter(m=>m.kelompok===_tokenModulPickerKelFilter);
     el.innerHTML=data.length?data.map(m=>_buildTokenModulPickItem(m)).join(''):'<p style="color:var(--text-sub);font-size:13px">Tidak ada modul yang cocok dengan pencarian/filter.</p>';
