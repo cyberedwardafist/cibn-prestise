@@ -103,6 +103,15 @@
             <div class="hak-sub" style="display:none;padding:0 12px 10px 34px;border-top:1px solid rgba(19,50,89,0.06)">
               <div style="margin-top:8px;padding:7px 10px;border:1.5px solid #16a34a;border-radius:8px;background:rgba(22,163,74,0.06);color:#16a34a;font-size:11px;font-weight:700;text-align:center">✅ HISTORI AKTIF</div>
               <div style="font-size:10px;color:var(--text-sub);margin-top:6px;line-height:1.5">User dengan paket ini bisa mengakses menu Laporan (dock RIWAYAT).</div>
+              <div class="form-group" style="margin:10px 0 0">
+                <div class="switch-row">
+                  <div>
+                    <div class="switch-label" style="font-size:12px">Review</div>
+                    <div class="switch-desc">Kalau aktif, SELURUH riwayat ujian user dengan paket ini bisa direview (tombol "Lihat Hasil" tampil), walau token/kode ujiannya sendiri tidak disetel "Izinkan Review" saat dibuat. Ini override di level paket, terpisah dari switch Izinkan Review per-token.</div>
+                  </div>
+                  <label class="switch"><input type="checkbox" name="pf-aturan" value="laporan.review_override" id="pf-laporan-review-override" onchange="setDirty('paket')"><span class="switch-slider"></span></label>
+                </div>
+              </div>
             </div>
           </div>
 
