@@ -106,6 +106,7 @@
     .dock { display:flex; align-items:center; gap:4px; padding:8px 12px; background:linear-gradient(160deg,rgba(255,255,255,.72) 0%,rgba(255,255,255,.38) 40%,rgba(180,210,240,.30) 70%,rgba(255,255,255,.55) 100%); backdrop-filter:blur(40px) saturate(2.2); -webkit-backdrop-filter:blur(40px) saturate(2.2); border:1px solid rgba(255,255,255,.9); border-radius:30px; box-shadow:0 2px 0 rgba(255,255,255,.95) inset, 0 16px 48px rgba(19,50,89,.22), 0 4px 12px rgba(19,50,89,.12); position:relative; isolation:isolate; }
     .dock::before { content:''; position:absolute; top:0; left:12px; right:12px; height:50%; border-radius:30px 30px 60% 60% / 30px 30px 40% 40%; background:linear-gradient(180deg,rgba(255,255,255,.65) 0%,rgba(255,255,255,0) 100%); pointer-events:none; z-index:1; }
     .dock-item { display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:7px 14px; border-radius:18px; transition:transform .25s cubic-bezier(.34,1.56,.64,1), background .2s; position:relative; border:none; background:transparent; -webkit-tap-highlight-color:transparent; z-index:2; }
+    .dock-item.dock-akses-denied { display:none; }
     .dock-item:hover { transform:translateY(-5px) scale(1.08); background:rgba(255,255,255,.6); }
     .dock-item.active-tab { background:linear-gradient(160deg,rgba(255,255,255,.7),rgba(220,235,255,.4)); }
     .dock-item.active-tab .dock-icon svg { color:var(--blue); }
@@ -969,7 +970,7 @@ async function resumePendingExamSubmits() {
 // kalau gagal dimuat (mis. offline) — supaya user yang sedang offline nggak
 // mendadak kehilangan akses dock yang sebelumnya memang boleh dia pakai.
 let _userAkses = { hak_akses: ['ujian', 'laporan', 'modul', 'mentoring'] };
-const DOCK_AKSES_MAP = { ebook: 'modul', jadwal: 'mentoring' }; // page lain (home/token/riwayat/profil) selalu boleh
+const DOCK_AKSES_MAP = { token: 'ujian', riwayat: 'laporan', ebook: 'modul', jadwal: 'mentoring' }; // page lain (home/profil) selalu boleh
 function _dockPageAllowed(pageId) {
     const need = DOCK_AKSES_MAP[pageId];
     if (!need) return true;
@@ -977,10 +978,14 @@ function _dockPageAllowed(pageId) {
 }
 function applyDockAkses() {
     Object.keys(DOCK_AKSES_MAP).forEach(pageId => {
-        const allowed = _dockPageAllowed(pageId);
+        const denied = !_dockPageAllowed(pageId);
         const dockBtn = document.querySelector(`.dock-item[data-page="${pageId}"]`);
-        if (dockBtn) dockBtn.style.display = allowed ? '' : 'none';
+        // 'dock-akses-denied' (bukan inline style) supaya sistem overflow "Lagi"
+        // (lihat setupMainDockOverflow di bawah) ikut tahu & nggak nampilin item
+        // ini lagi di menu Lagi saat dock kepenuhan/di layar sempit.
+        if (dockBtn) dockBtn.classList.toggle('dock-akses-denied', denied);
     });
+    if (typeof refreshMainDockOverflow === 'function') refreshMainDockOverflow();
 }
 
 /* ─── INIT ─── */
@@ -1037,9 +1042,10 @@ function buildParticles() {
 }
 
 /* ─── NAVIGATION ─── */
+const DOCK_DENIED_MSG = { token: 'Paket kamu belum mencakup akses Ujian (CAT)', riwayat: 'Paket kamu belum mencakup akses Laporan/Riwayat', ebook: 'Paket kamu belum mencakup akses E-BOOK', jadwal: 'Paket kamu belum mencakup akses Mentoring' };
 function goPage(pageId) {
     if (!_dockPageAllowed(pageId)) {
-        showToast(pageId === 'ebook' ? 'Paket kamu belum mencakup akses E-BOOK' : 'Paket kamu belum mencakup akses Mentoring');
+        showToast(DOCK_DENIED_MSG[pageId] || 'Paket kamu belum mencakup akses ini');
         pageId = 'home';
     }
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -1838,9 +1844,11 @@ function setupMainDockOverflow() {
     const sep      = document.getElementById('main-dock-sep');
     if (!moreWrap || !moreMenu) return;
 
-    const overflowItems = [...dock.querySelectorAll('.dock-overflow-item')];
-
     function update() {
+        // Dihitung ULANG tiap panggilan (bukan sekali di setup) supaya item yang
+        // baru ditandai .dock-akses-denied (lihat applyDockAkses) ikut ke-exclude
+        // dari kandidat overflow — nggak nongol lagi di menu "Lagi".
+        const overflowItems = [...dock.querySelectorAll('.dock-overflow-item:not(.dock-akses-denied)')];
         overflowItems.forEach(el => { el.style.display = ''; });
         moreWrap.style.display = 'none';
         if (sep) sep.style.display = '';
@@ -1877,7 +1885,9 @@ function setupMainDockOverflow() {
     new ResizeObserver(update).observe(dock);
     update();
     setTimeout(update, 300);
+    refreshMainDockOverflow = update;
 }
+let refreshMainDockOverflow = null;
 
 function toggleDockMore() {
     document.getElementById('dock-more-menu')?.classList.toggle('open');

@@ -91,9 +91,9 @@
             <div class="hak-sub" style="display:none;padding:0 12px 10px 34px;border-top:1px solid rgba(19,50,89,0.06)">
               <div class="switch-row" style="margin-top:8px">
                 <div class="switch-label" style="font-size:12px">CAT</div>
-                <label class="switch" title="Selalu aktif — akses dasar, tidak bisa dimatikan per paket"><input type="checkbox" name="pf-hak" value="ujian" checked disabled><span class="switch-slider"></span></label>
+                <label class="switch"><input type="checkbox" name="pf-hak" value="ujian" checked onchange="onPfHakSwitchToggle(this)"><span class="switch-slider"></span></label>
               </div>
-              <div style="font-size:10px;color:var(--text-sub);margin-top:6px;line-height:1.5">User dengan paket ini bisa mengakses menu Ujian (dock UJIAN). <strong>Selalu menyala</strong> — akses dasar untuk semua paket, tidak bisa dimatikan.</div>
+              <div style="font-size:10px;color:var(--text-sub);margin-top:6px;line-height:1.5">User dengan paket ini bisa mengakses menu Ujian (dock UJIAN). Secara default sudah menyala — matikan switch-nya kalau mau tutup akses CAT untuk paket ini.</div>
             </div>
           </div>
 
@@ -106,9 +106,9 @@
             <div class="hak-sub" style="display:none;padding:0 12px 10px 34px;border-top:1px solid rgba(19,50,89,0.06)">
               <div class="switch-row" style="margin-top:8px">
                 <div class="switch-label" style="font-size:12px">HISTORI</div>
-                <label class="switch" title="Selalu aktif — akses dasar, tidak bisa dimatikan per paket"><input type="checkbox" name="pf-hak" value="laporan" checked disabled><span class="switch-slider"></span></label>
+                <label class="switch"><input type="checkbox" name="pf-hak" value="laporan" checked onchange="onPfHakSwitchToggle(this)"><span class="switch-slider"></span></label>
               </div>
-              <div style="font-size:10px;color:var(--text-sub);margin-top:6px;line-height:1.5">User dengan paket ini bisa mengakses menu Laporan (dock RIWAYAT). <strong>Selalu menyala</strong> — akses dasar untuk semua paket, tidak bisa dimatikan.</div>
+              <div style="font-size:10px;color:var(--text-sub);margin-top:6px;line-height:1.5">User dengan paket ini bisa mengakses menu Laporan (dock RIWAYAT). Secara default sudah menyala — matikan switch-nya kalau mau tutup akses HISTORI untuk paket ini.</div>
               <div class="form-group" style="margin:10px 0 0">
                 <div class="switch-row">
                   <div>

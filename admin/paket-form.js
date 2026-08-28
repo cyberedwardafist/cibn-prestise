@@ -438,12 +438,14 @@ async function openEditPaket(kode) {
     document.getElementById('pf-popular').checked = !!p.popular;
     const hakArr = Array.isArray(p.hak_akses) ? p.hak_akses : (p.hak_akses ? (() => { try { return JSON.parse(p.hak_akses); } catch(e) { return []; } })() : []);
     const aturanArr = Array.isArray(p.aturan_akses) ? p.aturan_akses : (p.aturan_akses ? (() => { try { return JSON.parse(p.aturan_akses); } catch(e) { return []; } })() : []);
-    // CAT ('ujian') & HISTORI ('laporan') selalu ON — akses dasar yg nggak bisa
-    // dimatikan per paket (switch-nya sendiri sudah disabled+checked di HTML),
-    // jadi nggak baca dari hakArr sama sekali, termasuk utk paket lama yg belum
-    // punya kedua value ini di hak_akses tersimpannya.
+    // Paket lama yang belum pernah disimpan lewat form "Hak Akses Paket" ini
+    // punya hak_akses NULL di database -> hakArr jadi [] kalau dibaca apa
+    // adanya, padahal SEMUA switch defaultnya menyala. Jadi khusus utk kasus
+    // "belum pernah disimpan sama sekali" (p.hak_akses kosong/null), anggap
+    // semua switch menyala (bukan hasil interpretasi array kosong = semua mati).
+    const hakBelumPernahDisimpan = !p.hak_akses;
     document.querySelectorAll('input[name="pf-hak"]').forEach(cb=>{
-        cb.checked = (cb.value === 'ujian' || cb.value === 'laporan') ? true : hakArr.includes(cb.value);
+        cb.checked = hakBelumPernahDisimpan ? true : hakArr.includes(cb.value);
     });
     document.querySelectorAll('input[name="pf-aturan"]').forEach(cb=>{cb.checked=aturanArr.includes(cb.value);});
     document.querySelectorAll('.hak-sub').forEach(s=>{s.style.display='none';});

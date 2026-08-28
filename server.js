@@ -1105,14 +1105,17 @@ app.get('/api/user/me', auth(['user','admin','review']), ah(async (req, res) => 
 // E-BOOK & JADWAL kalau user tidak/belum punya paket yang mengizinkannya.
 app.get('/api/user/akses', auth(['user','admin','review']), ah(async (req, res) => {
     const rows = await db.prepare(`SELECT p.hak_akses FROM user_pakets up JOIN pakets p ON up.paket_kode = p.kode WHERE up.user_kode=? AND up.status='aktif' AND up.akhir::date >= CURRENT_DATE`).all(req.user.kode);
-    const hak = new Set(['ujian', 'laporan']);
+    // User tanpa paket aktif sama sekali -> perilaku lama (sebelum fitur Hak
+    // Akses Paket ada): dock nggak dibatasi. Konsisten dgn UJIAN yg selama ini
+    // dibuka pakai token, bukan lewat kepemilikan paket.
+    if (!rows.length) return res.json({ hak_akses: ['ujian', 'laporan', 'modul', 'mentoring'] });
+    const hak = new Set();
     rows.forEach(r => {
         // hak_akses NULL/kosong = paket lama yg belum pernah disimpan lewat form
-        // "Hak Akses Paket" yg baru -> anggap penuh (perilaku lama sebelum fitur
-        // ini ada), supaya user yang sudah aktif nggak tiba-tiba kehilangan akses
-        // E-BOOK/Mentoring yang sebelumnya memang bisa mereka pakai.
+        // "Hak Akses Paket" (switch-nya default semua menyala) -> anggap penuh,
+        // BUKAN dibaca sbg array kosong = semua mati.
         if (r.hak_akses === null || r.hak_akses === undefined || r.hak_akses === '') {
-            hak.add('modul'); hak.add('mentoring');
+            hak.add('ujian'); hak.add('laporan'); hak.add('modul'); hak.add('mentoring');
             return;
         }
         let arr = [];
