@@ -23,6 +23,20 @@ function _soalKelompokNama(kode) {
     return k ? k.nama : null;
 }
 
+// Dipakai saat IMPORT Excel: cocokkan nama kelompok yang ditulis di sheet Info ke daftar
+// kelompok soal yang sudah ada (cocok berdasarkan nama, tanpa peduli besar/kecil huruf & spasi
+// di ujung). Kalau cocok -> kembalikan kode-nya. Kalau sel kelompok kosong -> dianggap memang
+// tidak diisi (tanpa kelompok, TANPA notifikasi). Kalau sel terisi tapi tidak cocok satupun
+// kelompok yang ada -> dikosongkan (seperti tidak pernah diisi) TAPI notFound=true supaya
+// pemanggil bisa menampilkan notifikasi ke user.
+async function _resolveImportKelompokKode(namaKelompokRaw) {
+    const nama = String(namaKelompokRaw == null ? '' : namaKelompokRaw).trim();
+    if (!nama) return { kode: '', notFound: false };
+    if (!_soalKelompokList.length) await _loadSoalKelompokList();
+    const match = _soalKelompokList.find(k => String(k.nama || '').trim().toLowerCase() === nama.toLowerCase());
+    return { kode: match ? match.kode : '', notFound: !match };
+}
+
 /* ── DRAFT AUTO-SAVE — builder soal (Buat/Edit Soal) ──
    Supaya kerjaan yang sedang diketik TIDAK hilang kalau halaman ke-refresh/Ctrl+Shift+R.
    Disimpan ke localStorage tiap ada perubahan (debounce ringan), dipulihkan otomatis
@@ -703,11 +717,12 @@ function _escHtmlSoal(str) {
         .replace(/\n/g, '<br>');
 }
 
-function downloadSoalTemplate() {
+async function downloadSoalTemplate() {
     if (typeof XLSX === 'undefined') { showToast('Modul Excel belum siap, muat ulang halaman', 'danger'); return; }
     const type = document.getElementById('tpl-type')?.value || 'multiple_choice';
     const skorType = document.querySelector('input[name="tpl_skor_type"]:checked')?.value || 'benar_salah';
     const jumlah = Math.max(1, parseInt(document.getElementById('tpl-jumlah')?.value) || 10);
+    if (!_soalKelompokList.length) await _loadSoalKelompokList();
 
     const wb = XLSX.utils.book_new();
 
@@ -715,6 +730,7 @@ function downloadSoalTemplate() {
         ['Field', 'Isi'],
         ['Nama Soal', 'Contoh: Tes Wawasan Kebangsaan'],
         ['Nama Internal', ''],
+        ['Kelompok', ''],
         ['Tipe Soal', type],
         ['Sistem Penilaian', type === 'sikap_kerja' ? '-' : skorType],
         ['Jumlah Jawaban Dipilih Peserta', type === 'sikap_kerja' ? '-' : 1],
@@ -736,6 +752,8 @@ function downloadSoalTemplate() {
             ['3. Gambar tidak bisa lewat Excel — tambahkan manual di aplikasi setelah upload.'],
             ['4. Kolom yang terisi lengkap (5 item) otomatis dibuatkan soal acak setelah file diupload.'],
             ['5. "Nama Internal" di sheet Info bersifat opsional — hanya terlihat di admin, kosongkan jika tidak perlu.'],
+            ['6. "Kelompok" di sheet Info bersifat opsional — isi PERSIS sama dengan nama kelompok yang sudah ada di aplikasi (besar/kecil huruf tidak masalah). Kosongkan jika soal tidak perlu masuk kelompok manapun. Jika nama yang ditulis tidak cocok dengan kelompok manapun, soal akan tetap terimport tapi kelompoknya dikosongkan (akan ada notifikasi).'],
+            _soalKelompokList.length ? ['   Kelompok yang sudah ada: ' + _soalKelompokList.map(k => k.nama).join(', ')] : ['   Belum ada kelompok yang dibuat — kolom ini bisa dikosongkan.'],
         ];
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(petunjuk), 'Petunjuk');
     } else {
@@ -765,6 +783,8 @@ function downloadSoalTemplate() {
             ['4. Kolom Pembahasan bersifat opsional.'],
             ['5. Kolom "No" hanya penomoran, tidak wajib berurutan.'],
             ['6. "Nama Internal" di sheet Info bersifat opsional — hanya terlihat di admin, kosongkan jika tidak perlu.'],
+            ['7. "Kelompok" di sheet Info bersifat opsional — isi PERSIS sama dengan nama kelompok yang sudah ada di aplikasi (besar/kecil huruf tidak masalah). Kosongkan jika soal tidak perlu masuk kelompok manapun. Jika nama yang ditulis tidak cocok dengan kelompok manapun, soal akan tetap terimport tapi kelompoknya dikosongkan (akan ada notifikasi).'],
+            _soalKelompokList.length ? ['   Kelompok yang sudah ada: ' + _soalKelompokList.map(k => k.nama).join(', ')] : ['   Belum ada kelompok yang dibuat — kolom ini bisa dikosongkan.'],
         ];
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(petunjuk), 'Petunjuk');
     }
@@ -791,7 +811,7 @@ function onUploadSoalFile(input) {
             // bukan sebagai isi sel — XLSX.js tidak membacanya. Kita bongkar file .xlsx
             // sebagai arsip zip (JSZip) untuk mengambil gambar & posisi selnya secara manual.
             const imageMap = await _extractSoalImageMap(buf);
-            _importSoalFromWorkbook(wb, imageMap);
+            await _importSoalFromWorkbook(wb, imageMap);
         } catch (err) {
             console.error(err);
             showToast('Gagal membaca file. Pastikan format sesuai template.', 'danger');
@@ -935,7 +955,7 @@ function _readInfoSheetSoal(wb) {
     return map;
 }
 
-function _importSoalFromWorkbook(wb, imageMap) {
+async function _importSoalFromWorkbook(wb, imageMap) {
     imageMap = imageMap || {};
     const info = _readInfoSheetSoal(wb);
     const nama = (info['Nama Soal'] && String(info['Nama Soal']).trim()) || ('Soal Import ' + new Date().toLocaleDateString('id-ID'));
@@ -947,11 +967,18 @@ function _importSoalFromWorkbook(wb, imageMap) {
     const timerJam = parseInt(info['Timer Jam']) || 0;
     const timerMenit = (info['Timer Menit'] !== undefined && info['Timer Menit'] !== '') ? (parseInt(info['Timer Menit']) || 0) : 30;
     const timerDetik = parseInt(info['Timer Detik']) || 0;
+    // Kelompok: cell kosong -> dikosongkan diam-diam (seperti tidak pernah diisi).
+    // Cell terisi tapi nama tidak cocok kelompok manapun -> dikosongkan JUGA, tapi beri notifikasi.
+    const kelompokResolved = await _resolveImportKelompokKode(info['Kelompok']);
 
     SoalState.mode = 'build'; SoalState.kode = null; SoalState.editMode = false; SoalState._editors = {};
     SoalState.nama = nama; SoalState.nama_internal = namaInternal; SoalState.type = type; SoalState.skor_type = skorType;
     SoalState.opsi_jawaban = opsiJawaban;
     SoalState.timer = { jam: timerJam, menit: timerMenit, detik: timerDetik };
+    SoalState.kelompok = kelompokResolved.kode;
+    const kelompokNotifSuffix = kelompokResolved.notFound
+        ? ` (Kelompok "${String(info['Kelompok']).trim()}" tidak ditemukan, dikosongkan)`
+        : '';
 
     if (type === 'sikap_kerja') {
         const rows = (_sheetToRowsSoal(wb, 'Kolom') || []).slice(1);
@@ -976,7 +1003,7 @@ function _importSoalFromWorkbook(wb, imageMap) {
         SoalState.kolom = kolom; SoalState.pertanyaan = [];
         const totalFilled = kolom.filter(k => k.soal.length).length;
         setDirty('import soal');
-        showToast(`Import berhasil! ${totalFilled}/10 kolom siap (soal otomatis dibuat)`, 'success');
+        showToast(`Import berhasil! ${totalFilled}/10 kolom siap (soal otomatis dibuat)${kelompokNotifSuffix}`, kelompokResolved.notFound ? 'danger' : 'success', kelompokResolved.notFound ? 4200 : 2600);
         _sikapView = 'list'; _animateTo(_renderSikapList);
     } else {
         // Simpan indeks baris asli (0-based, header=0) tiap baris SEBELUM difilter,
@@ -1027,7 +1054,7 @@ function _importSoalFromWorkbook(wb, imageMap) {
         });
         SoalState.pertanyaan = pertanyaan; SoalState.currentIdx = 0; SoalState.kolom = null;
         setDirty('import soal');
-        showToast(`Import berhasil! ${pertanyaan.length} soal siap direview${totalGambar ? ` (${totalGambar} gambar ikut terbawa)` : ''}`, 'success');
+        showToast(`Import berhasil! ${pertanyaan.length} soal siap direview${totalGambar ? ` (${totalGambar} gambar ikut terbawa)` : ''}${kelompokNotifSuffix}`, kelompokResolved.notFound ? 'danger' : 'success', kelompokResolved.notFound ? 4200 : 2600);
         _animateTo(_renderMCHtml);
     }
 }
@@ -1265,6 +1292,7 @@ function _buildSoalWorkbook(s) {
         ['Field', 'Isi'],
         ['Nama Soal', s.nama || ''],
         ['Nama Internal', s.nama_internal || ''],
+        ['Kelompok', _soalKelompokNama(s.kelompok) || ''],
         ['Tipe Soal', type],
         ['Sistem Penilaian', type === 'sikap_kerja' ? '-' : skorType],
         ['Jumlah Jawaban Dipilih Peserta', type === 'sikap_kerja' ? '-' : (s.opsi_jawaban || 1)],
@@ -1337,6 +1365,7 @@ async function _buildSoalWorkbookBlob(s) {
 
 async function exportSoalDataToExcel(s) {
     if (typeof XLSX === 'undefined') { showToast('Modul Excel belum siap, muat ulang halaman', 'danger'); return; }
+    if (!_soalKelompokList.length) await _loadSoalKelompokList();
     const positions = _collectSoalImagePositions(s);
     if (positions.length) showToast('Menyiapkan gambar untuk Excel...', 'success');
 
@@ -1371,7 +1400,7 @@ async function exportLibSoalToExcel(kode) {
 async function exportCurrentSoalToExcel() {
     await exportSoalDataToExcel({
         nama: SoalState.nama, nama_internal: SoalState.nama_internal, type: SoalState.type, skor_type: SoalState.skor_type,
-        opsi_jawaban: SoalState.opsi_jawaban, timer: SoalState.timer,
+        opsi_jawaban: SoalState.opsi_jawaban, timer: SoalState.timer, kelompok: SoalState.kelompok,
         data: SoalState.type === 'sikap_kerja' ? (SoalState.kolom || []) : (SoalState.pertanyaan || []),
     });
 }

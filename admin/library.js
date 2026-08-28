@@ -131,6 +131,7 @@ async function exportSelectedLibSoal(){
     if(!kodes.length){showToast('Pilih minimal 1 soal dulu','danger');return;}
     if(typeof JSZip==='undefined'){showToast('Gagal memuat pustaka ZIP, cek koneksi internet lalu coba lagi','danger');return;}
     if(typeof XLSX==='undefined'){showToast('Modul Excel belum siap, muat ulang halaman','danger');return;}
+    if(!_soalKelompokList.length) await _loadSoalKelompokList();
     showToast(`Menyiapkan export ${kodes.length} soal...`,'success');
     const zip=new JSZip();
     const usedNames=new Set();
