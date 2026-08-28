@@ -220,7 +220,7 @@ function _renderModulSoalPickerList(){
     if(!_soalForModul.length){el.innerHTML='<p style="color:var(--text-sub);font-size:13px">Belum ada soal di library.</p>';return;}
     let data=_soalForModul;
     const q=(_modulPickerSearch||'').toLowerCase();
-    if(q)data=data.filter(s=>(s.nama||'').toLowerCase().includes(q)||(s.type||'').toLowerCase().includes(q)||(_soalKelompokNama(s.kelompok)||'').toLowerCase().includes(q));
+    if(q)data=data.filter(s=>(s.nama||'').toLowerCase().includes(q)||(s.nama_internal||'').toLowerCase().includes(q)||(s.type||'').toLowerCase().includes(q)||(_soalKelompokNama(s.kelompok)||'').toLowerCase().includes(q));
     if(_modulPickerType!=='all')data=data.filter(s=>s.type===_modulPickerType);
     if(_modulPickerKelompokFilter==='none')data=data.filter(s=>!s.kelompok);
     else if(_modulPickerKelompokFilter!=='all')data=data.filter(s=>s.kelompok===_modulPickerKelompokFilter);

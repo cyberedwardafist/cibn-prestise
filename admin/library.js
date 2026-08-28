@@ -49,7 +49,7 @@ function _libGroupHtml(group){
 }
 function _renderLibList(){
     let data=_libData;
-    if(_libSearch)data=data.filter(s=>(s.nama||'').toLowerCase().includes(_libSearch.toLowerCase())||(s.type||'').toLowerCase().includes(_libSearch.toLowerCase())||(_soalKelompokNama(s.kelompok)||'').toLowerCase().includes(_libSearch.toLowerCase()));
+    if(_libSearch)data=data.filter(s=>(s.nama||'').toLowerCase().includes(_libSearch.toLowerCase())||(s.nama_internal||'').toLowerCase().includes(_libSearch.toLowerCase())||(s.type||'').toLowerCase().includes(_libSearch.toLowerCase())||(_soalKelompokNama(s.kelompok)||'').toLowerCase().includes(_libSearch.toLowerCase()));
     if(_libType!=='all')data=data.filter(s=>s.type===_libType);
     if(_libKelompokFilter==='none')data=data.filter(s=>!s.kelompok);
     else if(_libKelompokFilter!=='all')data=data.filter(s=>s.kelompok===_libKelompokFilter);

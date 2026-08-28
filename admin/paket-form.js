@@ -188,7 +188,7 @@ function _renderPfModulPicker() {
     if (!_pfModulEbookList.length) { el.innerHTML = '<p style="color:var(--text-sub);font-size:12px">Belum ada modul e-book. Buat dulu di menu Modul E-Book.</p>'; return; }
     let data = _pfModulEbookList;
     const q = (_pfModulPickerSearch || '').toLowerCase();
-    if (q) data = data.filter(m => (m.nama || '').toLowerCase().includes(q));
+    if (q) data = data.filter(m => (m.nama || '').toLowerCase().includes(q) || (m.nama_internal || '').toLowerCase().includes(q));
     if (_pfModulPickerKelompokFilter === 'none') data = data.filter(m => !m.kelompok);
     else if (_pfModulPickerKelompokFilter !== 'all') data = data.filter(m => m.kelompok === _pfModulPickerKelompokFilter);
     el.innerHTML = data.length ? data.map(m => _pfModulPickCardHtml(m)).join('') : '<p style="color:var(--text-sub);font-size:12px">Tidak ada modul e-book yang cocok.</p>';
@@ -281,7 +281,7 @@ function _renderPfMentoringPicker() {
     if (!_pfMentoringModulList.length) { el.innerHTML = '<p style="color:var(--text-sub);font-size:12px">Belum ada modul. Buat dulu di menu Modul.</p>'; return; }
     let data = _pfMentoringModulList;
     const q = (_pfMentoringPickerSearch || '').toLowerCase();
-    if (q) data = data.filter(m => (m.nama || '').toLowerCase().includes(q));
+    if (q) data = data.filter(m => (m.nama || '').toLowerCase().includes(q) || (m.nama_internal || '').toLowerCase().includes(q));
     if (_pfMentoringPickerKelompokFilter === 'none') data = data.filter(m => !m.kelompok);
     else if (_pfMentoringPickerKelompokFilter !== 'all') data = data.filter(m => m.kelompok === _pfMentoringPickerKelompokFilter);
     const kuota = _pfMentoringKuota();
