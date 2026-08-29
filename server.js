@@ -254,6 +254,34 @@ function stripKunci(node) {
     return node;
 }
 
+// Soal Sikap Kerja: tiap soal yang digenerate cukup menyimpan {id, kunci_idx} —
+// field semua/tampil/kunci/kunci_huruf bisa dihitung ulang dari 5 item kolomnya,
+// jadi tidak perlu disalin berulang ke tiap soal (dulu ini penyebab payload
+// membengkak dan gagal simpan / HTTP 413). Fungsi ini mengembalikan bentuk
+// lengkap seperti sebelumnya, supaya semua kode yang sudah ada (ujian, laporan,
+// export, review) tetap jalan tanpa perlu diubah sama sekali.
+function expandSikapKerja(type, data) {
+    if (type !== 'sikap_kerja' || !Array.isArray(data)) return data;
+    return data.map(kolom => {
+        if (!kolom || !Array.isArray(kolom.soal) || !Array.isArray(kolom.items)) return kolom;
+        const items = kolom.items;
+        const soal = kolom.soal.map(s => {
+            if (s && s.tampil !== undefined) return s; // data lama/format lengkap, biarkan apa adanya
+            const kIdx = s ? s.kunci_idx : undefined;
+            if (kIdx === undefined || kIdx === null || !items[kIdx]) return s;
+            return {
+                id: s.id,
+                semua: items.map(it => it.nilai),
+                tampil: items.filter((_, j) => j !== kIdx).map(it => it.nilai),
+                kunci: items[kIdx].nilai,
+                kunci_idx: kIdx,
+                kunci_huruf: String.fromCharCode(65 + kIdx)
+            };
+        });
+        return { ...kolom, soal };
+    });
+}
+
 async function buildSoalDetail(modul, { withKunci = false } = {}) {
     let soal_list = []; try { soal_list = JSON.parse(modul.soal_list || '[]'); } catch (e) {}
     const soalDetail = [];
@@ -261,6 +289,7 @@ async function buildSoalDetail(modul, { withKunci = false } = {}) {
         const s = await db.prepare('SELECT * FROM soal WHERE kode=?').get(sl.soal_kode);
         if (s) {
             let data = null; try { data = JSON.parse(s.data || 'null'); } catch (e) {}
+            data = expandSikapKerja(s.type, data);
             if (!withKunci) data = stripKunci(data);
             soalDetail.push({ kode:s.kode, nama:s.nama, type:s.type, skor_type:s.skor_type, opsi_jawaban:s.opsi_jawaban, timer_jam:s.timer_jam, timer_menit:s.timer_menit, timer_detik:s.timer_detik, data, acak_soal:sl.acak_soal, acak_jawaban:sl.acak_jawaban, persen:sl.persen||100 });
         }
@@ -656,13 +685,13 @@ app.post('/api/upload', auth(['admin']), (req, res) => {
 
 app.get('/api/soal', auth(['admin']), ah(async (req, res) => {
     const rows = await db.prepare('SELECT * FROM soal ORDER BY id').all();
-    rows.forEach(r => { if (r.data) try { r.data = JSON.parse(r.data); } catch (e) {} });
+    rows.forEach(r => { if (r.data) try { r.data = expandSikapKerja(r.type, JSON.parse(r.data)); } catch (e) {} });
     res.json(rows);
 }));
 app.get('/api/soal/:kode', auth(['admin','review']), ah(async (req, res) => {
     const s = await db.prepare('SELECT * FROM soal WHERE kode=?').get(req.params.kode);
     if (!s) return res.status(404).json({ error: 'Tidak ditemukan' });
-    if (s.data) try { s.data = JSON.parse(s.data); } catch (e) {}
+    if (s.data) try { s.data = expandSikapKerja(s.type, JSON.parse(s.data)); } catch (e) {}
     if (req.user.role !== 'admin') delete s.nama_internal;
     res.json(s);
 }));
@@ -1039,7 +1068,7 @@ app.get('/api/laporan/:kode', auth(['admin','review']), ah(async (req, res) => {
     const soalDetail = [];
     for (const sl of soal_list) {
         const s = await db.prepare('SELECT * FROM soal WHERE kode=?').get(sl.soal_kode);
-        if (s) { let data = null; try { data = JSON.parse(s.data || 'null'); } catch (e) {} if (req.user.role !== 'admin') delete s.nama_internal; soalDetail.push({ ...s, data }); }
+        if (s) { let data = null; try { data = JSON.parse(s.data || 'null'); } catch (e) {} data = expandSikapKerja(s.type, data); if (req.user.role !== 'admin') delete s.nama_internal; soalDetail.push({ ...s, data }); }
     }
     lap.soal_detail = soalDetail; res.json(lap);
 }));
@@ -1092,7 +1121,7 @@ app.put('/api/me', auth(['admin','review','user']), ah(async (req, res) => { awa
 app.get('/api/review/users', auth(['review','admin']), ah(async (req, res) => res.json(await db.prepare("SELECT id,kode,nama,email,grub,status FROM users WHERE role='user' ORDER BY id").all())));
 app.get('/api/review/laporan/:user_kode', auth(['review','admin']), ah(async (req, res) => { const rows = await db.prepare('SELECT * FROM laporan WHERE user_kode=? ORDER BY created_at DESC').all(req.params.user_kode); rows.forEach(r => { if (r.jawaban) try { r.jawaban = JSON.parse(r.jawaban); } catch (e) {} }); res.json(rows); }));
 app.get('/api/user/riwayat', auth(['user','admin','review']), ah(async (req, res) => { const rows = await db.prepare('SELECT l.*,m.nama as modul_nama FROM laporan l LEFT JOIN modul m ON l.modul_kode=m.kode WHERE l.user_kode=? ORDER BY l.created_at DESC').all(req.user.kode); rows.forEach(r => { if (r.jawaban) try { r.jawaban = JSON.parse(r.jawaban); } catch (e) {} }); if (req.user.role === 'user' && rows.some(r => !r.izinkan_review) && await userPunyaReviewOverride(req.user.kode)) { rows.forEach(r => { r.izinkan_review = 1; }); } res.json(rows); }));
-app.get('/api/user/riwayat/:kode', auth(['user','admin','review']), ah(async (req, res) => { const lap = await db.prepare('SELECT * FROM laporan WHERE kode=?').get(req.params.kode); if (!lap) return res.status(404).json({ error: 'Laporan tidak ditemukan' }); if (req.user.role === 'user') { if (lap.user_kode !== req.user.kode) return res.status(403).json({ error: 'Forbidden' }); if (!lap.izinkan_review && !(await userPunyaReviewOverride(req.user.kode))) return res.status(403).json({ error: 'Review untuk kode ini belum diizinkan' }); } if (lap.jawaban) try { lap.jawaban = JSON.parse(lap.jawaban); } catch (e) {} if (lap.urutan_tampil) try { lap.urutan_tampil = JSON.parse(lap.urutan_tampil); } catch (e) { lap.urutan_tampil = null; } const modul = lap.modul_kode ? await db.prepare('SELECT * FROM modul WHERE kode=?').get(lap.modul_kode) : null; if (modul) delete modul.nama_internal; let soalDetail = []; if (modul) { let soal_list = []; try { soal_list = JSON.parse(modul.soal_list || '[]'); } catch (e) {} for (const sl of soal_list) { const s = await db.prepare('SELECT * FROM soal WHERE kode=?').get(sl.soal_kode); if (s) { let data = null; try { data = JSON.parse(s.data || 'null'); } catch (e) {} delete s.nama_internal; soalDetail.push({...s, data}); } } } res.json({ laporan: lap, modul, soal: soalDetail }); }));
+app.get('/api/user/riwayat/:kode', auth(['user','admin','review']), ah(async (req, res) => { const lap = await db.prepare('SELECT * FROM laporan WHERE kode=?').get(req.params.kode); if (!lap) return res.status(404).json({ error: 'Laporan tidak ditemukan' }); if (req.user.role === 'user') { if (lap.user_kode !== req.user.kode) return res.status(403).json({ error: 'Forbidden' }); if (!lap.izinkan_review && !(await userPunyaReviewOverride(req.user.kode))) return res.status(403).json({ error: 'Review untuk kode ini belum diizinkan' }); } if (lap.jawaban) try { lap.jawaban = JSON.parse(lap.jawaban); } catch (e) {} if (lap.urutan_tampil) try { lap.urutan_tampil = JSON.parse(lap.urutan_tampil); } catch (e) { lap.urutan_tampil = null; } const modul = lap.modul_kode ? await db.prepare('SELECT * FROM modul WHERE kode=?').get(lap.modul_kode) : null; if (modul) delete modul.nama_internal; let soalDetail = []; if (modul) { let soal_list = []; try { soal_list = JSON.parse(modul.soal_list || '[]'); } catch (e) {} for (const sl of soal_list) { const s = await db.prepare('SELECT * FROM soal WHERE kode=?').get(sl.soal_kode); if (s) { let data = null; try { data = JSON.parse(s.data || 'null'); } catch (e) {} data = expandSikapKerja(s.type, data); delete s.nama_internal; soalDetail.push({...s, data}); } } } res.json({ laporan: lap, modul, soal: soalDetail }); }));
 app.get('/api/user/jadwal', auth(['user','admin','review']), ah(async (req, res) => { const me = await db.prepare('SELECT grub FROM users WHERE kode=?').get(req.user.kode); const rows = await db.prepare(`SELECT t.kode as token_kode, t.modul_kode, t.aktivasi as waktu_mulai, t.expired as waktu_selesai, t.digunakan, t.digunakan_oleh, m.nama as modul_nama, m.nama as nama FROM tokens t LEFT JOIN modul m ON t.modul_kode = m.kode WHERE t.digunakan_oleh = ? OR (t.grub_token IS NOT NULL AND t.grub_token = ? AND t.digunakan = 0) ORDER BY t.aktivasi DESC NULLS LAST, t.created_at DESC`).all(req.user.kode, me?.grub || null); res.json(rows); }));
 app.put('/api/user/password', auth(['user','admin','review']), ah(async (req, res) => { if (!req.body.password || req.body.password.length < 6) return res.status(400).json({ error: 'Password minimal 6 karakter' }); await db.prepare('UPDATE users SET password=? WHERE kode=?').run(bcrypt.hashSync(req.body.password, 10), req.user.kode); res.json({ message: 'Password berhasil diubah' }); }));
 app.get('/api/user/me', auth(['user','admin','review']), ah(async (req, res) => { const user = await db.prepare('SELECT id,kode,nama,email,grub,status FROM users WHERE kode=?').get(req.user.kode); if (!user) return res.status(404).json({ error: 'User tidak ditemukan' }); if (user.grub) { const g = await db.prepare('SELECT nama FROM grubs WHERE kode=?').get(user.grub); user.grub_nama = g?.nama || user.grub; } res.json(user); }));

@@ -516,18 +516,28 @@ function applyItemTeks(){
     _soalQueueAutoSave();
 }
 function triggerItemImage(){document.getElementById('ie-img-input').click();}
-function onItemImageSelected(input){
+async function onItemImageSelected(input){
     const file=input.files[0]; if(!file||!_editingItem) return;
     const {kIdx,iIdx}=_editingItem;
-    const reader=new FileReader();
-    reader.onload=e=>{
-        const url=e.target.result;
+    input.value='';
+    const setUrl=(url)=>{
         SoalState.kolom[kIdx].items[iIdx].nilai=url;
         document.getElementById('ie-preview').innerHTML=`<img src="${url}" style="max-width:100%;max-height:80px;border-radius:8px">`;
         _refreshItemBox(kIdx,iIdx);
         _soalQueueAutoSave();
     };
-    reader.readAsDataURL(file); input.value='';
+    // Upload ke server dulu (jadi URL kecil) — sama seperti gambar di soal MC.
+    // Hasil & tampilan sama persis, cuma yang disimpan jadi link, bukan base64 mentah
+    // yang bikin data membengkak (penyebab gagal simpan/413 kemarin).
+    if(typeof apiUploadImage==='function'){
+        const res=await apiUploadImage(file);
+        if(res && res.url){ setUrl(res.url); return; }
+        if(res && res.rejected){ showToastSafe(res.error||'Upload gambar ditolak server','danger'); return; }
+        // server tak terjangkau (offline) -> fallback base64 sementara, seperti semula
+    }
+    const reader=new FileReader();
+    reader.onload=e=>setUrl(e.target.result);
+    reader.readAsDataURL(file);
 }
 function clearItemVal(){
     if(!_editingItem) return;
@@ -616,10 +626,17 @@ function showPreview(){
 function backToEdit(){SoalState._editors={};_animateTo(_renderMCHtml);}
 
 // ══════════════ SAVE ══════════════
+// Sikap Kerja: tiap soal yang digenerate cuma perlu simpan {id, kunci_idx} —
+// semua/tampil/kunci bisa dihitung ulang dari 5 item kolomnya (server yang
+// mengembalikan bentuk lengkap saat dibaca lagi). Ini menghemat ukuran data
+// yang dikirim tanpa mengubah hasil maupun tampilan sama sekali.
+function _compactSikapKolom(kolom){
+    return (kolom||[]).map(k=>({...k,soal:(k.soal||[]).map(s=>({id:s.id,kunci_idx:s.kunci_idx}))}));
+}
 async function simpanSoal(){
     syncEditors();
     if(!SoalState.nama){showToast('Nama soal wajib','danger');return;}
-    const payload={nama:SoalState.nama,nama_internal:SoalState.nama_internal||'',type:SoalState.type,skor_type:SoalState.skor_type,opsi_jawaban:SoalState.opsi_jawaban,timer_jam:SoalState.timer.jam,timer_menit:SoalState.timer.menit,timer_detik:SoalState.timer.detik,kelompok:SoalState.kelompok||'',data:SoalState.type==='sikap_kerja'?SoalState.kolom:SoalState.pertanyaan};
+    const payload={nama:SoalState.nama,nama_internal:SoalState.nama_internal||'',type:SoalState.type,skor_type:SoalState.skor_type,opsi_jawaban:SoalState.opsi_jawaban,timer_jam:SoalState.timer.jam,timer_menit:SoalState.timer.menit,timer_detik:SoalState.timer.detik,kelompok:SoalState.kelompok||'',data:SoalState.type==='sikap_kerja'?_compactSikapKolom(SoalState.kolom):SoalState.pertanyaan};
     try {
         if(SoalState.kode) await SoalAPI.update(SoalState.kode,payload);
         else await SoalAPI.create(payload);
