@@ -22,7 +22,12 @@
     --font-body: 'DM Sans', sans-serif;
     --sidebar-w: 240px;
     --topbar-h: 60px;
-    --taskbar-h: 68px;
+    /* Tinggi dock utama (mengambang) dari tepi bawah layar: dock-wrap bottom-offset (16px)
+       + tinggi isi dock (~69px) + margin aman ekstra, supaya semua elemen yang pakai
+       calc(var(--taskbar-h) + Npx) — padding halaman, dock landing, dll — benar-benar
+       clear dari dock utama dan tidak pernah ketutupan/tertimpa (dock utama sendiri
+       TIDAK diubah, ini cuma variabel jarak-aman yang dipakai elemen lain). */
+    --taskbar-h: 96px;
 }
 
 html, body {

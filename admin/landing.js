@@ -47,6 +47,15 @@ function renderLandingSub(sub) {
     ?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
 }
 
+// ── Sub-tab di dalam LEGAL: Syarat & Ketentuan / Kebijakan Privasi ──
+// Pola sama seperti class="sub-tabs" di tab lain (Token/Akun/Keuangan), supaya
+// 2 form panjang (syarat-ketentuan.html & kebijakan-privasi.html) tidak lagi
+// ditumpuk dalam satu scroll panjang, tapi dipilih lewat pill tab.
+function renderLandingLegalSub(sub) {
+  document.querySelectorAll('#sub-landing-legal .sub-tab').forEach(t => t.classList.toggle('active', t.dataset.legalSub === sub));
+  document.querySelectorAll('#sub-landing-legal .ld-legal-panel').forEach(p => p.classList.toggle('active', p.id === 'ld-legal-' + sub));
+}
+
 // ── UPLOAD MEDIA (Logo Hero, Video Hero, Video Promo) ──
 function ldRenderMediaPreview(previewId, kind, url) {
   const el = document.getElementById(previewId);

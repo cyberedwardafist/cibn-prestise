@@ -384,6 +384,12 @@ body.soal-building #side-dock-wrap{
 body.soal-building #side-dock-wrap.side-dock-right{
   transform:translateY(-50%) translateX(16px) scale(.9) !important;
 }
+/* Sub-tab bagian LEGAL (Syarat & Ketentuan / Kebijakan Privasi) — sama seperti .sub-page,
+   dipisah jadi class sendiri (ld-legal-panel) supaya tidak ikut kesapu oleh selector
+   generik "#page-landing .sub-page" yang dipakai renderLandingSub() utk pindah HERO/
+   TEKNOLOGI/dst. */
+.ld-legal-panel{ display:none; }
+.ld-legal-panel.active{ display:block; }
 /* Box-sizing fix agar input tidak overflow ke kiri */
 .ld-field input,.ld-field textarea,.ld-field select{box-sizing:border-box}
 .ld-repeat-item,.ld-repeat-item *{box-sizing:border-box}
@@ -421,15 +427,16 @@ body.soal-building #side-dock-wrap.side-dock-right{
    dan tidak mepet ke kiri
 ══════════════════════════════════════════ */
 
-/* #page-landing: full size, flex column, center horizontal */
+/* #page-landing: full size, flex column, konten rata kiri (sama seperti page lain: home, akun, dll) */
 #page-landing {
   display: flex !important;
   flex-direction: column !important;
-  align-items: center !important;
+  align-items: stretch !important;
   width: 100% !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
   box-sizing: border-box !important;
+  padding: 24px max(24px, calc((100% - 1400px) / 2)) calc(var(--taskbar-h) + 24px) !important;
 }
 
 /* Wrapper utama editor: max-width + center */

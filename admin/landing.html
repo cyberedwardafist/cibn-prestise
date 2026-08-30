@@ -139,36 +139,46 @@
   </div>
 </div>
 
-<!-- LEGAL -->
+<!-- LEGAL — dipecah jadi 2 sub-tab (Syarat & Ketentuan / Kebijakan Privasi), pola sama
+     persis dengan class="sub-tabs" yang dipakai di tab lain (mis. Token/Akun/Keuangan). -->
 <div class="sub-page dock-avoid-center" id="sub-landing-legal">
-  <div class="card" style="margin:0 auto 16px;max-width:640px">
-    <div class="section-sub" style="margin:-4px 0 12px">Halaman <b>syarat-ketentuan.html</b></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Label Kecil (Eyebrow)</label><input id="ld-syarat-eyebrow" class="form-input" type="text" placeholder="Legal"></div>
-      <div class="form-group"><label class="form-label">Judul</label><input id="ld-syarat-title" class="form-input" type="text" placeholder="Syarat & Ketentuan"></div>
-    </div>
-    <div class="form-group"><label class="form-label">Info Pembaruan</label><input id="ld-syarat-updated" class="form-input" type="text" placeholder="Terakhir diperbarui 30 Agustus 2026"></div>
-    <div class="form-group">
-      <label class="form-label">Isi Syarat & Ketentuan</label>
-      <textarea id="ld-syarat-content" class="form-input" rows="12" placeholder="Tulis isi Syarat & Ketentuan di sini...&#10;&#10;Pisahkan tiap paragraf dengan baris kosong. Awali baris dengan '## ' untuk membuat sub-judul, misal:&#10;## 1. Ketentuan Umum"></textarea>
-      <p style="font-size:12px;color:rgba(19,50,89,0.5);margin-top:6px">Tips: baris kosong = paragraf baru. Awali baris dengan <code>## </code> untuk sub-judul (mis. <code>## 1. Ketentuan Umum</code>).</p>
-    </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="saveLandingSyarat()">Simpan Syarat & Ketentuan</button>
+  <div class="sub-tabs" style="max-width:640px;margin:0 auto 16px">
+    <button class="sub-tab active" data-legal-sub="syarat" onclick="renderLandingLegalSub('syarat')">Syarat & Ketentuan</button>
+    <button class="sub-tab" data-legal-sub="privasi" onclick="renderLandingLegalSub('privasi')">Kebijakan Privasi</button>
   </div>
 
-  <div class="card" style="margin:0 auto 16px;max-width:640px">
-    <div class="section-sub" style="margin:-4px 0 12px">Halaman <b>kebijakan-privasi.html</b></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Label Kecil (Eyebrow)</label><input id="ld-privasi-eyebrow" class="form-input" type="text" placeholder="Legal"></div>
-      <div class="form-group"><label class="form-label">Judul</label><input id="ld-privasi-title" class="form-input" type="text" placeholder="Kebijakan Privasi"></div>
+  <div class="ld-legal-panel active" id="ld-legal-syarat">
+    <div class="card" style="margin:0 auto 16px;max-width:640px">
+      <div class="section-sub" style="margin:-4px 0 12px">Halaman <b>syarat-ketentuan.html</b></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Label Kecil (Eyebrow)</label><input id="ld-syarat-eyebrow" class="form-input" type="text" placeholder="Legal"></div>
+        <div class="form-group"><label class="form-label">Judul</label><input id="ld-syarat-title" class="form-input" type="text" placeholder="Syarat & Ketentuan"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Info Pembaruan</label><input id="ld-syarat-updated" class="form-input" type="text" placeholder="Terakhir diperbarui 30 Agustus 2026"></div>
+      <div class="form-group">
+        <label class="form-label">Isi Syarat & Ketentuan</label>
+        <textarea id="ld-syarat-content" class="form-input" rows="12" placeholder="Tulis isi Syarat & Ketentuan di sini...&#10;&#10;Pisahkan tiap paragraf dengan baris kosong. Awali baris dengan '## ' untuk membuat sub-judul, misal:&#10;## 1. Ketentuan Umum"></textarea>
+        <p style="font-size:12px;color:rgba(19,50,89,0.5);margin-top:6px">Tips: baris kosong = paragraf baru. Awali baris dengan <code>## </code> untuk sub-judul (mis. <code>## 1. Ketentuan Umum</code>).</p>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="saveLandingSyarat()">Simpan Syarat & Ketentuan</button>
     </div>
-    <div class="form-group"><label class="form-label">Info Pembaruan</label><input id="ld-privasi-updated" class="form-input" type="text" placeholder="Terakhir diperbarui 30 Agustus 2026"></div>
-    <div class="form-group">
-      <label class="form-label">Isi Kebijakan Privasi</label>
-      <textarea id="ld-privasi-content" class="form-input" rows="12" placeholder="Tulis isi Kebijakan Privasi di sini...&#10;&#10;Pisahkan tiap paragraf dengan baris kosong. Awali baris dengan '## ' untuk membuat sub-judul, misal:&#10;## 1. Data yang Kami Kumpulkan"></textarea>
-      <p style="font-size:12px;color:rgba(19,50,89,0.5);margin-top:6px">Tips: baris kosong = paragraf baru. Awali baris dengan <code>## </code> untuk sub-judul (mis. <code>## 1. Data yang Kami Kumpulkan</code>).</p>
+  </div>
+
+  <div class="ld-legal-panel" id="ld-legal-privasi">
+    <div class="card" style="margin:0 auto 16px;max-width:640px">
+      <div class="section-sub" style="margin:-4px 0 12px">Halaman <b>kebijakan-privasi.html</b></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Label Kecil (Eyebrow)</label><input id="ld-privasi-eyebrow" class="form-input" type="text" placeholder="Legal"></div>
+        <div class="form-group"><label class="form-label">Judul</label><input id="ld-privasi-title" class="form-input" type="text" placeholder="Kebijakan Privasi"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Info Pembaruan</label><input id="ld-privasi-updated" class="form-input" type="text" placeholder="Terakhir diperbarui 30 Agustus 2026"></div>
+      <div class="form-group">
+        <label class="form-label">Isi Kebijakan Privasi</label>
+        <textarea id="ld-privasi-content" class="form-input" rows="12" placeholder="Tulis isi Kebijakan Privasi di sini...&#10;&#10;Pisahkan tiap paragraf dengan baris kosong. Awali baris dengan '## ' untuk membuat sub-judul, misal:&#10;## 1. Data yang Kami Kumpulkan"></textarea>
+        <p style="font-size:12px;color:rgba(19,50,89,0.5);margin-top:6px">Tips: baris kosong = paragraf baru. Awali baris dengan <code>## </code> untuk sub-judul (mis. <code>## 1. Data yang Kami Kumpulkan</code>).</p>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="saveLandingPrivasi()">Simpan Kebijakan Privasi</button>
     </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="saveLandingPrivasi()">Simpan Kebijakan Privasi</button>
   </div>
 </div>
 
