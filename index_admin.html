@@ -275,8 +275,6 @@ div:hover>.soal-nav-del{opacity:1}
   font-size:.72rem;font-weight:800;color:var(--blue);
   flex-shrink:0;
 }
-.landing-nav-btn.active-tab .dock-icon{filter:drop-shadow(0 0 4px rgba(19,50,89,0.3))}
-
 /* ── SIDE DOCK — panel vertikal grup SOAL UJIAN / CAT / Editor Landing ──
    Muncul di samping (kiri/kanan) tanpa menyembunyikan main-dock. */
 .side-dock-wrap{
@@ -838,16 +836,20 @@ function closeSideDock() {
 }
 
 /* ── Aturan tampilan-menyesuaikan-dock ──
-   Mengukur lebar panel side-dock (setelah render, sebelum animasi scale selesai — offsetWidth
-   tidak terpengaruh transform:scale jadi aman diukur kapan saja) lalu menuliskannya sebagai
-   CSS var --side-dock-offset. Elemen dgn class .dock-avoid otomatis diberi padding sebesar itu
-   di sisi yang sama dgn posisi dock (kiri/kanan), supaya kontennya tidak pernah tertimpa panel.
-   Tampilan yang sudah center (Buat Soal, editor Landing) tidak diberi class .dock-avoid krn
-   dock berada di ruang kosong di sampingnya & memang tidak mengganggu. */
+   Mengukur lebar panel dock yang SEDANG TERBUKA (side-dock-wrap grup SOAL/CAT/EBOOK
+   ATAU landing-dock-wrap khusus tab Landing — keduanya tidak pernah terbuka bersamaan,
+   jadi aman dicek dua-duanya di sini) lalu menuliskannya sebagai CSS var --side-dock-offset.
+   Elemen dgn class .dock-avoid otomatis diberi padding sebesar itu di sisi yang sama dgn
+   posisi dock (kiri/kanan), supaya kontennya tidak pernah tertimpa panel. Kotak yang sudah
+   center (Buat Soal, editor Landing) pakai .dock-avoid-center: di desktop dock berada di
+   ruang kosong sampingnya jadi tidak digeser, tapi di layar sempit (≤1024px) tetap ikut
+   digeser/menyempit karena di situ ruang kosongnya sudah habis dan kotaknya beneran
+   ketimpa panel kalau tidak digeser (persis kasus di screenshot). */
 function _syncDockLayoutOffset() {
-  const wrap = document.getElementById('side-dock-wrap');
   const body = document.body;
-  if (!wrap || !wrap.classList.contains('open')) {
+  const wrap = [document.getElementById('side-dock-wrap'), document.getElementById('landing-dock-wrap')]
+    .find(w => w && w.classList.contains('open'));
+  if (!wrap) {
     body.classList.remove('side-dock-open', 'side-dock-open-right');
     document.documentElement.style.removeProperty('--side-dock-offset');
     return;
@@ -897,20 +899,21 @@ function syncSideDockForPage(pageId) {
 function toggleSideDockPosition(wrapId) {
   const wrap = document.getElementById(wrapId);
   if (wrap) wrap.classList.toggle('side-dock-right');
-  if (wrapId === 'side-dock-wrap') _syncDockLayoutOffset();
+  _syncDockLayoutOffset();
 }
 
 // ── LANDING DOCK (#landing-dock-wrap) — buka/tutup mengikuti tab aktif ──
 // Beda dengan #side-dock-wrap (dipakai bergantian oleh 3 grup lewat SIDE_DOCK_GROUPS),
 // panel ini KHUSUS tab Landing dan daftar item-nya statis (ditulis langsung di HTML),
 // jadi cukup toggle class "open" saja — tidak perlu di-generate ulang tiap navigasi.
-// Tidak dihubungkan ke --side-dock-offset/.dock-avoid: panel ini duduk di ruang kosong
-// samping card yang sudah center (sama seperti box "Buat Soal"), di SEMUA ukuran layar
-// (tidak lagi berubah jadi strip horizontal di layar sempit — lihat rule dasar
-// .side-dock-wrap/.side-dock yang sekarang dipakai apa adanya, sama seperti #side-dock-wrap).
+// TETAP dihubungkan ke --side-dock-offset/.dock-avoid-center (lewat _syncDockLayoutOffset)
+// sama seperti #side-dock-wrap: di desktop dock duduk di ruang kosong sampingnya jadi kotak
+// tidak digeser, tapi begitu layar menyempit (≤1024px) kotaknya ikut digeser/menyempit
+// menjauhi dock supaya tidak pernah ketimpa panel.
 function syncLandingDockForPage(pageId) {
   const wrap = document.getElementById('landing-dock-wrap');
   if (wrap) wrap.classList.toggle('open', pageId === 'landing');
+  _syncDockLayoutOffset();
 }
 
 // Auto-save editor landing: setiap ketikan/perubahan di dalam panel langsung antre simpan otomatis

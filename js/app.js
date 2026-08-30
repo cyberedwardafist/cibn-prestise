@@ -83,7 +83,7 @@ const ADMIN_PAGE_MODULES = {
     buku:            { html: 'admin/buku.html',           js: ['js/ebook.js'], modals: 'admin/ebook-modals.html' },
     'ebook-library': { html: 'admin/ebook-library.html',  js: ['js/ebook.js'], modals: 'admin/ebook-modals.html' },
     'ebook-modul':   { html: 'admin/ebook-modul.html',    js: ['js/ebook.js'], modals: 'admin/ebook-modals.html' },
-    landing:         { html: 'admin/landing.html',        js: ['admin/landing.js'] },
+    landing:         { html: 'admin/landing.html',        js: ['admin/landing.js'], modals: 'admin/landing-modals.html' },
     // Form Tambah/Edit Paket dipisah dari keuangan.js/keuangan-modals.html jadi
     // admin/paket-form.js + admin/paket-form.html (tampil fullscreen) — biar file
     // keuangan.js tetap ringan tiap kali cuma form paket-nya yang diubah.

@@ -1,0 +1,51 @@
+<!-- ld-testi-kelompok-overlay — Kelola Kelompok Pendaftaran (dipakai buat kelompokkan
+     testimoni, pola sama seperti "Kelola Kelompok Soal/Modul" di Library/Modul) -->
+<div class="overlay" id="ld-testi-kelompok-overlay"><div class="modal modal-sm"><div class="modal-header"><div class="modal-title">Kelola Kelompok Pendaftaran</div><button class="modal-close" onclick="closeModal('ld-testi-kelompok-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="form-group">
+    <input id="ld-testi-kelompok-new-input" class="form-input" type="text" placeholder="Nama kelompok baru (mis. Elite Circle)" onkeydown="if(event.key==='Enter')addTestiKelompok()">
+  </div>
+  <button type="button" class="btn btn-secondary" style="width:100%;margin-bottom:14px" onclick="addTestiKelompok()">+ Tambah Kelompok</button>
+  <div id="ld-testi-kelompok-manage-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('ld-testi-kelompok-overlay')">Tutup</button></div>
+</div></div>
+
+<!-- ld-testi-form-overlay — Tambah/Edit Testimoni -->
+<div class="overlay" id="ld-testi-form-overlay"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title" id="ld-testi-form-title">Tambah Testimoni</div><button class="modal-close" onclick="closeModal('ld-testi-form-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <input type="hidden" id="ld-testi-form-id" value="">
+
+  <label class="form-label" style="display:block">Foto</label>
+  <div class="ld-media-upload" style="margin-bottom:14px">
+    <div id="ld-testi-form-photo-preview" class="ld-media-preview ld-media-preview-square"></div>
+    <div class="ld-media-controls">
+      <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" id="ld-testi-form-photo-input" onchange="ldTestiPhotoUpload(this)">
+      <p class="ld-media-hint">PNG/JPG/WEBP, maks 10MB.</p>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Nama</label><input id="ld-testi-form-name" class="form-input" type="text" placeholder="Nama anggota"></div>
+    <div class="form-group"><label class="form-label">Peran / Kota <span style="font-weight:400;color:var(--text-sub)">(opsional)</span></label><input id="ld-testi-form-role" class="form-input" type="text" placeholder="Trader Retail, Surabaya"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Daftar Sebagai (Kelompok)</label><select id="ld-testi-form-kelompok" class="form-input"><option value="">-- Pilih Kelompok --</option></select></div>
+    <div class="form-group"><label class="form-label">Tahun Diterima</label><input id="ld-testi-form-tahun" class="form-input" type="number" min="2000" max="2100" placeholder="2026"></div>
+  </div>
+  <div class="form-group"><label class="form-label">Kutipan Testimoni</label><textarea id="ld-testi-form-quote" class="form-input" rows="3" placeholder="Isi testimoni..."></textarea></div>
+
+  <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
+    <div class="switch-row">
+      <div><div class="switch-label">Sorotan</div><div class="switch-desc">Tampil di kartu foto besar (Sorotan) di testimoni.html</div></div>
+      <label class="switch"><input type="checkbox" id="ld-testi-form-sorotan"><span class="switch-slider"></span></label>
+    </div>
+    <div class="switch-row">
+      <div><div class="switch-label">Semua Testimoni</div><div class="switch-desc">Tampil di daftar teks yang bisa dicari</div></div>
+      <label class="switch"><input type="checkbox" id="ld-testi-form-semua" checked><span class="switch-slider"></span></label>
+    </div>
+    <div class="switch-row">
+      <div><div class="switch-label">Marquee Berjalan</div><div class="switch-desc">Tampil di baris teks berjalan (marquee-wrap) di atas halaman</div></div>
+      <label class="switch"><input type="checkbox" id="ld-testi-form-marquee" checked><span class="switch-slider"></span></label>
+    </div>
+  </div>
+
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('ld-testi-form-overlay')">Batal</button><button class="btn btn-primary" onclick="submitTestiForm()">Simpan</button></div>
+</div></div>
