@@ -416,6 +416,15 @@ async function _doSubmitNewTesti(sorotanValue) {
 // "Kelola Kelompok" Soal/Modul, tapi disimpan di dalam JSON testimoni.kelompok
 // (bukan tabel DB terpisah) supaya tetap lewat /api/landing generik yang sudah ada. ──
 function openTestiKelompokManage() {
+  const overlay = document.getElementById('ld-testi-kelompok-overlay');
+  if (!overlay) {
+    // Modal fragment (admin/landing-modals.html) belum ke-append ke #lazy-modals-slot —
+    // biasanya karena lazy-load-nya belum selesai. Log biar gampang dilacak & kasih
+    // feedback ke user daripada diam saja tanpa reaksi apapun.
+    console.error('[openTestiKelompokManage] #ld-testi-kelompok-overlay tidak ditemukan di DOM — modal landing-modals.html belum termuat.');
+    showToast('Gagal membuka Kelola Kelompok, coba muat ulang halaman', 'danger');
+    return;
+  }
   const input = document.getElementById('ld-testi-kelompok-new-input'); if (input) input.value = '';
   _renderTestiKelompokManageList();
   openModal('ld-testi-kelompok-overlay');
