@@ -1122,7 +1122,6 @@ if (footerSpot) {
           <span class="spotlight-accepted">${t.accepted}</span>
           <p class="spotlight-quote">"${t.quote}"</p>
           <div class="spotlight-name serif">${t.name}</div>
-          <div class="spotlight-role">${t.role}</div>
         </div>
       </div>`).join('');
     attachTilt(spotlightGrid);
@@ -1140,7 +1139,7 @@ if (footerSpot) {
         <p class="testi-quote">${t.quote}</p>
         <div class="testi-person">
           <img src="${t.photo}" alt="${t.name}" loading="lazy">
-          <div><b>${t.name}</b><span>${t.role}</span></div>
+          <div><b>${t.name}</b></div>
         </div>
       </div>`;
   }
@@ -1170,7 +1169,7 @@ if (footerSpot) {
         <p class="testi-quote">${t.quote}</p>
         <div class="testi-person">
           <img src="${t.photo}" alt="${t.name}" loading="lazy">
-          <div><b>${t.name}</b><span>${t.role}</span></div>
+          <div><b>${t.name}</b></div>
         </div>
       </div>`).join('');
     attachTilt(textGrid);
@@ -1192,8 +1191,7 @@ if (footerSpot) {
     if (!q) return TESTIMONIALS;
     return TESTIMONIALS.filter(t =>
       t.name.toLowerCase().includes(q) ||
-      t.role.toLowerCase().includes(q) ||
-      t.accepted.toLowerCase().includes(q) ||
+      (t.accepted || '').toLowerCase().includes(q) ||
       t.quote.toLowerCase().includes(q)
     );
   }

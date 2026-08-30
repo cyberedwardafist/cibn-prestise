@@ -177,8 +177,7 @@ function _renderLdTestiList() {
       <div style="display:flex;gap:12px;align-items:flex-start">
         <div class="ld-media-preview ld-media-preview-square" style="flex-shrink:0">${t.photo ? `<img src="${_ldEsc(t.photo)}" alt="">` : ''}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:14px;color:var(--blue)">${_ldEsc(t.name) || '(Tanpa nama)'}</div>
-          <div style="font-size:11px;color:var(--text-sub);margin:2px 0 6px">${_ldEsc(t.role) || ''}</div>
+          <div style="font-weight:700;font-size:14px;color:var(--blue);margin-bottom:6px">${_ldEsc(t.name) || '(Tanpa nama)'}</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
             ${kelNama ? `<span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue)">${_ldEsc(kelNama)}</span>` : '<span class="badge" style="background:rgba(19,50,89,0.06);color:var(--text-sub)">Tanpa Kelompok</span>'}
             ${t.tahun ? `<span style="font-size:11px;color:var(--text-sub)">Diterima ${_ldEsc(t.tahun)}</span>` : ''}
@@ -207,7 +206,6 @@ function openEditTesti(idx) {
   document.getElementById('ld-testi-form-id').value = idx;
   document.getElementById('ld-testi-form-title').textContent = 'Edit Testimoni';
   document.getElementById('ld-testi-form-name').value = t.name || '';
-  document.getElementById('ld-testi-form-role').value = t.role || '';
   document.getElementById('ld-testi-form-tahun').value = t.tahun || '';
   document.getElementById('ld-testi-form-quote').value = t.quote || '';
   document.getElementById('ld-testi-form-sorotan').checked = !!t.sorotan;
@@ -279,7 +277,6 @@ async function _doSubmitTestiForm(editIdx, sorotanValue) {
   const kelNama = _ldTestiKelompokNama(kelompokKode);
   const item = {
     name,
-    role: document.getElementById('ld-testi-form-role').value.trim(),
     photo: _ldTestiPendingPhoto,
     quote,
     kelompokKode,
@@ -324,7 +321,6 @@ function _populateTestiNewKelompokSelect(selected) {
 function resetNewTestiForm() {
   const name = document.getElementById('ld-testi-new-name'); if (!name) return; // panel belum ke-render
   name.value = '';
-  document.getElementById('ld-testi-new-role').value = '';
   document.getElementById('ld-testi-new-tahun').value = '';
   document.getElementById('ld-testi-new-quote').value = '';
   document.getElementById('ld-testi-new-sorotan').checked = false;
@@ -390,7 +386,6 @@ async function _doSubmitNewTesti(sorotanValue) {
   const kelNama = _ldTestiKelompokNama(kelompokKode);
   const item = {
     name,
-    role: document.getElementById('ld-testi-new-role').value.trim(),
     photo: _ldTestiNewPendingPhoto,
     quote,
     kelompokKode,
