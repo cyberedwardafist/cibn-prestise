@@ -157,6 +157,13 @@
 /* ── LEAVE PAGE CONFIRM ── */
 .leave-confirm-overlay { z-index: 600; }
 
+/* GENERIC CONFIRM (showConfirm/#confirm-overlay) dipakai juga di ATAS form/modal lain
+   yang masih terbuka (mis. konfirmasi "Ganti kelompok Sorotan?" saat popup tambah/edit
+   testimoni masih ada) — tanpa ini z-index-nya ketiban sama-sama 400 kayak overlay biasa
+   dan rebutan sama modal form di belakangnya (kadang malah ketutup). Samakan levelnya
+   dengan leave-confirm-overlay biar selalu menang tampil paling depan. */
+#confirm-overlay { z-index: 600; }
+
 /* ── SOAL NAV PANEL ── */
 .soal-nav-panel {
     position: fixed;
