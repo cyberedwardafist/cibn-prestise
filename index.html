@@ -60,6 +60,24 @@ body{
   background-attachment:fixed;
 }
 
+/* ---------- LANDING LOADER (menutupi halaman sampai data /api/landing & paket siap,
+   supaya tidak ada lagi kelihatan konten bawaan/hardcode sekilas pas refresh) ---------- */
+#landingLoader{
+  position:fixed;inset:0;z-index:99999;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg);
+  transition:opacity .45s var(--ease), visibility .45s var(--ease);
+}
+#landingLoader.ld-hide{opacity:0;visibility:hidden;pointer-events:none}
+#landingLoader .ld-ring{
+  width:46px;height:46px;border-radius:50%;
+  border:3px solid rgba(44,90,160,0.15);
+  border-top-color:var(--cream);
+  animation:ld-spin .75s linear infinite;
+}
+@keyframes ld-spin{to{transform:rotate(360deg)}}
+.media-empty{display:none !important}
+
 .serif{font-family:'Space Grotesk',sans-serif}
 .mono{font-family:'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase}
 
@@ -667,6 +685,7 @@ input{font-family:inherit}
 </style>
 </head>
 <body>
+<div id="landingLoader"><div class="ld-ring"></div></div>
 
 <nav class="navbar">
   <div class="navbar-inner">
@@ -691,34 +710,29 @@ input{font-family:inherit}
 <header class="hero">
   <div class="hero-video-media">
     <!-- Ganti src di bawah dengan file video latar Anda sendiri (mp4, idealnya <=15MB, 1920x1080) -->
-    <video class="hero-video" id="heroVideo" autoplay muted loop playsinline preload="auto"
+    <video class="hero-video media-empty" id="heroVideo" autoplay muted loop playsinline preload="auto"
            disablePictureInPicture disableRemotePlayback tabindex="-1"
            controlsList="nodownload noplaybackrate nofullscreen"
-           oncontextmenu="return false"
-           poster="https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1600&q=60">
-      <source id="heroVideoSource" src="assets/hero-video.mp4" type="video/mp4">
+           oncontextmenu="return false">
+      <source id="heroVideoSource" type="video/mp4">
     </video>
     <div class="hero-video-overlay"></div>
   </div>
   <div class="hero-bg-grid"></div>
   <div class="container hero-inner">
     <div>
-      <h1 class="serif" id="heroTitle">Investasi Bukan Sekadar Angka. <em>Ini Warisan.</em></h1>
-      <p class="lead" id="heroLead">CIBN PRESTISE memadukan riset pasar mendalam, teknologi analisis real-time, dan pendampingan personal — untuk mereka yang menganggap serius setiap keputusan finansial.</p>
+      <h1 class="serif" id="heroTitle"></h1>
+      <p class="lead" id="heroLead"></p>
       <div class="hero-actions">
-        <a href="paket.html" class="btn btn-gold" id="heroCtaPrimary">Lihat Paket Keanggotaan</a>
-        <a href="testimoni.html" class="btn btn-ghost" id="heroCtaSecondary">Baca Testimoni</a>
+        <a href="paket.html" class="btn btn-gold media-empty" id="heroCtaPrimary"></a>
+        <a href="testimoni.html" class="btn btn-ghost media-empty" id="heroCtaSecondary"></a>
       </div>
-      <div class="hero-stats" id="heroStats">
-        <div class="stat glass"><b>12rb+</b><span>Anggota Aktif</span></div>
-        <div class="stat glass"><b>8 Tahun</b><span>Pengalaman Riset</span></div>
-        <div class="stat glass"><b>97%</b><span>Tingkat Kepuasan</span></div>
-      </div>
+      <div class="hero-stats" id="heroStats"></div>
     </div>
     <div class="hero-emblem-wrap">
       <div class="emblem">
         <div class="emblem-ring r2"></div>
-        <img id="heroLogo" src="assets/logo-cibn-prestise.png" alt="CIBN PRESTISE" class="emblem-logo">
+        <img id="heroLogo" class="emblem-logo media-empty" alt="CIBN PRESTISE">
       </div>
     </div>
   </div>
@@ -733,29 +747,29 @@ input{font-family:inherit}
   <div class="blob blob-emerald" style="width:300px;height:300px;bottom:-80px;right:-60px"></div>
   <div class="container">
     <div class="section-head reveal">
-      <h2 class="serif" id="teknologiHeading">Teknologi yang Kami Gunakan</h2>
-      <p id="teknologiDesc">Setiap keputusan didukung oleh infrastruktur analisis yang dibangun untuk kecepatan, akurasi, dan keamanan.</p>
+      <h2 class="serif" id="teknologiHeading"></h2>
+      <p id="teknologiDesc"></p>
     </div>
     <div class="tech-grid" id="teknologiCards">
       <div class="tech-card tilt-card reveal">
         <div class="tech-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
-        <h3 class="tc-title">Analisis Bertenaga AI</h3>
-        <p class="tc-desc">Model prediktif membaca ribuan titik data pasar setiap detik untuk menyaring sinyal yang relevan.</p>
+        <h3 class="tc-title"></h3>
+        <p class="tc-desc"></p>
       </div>
       <div class="tech-card tilt-card reveal reveal-delay-1">
         <div class="tech-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3" stroke-linecap="round"/></svg></div>
-        <h3 class="tc-title">Data Real-Time Multi-Bursa</h3>
-        <p class="tc-desc">Feed harga dan likuiditas tersinkron langsung dari berbagai bursa global tanpa jeda berarti.</p>
+        <h3 class="tc-title"></h3>
+        <p class="tc-desc"></p>
       </div>
       <div class="tech-card tilt-card reveal reveal-delay-2">
         <div class="tech-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5l-8-3z" stroke-linejoin="round"/></svg></div>
-        <h3 class="tc-title">Keamanan Tingkat Bank</h3>
-        <p class="tc-desc">Enkripsi end-to-end dan audit berkala menjaga data serta strategi keanggotaan Anda tetap privat.</p>
+        <h3 class="tc-title"></h3>
+        <p class="tc-desc"></p>
       </div>
       <div class="tech-card tilt-card reveal reveal-delay-3">
         <div class="tech-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6" /><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></div>
-        <h3 class="tc-title">Infrastruktur Cloud Global</h3>
-        <p class="tc-desc">Server terdistribusi menjaga latensi rendah dan keandalan akses di manapun Anda berada.</p>
+        <h3 class="tc-title"></h3>
+        <p class="tc-desc"></p>
       </div>
     </div>
   </div>
@@ -767,8 +781,8 @@ input{font-family:inherit}
   <div class="blob blob-gold" style="width:280px;height:280px;bottom:-60px;left:-60px"></div>
   <div class="container">
     <div class="section-head reveal">
-      <h2 class="serif" id="testimoniPreviewHeading">Dipercaya oleh Investor & Trader Serius</h2>
-      <p id="testimoniPreviewDesc">Pengalaman nyata dari anggota yang telah menjadikan CIBN PRESTISE bagian dari perjalanan finansial mereka.</p>
+      <h2 class="serif" id="testimoniPreviewHeading"></h2>
+      <p id="testimoniPreviewDesc"></p>
     </div>
     <div class="testi-grid" id="testiPreview"></div>
     <div class="section-foot-link reveal">
@@ -781,17 +795,16 @@ input{font-family:inherit}
 <section class="section video-promo" id="video-promo">
   <div class="video-promo-media">
     <!-- Ganti src di bawah dengan file video promosi Anda sendiri (mp4, idealnya <=15MB, 1920x1080) -->
-    <video id="vpVideo" class="video-promo-video" autoplay muted loop playsinline preload="metadata"
-           poster="https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1600&q=60">
-      <source id="vpVideoSource" src="assets/video-promo.mp4" type="video/mp4">
+    <video id="vpVideo" class="video-promo-video media-empty" autoplay muted loop playsinline preload="metadata">
+      <source id="vpVideoSource" type="video/mp4">
     </video>
     <div class="video-promo-overlay"></div>
   </div>
   <div class="container">
     <div class="video-promo-content">
-      <h2 class="serif" id="vpHeading">Satu Menit untuk Memahami Standar Kami</h2>
-      <p id="vpDesc">Riset mendalam, teknologi real-time, dan pendampingan personal — disatukan dalam satu ekosistem investasi yang dirancang untuk hasil yang serius.</p>
-      <a href="paket.html" class="btn btn-gold" id="vpCta">Lihat Paket Keanggotaan</a>
+      <h2 class="serif" id="vpHeading"></h2>
+      <p id="vpDesc"></p>
+      <a href="paket.html" class="btn btn-gold media-empty" id="vpCta"></a>
     </div>
   </div>
 </section>
@@ -804,8 +817,8 @@ input{font-family:inherit}
   <div class="blob blob-gold" style="width:340px;height:340px;bottom:-90px;right:-80px"></div>
   <div class="container">
     <div class="section-head reveal">
-      <h2 class="serif" id="paketPreviewHeading">Pilih Paket Sesuai Perjalanan Anda</h2>
-      <p id="paketPreviewDesc">Dari langkah pertama hingga pendampingan privat — setiap paket dirancang untuk level dan tujuan yang berbeda.</p>
+      <h2 class="serif" id="paketPreviewHeading"></h2>
+      <p id="paketPreviewDesc"></p>
     </div>
     <div class="pkg-grid" id="pkgPreview"></div>
     <div class="section-foot-link reveal">
@@ -823,7 +836,7 @@ input{font-family:inherit}
     <div class="container footer-grid">
       <div class="footer-brand">
         <a href="index.html" class="brand">CIBN PRESTISE</a>
-        <p id="footerDesc">Manajemen investasi dan edukasi pasar dengan standar prestise — riset mendalam, teknologi presisi, pendampingan personal.</p>
+        <p id="footerDesc"></p>
         <div class="footer-social">
           <a href="#" id="footerInstagram" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg></a>
           <a href="#" id="footerTwitter" aria-label="Twitter"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M22 5.8c-.7.3-1.5.5-2.3.6.8-.5 1.5-1.3 1.8-2.3-.8.5-1.7.8-2.6 1a4.1 4.1 0 0 0-7 3.7A11.6 11.6 0 0 1 3.4 4.6a4.1 4.1 0 0 0 1.3 5.5c-.7 0-1.3-.2-1.9-.5v.1a4.1 4.1 0 0 0 3.3 4 4.2 4.2 0 0 1-1.9.1 4.1 4.1 0 0 0 3.8 2.9A8.3 8.3 0 0 1 2 18.4a11.6 11.6 0 0 0 6.3 1.9c7.5 0 11.7-6.3 11.7-11.7v-.5c.8-.6 1.5-1.3 2-2.1z"/></svg></a>
@@ -850,14 +863,14 @@ input{font-family:inherit}
       <div class="footer-col">
         <h4>Kontak</h4>
         <ul>
-          <li><a href="mailto:hello@cibnprestise.id" id="footerEmail">hello@cibnprestise.id</a></li>
-          <li><a href="tel:+622112345678" id="footerPhone">+62 21 1234 5678</a></li>
-          <li><a href="#" id="footerAddress">Jakarta, Indonesia</a></li>
+          <li><a href="#" id="footerEmail"></a></li>
+          <li><a href="#" id="footerPhone"></a></li>
+          <li><a href="#" id="footerAddress"></a></li>
         </ul>
       </div>
     </div>
     <div class="container footer-bottom">
-      <span id="footerCopyright">© 2026 CIBN PRESTISE. Seluruh hak cipta dilindungi.</span>
+      <span id="footerCopyright"></span>
       <span>Dibuat dengan presisi untuk investor yang serius.</span>
     </div>
   </div>
@@ -889,77 +902,11 @@ async function loadRealPackages() {
   return PACKAGES;
 }
 
-// Testimoni belum punya tabel database tersendiri — tetap konten statis (materi
-// marketing) sebagai fallback, dipakai kalau admin belum mengisi daftar testimoni
-// lewat menu Editor Landing > Testimoni. Kalau sudah diisi, TESTIMONIALS ditimpa
-// dengan data admin (lihat fetch /api/landing di bawah).
-const DEFAULT_TESTIMONIALS = [
-  {
-    id: 1,
-    name: "Raka Adiputra",
-    role: "Trader Retail, Surabaya",
-    accepted: "Bergabung sejak 2023",
-    photo: "https://i.pravatar.cc/300?img=13",
-    quote: "Pendampingan di CIBN PRESTISE mengubah cara saya membaca pasar. Analisisnya tajam dan disiplin risikonya benar-benar ditekankan."
-  },
-  {
-    id: 2,
-    name: "Amelia Putri",
-    role: "Konsultan Keuangan, Jakarta",
-    accepted: "Diterima di Elite Circle",
-    photo: "https://i.pravatar.cc/300?img=32",
-    quote: "Kualitas risetnya di atas rata-rata. Setiap sinyal disertai alasan yang jelas, bukan sekadar rekomendasi tanpa konteks."
-  },
-  {
-    id: 3,
-    name: "Bima Prasetyo",
-    role: "Trader Purnawaktu, Bandung",
-    accepted: "Alumni Private Mentorship",
-    photo: "https://i.pravatar.cc/300?img=51",
-    quote: "Mentorship privatnya sangat personal. Strategi saya benar-benar disesuaikan dengan gaya trading dan toleransi risiko saya sendiri."
-  },
-  {
-    id: 4,
-    name: "Sarah Wijaya",
-    role: "Pemilik Bisnis, Semarang",
-    accepted: "Bergabung sejak 2024",
-    photo: "https://i.pravatar.cc/300?img=45",
-    quote: "Komunitasnya suportif dan materinya runtut. Sebagai pemula saya merasa terbimbing, bukan dilepas begitu saja."
-  },
-  {
-    id: 5,
-    name: "Dimas Nugroho",
-    role: "Trader Institusi, Jakarta",
-    accepted: "Diterima di Prestise Pro",
-    photo: "https://i.pravatar.cc/300?img=60",
-    quote: "Kecepatan dan akurasi sinyal real-time-nya membantu saya mengambil keputusan lebih percaya diri di jam-jam sibuk pasar."
-  },
-  {
-    id: 6,
-    name: "Nadia Kirana",
-    role: "Freelancer & Investor, Yogyakarta",
-    accepted: "Bergabung sejak 2022",
-    photo: "https://i.pravatar.cc/300?img=47",
-    quote: "Tiga tahun bersama CIBN PRESTISE, laporan performa berkala benar-benar membantu saya mengevaluasi progres secara objektif."
-  },
-  {
-    id: 7,
-    name: "Fajar Ramadhan",
-    role: "Trader Retail, Medan",
-    accepted: "Bergabung sejak 2024",
-    photo: "https://i.pravatar.cc/300?img=14",
-    quote: "Indikator premiumnya presisi dan mudah dipahami meski saya bukan latar belakang finansial."
-  },
-  {
-    id: 8,
-    name: "Clara Situmorang",
-    role: "Manajer Investasi, Jakarta",
-    accepted: "Diterima di Elite Circle",
-    photo: "https://i.pravatar.cc/300?img=44",
-    quote: "Ruang diskusi privatnya diisi orang-orang serius. Kualitas percakapannya jauh di atas grup trading pada umumnya."
-  }
-];
-let TESTIMONIALS = DEFAULT_TESTIMONIALS;
+// Testimoni belum punya tabel database tersendiri — datanya disimpan lewat
+// /api/landing (menu Editor Landing > Testimoni). Kalau admin belum mengisi
+// apa pun di sana, TESTIMONIALS tetap kosong (tidak ada lagi fallback dummy) —
+// lihat pengisian TESTIMONIALS & renderTestiPreview() di bagian fetch /api/landing.
+let TESTIMONIALS = [];
 
 </script>
 <script>
@@ -1223,7 +1170,6 @@ if (footerSpot) {
     observeReveal(testiPreview);
     attachTilt(testiPreview);
   }
-  renderTestiPreview();
 
   // preview: paket, klik kartu -> paket.html
   const pkgPreview = document.getElementById('pkgPreview');
@@ -1243,96 +1189,116 @@ if (footerSpot) {
     observeReveal(pkgPreview);
     attachTilt(pkgPreview);
   }
-  loadRealPackages().then(renderPkgPreview);
-
-  observeReveal();
-  attachTilt();
-
   // ===== Konten landing yang bisa diatur admin (menu Editor Landing) =====
-  // Kalau admin belum pernah mengisi suatu field, teks default di HTML di atas
-  // tetap dipakai (tidak ditimpa dengan string kosong).
-  fetch(window.location.origin + '/api/landing').then(r => r.json()).then(d => {
-    if (!d) return;
-    const setText = (id, val) => { if (val) { const el = document.getElementById(id); if (el) el.textContent = val; } };
-    const setHref = (id, val) => { if (val) { const el = document.getElementById(id); if (el) el.href = val; } };
+  // ATURAN: field yang kosong di admin -> tampil kosong juga di landing page
+  // (tidak ada lagi fallback teks/media bawaan). Untuk mencegah "flash" konten
+  // sebelum data ini siap, seluruh halaman ditutup #landingLoader (animasi
+  // loading) sampai /api/landing & /api/pakets/public dua-duanya selesai —
+  // baru setelah itu overlay-nya di-fade-out dan halaman final ditampilkan.
+  const loaderEl = document.getElementById('landingLoader');
+  document.body.style.overflow = 'hidden';
+  function hideLoader() {
+    if (loaderEl) loaderEl.classList.add('ld-hide');
+    document.body.style.overflow = '';
+  }
+  // Jaga-jaga kalau salah satu request macet/lambat — jangan biarkan loading
+  // animasinya muter selamanya, paksa tampil setelah 8 detik apa adanya.
+  const forceReveal = setTimeout(hideLoader, 8000);
 
-    if (d.hero) {
-      setText('heroEyebrow', d.hero.eyebrow);
-      if (d.hero.titleMain || d.hero.titleEm) {
-        const t = document.getElementById('heroTitle');
-        if (t) t.innerHTML = `${d.hero.titleMain ?? 'Investasi Bukan Sekadar Angka.'} <em>${d.hero.titleEm ?? 'Ini Warisan.'}</em>`;
-      }
-      setText('heroLead', d.hero.lead);
-      setText('heroCtaPrimary', d.hero.ctaPrimaryText);
-      setText('heroCtaSecondary', d.hero.ctaSecondaryText);
-      if (Array.isArray(d.hero.stats) && d.hero.stats.length) {
-        const wrap = document.getElementById('heroStats');
-        if (wrap) wrap.innerHTML = d.hero.stats.map(s => `<div class="stat glass"><b>${s.value || ''}</b><span>${s.label || ''}</span></div>`).join('');
-      }
-      // Logo & video latar Hero — kalau admin sudah upload lewat Editor Landing,
-      // pakai file itu; kalau belum (kosong), tetap pakai file bawaan di assets/.
-      if (d.hero.logoUrl) {
-        const lg = document.getElementById('heroLogo');
-        if (lg) lg.src = d.hero.logoUrl;
-      }
-      if (d.hero.videoUrl) {
-        const src = document.getElementById('heroVideoSource');
-        const vid = document.getElementById('heroVideo');
-        if (src && vid) { src.src = d.hero.videoUrl; vid.load(); }
-      }
+  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || ''; };
+  const setHref = (id, val) => { const el = document.getElementById(id); if (el) el.href = val || '#'; };
+  const setMedia = (imgOrSrcEl, videoEl, url) => {
+    if (!imgOrSrcEl) return;
+    if (url) {
+      imgOrSrcEl.src = url;
+      imgOrSrcEl.classList.remove('media-empty');
+      if (videoEl) { videoEl.classList.remove('media-empty'); videoEl.load(); }
+    } else {
+      imgOrSrcEl.removeAttribute('src');
+      imgOrSrcEl.classList.add('media-empty');
+      if (videoEl) videoEl.classList.add('media-empty');
     }
-    if (d.teknologi) {
-      setText('teknologiEyebrow', d.teknologi.eyebrow);
-      setText('teknologiHeading', d.teknologi.heading);
-      setText('teknologiDesc', d.teknologi.desc);
-      if (Array.isArray(d.teknologi.cards) && d.teknologi.cards.length) {
-        const cards = document.querySelectorAll('#teknologiCards .tech-card');
-        d.teknologi.cards.forEach((c, i) => {
-          if (!cards[i]) return;
-          if (c.title) cards[i].querySelector('.tc-title').textContent = c.title;
-          if (c.desc) cards[i].querySelector('.tc-desc').textContent = c.desc;
-        });
-      }
-    }
-    if (d.videoPromo) {
-      setText('vpEyebrow', d.videoPromo.eyebrow);
-      setText('vpHeading', d.videoPromo.heading);
-      setText('vpDesc', d.videoPromo.desc);
-      setText('vpCta', d.videoPromo.ctaText);
-      // Video latar Video Promo — kalau admin sudah upload, pakai file itu.
-      if (d.videoPromo.videoUrl) {
-        const src = document.getElementById('vpVideoSource');
-        const vid = document.getElementById('vpVideo');
-        if (src && vid) { src.src = d.videoPromo.videoUrl; vid.load(); }
-      }
-    }
-    if (d.footer) {
-      setText('footerDesc', d.footer.brandDesc);
-      setText('footerCopyright', d.footer.copyright);
-      if (d.footer.email) { setText('footerEmail', d.footer.email); setHref('footerEmail', 'mailto:' + d.footer.email); }
-      if (d.footer.phone) { setText('footerPhone', d.footer.phone); setHref('footerPhone', 'tel:' + d.footer.phone.replace(/[^+\d]/g, '')); }
-      setText('footerAddress', d.footer.address);
-      setHref('footerInstagram', d.footer.instagram);
-      setHref('footerTwitter', d.footer.twitter);
-      setHref('footerLinkedin', d.footer.linkedin);
-    }
-    if (d.paket) {
-      setText('paketPreviewEyebrow', d.paket.previewEyebrow);
-      setText('paketPreviewHeading', d.paket.previewHeading);
-      setText('paketPreviewDesc', d.paket.previewDesc);
-    }
-    if (d.testimoni) {
-      setText('testimoniPreviewEyebrow', d.testimoni.previewEyebrow);
-      setText('testimoniPreviewHeading', d.testimoni.previewHeading);
-      setText('testimoniPreviewDesc', d.testimoni.previewDesc);
-      if (Array.isArray(d.testimoni.items) && d.testimoni.items.length) {
-        const semua = d.testimoni.items.filter(t => t.semua !== false);
-        const sorotan = d.testimoni.items.filter(t => t.sorotan);
-        TESTIMONIALS = (sorotan.length ? sorotan : (semua.length ? semua : d.testimoni.items));
-        renderTestiPreview();
-      }
-    }
-  }).catch(() => {});
+  };
+  const setCta = (id, val) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = val || '';
+    el.classList.toggle('media-empty', !val);
+  };
+
+  Promise.all([
+    fetch(window.location.origin + '/api/landing').then(r => r.json()).catch(() => ({})),
+    loadRealPackages()
+  ]).then(([d]) => {
+    d = d || {};
+    const hero = d.hero || {};
+    setText('heroEyebrow', hero.eyebrow);
+    const t = document.getElementById('heroTitle');
+    if (t) t.innerHTML = (hero.titleMain || hero.titleEm) ? `${hero.titleMain || ''} <em>${hero.titleEm || ''}</em>` : '';
+    setText('heroLead', hero.lead);
+    setCta('heroCtaPrimary', hero.ctaPrimaryText);
+    setCta('heroCtaSecondary', hero.ctaSecondaryText);
+    const statsWrap = document.getElementById('heroStats');
+    if (statsWrap) statsWrap.innerHTML = (Array.isArray(hero.stats) ? hero.stats : []).map(s => `<div class="stat glass"><b>${s.value || ''}</b><span>${s.label || ''}</span></div>`).join('');
+    setMedia(document.getElementById('heroLogo'), null, hero.logoUrl);
+    setMedia(document.getElementById('heroVideoSource'), document.getElementById('heroVideo'), hero.videoUrl);
+
+    const tek = d.teknologi || {};
+    setText('teknologiEyebrow', tek.eyebrow);
+    setText('teknologiHeading', tek.heading);
+    setText('teknologiDesc', tek.desc);
+    const cards = document.querySelectorAll('#teknologiCards .tech-card');
+    const tekCards = Array.isArray(tek.cards) ? tek.cards : [];
+    cards.forEach((card, i) => {
+      const c = tekCards[i] || {};
+      card.querySelector('.tc-title').textContent = c.title || '';
+      card.querySelector('.tc-desc').textContent = c.desc || '';
+    });
+
+    const vp = d.videoPromo || {};
+    setText('vpEyebrow', vp.eyebrow);
+    setText('vpHeading', vp.heading);
+    setText('vpDesc', vp.desc);
+    setCta('vpCta', vp.ctaText);
+    setMedia(document.getElementById('vpVideoSource'), document.getElementById('vpVideo'), vp.videoUrl);
+
+    const footer = d.footer || {};
+    setText('footerDesc', footer.brandDesc);
+    setText('footerCopyright', footer.copyright);
+    setText('footerEmail', footer.email);
+    setHref('footerEmail', footer.email ? 'mailto:' + footer.email : '');
+    setText('footerPhone', footer.phone);
+    setHref('footerPhone', footer.phone ? 'tel:' + footer.phone.replace(/[^+\d]/g, '') : '');
+    setText('footerAddress', footer.address);
+    setHref('footerInstagram', footer.instagram);
+    setHref('footerTwitter', footer.twitter);
+    setHref('footerLinkedin', footer.linkedin);
+
+    const paket = d.paket || {};
+    setText('paketPreviewEyebrow', paket.previewEyebrow);
+    setText('paketPreviewHeading', paket.previewHeading);
+    setText('paketPreviewDesc', paket.previewDesc);
+    renderPkgPreview();
+
+    const testi = d.testimoni || {};
+    setText('testimoniPreviewEyebrow', testi.previewEyebrow);
+    setText('testimoniPreviewHeading', testi.previewHeading);
+    setText('testimoniPreviewDesc', testi.previewDesc);
+    const items = Array.isArray(testi.items) ? testi.items : [];
+    const semua = items.filter(x => x.semua !== false);
+    const sorotan = items.filter(x => x.sorotan);
+    TESTIMONIALS = sorotan.length ? sorotan : semua;
+    renderTestiPreview();
+
+    observeReveal();
+    attachTilt();
+    clearTimeout(forceReveal);
+    hideLoader();
+  }).catch(() => {
+    // gagal total (mis. server down) — tetap lepas loader supaya halaman tidak nyangkut kosong selamanya
+    clearTimeout(forceReveal);
+    hideLoader();
+  });
 </script>
 </body>
 </html>
