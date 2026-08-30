@@ -101,28 +101,56 @@ async function apiUploadImage(file) {
 // kind  : 'image' (logo) atau 'video' (video latar)
 // slot  : nama slot ('heroLogo' | 'heroVideo' | 'videoPromo') — dipakai sbg nama file di Supabase
 // oldUrl: URL file lama (kalau ada) supaya server sekalian menghapusnya dari Supabase Storage
+//
+// CATATAN: upload TIDAK lagi lewat body request ke server kita (yang di Vercel
+// dibatasi ±4.5MB oleh platform, di luar kendali kode ini). Sekarang file di-PUT
+// LANGSUNG dari browser ke Supabase Storage pakai signed URL, jadi limit yang
+// berlaku murni limit di server.js (10MB gambar / 40MB video).
 async function apiUploadLandingMedia(file, kind, slot, oldUrl) {
-    const token = Auth.getToken();
-    const form = new FormData();
-    form.append('file', file);
-    const qs = new URLSearchParams({ kind: kind === 'video' ? 'video' : 'image', slot: slot || 'media' });
-    if (oldUrl) qs.set('oldUrl', oldUrl);
-    let res;
+    const normKind = kind === 'video' ? 'video' : 'image';
+
+    // 1) Minta signed upload URL ke server kita
+    let init;
     try {
-        res = await fetch(API_BASE + '/upload-landing?' + qs.toString(), {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: form
+        init = await apiPost('/upload-landing-init', {
+            kind: normKind,
+            slot: slot || 'media',
+            filename: file.name,
+            mimetype: file.type,
+            size: file.size
+        });
+    } catch (e) {
+        // apiFetch melempar Error utk kegagalan jaringan MAUPUN error dari server (400/500)
+        return { error: e.message, rejected: true };
+    }
+    if (!init || !init.signedUrl) return { networkError: true };
+
+    // 2) Upload file LANGSUNG ke Supabase Storage (bukan ke server kita)
+    let putRes;
+    try {
+        putRes = await fetch(init.signedUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': file.type || 'application/octet-stream' },
+            body: file
         });
     } catch (e) {
         return { networkError: true };
     }
-    let data = null;
-    try { data = await res.json(); } catch (e) { /* ignore */ }
-    if (!res.ok) {
-        return { error: (data && data.error) || `HTTP ${res.status}`, rejected: true };
+    if (!putRes.ok) {
+        let detail = '';
+        try { detail = (await putRes.json()).message || ''; } catch (e) { /* ignore */ }
+        return { error: detail || `Gagal upload ke storage (HTTP ${putRes.status})`, rejected: true };
     }
-    return data || { networkError: true };
+
+    // 3) Konfirmasi ke server → hapus file lama (oldUrl) kalau ada
+    try {
+        await apiPost('/upload-landing-finalize', { oldUrl: oldUrl || null });
+    } catch (e) {
+        // Kegagalan cleanup file lama tidak boleh membuat upload dianggap gagal —
+        // file baru sudah tersimpan sukses di langkah 2.
+    }
+
+    return { url: init.url };
 }
 
 // ── AUTH API ──

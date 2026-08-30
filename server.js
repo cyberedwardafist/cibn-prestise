@@ -849,6 +849,54 @@ app.post('/api/upload-landing', auth(['admin']), (req, res) => {
     });
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// UPLOAD LANDING MEDIA — DIRECT-TO-SUPABASE (signed URL), untuk bypass limit
+// body request Vercel serverless (±4.5MB) yang membuat video (bahkan yg <40MB
+// sesuai limit multer di atas) tetap gagal HTTP 413 kalau lewat /api/upload-landing.
+//
+// Alurnya 2 langkah:
+//  1) POST /api/upload-landing-init  → server minta "signed upload URL" ke Supabase
+//     Storage (server TIDAK menerima file sama sekali, jadi tidak kena limit body
+//     Vercel), lalu balikin signedUrl+path+url ke browser.
+//  2) Browser PUT file itu LANGSUNG ke signedUrl (ke Supabase, bukan ke server kita).
+//  3) POST /api/upload-landing-finalize → server hapus file lama (oldUrl) setelah
+//     upload baru dikonfirmasi sukses.
+// ═══════════════════════════════════════════════════════════════════════════════
+app.post('/api/upload-landing-init', auth(['admin']), ah(async (req, res) => {
+    const { kind: kindRaw, slot, filename, mimetype, size } = req.body || {};
+    const kind = kindRaw === 'video' ? 'video' : 'image';
+
+    let ext, maxSize;
+    if (kind === 'video') {
+        if (!ALLOWED_LANDING_VIDEO_MIME[mimetype]) return res.status(400).json({ error: 'Format video tidak didukung (gunakan MP4/WEBM)' });
+        ext = ALLOWED_LANDING_VIDEO_MIME[mimetype];
+        maxSize = MAX_LANDING_VIDEO_SIZE;
+    } else {
+        if (!ALLOWED_IMAGE_MIME[mimetype]) return res.status(400).json({ error: 'Format gambar tidak didukung' });
+        ext = ALLOWED_IMAGE_MIME[mimetype];
+        maxSize = MAX_UPLOAD_SIZE;
+    }
+    if (typeof size === 'number' && size > maxSize) {
+        return res.status(400).json({ error: `File terlalu besar (maks ${Math.round(maxSize / (1024 * 1024))}MB untuk ${kind === 'video' ? 'video' : 'gambar'})` });
+    }
+
+    const safeSlot = safeFolderName(slot || 'media');
+    const fileName = `${safeSlot}-${Date.now()}${ext}`;
+    const filePath = `landing/${fileName}`;
+
+    const { data, error } = await supabase.storage.from(BUCKET_NAME).createSignedUploadUrl(filePath);
+    if (error) return res.status(500).json({ error: 'Gagal membuat signed URL', details: error.message });
+
+    const { data: publicUrlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
+    res.json({ signedUrl: data.signedUrl, token: data.token, path: filePath, url: publicUrlData.publicUrl });
+}));
+
+app.post('/api/upload-landing-finalize', auth(['admin']), ah(async (req, res) => {
+    const { oldUrl } = req.body || {};
+    if (oldUrl) deleteUploadedFileByUrl(oldUrl).catch(() => {});
+    res.json({ ok: true });
+}));
+
 app.get('/api/soal', auth(['admin']), ah(async (req, res) => {
     const rows = await db.prepare('SELECT * FROM soal ORDER BY id').all();
     rows.forEach(r => { if (r.data) try { r.data = expandSikapKerja(r.type, JSON.parse(r.data)); } catch (e) {} });
