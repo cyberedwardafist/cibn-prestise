@@ -9,7 +9,7 @@ let _ldSub = 'hero';
 // URL media (logo Hero, video Hero, video Video Promo) yang sedang aktif dipakai —
 // diisi dari data tersimpan saat load, diperbarui begitu upload baru sukses,
 // dan baru benar-benar disimpan ke DB saat tombol "Simpan Bagian ..." ditekan.
-let _ldPendingMedia = { heroLogo: '', heroVideo: '', videoPromo: '' };
+let _ldPendingMedia = { heroLogo: '', heroVideo: '', videoPromo: '', testiPoster: '' };
 
 const LD_TEK_DEFAULTS = [
   { title: 'Analisis Bertenaga AI', desc: 'Model prediktif membaca ribuan titik data pasar setiap detik untuk menyaring sinyal yang relevan.' },
@@ -99,6 +99,33 @@ function ldClearMedia(slot, previewId, btnEl) {
   _ldPendingMedia[slot] = '';
   ldRenderMediaPreview(previewId, slot === 'heroLogo' ? 'image' : 'video', '');
   showToast('Diset ke bawaan — klik "Simpan Bagian" untuk menerapkan', 'success');
+}
+
+// ── Poster Sorotan Testimoni (banner 19:6 di atas bagian Sorotan) — dipakai
+// slot terpisah "testiPoster" tapi lewat helper upload/preview generik yang
+// sama, dan disimpan sebagai testimoni.poster (bukan tabel/field baru). ──
+async function ldTestiPosterUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { showToast('File terlalu besar (maks 10MB)', 'danger'); input.value = ''; return; }
+  input.disabled = true;
+  try {
+    const result = await apiUploadLandingMedia(file, 'image', 'testiPoster', _ldPendingMedia.testiPoster);
+    if (!result || result.error || result.rejected) showToast('Gagal upload: ' + (result?.error || 'tidak diketahui'), 'danger');
+    else if (result.networkError) showToast('Gagal terhubung ke server. Coba lagi.', 'danger');
+    else if (result.url) {
+      _ldPendingMedia.testiPoster = result.url;
+      ldRenderMediaPreview('ld-testi-poster-preview', 'image', result.url);
+      try { await saveLandingTestimoni(true); showToast('Poster diperbarui!', 'success'); }
+      catch (e) { showToast('Gagal menyimpan poster: ' + e.message, 'danger'); }
+    }
+  } catch (e) { showToast('Gagal upload: ' + e.message, 'danger'); }
+  input.disabled = false; input.value = '';
+}
+async function ldClearTestiPoster() {
+  _ldPendingMedia.testiPoster = '';
+  ldRenderMediaPreview('ld-testi-poster-preview', 'image', '');
+  try { await saveLandingTestimoni(true); showToast('Poster dihapus', 'danger'); }
+  catch (e) { showToast('Gagal menyimpan: ' + e.message, 'danger'); }
 }
 
 function _ldFillTeknologiCards(cards) {
@@ -539,6 +566,8 @@ async function renderLanding() {
   document.getElementById('ld-testi-semua-heading').value = ts.semuaHeading || '';
   document.getElementById('ld-testi-semua-desc').value = ts.semuaDesc || '';
   _ldTestiKelompok = Array.isArray(ts.kelompok) ? ts.kelompok.map(k => ({ ...k })) : [];
+  _ldPendingMedia.testiPoster = ts.poster || '';
+  ldRenderMediaPreview('ld-testi-poster-preview', 'image', _ldPendingMedia.testiPoster);
   _ldFillTestiItems(ts.items);
 
   const lg1 = _ldData.legalSyarat || {};
@@ -638,6 +667,7 @@ async function saveLandingTestimoni(silent) {
     semuaHeading: document.getElementById('ld-testi-semua-heading').value.trim(),
     semuaDesc: document.getElementById('ld-testi-semua-desc').value.trim(),
     kelompok: _ldTestiKelompok,
+    poster: _ldPendingMedia.testiPoster,
     items: _ldTestiItemsData
   };
   try {

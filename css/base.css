@@ -184,6 +184,8 @@ html.vp-resizing *::after {
 }
 .ld-media-preview-square { width: 80px; height: 80px; }
 .ld-media-preview-wide { width: 160px; height: 90px; }
+.ld-media-preview-poster { width: 100%; aspect-ratio: 19/6; }
+.ld-media-preview-poster img { object-fit: contain !important; background: rgba(19,50,89,0.04); }
 .ld-media-preview img, .ld-media-preview video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ld-media-preview:empty::after {
     content: 'Bawaan';
