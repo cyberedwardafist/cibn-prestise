@@ -3,73 +3,1253 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Testimoni – CIBN Akademi</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/glass.css">
+<title>Testimoni — CIBN PRESTISE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root{
+  --bg:#f6f8fc;
+  --panel:#eef2f9;
+  --white:#ffffff;
+  --text:#15233d;
+  --text-dim:#5b6b85;
+
+  --blue:#2c5aa0;
+  --blue-light:#5c86c9;
+  --blue-dim:#4a6fa0;
+  --blue-deep:#193b6e;
+
+  --cream:#c9a961;
+  --cream-light:#e9d9ab;
+  --cream-dim:#8a7442;
+
+  --line:rgba(44,90,160,0.14);
+  --line-strong:rgba(44,90,160,0.28);
+  --radius:14px;
+  --ease:cubic-bezier(.16,.84,.44,1);
+
+  /* glassmorphism tokens (light) */
+  --glass-bg: linear-gradient(160deg, rgba(255,255,255,0.75), rgba(255,255,255,0.40));
+  --glass-bg-hover: linear-gradient(160deg, rgba(255,255,255,0.9), rgba(255,255,255,0.58));
+  --glass-border: rgba(44,90,160,0.16);
+  --glass-border-hover: rgba(44,90,160,0.42);
+  --glass-blur: blur(22px) saturate(150%);
+  --glass-shadow: 0 1px 0 rgba(255,255,255,0.8) inset, 0 16px 34px -22px rgba(21,34,56,0.14);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+html{scroll-behavior:smooth;overflow-x:hidden;width:100%}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter',sans-serif;
+  font-size:16px;
+  line-height:1.6;
+  overflow-x:hidden;
+  min-height:100vh;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(44,90,160,0.10), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 20%, rgba(201,169,97,0.10), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 5% 60%, rgba(44,90,160,0.07), transparent 60%),
+    radial-gradient(ellipse 55% 45% at 80% 85%, rgba(201,169,97,0.08), transparent 60%);
+  background-attachment:fixed;
+}
+
+.serif{font-family:'Space Grotesk',sans-serif}
+.mono{font-family:'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase}
+
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+ul{list-style:none}
+input{font-family:inherit}
+
+.container{width:100%;max-width:1240px;margin:0 auto;padding:0 32px;position:relative;z-index:2}
+
+/* reduced motion */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important;scroll-behavior:auto !important}
+}
+
+/* ---------- GLASS BASE ---------- */
+.glass{
+  background:var(--glass-bg);
+  backdrop-filter:var(--glass-blur);
+  -webkit-backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-border);
+  box-shadow:var(--glass-shadow);
+}
+
+/* ---------- BACKGROUND BLOBS (glass refraction depth) ---------- */
+.blob{
+  position:absolute;border-radius:50%;filter:blur(90px);
+  pointer-events:none;z-index:0;
+}
+.blob-gold{background:radial-gradient(circle, var(--cream), transparent 70%);opacity:.16}
+.blob-emerald{background:radial-gradient(circle, var(--blue), transparent 70%);opacity:.12}
+.blob-wine{background:radial-gradient(circle, var(--blue-light), transparent 70%);opacity:.10}
+
+/* ---------- NAVBAR ---------- */
+.navbar{
+  position:fixed;top:18px;left:20px;right:20px;z-index:210; /* Naikkan menjadi 210 */
+}
+.navbar-inner{
+  max-width:1240px;margin:0 auto;padding:14px 28px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(255,255,255,0.16);
+  backdrop-filter:blur(18px) saturate(150%);
+  -webkit-backdrop-filter:blur(18px) saturate(150%);
+  border:1px solid rgba(255,255,255,0.32);
+  border-radius:999px;
+  box-shadow:0 10px 34px -16px rgba(21,34,56,0.22);
+  transition:background .4s var(--ease),border-color .4s var(--ease);
+}
+.navbar.scrolled .navbar-inner{
+  background:rgba(255,255,255,0.4);
+  border-color:rgba(255,255,255,0.5);
+}
+.brand{
+  font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(16px,2.1vw,20px);
+  letter-spacing:.06em;color:var(--blue);
+  display:flex;align-items:baseline;gap:6px;flex:0 0 auto;white-space:nowrap;
+}
+.nav-links{display:flex;gap:clamp(16px,2.6vw,44px);align-items:center}
+.nav-links a{
+  font-size:13px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text-dim);font-weight:600;position:relative;padding:6px 0;
+  transition:color .3s var(--ease);white-space:nowrap;
+}
+.nav-links a::after{
+  content:'';position:absolute;left:0;bottom:0;width:0;height:1px;background:var(--blue);
+  transition:width .35s var(--ease);
+}
+.nav-links a:hover,.nav-links a.active{color:var(--blue)}
+.nav-links a:hover::after,.nav-links a.active::after{width:100%}
+.nav-cta{
+  border:1px solid var(--glass-border-hover);padding:10px 22px;border-radius:999px;
+  font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;
+  color:var(--blue);background:var(--glass-bg);backdrop-filter:blur(12px);
+  transition:all .35s var(--ease);flex:0 0 auto;white-space:nowrap;
+}
+.nav-cta:hover{background:var(--blue);color:var(--white);border-color:var(--blue)}
+.nav-toggle{
+  display:none;width:44px;height:44px;position:relative;flex:0 0 auto;
+  border-radius:50%;background:var(--glass-bg);border:1px solid var(--glass-border-hover);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  transition:background .35s var(--ease),border-color .35s var(--ease),transform .2s var(--ease),box-shadow .35s var(--ease);
+}
+.nav-toggle:active{transform:scale(.92)}
+.nav-toggle span{
+  position:absolute;left:50%;top:50%;width:18px;height:2px;border-radius:2px;
+  background:var(--blue);
+  transition:transform .4s var(--ease),opacity .25s var(--ease),background .3s var(--ease);
+}
+.nav-toggle span:nth-child(1){transform:translate(-50%,calc(-50% - 6px))}
+.nav-toggle span:nth-child(2){transform:translate(-50%,-50%)}
+.nav-toggle span:nth-child(3){transform:translate(-50%,calc(-50% + 6px))}
+
+@media (max-width:860px){
+  .navbar{left:12px;right:12px;top:12px}
+  .navbar-inner{padding:12px 18px}
+  .nav-links{display:none}
+  .nav-cta{display:none}
+  .nav-toggle{display:block;z-index:210}
+  .nav-toggle:hover{border-color:var(--blue)}
+  .nav-toggle.open{background:var(--blue);border-color:var(--blue);box-shadow:0 8px 22px -10px rgba(44,90,160,.5)}
+  .nav-toggle.open span{background:#fff}
+  .nav-toggle.open span:nth-child(1){transform:translate(-50%,-50%) rotate(45deg)}
+  .nav-toggle.open span:nth-child(2){opacity:0}
+  .nav-toggle.open span:nth-child(3){transform:translate(-50%,-50%) rotate(-45deg)}
+}
+/* ---------- MOBILE FULLSCREEN MENU -----------
+   Ditaruh di luar .navbar-inner (bukan di dalamnya) supaya TIDAK jadi containing
+   block baru gara-gara backdrop-filter pill navbar. Kalau elemen position:fixed
+   ini nested di dalam elemen yang punya backdrop-filter/transform/filter, dia akan
+   ke-inset relatif ke elemen itu (jadi cuma strip kecil), bukan ke seluruh layar. */
+.mobile-menu{
+  position:fixed;inset:0;z-index:206;width:100%;
+  background:rgba(255,255,255,0.98);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  transform:translateX(100%);transition:transform .5s var(--ease);
+  padding:40px;overflow-y:auto;
+}
+.mobile-menu.open{transform:translateX(0)}
+.mobile-menu a{
+  font-family:'Space Grotesk',sans-serif;font-size:clamp(30px,8vw,40px);
+  font-weight:700;letter-spacing:.01em;color:var(--text);
+  padding:20px 0;width:100%;max-width:280px;text-align:center;
+  opacity:0;transform:translateY(16px);
+  transition:opacity .45s var(--ease),transform .45s var(--ease),color .3s var(--ease),border-color .3s var(--ease);
+}
+.mobile-menu a:not(:last-child){border-bottom:1px solid var(--glass-border)}
+.mobile-menu a.active{color:var(--blue)}
+.mobile-menu.open a{opacity:1;transform:translateY(0)}
+.mobile-menu.open a:nth-child(1){transition-delay:.08s}
+.mobile-menu.open a:nth-child(2){transition-delay:.15s}
+.mobile-menu.open a:nth-child(3){transition-delay:.22s}
+@media (min-width:861px){.mobile-menu{display:none}}
+@media (max-width:380px){
+  .navbar{left:8px;right:8px}
+  .navbar-inner{padding:10px 14px}
+  .brand{font-size:15px}
+}
+
+/* ---------- SCROLL-SCRUBBED 3D REVEAL (JS-driven every frame, like scrubbing a video) ---------- */
+.reveal{
+  opacity:0;transform:translateY(56px) rotateX(-8deg);
+  transform-origin:top center;
+  will-change:transform,opacity;
+}
+.reveal.in-view{opacity:1}
+
+/* ---------- HERO ---------- */
+.hero{
+  position:relative;min-height:100vh;display:flex;align-items:center;
+  padding:160px 0 100px;perspective:1400px;overflow:hidden;
+}
+.hero-bg-grid{
+  position:absolute;inset:0;z-index:0;opacity:.28;
+  background-image:linear-gradient(var(--line) 1px, transparent 1px),linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size:64px 64px;
+  mask-image:radial-gradient(ellipse 70% 60% at 50% 30%, black, transparent 75%);
+}
+.hero-inner{
+  position:relative;z-index:2;display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center;
+}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:10px;color:var(--blue);
+  font-size:11px;font-weight:600;margin-bottom:26px;
+}
+.eyebrow::before{content:'';width:26px;height:1px;background:var(--blue)}
+.hero h1{
+  font-size:clamp(38px,5.4vw,66px);font-weight:700;line-height:1.08;
+  color:var(--text);letter-spacing:-.01em;
+}
+.hero h1 em{font-style:normal;font-weight:600;color:var(--blue)}
+.hero p.lead{
+  margin-top:26px;font-size:17px;color:var(--text-dim);max-width:480px;line-height:1.75;
+}
+.hero-actions{display:flex;gap:18px;margin-top:40px;flex-wrap:wrap}
+.btn{
+  padding:16px 32px;border-radius:999px;font-size:13px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;transition:all .4s var(--ease);
+  display:inline-flex;align-items:center;gap:10px;
+}
+.btn-gold{background:linear-gradient(135deg,var(--blue-light),var(--blue));color:var(--white)}
+.btn-gold:hover{transform:translateY(-3px);box-shadow:0 14px 34px -10px rgba(44,90,160,.45)}
+.btn-ghost{border:1px solid var(--glass-border-hover);color:var(--text);background:var(--glass-bg);backdrop-filter:blur(12px)}
+.btn-ghost:hover{border-color:var(--blue);color:var(--blue);transform:translateY(-3px)}
+
+.hero-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:56px;max-width:480px}
+.hero-stats .stat{border-radius:14px;padding:16px 14px}
+.hero-stats .stat b{font-family:'Space Grotesk',sans-serif;font-size:24px;color:var(--blue);display:block}
+.hero-stats .stat span{font-size:10.5px;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase}
+
+/* 3D emblem */
+.hero-emblem-wrap{position:relative;height:460px;transform-style:preserve-3d}
+.emblem{
+  position:absolute;inset:0;margin:auto;width:320px;height:320px;
+  transform-style:preserve-3d;
+  animation:emblem-spin 22s linear infinite;
+  will-change:transform;
+}
+@keyframes emblem-spin{from{transform:rotateY(0deg) rotateX(8deg)}to{transform:rotateY(360deg) rotateX(8deg)}}
+.emblem-ring{
+  position:absolute;inset:0;border-radius:50%;
+  border:1px solid var(--line-strong);
+}
+.emblem-ring.r1{transform:rotateX(72deg) rotateZ(0deg);border-color:rgba(44,90,160,.4)}
+.emblem-ring.r2{transform:rotateX(72deg) rotateZ(60deg);width:88%;height:88%;top:6%;left:6%;border-color:rgba(201,169,97,.5)}
+.emblem-ring.r3{transform:rotateX(72deg) rotateZ(120deg);width:74%;height:74%;top:13%;left:13%;border-color:rgba(92,134,201,.35)}
+.emblem-core{
+  position:absolute;inset:0;margin:auto;width:150px;height:150px;
+  background:linear-gradient(150deg,var(--blue-light),var(--blue-deep) 70%);
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  box-shadow:0 0 90px rgba(44,90,160,.4), inset 0 0 30px rgba(0,0,0,.18);
+  transform:translateZ(60px);
+  display:flex;align-items:center;justify-content:center;
+}
+.emblem-core span{font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--white);font-size:26px}
+.emblem-particle{
+  position:absolute;width:5px;height:5px;border-radius:50%;background:var(--cream);
+  box-shadow:0 0 10px var(--cream);
+}
+@media (max-width:960px){
+  .hero-inner{grid-template-columns:1fr}
+  .hero-emblem-wrap{height:280px;order:-1}
+  .emblem{width:220px;height:220px}
+}
+
+/* ---------- SECTION HEADS ---------- */
+.section{padding:130px 0;position:relative;perspective:1500px}
+.section-head{max-width:640px;margin-bottom:64px;position:relative;z-index:2}
+.section-head .eyebrow{margin-bottom:18px}
+.section-head h2{font-size:clamp(28px,3.6vw,44px);font-weight:700;line-height:1.15;color:var(--text)}
+.section-head p{margin-top:18px;color:var(--text-dim);font-size:16px;line-height:1.75}
+.section-foot-link{margin-top:48px;display:flex;justify-content:center;position:relative;z-index:2}
+
+/* ---------- GLASS CARD BASE (tech / testi / pkg / spotlight) ---------- */
+.tech-card,.testi-card,.pkg-card,.spotlight-card{
+  background:var(--glass-bg);
+  backdrop-filter:var(--glass-blur);
+  -webkit-backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-border);
+  border-radius:var(--radius);
+  box-shadow:var(--glass-shadow);
+  transform-style:preserve-3d;
+  transition:border-color .35s var(--ease), background .35s var(--ease), box-shadow .35s var(--ease);
+}
+.tech-card:hover,.testi-card:hover,.pkg-card:hover,.spotlight-card:hover{
+  border-color:var(--glass-border-hover);
+  background:var(--glass-bg-hover);
+}
+
+/* ---------- TECH BENTO GRID ---------- */
+.tech-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,minmax(170px,auto));
+  gap:20px;perspective:1200px;position:relative;z-index:1;
+}
+.tech-grid .tech-card{padding:34px 26px;display:flex;flex-direction:column;justify-content:center}
+.tech-grid .tech-card:nth-child(1){grid-column:span 2;grid-row:span 2;justify-content:flex-start}
+.tech-grid .tech-card:nth-child(1) p{max-width:340px}
+.tech-grid .tech-card:nth-child(2){grid-column:span 2;grid-row:span 1}
+.tech-grid .tech-card:nth-child(3){grid-column:span 1;grid-row:span 1}
+.tech-grid .tech-card:nth-child(4){grid-column:span 1;grid-row:span 1}
+.tech-icon{
+  width:52px;height:52px;border-radius:14px;
+  background:rgba(44,90,160,.10);border:1px solid var(--glass-border-hover);
+  display:flex;align-items:center;justify-content:center;margin-bottom:22px;
+  transform:translateZ(30px);flex-shrink:0;
+}
+.tech-icon svg{width:24px;height:24px;stroke:var(--blue)}
+.tech-card h3{font-size:17px;font-weight:700;margin-bottom:10px;transform:translateZ(20px);color:var(--text)}
+.tech-card p{font-size:14px;color:var(--text-dim);line-height:1.7;transform:translateZ(10px)}
+@media (max-width:900px){
+  .tech-grid{grid-template-columns:repeat(2,1fr)}
+  .tech-grid .tech-card:nth-child(1){grid-column:span 2;grid-row:span 1}
+  .tech-grid .tech-card:nth-child(2){grid-column:span 2;grid-row:span 1}
+  .tech-grid .tech-card:nth-child(3){grid-column:span 1}
+  .tech-grid .tech-card:nth-child(4){grid-column:span 1}
+}
+@media (max-width:600px){
+  .tech-grid{grid-template-columns:1fr;grid-template-rows:auto}
+  .tech-grid .tech-card{grid-column:span 1 !important;grid-row:span 1 !important}
+}
+
+/* ---------- TESTIMONY PREVIEW BENTO ---------- */
+.testi-grid{
+  display:grid;grid-template-columns:1.3fr 1fr;grid-template-rows:repeat(2,minmax(150px,auto));
+  gap:20px;perspective:1200px;position:relative;z-index:1;
+}
+.testi-card{padding:30px;display:flex;flex-direction:column;justify-content:space-between}
+.testi-grid .testi-card:nth-child(1){grid-column:1;grid-row:1/3}
+.testi-grid .testi-card:nth-child(2){grid-column:2;grid-row:1}
+.testi-grid .testi-card:nth-child(3){grid-column:2;grid-row:2}
+.testi-quote{font-size:14.5px;color:var(--text);line-height:1.8;transform:translateZ(18px)}
+.testi-quote::before{content:'"';color:var(--cream);font-family:'Space Grotesk',sans-serif;font-size:22px}
+.testi-person{display:flex;align-items:center;gap:14px;margin-top:24px;transform:translateZ(24px)}
+.testi-person img{width:46px;height:46px;border-radius:50%;object-fit:cover;border:1px solid var(--glass-border-hover)}
+.testi-person b{font-size:14px;display:block;color:var(--text)}
+.testi-person span{font-size:12px;color:var(--blue-dim)}
+@media (max-width:900px){
+  .testi-grid{grid-template-columns:1fr;grid-template-rows:auto}
+  .testi-grid .testi-card{grid-column:1 !important;grid-row:auto !important}
+}
+
+/* ---------- PACKAGE BENTO (home preview) ---------- */
+.pkg-grid{
+  display:grid;grid-template-columns:1fr 1.25fr;grid-template-rows:repeat(2,minmax(210px,auto));
+  gap:20px;perspective:1200px;position:relative;z-index:1;
+}
+.pkg-grid .pkg-card:nth-child(1){grid-column:1;grid-row:1}
+.pkg-grid .pkg-card:nth-child(2){grid-column:2;grid-row:1/3}
+.pkg-grid .pkg-card:nth-child(3){grid-column:1;grid-row:2}
+@media (max-width:900px){
+  .pkg-grid{grid-template-columns:1fr;grid-template-rows:auto}
+  .pkg-grid .pkg-card{grid-column:1 !important;grid-row:auto !important}
+}
+
+/* ---------- PACKAGE CARD (shared: preview + full page) ---------- */
+.pkg-card{
+  position:relative;padding:36px 30px;cursor:pointer;
+  display:flex;flex-direction:column;
+}
+.pkg-card.featured{border-color:var(--glass-border-hover)}
+.pkg-badge{
+  position:absolute;top:-13px;right:28px;background:var(--blue);color:var(--white);
+  font-size:10px;font-weight:800;letter-spacing:.1em;padding:6px 14px;border-radius:999px;
+  transform:translateZ(30px);
+}
+.pkg-name{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;transform:translateZ(24px);color:var(--text)}
+.pkg-desc{font-size:13px;color:var(--text-dim);margin-top:8px;transform:translateZ(18px);min-height:38px}
+.pkg-price{margin-top:22px;transform:translateZ(24px)}
+.pkg-price b{font-family:'Space Grotesk',sans-serif;font-size:32px;color:var(--blue)}
+.pkg-price span{font-size:12px;color:var(--text-dim)}
+.pkg-features{margin-top:22px;flex:1;transform:translateZ(14px)}
+.pkg-features li{
+  font-size:13.5px;color:var(--text-dim);padding:8px 0;
+  border-top:1px solid rgba(21,34,56,.08);display:flex;gap:10px;align-items:flex-start;
+}
+.pkg-features li:first-child{border-top:none}
+.pkg-features li::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--cream);margin-top:8px;flex-shrink:0}
+.pkg-cta{
+  margin-top:26px;text-align:center;padding:14px;border-radius:999px;
+  border:1px solid var(--glass-border-hover);font-size:12px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;transform:translateZ(24px);
+  transition:all .35s var(--ease);color:var(--text);
+}
+.pkg-card:hover .pkg-cta{background:var(--blue);color:var(--white);border-color:var(--blue)}
+
+/* ---------- FOOTER ---------- */
+.footer{
+  position:relative;background:var(--panel);border-top:1px solid var(--glass-border);
+  overflow:hidden;padding-top:40px;
+}
+.footer-spotlight{
+  position:relative;height:clamp(220px,32vw,420px);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  cursor:default;
+}
+.footer-wordmark{
+  font-family:'Space Grotesk',sans-serif;font-weight:700;font-style:normal;
+  font-size:clamp(38px,9vw,150px);letter-spacing:.01em;white-space:nowrap;
+  color:transparent;-webkit-text-stroke:1px rgba(21,34,56,0.16);
+  background:radial-gradient(circle 1.5em at var(--mx,50%) var(--my,50%), var(--blue-light) 0%, var(--blue) 60%, rgba(21,34,56,0.12) 100%);
+  -webkit-background-clip:text;background-clip:text;
+  transition:background .05s linear;
+  user-select:none;
+}
+.footer-main{
+  border-top:1px solid var(--glass-border);padding:60px 0 30px;
+}
+.footer-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:40px}
+.footer-brand p{color:var(--text-dim);font-size:13.5px;margin-top:14px;max-width:280px;line-height:1.75}
+.footer-col h4{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--blue-dim);margin-bottom:18px}
+.footer-col li{margin-bottom:11px}
+.footer-col a{font-size:13.5px;color:var(--text-dim);transition:color .3s}
+.footer-col a:hover{color:var(--blue)}
+.footer-social{display:flex;gap:12px;margin-top:18px}
+.footer-social a{
+  width:36px;height:36px;border:1px solid var(--glass-border-hover);border-radius:50%;
+  background:var(--glass-bg);backdrop-filter:blur(10px);
+  display:flex;align-items:center;justify-content:center;transition:all .3s var(--ease);
+}
+.footer-social a:hover{background:var(--blue);border-color:var(--blue)}
+.footer-social a:hover svg{stroke:var(--white)}
+.footer-social svg{width:15px;height:15px;stroke:var(--text-dim)}
+.footer-bottom{
+  margin-top:50px;padding-top:24px;border-top:1px solid var(--glass-border);
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;
+  font-size:12px;color:var(--text-dim);
+}
+@media (max-width:860px){
+  .footer-grid{grid-template-columns:1fr 1fr}
+}
+@media (max-width:560px){
+  .footer-grid{grid-template-columns:1fr}
+}
+
+/* ---------- PAGE HEADER (paket / testimoni) ---------- */
+.page-header{padding:170px 0 60px;text-align:center;position:relative;z-index:2}
+.page-header .eyebrow{justify-content:center}
+.page-header h1{font-size:clamp(32px,5vw,56px);font-weight:700;color:var(--text)}
+.page-header p{margin:18px auto 0;max-width:560px;color:var(--text-dim)}
+
+/* ---------- SEARCH BAR (glass) ---------- */
+.search-wrap{max-width:560px;margin:40px auto 0;position:relative}
+.search-wrap input{
+  width:100%;padding:18px 24px 18px 52px;border-radius:999px;
+  background:var(--glass-bg);backdrop-filter:blur(16px);
+  border:1px solid var(--glass-border-hover);color:var(--text);
+  font-size:14px;transition:border-color .3s,box-shadow .3s;
+}
+.search-wrap input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 4px rgba(44,90,160,.14)}
+.search-wrap input::placeholder{color:var(--text-dim)}
+.search-wrap svg{
+  position:absolute;left:22px;top:50%;transform:translateY(-50%);
+  width:17px;height:17px;stroke:var(--blue-dim);
+}
+.result-count{text-align:center;margin-top:18px;font-size:12px;color:var(--text-dim);letter-spacing:.05em}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text-dim);position:relative;z-index:2}
+.empty-state b{display:block;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:20px;margin-bottom:8px}
+
+@media (max-width:640px){
+  .page-header.container{padding-left:24px;padding-right:24px}
+  .search-wrap{padding:0 8px}
+}
+
+/* ---------- PAKET PAGE GRID (plain by default; bento when showing full unfiltered set) ---------- */
+.paket-page-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:24px;perspective:1200px;
+  margin-top:60px;position:relative;z-index:1;
+}
+.paket-page-grid.bento{
+  grid-template-columns:1fr 1.25fr 1fr;grid-template-rows:repeat(2,minmax(210px,auto));
+}
+.paket-page-grid.bento .pkg-card:nth-child(1){grid-column:1;grid-row:1}
+.paket-page-grid.bento .pkg-card:nth-child(2){grid-column:2;grid-row:1/3}
+.paket-page-grid.bento .pkg-card:nth-child(3){grid-column:3;grid-row:1}
+.paket-page-grid.bento .pkg-card:nth-child(4){grid-column:1;grid-row:2}
+@media (max-width:960px){
+  .paket-page-grid,.paket-page-grid.bento{grid-template-columns:1fr;grid-template-rows:auto}
+  .paket-page-grid.bento .pkg-card{grid-column:1 !important;grid-row:auto !important}
+}
+
+/* ---------- TESTIMONI PAGE ---------- */
+.marquee-wrap{
+  overflow:hidden;border-top:1px solid var(--glass-border);border-bottom:1px solid var(--glass-border);
+  padding:36px 0;margin-top:20px;
+}
+.marquee-track{display:flex;gap:0;width:max-content;animation:marquee 46s linear infinite}
+.marquee-track:hover{animation-play-state:paused}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.marquee-item{
+  display:flex;align-items:center;gap:14px;padding:0 40px;border-right:1px solid var(--line);
+  white-space:nowrap;font-size:14.5px;color:var(--text-dim);
+}
+.marquee-item b{color:var(--blue);font-family:'Space Grotesk',sans-serif;font-style:normal}
+.marquee-item::before{content:'—';color:var(--cream);margin-right:2px}
+
+/* spotlight bento: first card wide/featured, rest fall into a 2-col flow */
+.spotlight-grid{
+  display:grid;grid-template-columns:repeat(2,1fr);gap:26px;margin-top:60px;perspective:1200px;
+  position:relative;z-index:1;
+}
+.spotlight-grid .spotlight-card:nth-child(1){grid-column:1/3}
+.spotlight-card{
+  display:grid;grid-template-columns:150px 1fr;gap:0;
+  border-radius:var(--radius);overflow:hidden;
+}
+.spotlight-body{padding:26px 26px 24px;display:flex;flex-direction:column;justify-content:center;transform:translateZ(16px)}
+.spotlight-photo{position:relative;min-height:100%}
+.spotlight-photo img{width:100%;height:100%;object-fit:cover;min-height:190px}
+.spotlight-photo::after{
+  content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 55%,rgba(255,255,255,.85));
+}
+.spotlight-accepted{
+  display:inline-block;align-self:flex-start;font-size:10.5px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--blue);background:rgba(44,90,160,.12);
+  border:1px solid rgba(44,90,160,.35);padding:4px 12px;border-radius:999px;margin-bottom:12px;
+  backdrop-filter:blur(8px);
+}
+.spotlight-quote{font-size:14px;line-height:1.75;color:var(--text)}
+.spotlight-name{margin-top:16px;font-family:'Space Grotesk',sans-serif;font-size:16px;color:var(--text)}
+.spotlight-role{font-size:12px;color:var(--blue-dim);margin-top:2px}
+@media (max-width:860px){
+  .spotlight-grid{grid-template-columns:1fr}
+  .spotlight-grid .spotlight-card:nth-child(1){grid-column:1}
+  /* tetap horizontal (foto + teks berdampingan) seperti mode lebar, cuma diperkecil */
+  .spotlight-card{grid-template-columns:38% 1fr}
+  .spotlight-photo{aspect-ratio:1/1;min-height:0}
+  .spotlight-photo img{width:100%;height:100%;object-fit:cover;min-height:0}
+  .spotlight-body{padding:18px 16px}
+  .spotlight-accepted{font-size:9.5px;padding:3px 9px;margin-bottom:8px}
+  .spotlight-quote{font-size:12.5px}
+  .spotlight-name{font-size:14px;margin-top:10px}
+  .spotlight-role{font-size:11px}
+  /* selang-seling: item ganjil foto di kiri (default di atas), item genap foto di kanan */
+  .spotlight-grid .spotlight-card:nth-child(even){grid-template-columns:1fr 38%}
+  .spotlight-grid .spotlight-card:nth-child(even) .spotlight-photo{order:2}
+  .spotlight-grid .spotlight-card:nth-child(even) .spotlight-body{order:1}
+  .spotlight-grid .spotlight-card:nth-child(even) .spotlight-photo::after{
+    background:linear-gradient(270deg,transparent 55%,rgba(255,255,255,.85));
+  }
+}
+@media (max-width:420px){
+  .spotlight-card{grid-template-columns:32% 1fr}
+  .spotlight-grid .spotlight-card:nth-child(even){grid-template-columns:1fr 32%}
+}
+
+.text-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:26px;perspective:1200px;
+  position:relative;z-index:1;
+}
+@media (max-width:960px){.text-grid{grid-template-columns:1fr}}
+.text-grid.is-marquee{display:block}
+
+/* ---------- SEMUA TESTIMONI: mobile marquee loop (>= 6 item) -----------
+   Tiap baris berisi maksimal 5 box item, arahnya selang-seling:
+   baris 1 ke kiri, baris 2 ke kanan, baris 3 ke kiri, dst. */
+.testi-marquee{display:flex;flex-direction:column;gap:16px;margin-top:26px;position:relative;z-index:1}
+@media (max-width:960px){
+  /* lepas dari padding .container biar marquee mentok full lebar layar (edge-to-edge) di mobile */
+  .testi-marquee{width:100vw;margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw)}
+}
+.testi-marquee-row{
+  overflow:hidden;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);
+}
+.testi-marquee-track{display:flex;gap:14px;width:max-content}
+.testi-marquee-track.dir-left{animation:testiMarqueeLeft 30s linear infinite}
+.testi-marquee-track.dir-right{animation:testiMarqueeRight 30s linear infinite}
+.testi-marquee-row:active .testi-marquee-track{animation-play-state:paused}
+@keyframes testiMarqueeLeft{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes testiMarqueeRight{from{transform:translateX(-50%)}to{transform:translateX(0)}}
+.testi-mini-card{
+  flex:0 0 auto;width:min(70vw,250px);aspect-ratio:3/4;
+  display:flex;flex-direction:column;padding:18px;
+}
+.testi-mini-card .testi-quote{
+  font-size:12px;line-height:1.6;flex:1;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;
+}
+.testi-mini-card .testi-person{margin-top:14px}
+.testi-mini-card .testi-person img{width:36px;height:36px}
+.testi-mini-card .testi-person b{font-size:12px}
+.testi-mini-card .testi-person span{font-size:10px}
+
+/* utility fade-in for filtered items */
+.filter-item{animation:fadeUp .5s var(--ease)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+
+/* ---------- SECTION 2 -> 3 OVERLAP TRANSITION (teknologi stays pinned, testimoni preview slides over it) ---------- */
+#teknologi.section{
+  position:sticky;
+  top:0;
+  z-index:1;
+}
+#testimoni-preview.section{
+  position:relative;
+  z-index:2;
+  background:var(--bg);
+  border-radius:40px 40px 0 0;
+  box-shadow:0 -34px 60px -34px rgba(21,34,56,0.14);
+}
+@media (max-width:900px){
+  /* sticky overlap can feel cramped on short mobile viewports; keep it simple there */
+  #teknologi.section{position:relative;top:auto}
+  #testimoni-preview.section{border-radius:0;box-shadow:none}
+}
+
+</style>
 </head>
-<body data-page="sub" data-subpage="testimoni.html">
+<body>
 
-<div class="blob-field"><div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div></div>
-
-<nav class="gnav" id="navbar">
-  <a class="nav-logo" href="landing.html"><img src="logo/logo-full.png" alt="CIBN Akademi"></a>
-  <ul class="nav-links">
-    <li><a href="landing.html#fitur">Fitur</a></li>
-    <li><a href="paket.html">Paket</a></li>
-    <li><a href="materi.html">Materi</a></li>
-    <li><a href="testimoni.html">Testimoni</a></li>
-    <li><a href="tentang.html">Tentang Kami</a></li>
-    <li><a href="landing.html#faq">FAQ</a></li>
-  </ul>
-  <a class="nav-cta" href="landing.html">Masuk</a>
-  <button class="nav-hamburger" onclick="toggleMobileMenu()" aria-label="Menu"><span></span><span></span><span></span></button>
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="index.html" class="brand">CIBN PRESTISE</a>
+    <div class="nav-links">
+      <a href="index.html" data-page="index.html">Home</a>
+      <a href="paket.html" data-page="paket.html">Paket</a>
+      <a href="testimoni.html" data-page="testimoni.html">Testimoni</a>
+    </div>
+    <a href="masuk.html" class="nav-cta">LogIn</a>
+    <button class="nav-toggle" aria-label="Buka menu" aria-expanded="false" aria-controls="mobileMenu"><span></span><span></span><span></span></button>
+  </div>
 </nav>
-<div class="nav-mobile-menu" id="mobileMenu"><button class="nav-mobile-close" onclick="closeMobileMenu()">✕</button></div>
+<div class="mobile-menu" id="mobileMenu">
+  <a href="index.html" data-page="index.html">Home</a>
+  <a href="paket.html" data-page="paket.html">Paket</a>
+  <a href="testimoni.html" data-page="testimoni.html">Testimoni</a>
+  <a href="masuk.html" data-page="masuk.html">LogIn</a>
+</div>
 
-<main>
-<section class="sub-hero">
-  <div class="wrap">
-    <a class="back-link" href="landing.html">← Kembali ke Beranda</a>
-    <div class="glass sub-hero-card reveal">
-      <div   id="tsTag">Apa Kata Mereka</div>
-      <h1 id="tsTitle">Ribuan Peserta Telah Merasakan</h1>
-      <p>Cerita nyata dari para peserta yang telah lulus bersama kami</p>
+<header class="page-header container">
+  <div class="eyebrow mono" id="testimoniEyebrow">Suara Anggota</div>
+  <h1 class="serif reveal" id="testimoniTitle">Testimoni yang Berbicara Sendiri</h1>
+  <p class="reveal reveal-delay-1" id="testimoniDesc">Cerita nyata dari trader dan investor yang telah menjalani perjalanan bersama CIBN PRESTISE.</p>
+  <div class="search-wrap reveal reveal-delay-2">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
+    <input type="text" id="testiSearch" placeholder="Cari nama, kota, atau kata kunci...">
+  </div>
+  <div class="result-count" id="testiCount"></div>
+</header>
+
+<!-- Marquee loop -->
+<div class="marquee-wrap reveal">
+  <div class="marquee-track" id="marqueeTrack"></div>
+</div>
+
+<!-- Spotlight: fokus ke orang (foto besar) -->
+<section class="section" style="padding-bottom:60px">
+  <div class="blob blob-emerald" style="width:340px;height:340px;top:-40px;right:-70px"></div>
+  <div class="blob blob-wine" style="width:280px;height:280px;bottom:-60px;left:-60px"></div>
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="eyebrow mono" id="sorotanEyebrow">Sorotan</div>
+      <h2 class="serif" id="sorotanHeading">Wajah di Balik Cerita</h2>
+      <p id="sorotanDesc">Testimoni yang lebih menonjolkan sosok anggota — beserta status keanggotaan dan pengalaman mereka.</p>
+    </div>
+    <div class="spotlight-grid" id="spotlightGrid"></div>
+  </div>
+</section>
+
+<!-- Grid teks: fokus ke teks, foto kecil -->
+<section class="section" style="padding-top:0">
+  <div class="blob blob-gold" style="width:320px;height:320px;top:40px;left:-70px"></div>
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="eyebrow mono" id="semuaEyebrow">Semua Testimoni</div>
+      <h2 class="serif" id="semuaHeading">Fokus pada Ceritanya</h2>
+      <p id="semuaDesc">Kumpulan testimoni lengkap yang bisa Anda cari dan telusuri satu per satu.</p>
+    </div>
+    <div class="text-grid" id="textGrid"></div>
+    <div class="empty-state" id="testiEmpty" style="display:none">
+      <b>Tidak ada testimoni ditemukan</b>
+      Coba kata kunci lain, misalnya nama kota atau nama anggota.
     </div>
   </div>
 </section>
 
-<section>
-  <div class="wrap bento" id="tsGrid"></div>
-</section>
-</main>
-
-<footer class="gfoot">
-  <div class="wrap glass footer-glass">
-    <div id="cibn-canvas-wrapper"><canvas id="cibn-canvas" height="120"></canvas></div>
-    <div class="footer-top">
-      <div class="footer-col footer-brand"><div class="nav-logo footer-brand-name" style="font-size:1.2rem"><img src="logo/logo-full.png" alt="CIBN Akademi"></div><p>Platform ujian dan sertifikasi profesional terpercaya di Indonesia.</p></div>
-      <div class="footer-col"><h5>Platform</h5><ul class="footer-platform-list"></ul></div>
-      <div class="footer-col"><h5>Perusahaan</h5><ul class="footer-perusahaan-list"></ul></div>
-      <div class="footer-col footer-contact"><h5>Hubungi Kami</h5><p class="f-phone">📞</p><p class="f-email">📧</p><p class="f-address">📍</p><div class="social-links"></div></div>
+<footer class="footer">
+  <div class="footer-spotlight">
+    <div class="footer-wordmark">CIBN PRESTISE</div>
+  </div>
+  <div class="footer-main">
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <a href="index.html" class="brand">CIBN PRESTISE</a>
+        <p>Manajemen investasi dan edukasi pasar dengan standar prestise — riset mendalam, teknologi presisi, pendampingan personal.</p>
+        <div class="footer-social">
+          <a href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg></a>
+          <a href="#" aria-label="Twitter"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M22 5.8c-.7.3-1.5.5-2.3.6.8-.5 1.5-1.3 1.8-2.3-.8.5-1.7.8-2.6 1a4.1 4.1 0 0 0-7 3.7A11.6 11.6 0 0 1 3.4 4.6a4.1 4.1 0 0 0 1.3 5.5c-.7 0-1.3-.2-1.9-.5v.1a4.1 4.1 0 0 0 3.3 4 4.2 4.2 0 0 1-1.9.1 4.1 4.1 0 0 0 3.8 2.9A8.3 8.3 0 0 1 2 18.4a11.6 11.6 0 0 0 6.3 1.9c7.5 0 11.7-6.3 11.7-11.7v-.5c.8-.6 1.5-1.3 2-2.1z"/></svg></a>
+          <a href="#" aria-label="LinkedIn"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 10v7M8 7v.01M12 17v-4.5c0-1.4 1-2.5 2.5-2.5s2.5 1.1 2.5 2.5V17" stroke-linecap="round"/></svg></a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Navigasi</h4>
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="paket.html">Paket</a></li>
+          <li><a href="testimoni.html">Testimoni</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Perusahaan</h4>
+        <ul>
+          <li><a href="#">Tentang Kami</a></li>
+          <li><a href="#">Karier</a></li>
+          <li><a href="kebijakan-privasi.html">Kebijakan Privasi</a></li>
+          <li><a href="syarat-ketentuan.html">Syarat & Ketentuan</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Kontak</h4>
+        <ul>
+          <li><a href="mailto:hello@cibnprestise.id">hello@cibnprestise.id</a></li>
+          <li><a href="tel:+622112345678">+62 21 1234 5678</a></li>
+          <li><a href="#">Jakarta, Indonesia</a></li>
+        </ul>
+      </div>
     </div>
-    <div class="footer-divider"></div>
-    <div class="footer-bottom"><div class="footer-copy f-copy">© 2025 CIBN Akademi.</div><div class="footer-copy f-reg">Terdaftar &amp; diawasi oleh OJK</div></div>
+    <div class="container footer-bottom">
+      <span>© 2026 CIBN PRESTISE. Seluruh hak cipta dilindungi.</span>
+      <span>Dibuat dengan presisi untuk investor yang serius.</span>
+    </div>
   </div>
 </footer>
 
-<script src="js/glass-common.js"></script>
 <script>
-const esc = GlassEsc;
-window.onLandingData = function (D) {
-  const t = D.testi || {};
-  document.getElementById('tsTag').textContent = t.tag || 'Apa Kata Mereka';
-  document.getElementById('tsTitle').textContent = t.title || 'Ribuan Peserta Telah Merasakan';
-  const starStr = n => '★'.repeat(n || 5) + (n < 5 ? '☆'.repeat(5 - n) : '');
-  const grid = document.getElementById('tsGrid');
-  const list = t.list || [];
-  grid.innerHTML = list.map((c, i) => `<div class="glass glass-hover c-6 testi-card reveal${i%2===1?' reveal-delay-1':''}"><div class="testi-stars">${starStr(c.stars)}</div><p class="testi-text">"${esc(c.text)}"</p><div class="testi-author"><div class="testi-avatar">${esc(c.initials)}</div><div><div class="testi-name">${esc(c.name)}</div><div class="testi-role">${esc(c.role)}</div></div></div></div>`).join('') || `<div class="glass c-12" style="text-align:center;padding:3rem"><p>Belum ada testimoni tersedia.</p></div>`;
-};
-loadLandingData();
+// Testimoni belum punya tabel database tersendiri — tetap konten statis (materi
+// marketing) sebagai fallback, dipakai kalau admin belum mengisi daftar testimoni
+// lewat menu Editor Landing > Testimoni. Kalau sudah diisi, TESTIMONIALS ditimpa
+// dengan data admin (lihat fetch /api/landing di bawah). Data paket TIDAK diperlukan
+// di halaman ini (lihat paket.html / index.html untuk daftar paket yang diambil dari
+// /api/pakets/public).
+const DEFAULT_TESTIMONIALS = [
+  {
+    id: 1,
+    name: "Raka Adiputra",
+    role: "Trader Retail, Surabaya",
+    accepted: "Bergabung sejak 2023",
+    photo: "https://i.pravatar.cc/300?img=13",
+    quote: "Pendampingan di CIBN PRESTISE mengubah cara saya membaca pasar. Analisisnya tajam dan disiplin risikonya benar-benar ditekankan."
+  },
+  {
+    id: 2,
+    name: "Amelia Putri",
+    role: "Konsultan Keuangan, Jakarta",
+    accepted: "Diterima di Elite Circle",
+    photo: "https://i.pravatar.cc/300?img=32",
+    quote: "Kualitas risetnya di atas rata-rata. Setiap sinyal disertai alasan yang jelas, bukan sekadar rekomendasi tanpa konteks."
+  },
+  {
+    id: 3,
+    name: "Bima Prasetyo",
+    role: "Trader Purnawaktu, Bandung",
+    accepted: "Alumni Private Mentorship",
+    photo: "https://i.pravatar.cc/300?img=51",
+    quote: "Mentorship privatnya sangat personal. Strategi saya benar-benar disesuaikan dengan gaya trading dan toleransi risiko saya sendiri."
+  },
+  {
+    id: 4,
+    name: "Sarah Wijaya",
+    role: "Pemilik Bisnis, Semarang",
+    accepted: "Bergabung sejak 2024",
+    photo: "https://i.pravatar.cc/300?img=45",
+    quote: "Komunitasnya suportif dan materinya runtut. Sebagai pemula saya merasa terbimbing, bukan dilepas begitu saja."
+  },
+  {
+    id: 5,
+    name: "Dimas Nugroho",
+    role: "Trader Institusi, Jakarta",
+    accepted: "Diterima di Prestise Pro",
+    photo: "https://i.pravatar.cc/300?img=60",
+    quote: "Kecepatan dan akurasi sinyal real-time-nya membantu saya mengambil keputusan lebih percaya diri di jam-jam sibuk pasar."
+  },
+  {
+    id: 6,
+    name: "Nadia Kirana",
+    role: "Freelancer & Investor, Yogyakarta",
+    accepted: "Bergabung sejak 2022",
+    photo: "https://i.pravatar.cc/300?img=47",
+    quote: "Tiga tahun bersama CIBN PRESTISE, laporan performa berkala benar-benar membantu saya mengevaluasi progres secara objektif."
+  },
+  {
+    id: 7,
+    name: "Fajar Ramadhan",
+    role: "Trader Retail, Medan",
+    accepted: "Bergabung sejak 2024",
+    photo: "https://i.pravatar.cc/300?img=14",
+    quote: "Indikator premiumnya presisi dan mudah dipahami meski saya bukan latar belakang finansial."
+  },
+  {
+    id: 8,
+    name: "Clara Situmorang",
+    role: "Manajer Investasi, Jakarta",
+    accepted: "Diterima di Elite Circle",
+    photo: "https://i.pravatar.cc/300?img=44",
+    quote: "Ruang diskusi privatnya diisi orang-orang serius. Kualitas percakapannya jauh di atas grup trading pada umumnya."
+  },
+  {
+    id: 9,
+    name: "Yusuf Alamsyah",
+    role: "Trader Swing, Makassar",
+    accepted: "Bergabung sejak 2023",
+    photo: "https://i.pravatar.cc/300?img=15",
+    quote: "Materi swing trading-nya sangat aplikatif. Tidak cuma teori, tapi langsung dipraktikkan bareng mentor tiap minggu."
+  },
+  {
+    id: 10,
+    name: "Intan Permatasari",
+    role: "Ibu Rumah Tangga & Investor, Bekasi",
+    accepted: "Bergabung sejak 2024",
+    photo: "https://i.pravatar.cc/300?img=48",
+    quote: "Belajar investasi sambil momong anak jadi lebih mudah karena kelasnya fleksibel dan rekamannya bisa diputar ulang."
+  },
+  {
+    id: 11,
+    name: "Reza Firmansyah",
+    role: "Trader Harian, Jakarta",
+    accepted: "Diterima di Prestise Pro",
+    photo: "https://i.pravatar.cc/300?img=17",
+    quote: "Sinyal harian dan notifikasinya cepat, jadi saya tidak ketinggalan momentum penting di jam pembukaan pasar."
+  },
+  {
+    id: 12,
+    name: "Putri Anggraini",
+    role: "Karyawan Swasta, Surabaya",
+    accepted: "Bergabung sejak 2023",
+    photo: "https://i.pravatar.cc/300?img=49",
+    quote: "Meski kerja full time, saya tetap bisa ikut mentoring malam hari. Jadwalnya benar-benar mempertimbangkan anggota yang sibuk."
+  },
+  {
+    id: 13,
+    name: "Hendra Kusuma",
+    role: "Pemilik UMKM, Solo",
+    accepted: "Alumni Private Mentorship",
+    photo: "https://i.pravatar.cc/300?img=18",
+    quote: "Manajemen risikonya yang diajarkan benar-benar mengubah cara saya mengelola modal, bukan cuma soal cari sinyal cuan."
+  },
+  {
+    id: 14,
+    name: "Sisca Marlina",
+    role: "Trader Retail, Denpasar",
+    accepted: "Bergabung sejak 2024",
+    photo: "https://i.pravatar.cc/300?img=33",
+    quote: "Komunitasnya ramah untuk pemula. Pertanyaan sekecil apa pun selalu dijawab dengan sabar oleh mentor dan member lain."
+  },
+  {
+    id: 15,
+    name: "Aditya Wirawan",
+    role: "Trader Institusi, Jakarta",
+    accepted: "Diterima di Elite Circle",
+    photo: "https://i.pravatar.cc/300?img=19",
+    quote: "Laporan performa bulanannya transparan dan detail, memudahkan saya mengevaluasi strategi dari waktu ke waktu."
+  },
+  {
+    id: 16,
+    name: "Melati Kusumawardhani",
+    role: "Konsultan Pajak, Bandung",
+    accepted: "Bergabung sejak 2022",
+    photo: "https://i.pravatar.cc/300?img=35",
+    quote: "Empat tahun bersama CIBN PRESTISE, saya merasakan pertumbuhan portofolio yang konsisten berkat disiplin yang diajarkan."
+  },
+  {
+    id: 17,
+    name: "Fikri Ramadhani",
+    role: "Mahasiswa & Trader Pemula, Yogyakarta",
+    accepted: "Bergabung sejak 2024",
+    photo: "https://i.pravatar.cc/300?img=21",
+    quote: "Sebagai mahasiswa dengan modal kecil, saya tetap dibimbing serius tanpa dipandang sebelah mata oleh mentor."
+  },
+  {
+    id: 18,
+    name: "Vania Anastasya",
+    role: "Manajer Pemasaran, Jakarta",
+    accepted: "Diterima di Prestise Pro",
+    photo: "https://i.pravatar.cc/300?img=37",
+    quote: "Fitur sinyal real-time dan grup diskusinya membuat saya tetap update meski jadwal kerja saya cukup padat."
+  }
+];
+let TESTIMONIALS = DEFAULT_TESTIMONIALS;
+
+</script>
+<script>
+// ===== Navbar scroll state =====
+const navbar = document.querySelector('.navbar');
+if (navbar) {
+  const onScroll = () => navbar.classList.toggle('scrolled', window.scrollY > 20);
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+}
+
+// ===== Mobile nav toggle =====
+// mobileMenu = elemen fullscreen di luar .navbar-inner (lihat catatan di CSS .mobile-menu)
+const navToggle = document.querySelector('.nav-toggle');
+const mobileMenu = document.querySelector('.mobile-menu');
+if (navToggle && mobileMenu) {
+  const closeMenu = () => {
+    navToggle.classList.remove('open');
+    navToggle.setAttribute('aria-expanded', 'false');
+    navToggle.setAttribute('aria-label', 'Buka menu');
+    mobileMenu.classList.remove('open');
+    document.body.style.overflow = '';
+  };
+  const openMenu = () => {
+    navToggle.classList.add('open');
+    navToggle.setAttribute('aria-expanded', 'true');
+    navToggle.setAttribute('aria-label', 'Tutup menu');
+    mobileMenu.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+  navToggle.addEventListener('click', () => {
+    mobileMenu.classList.contains('open') ? closeMenu() : openMenu();
+  });
+  mobileMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeMenu();
+  });
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 860) closeMenu();
+  });
+}
+
+// ===== Active nav link by current page (desktop pill nav + mobile fullscreen menu) =====
+(function highlightActive() {
+  const path = location.pathname.split('/').pop() || 'index.html';
+  document.querySelectorAll('.nav-links a[data-page], .mobile-menu a[data-page]').forEach(a => {
+    if (a.dataset.page === path) a.classList.add('active');
+  });
+})();
+
+// ===================================================================
+// SCROLL-SCRUBBED 3D ANIMATION ENGINE
+// Every tracked element gets a continuous 3D transform driven directly
+// by its position in the viewport, recalculated every animation frame —
+// so it plays/reverses like scrubbing a video, not a one-shot reveal.
+// ===================================================================
+const scrubEls = [];
+
+// Mobile/tablet: matikan transform 3D berat (translateZ + rotateX + perspective).
+// Transform 3D ini yang bikin layout "jebol ke samping" di HP — beberapa browser
+// mobile ikut menghitung box hasil transform 3D ke area scroll horizontal, jadi
+// walau body punya overflow-x:hidden, tetap muncul celah/scroll ke samping.
+// Di layar sempit kita pakai reveal simpel (translateY + opacity saja, tanpa
+// perspective) yang lebih ringan dan tidak punya masalah itu.
+const REDUCE_3D_MQ = window.matchMedia('(max-width: 860px)');
+let REDUCE_3D = REDUCE_3D_MQ.matches;
+REDUCE_3D_MQ.addEventListener('change', (e) => { REDUCE_3D = e.matches; });
+
+function registerScrub(el) {
+  if (el._scrubRegistered) return;
+  el._scrubRegistered = true;
+  el._hoverLift = 0;
+  scrubEls.push(el);
+}
+
+function collectScrubTargets(root = document) {
+  root.querySelectorAll('.reveal, .filter-item, .tilt-card').forEach(registerScrub);
+}
+collectScrubTargets();
+
+function scrubProgress(el) {
+  const rect = el.getBoundingClientRect();
+  const vh = window.innerHeight || document.documentElement.clientHeight;
+  const start = vh * 0.95;   // element top here = just entering (progress 0)
+  const end = vh * 0.38;     // element top here = fully settled (progress 1)
+  let p = (start - rect.top) / (start - end);
+  return Math.min(Math.max(p, 0), 1);
+}
+
+function applyScrub(el, p) {
+  const opacity = Math.max(0, Math.min(1, (p - 0.02) / 0.9));
+  el.style.opacity = opacity;
+  const lift = el._hoverLift || 0; // hover: cuma naik/turun, tanpa tilt 3D ikut kursor
+  if (REDUCE_3D) {
+    // versi ringan utk mobile: cuma naik + fade, tanpa perspective/translateZ
+    const ty = (1 - p) * 28 + lift;
+    el.style.transform = `translateY(${ty.toFixed(1)}px)`;
+  } else {
+    const rotate = (1 - p) * -18;      // deg, tips back in 3D space
+    const ty = (1 - p) * 74 + lift;    // px, rises into place (+ hover lift)
+    const tz = (1 - p) * -180;         // px, comes forward out of depth
+    const scale = 0.9 + p * 0.1;
+    el.style.transform =
+      `translateY(${ty.toFixed(1)}px) translateZ(${tz.toFixed(1)}px) ` +
+      `rotateX(${rotate.toFixed(2)}deg) scale(${scale.toFixed(3)})`;
+  }
+  el.classList.toggle('in-view', p > 0.04);
+}
+
+// ----- Hero cinematic parallax (pulls back into depth as you scroll past it) -----
+const heroEl = document.querySelector('.hero');
+const heroInner = document.querySelector('.hero-inner');
+const heroGrid = document.querySelector('.hero-bg-grid');
+function heroParallax() {
+  if (!heroEl) return;
+  const rect = heroEl.getBoundingClientRect();
+  const vh = window.innerHeight;
+  const p = Math.min(Math.max(-rect.top / (rect.height * 0.85), 0), 1);
+  if (heroInner) {
+    if (REDUCE_3D) {
+      heroInner.style.transform = `translateY(${(p * 40).toFixed(1)}px)`;
+    } else {
+      heroInner.style.transform = `translateY(${(p * 100).toFixed(1)}px) translateZ(${(p * -220).toFixed(1)}px) scale(${(1 - p * 0.12).toFixed(3)})`;
+    }
+    heroInner.style.opacity = `${Math.max(0, 1 - p * 1.15).toFixed(2)}`;
+  }
+  if (heroGrid) {
+    if (REDUCE_3D) {
+      heroGrid.style.transform = `translateY(${(p * 25).toFixed(1)}px)`;
+    } else {
+      heroGrid.style.transform = `translateY(${(p * 70).toFixed(1)}px) scale(${(1 + p * 0.15).toFixed(3)})`;
+    }
+  }
+}
+
+// ----- Persistent render loop: keeps everything scrubbing smoothly, incl. inertia scroll -----
+function scrubLoop() {
+  scrubEls.forEach(el => applyScrub(el, scrubProgress(el)));
+  heroParallax();
+  requestAnimationFrame(scrubLoop);
+}
+requestAnimationFrame(scrubLoop);
+
+// Backward-compatible hooks used by inline page scripts after dynamic renders
+function observeReveal(root = document) { collectScrubTargets(root); }
+
+function attachTilt(root = document) {
+  collectScrubTargets(root);
+  const cards = root.querySelectorAll('.tilt-card');
+  cards.forEach(card => {
+    if (card.dataset.tiltBound) return;
+    card.dataset.tiltBound = '1';
+    const lift = 10; // px, naik saat di-hover
+    card.addEventListener('mouseenter', () => { card._hoverLift = -lift; });
+    card.addEventListener('mouseleave', () => { card._hoverLift = 0; });
+  });
+}
+attachTilt();
+
+// ===== Hero emblem: parallax tilt following cursor + floating particles =====
+const emblemWrap = document.querySelector('.hero-emblem-wrap');
+if (emblemWrap) {
+  const emblem = emblemWrap.querySelector('.emblem');
+  document.addEventListener('mousemove', (e) => {
+    const rect = emblemWrap.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = (e.clientX - cx) / rect.width;
+    const dy = (e.clientY - cy) / rect.height;
+    emblemWrap.style.transform = `rotateY(${(dx * 14).toFixed(2)}deg) rotateX(${(-dy * 14).toFixed(2)}deg)`;
+  });
+
+  // floating gold particles
+  for (let i = 0; i < 14; i++) {
+    const p = document.createElement('div');
+    p.className = 'emblem-particle';
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 140 + Math.random() * 60;
+    p.style.left = `calc(50% + ${Math.cos(angle) * radius}px)`;
+    p.style.top = `calc(50% + ${Math.sin(angle) * radius}px)`;
+    p.style.opacity = (0.3 + Math.random() * 0.6).toFixed(2);
+    p.style.animation = `float-particle ${5 + Math.random() * 5}s ease-in-out ${Math.random() * 3}s infinite`;
+    emblemWrap.appendChild(p);
+  }
+  const styleTag = document.createElement('style');
+  styleTag.textContent = `@keyframes float-particle{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}`;
+  document.head.appendChild(styleTag);
+}
+
+// ===== Footer spotlight follows cursor =====
+const footerSpot = document.querySelector('.footer-spotlight');
+if (footerSpot) {
+  const wordmark = footerSpot.querySelector('.footer-wordmark');
+  footerSpot.addEventListener('mousemove', (e) => {
+    // measure against the wordmark's own box, not the wider wrapper,
+    // so the highlighted spot lands exactly under the cursor even at the edges
+    const rect = wordmark.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    wordmark.style.setProperty('--mx', `${x}%`);
+    wordmark.style.setProperty('--my', `${y}%`);
+  });
+  footerSpot.addEventListener('mouseleave', () => {
+    wordmark.style.setProperty('--mx', `50%`);
+    wordmark.style.setProperty('--my', `120%`);
+  });
+}
+
+</script>
+<script>
+  // ---- Marquee: loop dua kali data agar seamless ----
+  const marqueeTrack = document.getElementById('marqueeTrack');
+  function renderMarquee(list) {
+    marqueeTrack.innerHTML = [...list, ...list].map(t => `
+      <div class="marquee-item">${t.quote.slice(0, 70)}${t.quote.length > 70 ? '…' : ''} <b>&nbsp;— ${t.name}</b></div>
+    `).join('');
+  }
+
+  // ---- Spotlight cards (fokus foto orang) ----
+  const spotlightGrid = document.getElementById('spotlightGrid');
+  function renderSpotlight(list) {
+    spotlightGrid.innerHTML = list.slice(0, 4).map((t, i) => `
+      <div class="spotlight-card tilt-card filter-item">
+        <div class="spotlight-photo"><img src="${t.photo}" alt="${t.name}" loading="lazy"></div>
+        <div class="spotlight-body">
+          <span class="spotlight-accepted">${t.accepted}</span>
+          <p class="spotlight-quote">"${t.quote}"</p>
+          <div class="spotlight-name serif">${t.name}</div>
+          <div class="spotlight-role">${t.role}</div>
+        </div>
+      </div>`).join('');
+    attachTilt(spotlightGrid);
+    observeReveal(spotlightGrid);
+  }
+
+  // ---- Text grid (fokus teks, foto kecil) ----
+  const textGrid = document.getElementById('textGrid');
+  const testiEmpty = document.getElementById('testiEmpty');
+  const testiCount = document.getElementById('testiCount');
+
+  function miniCardHTML(t) {
+    return `
+      <div class="testi-card testi-mini-card">
+        <p class="testi-quote">${t.quote}</p>
+        <div class="testi-person">
+          <img src="${t.photo}" alt="${t.name}" loading="lazy">
+          <div><b>${t.name}</b><span>${t.role}</span></div>
+        </div>
+      </div>`;
+  }
+
+  function chunkList(arr, size) {
+    const out = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+  }
+
+  // Baris 1 loop ke kiri, baris 2 loop ke kanan, baris 3 ke kiri lagi, dst — selang-seling.
+  function renderTextMarquee(list) {
+    const rows = chunkList(list, 5);
+    const rowsHTML = rows.map((row, i) => {
+      const dir = i % 2 === 0 ? 'left' : 'right';
+      const cards = [...row, ...row].map(miniCardHTML).join(''); // digandakan biar loop-nya seamless
+      return `<div class="testi-marquee-row"><div class="testi-marquee-track dir-${dir}">${cards}</div></div>`;
+    }).join('');
+    textGrid.classList.add('is-marquee');
+    textGrid.innerHTML = `<div class="testi-marquee">${rowsHTML}</div>`;
+  }
+
+  function renderTextGrid(list) {
+    textGrid.classList.remove('is-marquee');
+    textGrid.innerHTML = list.map(t => `
+      <div class="testi-card tilt-card filter-item">
+        <p class="testi-quote">${t.quote}</p>
+        <div class="testi-person">
+          <img src="${t.photo}" alt="${t.name}" loading="lazy">
+          <div><b>${t.name}</b><span>${t.role}</span></div>
+        </div>
+      </div>`).join('');
+    attachTilt(textGrid);
+  }
+
+  function renderText(list) {
+    const useMarquee = REDUCE_3D && list.length >= 6;
+    if (useMarquee) {
+      renderTextMarquee(list);
+    } else {
+      renderTextGrid(list);
+    }
+    testiEmpty.style.display = list.length ? 'none' : 'block';
+    testiCount.textContent = list.length ? `Menampilkan ${list.length} dari ${TESTIMONIALS.length} testimoni` : '';
+  }
+
+  function filterTesti(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) return TESTIMONIALS;
+    return TESTIMONIALS.filter(t =>
+      t.name.toLowerCase().includes(q) ||
+      t.role.toLowerCase().includes(q) ||
+      t.accepted.toLowerCase().includes(q) ||
+      t.quote.toLowerCase().includes(q)
+    );
+  }
+
+  let SOROTAN_LIST = DEFAULT_TESTIMONIALS.slice(0, 4);
+
+  let lastTestiQuery = '';
+  document.getElementById('testiSearch').addEventListener('input', (e) => {
+    lastTestiQuery = e.target.value;
+    const results = filterTesti(lastTestiQuery);
+    renderText(results);
+    renderSpotlight(results.length ? results : SOROTAN_LIST);
+  });
+
+  // render ulang saat breakpoint mobile berubah (mis. rotasi layar / resize window)
+  REDUCE_3D_MQ.addEventListener('change', () => {
+    renderText(filterTesti(lastTestiQuery));
+  });
+
+  // ===== Konten halaman ini yang bisa diatur admin (menu Editor Landing > Testimoni) =====
+  // Susun daftar testimoni final dari data admin (kalau sudah diisi) — dipisah per
+  // penempatan (Sorotan / Semua Testimoni / Marquee) sesuai centang di admin.
+  // Kalau admin belum pernah mengisi, tetap pakai data statis di atas seperti semula.
+  let MARQUEE_LIST = DEFAULT_TESTIMONIALS;
+
+  fetch(window.location.origin + '/api/landing').then(r => r.json()).then(d => {
+    if (!d) return;
+    const setText = (id, val) => { if (val) { const el = document.getElementById(id); if (el) el.textContent = val; } };
+    const t = d.testimoni;
+    if (!t) return;
+    setText('testimoniEyebrow', t.eyebrow);
+    setText('testimoniTitle', t.title);
+    setText('testimoniDesc', t.desc);
+    setText('sorotanEyebrow', t.sorotanEyebrow);
+    setText('sorotanHeading', t.sorotanHeading);
+    setText('sorotanDesc', t.sorotanDesc);
+    setText('semuaEyebrow', t.semuaEyebrow);
+    setText('semuaHeading', t.semuaHeading);
+    setText('semuaDesc', t.semuaDesc);
+
+    if (Array.isArray(t.items) && t.items.length) {
+      const semua = t.items.filter(x => x.semua !== false);
+      const sorotan = t.items.filter(x => x.sorotan);
+      const marquee = t.items.filter(x => x.marquee !== false);
+      TESTIMONIALS = semua.length ? semua : t.items;
+      SOROTAN_LIST = sorotan.length ? sorotan : TESTIMONIALS.slice(0, 4);
+      MARQUEE_LIST = marquee.length ? marquee : TESTIMONIALS;
+    }
+  }).catch(() => {}).finally(() => {
+    renderMarquee(MARQUEE_LIST);
+    renderText(TESTIMONIALS);
+    renderSpotlight(SOROTAN_LIST);
+  });
 </script>
 </body>
 </html>

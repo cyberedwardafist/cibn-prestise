@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Paket Keanggotaan — CIBN PRESTISE</title>
+<title>Syarat & Ketentuan — CIBN PRESTISE</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -591,6 +591,30 @@ input{font-family:inherit}
   #testimoni-preview.section{border-radius:0;box-shadow:none}
 }
 
+
+/* ---------- LEGAL PAGE (Syarat & Ketentuan / Kebijakan Privasi) ---------- */
+.legal-updated{
+  display:inline-block;margin-top:14px;font-size:12px;color:var(--text-dim);
+  background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:999px;
+  padding:6px 16px;backdrop-filter:blur(10px);
+}
+.legal-section{padding-top:0}
+.legal-card{
+  max-width:820px;margin:0 auto;padding:46px 52px;border-radius:24px;position:relative;z-index:1;
+}
+.legal-content h3{
+  font-family:'Space Grotesk',sans-serif;font-size:19px;color:var(--text);
+  margin:30px 0 12px;
+}
+.legal-content h3:first-child{margin-top:0}
+.legal-content p{
+  color:var(--text-dim);font-size:14.5px;line-height:1.85;margin-bottom:16px;
+}
+.legal-content p:last-child{margin-bottom:0}
+.legal-empty{color:var(--text-dim);font-size:14px;text-align:center;padding:20px 0}
+@media (max-width:640px){
+  .legal-card{padding:32px 24px}
+}
 </style>
 </head>
 <body>
@@ -615,24 +639,19 @@ input{font-family:inherit}
 </div>
 
 <header class="page-header container">
-  <div class="eyebrow mono" id="paketEyebrow">Keanggotaan CIBN PRESTISE</div>
-  <h1 class="serif reveal" id="paketTitle">Temukan Paket yang Tepat</h1>
-  <p class="reveal reveal-delay-1" id="paketDesc">Cari berdasarkan nama paket atau fitur yang Anda butuhkan — dari fondasi dasar hingga pendampingan privat.</p>
-  <div class="search-wrap reveal reveal-delay-2">
-    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
-    <input type="text" id="pkgSearch" placeholder="Cari paket, misal: mentorship, sinyal harian...">
-  </div>
-  <div class="result-count" id="pkgCount"></div>
+  <div class="eyebrow mono" id="legalEyebrow">Legal</div>
+  <h1 class="serif reveal" id="legalTitle">Syarat & Ketentuan</h1>
+  <div class="legal-updated" id="legalUpdated" style="display:none"></div>
 </header>
 
-<section class="section" style="padding-top:20px" id="pakets">
+<section class="section legal-section">
   <div class="blob blob-gold" style="width:340px;height:340px;top:20px;left:-80px"></div>
   <div class="blob blob-emerald" style="width:300px;height:300px;bottom:0;right:-60px"></div>
   <div class="container">
-    <div class="paket-page-grid" id="pkgGrid"></div>
-    <div class="empty-state" id="pkgEmpty" style="display:none">
-      <b>Tidak ada paket ditemukan</b>
-      Coba kata kunci lain, misalnya "pro" atau "privat".
+    <div class="glass legal-card reveal">
+      <div class="legal-content" id="legalContent">
+        <p class="legal-empty" id="legalEmpty">Konten Syarat & Ketentuan belum diisi oleh admin.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -684,103 +703,6 @@ input{font-family:inherit}
     </div>
   </div>
 </footer>
-
-<script>
-// Paket diambil dari data ASLI (/api/pakets/public — tabel `pakets` di database,
-// dikelola admin lewat menu Keuangan). Tidak ada lagi data statis di sini.
-let PACKAGES = [];
-function mapPaketRow(p) {
-  const hasHarga = p.harga && Number(p.harga) > 0;
-  return {
-    id: p.kode,
-    name: p.nama,
-    tag: p.popular ? 'Paling Diminati' : '',
-    price: hasHarga ? ('Rp ' + Number(p.harga).toLocaleString('id-ID')) : 'Hubungi Kami',
-    period: hasHarga ? (p.periode || ('/' + (p.periode_tipe || 'bulan'))) : '',
-    desc: p.deskripsi || '',
-    features: Array.isArray(p.fitur) ? p.fitur : [],
-    featured: !!p.popular
-  };
-}
-async function loadRealPackages() {
-  try {
-    const res = await fetch(window.location.origin + '/api/pakets/public');
-    const rows = await res.json();
-    PACKAGES = (rows || []).map(mapPaketRow);
-  } catch (e) { PACKAGES = []; }
-  return PACKAGES;
-}
-
-// Testimoni belum punya tabel database tersendiri — tetap konten statis (materi
-// marketing), sama seperti di testimoni.html.
-const TESTIMONIALS = [
-  {
-    id: 1,
-    name: "Raka Adiputra",
-    role: "Trader Retail, Surabaya",
-    accepted: "Bergabung sejak 2023",
-    photo: "https://i.pravatar.cc/300?img=13",
-    quote: "Pendampingan di CIBN PRESTISE mengubah cara saya membaca pasar. Analisisnya tajam dan disiplin risikonya benar-benar ditekankan."
-  },
-  {
-    id: 2,
-    name: "Amelia Putri",
-    role: "Konsultan Keuangan, Jakarta",
-    accepted: "Diterima di Elite Circle",
-    photo: "https://i.pravatar.cc/300?img=32",
-    quote: "Kualitas risetnya di atas rata-rata. Setiap sinyal disertai alasan yang jelas, bukan sekadar rekomendasi tanpa konteks."
-  },
-  {
-    id: 3,
-    name: "Bima Prasetyo",
-    role: "Trader Purnawaktu, Bandung",
-    accepted: "Alumni Private Mentorship",
-    photo: "https://i.pravatar.cc/300?img=51",
-    quote: "Mentorship privatnya sangat personal. Strategi saya benar-benar disesuaikan dengan gaya trading dan toleransi risiko saya sendiri."
-  },
-  {
-    id: 4,
-    name: "Sarah Wijaya",
-    role: "Pemilik Bisnis, Semarang",
-    accepted: "Bergabung sejak 2024",
-    photo: "https://i.pravatar.cc/300?img=45",
-    quote: "Komunitasnya suportif dan materinya runtut. Sebagai pemula saya merasa terbimbing, bukan dilepas begitu saja."
-  },
-  {
-    id: 5,
-    name: "Dimas Nugroho",
-    role: "Trader Institusi, Jakarta",
-    accepted: "Diterima di Prestise Pro",
-    photo: "https://i.pravatar.cc/300?img=60",
-    quote: "Kecepatan dan akurasi sinyal real-time-nya membantu saya mengambil keputusan lebih percaya diri di jam-jam sibuk pasar."
-  },
-  {
-    id: 6,
-    name: "Nadia Kirana",
-    role: "Freelancer & Investor, Yogyakarta",
-    accepted: "Bergabung sejak 2022",
-    photo: "https://i.pravatar.cc/300?img=47",
-    quote: "Tiga tahun bersama CIBN PRESTISE, laporan performa berkala benar-benar membantu saya mengevaluasi progres secara objektif."
-  },
-  {
-    id: 7,
-    name: "Fajar Ramadhan",
-    role: "Trader Retail, Medan",
-    accepted: "Bergabung sejak 2024",
-    photo: "https://i.pravatar.cc/300?img=14",
-    quote: "Indikator premiumnya presisi dan mudah dipahami meski saya bukan latar belakang finansial."
-  },
-  {
-    id: 8,
-    name: "Clara Situmorang",
-    role: "Manajer Investasi, Jakarta",
-    accepted: "Diterima di Elite Circle",
-    photo: "https://i.pravatar.cc/300?img=44",
-    quote: "Ruang diskusi privatnya diisi orang-orang serius. Kualitas percakapannya jauh di atas grup trading pada umumnya."
-  }
-];
-
-</script>
 <script>
 // ===== Navbar scroll state =====
 const navbar = document.querySelector('.navbar');
@@ -988,80 +910,33 @@ if (footerSpot) {
 }
 
 </script>
+
 <script>
-  const pkgGrid = document.getElementById('pkgGrid');
-  const pkgEmpty = document.getElementById('pkgEmpty');
-  const pkgCount = document.getElementById('pkgCount');
-  const pkgSearch = document.getElementById('pkgSearch');
-
-  // Bento (list lengkap/tanpa filter): kolomnya 3 di desktop, 2 di mobile —
-  // dipecah round-robin (item ke-0,3,6.. kolom1; ke-1,4,7.. kolom2; dst) biar
-  // tiap kolom flex ngalir sendiri2 (tinggi independen, gak dipaksa sejajar).
-  const PKG_BENTO_MQ = window.matchMedia('(max-width: 960px)');
-
-  function pkgCardHTML(p) {
-    return `
-      <div class="pkg-card tilt-card filter-item ${p.featured ? 'featured' : ''}">
-        ${p.featured ? '<div class="pkg-badge">' + p.tag + '</div>' : ''}
-        <div class="pkg-name serif">${p.name}</div>
-        <p class="pkg-desc">${p.desc}</p>
-        <div class="pkg-price"><b>${p.price}</b> <span>${p.period}</span></div>
-        <ul class="pkg-features">${p.features.map(f => `<li>${f}</li>`).join('')}</ul>
-        <div class="pkg-cta" onclick="location.href='info-paket.html?id=${p.id}'">Pilih Paket</div>
-      </div>`;
+  // ===== Konten halaman ini diisi admin (menu Editor Landing > Legal) =====
+  function renderLegalText(text, containerId, emptyId) {
+    const el = document.getElementById(containerId);
+    const empty = document.getElementById(emptyId);
+    if (!el) return;
+    if (!text) { if (empty) empty.style.display = 'block'; return; }
+    if (empty) empty.remove();
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const blocks = text.split(/\n\s*\n/);
+    el.innerHTML = blocks.map(b => {
+      b = b.trim();
+      if (!b) return '';
+      if (b.startsWith('## ')) return `<h3>${esc(b.slice(3).trim())}</h3>`;
+      return `<p>${esc(b).replace(/\n/g, '<br>')}</p>`;
+    }).join('');
   }
 
-  function renderBentoColumns(list) {
-    const cols = PKG_BENTO_MQ.matches ? 2 : 3;
-    const colsHTML = Array.from({ length: cols }, () => []);
-    list.forEach((p, i) => colsHTML[i % cols].push(pkgCardHTML(p)));
-    pkgGrid.innerHTML = colsHTML
-      .map(col => `<div class="paket-bento-col">${col.join('')}</div>`)
-      .join('');
-  }
-
-  function renderPackages(list) {
-    const isBento = list === PACKAGES;
-    pkgGrid.classList.toggle('bento', isBento);
-    if (isBento) {
-      renderBentoColumns(list);
-    } else {
-      pkgGrid.innerHTML = list.map(pkgCardHTML).join('');
-    }
-    pkgEmpty.style.display = list.length ? 'none' : 'block';
-    pkgCount.textContent = list.length ? `Menampilkan ${list.length} dari ${PACKAGES.length} paket` : '';
-    attachTilt(pkgGrid);
-  }
-
-  // render ulang susunan kolom bento saat lewat breakpoint mobile/desktop
-  PKG_BENTO_MQ.addEventListener('change', () => {
-    if (pkgGrid.classList.contains('bento')) renderPackages(PACKAGES);
-  });
-
-  function filterPackages(query) {
-    const q = query.trim().toLowerCase();
-    if (!q) return PACKAGES;
-    return PACKAGES.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      p.tag.toLowerCase().includes(q) ||
-      p.desc.toLowerCase().includes(q) ||
-      p.features.some(f => f.toLowerCase().includes(q))
-    );
-  }
-
-  pkgSearch.addEventListener('input', (e) => renderPackages(filterPackages(e.target.value)));
-  pkgGrid.innerHTML = '<div class="empty-state">Memuat data paket...</div>';
-  loadRealPackages().then(() => renderPackages(PACKAGES));
-</script>
-<script>
-  // ===== Konten halaman ini yang bisa diatur admin (menu Editor Landing > Paket) =====
-  // Kalau admin belum pernah mengisi field-nya, teks default di HTML di atas tetap dipakai.
   fetch(window.location.origin + '/api/landing').then(r => r.json()).then(d => {
-    if (!d || !d.paket) return;
+    if (!d || !d.legalSyarat) return;
+    const t = d.legalSyarat;
     const setText = (id, val) => { if (val) { const el = document.getElementById(id); if (el) el.textContent = val; } };
-    setText('paketEyebrow', d.paket.eyebrow);
-    setText('paketTitle', d.paket.title);
-    setText('paketDesc', d.paket.desc);
+    setText('legalEyebrow', t.eyebrow);
+    setText('legalTitle', t.title);
+    if (t.updated) { const u = document.getElementById('legalUpdated'); if (u) { u.textContent = t.updated; u.style.display = 'inline-block'; } }
+    renderLegalText(t.content, 'legalContent', 'legalEmpty');
   }).catch(() => {});
 </script>
 </body>

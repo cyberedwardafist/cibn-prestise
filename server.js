@@ -379,18 +379,125 @@ app.post('/api/login', ah(async (req, res) => {
     res.json({ token, user: { kode: user.kode, nama: user.nama, email: user.email, role: user.role } });
 }));
 
+// Catatan alur baru (landing "animation frame"): akun langsung AKTIF begitu
+// daftar (bisa langsung login), TIDAK lagi masuk antrian signup_requests.
+// Kalau user memilih paket saat daftar, itu dicatat sebagai permintaan aktivasi
+// paket terpisah (paket_requests) yang menunggu verifikasi admin — akun tetap
+// bisa dipakai login walau paketnya belum aktif. Endpoint signup_requests/
+// approve/reject lama TETAP dibiarkan ada (tidak dihapus) untuk kompatibilitas
+// data lama, tapi alur baru ini tidak lagi menulis ke tabel itu.
 app.post('/api/signup', ah(async (req, res) => {
-    const { nama, email, password, paket_nama } = req.body;
+    const { nama, email, password } = req.body;
     if (!nama || !email || !password) return res.status(400).json({ error: 'Data tidak lengkap' });
+    if (String(password).length < 8) return res.status(400).json({ error: 'Kata sandi minimal 8 karakter' });
     try {
-        if (await db.prepare('SELECT id FROM signup_requests WHERE email=?').get(email))
-            return res.status(400).json({ error: 'Email sudah mendaftar' });
         if (await db.prepare('SELECT id FROM users WHERE email=?').get(email))
             return res.status(400).json({ error: 'Email sudah terdaftar' });
         const hash = bcrypt.hashSync(password, 10);
-        await db.prepare('INSERT INTO signup_requests (nama,email,password,paket_nama) VALUES (?,?,?,?)').run(nama, email, hash, paket_nama || null);
-        res.json({ message: 'Pendaftaran berhasil. Menunggu aktivasi admin.' });
+        const kode = await genKode('USR', 'users');
+        await db.prepare('INSERT INTO users (kode,nama,email,password,role,status) VALUES (?,?,?,?,?,?)')
+            .run(kode, nama, email, hash, 'user', 'aktif');
+        // Catatan: pemilihan/aktivasi paket TIDAK lagi ditulis di sini. Kalau user
+        // memilih paket saat daftar, permintaan aktivasinya baru dibuat di halaman
+        // pembayaran.html/qris.html (lewat POST /api/user/paket-requests) setelah
+        // token login di bawah ini dipakai — supaya akun-baru maupun akun-lama yang
+        // login ulang untuk beli/perpanjang paket sama-sama lewat satu jalur yang sama.
+        const token = jwt.sign({ id: kode, kode, email, nama, role: 'user' }, JWT_SECRET, { expiresIn: '7d' });
+        res.json({ message: 'Pendaftaran berhasil. Akun Anda sudah aktif.', token, user: { kode, nama, email, role: 'user' } });
     } catch (e) { res.status(500).json({ error: e.message }); }
+}));
+
+// Permintaan aktivasi paket dari user yang SUDAH login (mis. login lalu pilih
+// paket, atau ganti/perpanjang paket) — dipakai oleh pembayaran.html/qris.html.
+app.post('/api/user/paket-requests', auth(['user','admin','review']), ah(async (req, res) => {
+    const { paket_kode, paket_nama, metode_bayar } = req.body;
+    if (!paket_kode && !paket_nama) return res.status(400).json({ error: 'Paket wajib dipilih' });
+    let namaFinal = paket_nama || null;
+    if (paket_kode) {
+        const p = await db.prepare('SELECT nama FROM pakets WHERE kode=?').get(paket_kode);
+        if (p) namaFinal = p.nama;
+    }
+    if (!namaFinal) return res.status(400).json({ error: 'Paket tidak ditemukan' });
+    const kode = await genKode('PREQ', 'paket_requests');
+    await db.prepare('INSERT INTO paket_requests (kode,user_kode,paket_kode,paket_nama,metode_bayar,status) VALUES (?,?,?,?,?,?)')
+        .run(kode, req.user.kode, paket_kode || null, namaFinal, metode_bayar || null, 'pending');
+    res.json({ kode, message: 'Konfirmasi pembayaran diterima. Menunggu verifikasi admin untuk mengaktifkan paket.' });
+}));
+
+// ── Admin: daftar & verifikasi permintaan aktivasi paket ──
+app.get('/api/paket-requests', auth(['admin']), ah(async (req, res) => {
+    res.json(await db.prepare(`SELECT pr.*, u.nama as user_nama, u.email as user_email FROM paket_requests pr LEFT JOIN users u ON pr.user_kode=u.kode WHERE pr.status='pending' ORDER BY pr.created_at DESC`).all());
+}));
+app.post('/api/paket-requests/:kode/approve', auth(['admin']), ah(async (req, res) => {
+    const r = await db.prepare('SELECT * FROM paket_requests WHERE kode=?').get(req.params.kode);
+    if (!r) return res.status(404).json({ error: 'Tidak ditemukan' });
+    try {
+        await transaction(async (tdb) => {
+            const paket = r.paket_kode ? await tdb.prepare('SELECT * FROM pakets WHERE kode=?').get(r.paket_kode) : null;
+            if (paket) {
+                const { mulai, akhir } = await hitungMulaiAkhirPaket(r.user_kode, r.paket_kode, paket.periode_hari);
+                const upKode = await genKode('UP', 'user_pakets');
+                await tdb.prepare('INSERT INTO user_pakets (kode,user_kode,paket_kode,paket_nama,periode_hari,mulai,akhir,status) VALUES (?,?,?,?,?,?,?,?)')
+                    .run(upKode, r.user_kode, r.paket_kode, paket.nama, paket.periode_hari, mulai, akhir, 'aktif');
+            } else {
+                // Paket custom/tanpa kode template (mis. "Hubungi Kami") — aktifkan manual 30 hari.
+                const today = new Date(); const mulai = today.toISOString().split('T')[0];
+                const ak = new Date(today); ak.setDate(ak.getDate() + 29);
+                await upsertManualPaket(tdb, r.user_kode, r.paket_nama, mulai, ak.toISOString().split('T')[0]);
+            }
+            await syncUserPaketLegacy(r.user_kode, tdb);
+            await tdb.prepare(`UPDATE paket_requests SET status='aktif' WHERE kode=?`).run(r.kode);
+        });
+        res.json({ message: 'Paket berhasil diaktifkan' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+}));
+app.delete('/api/paket-requests/:kode', auth(['admin']), ah(async (req, res) => {
+    await db.prepare(`UPDATE paket_requests SET status='ditolak' WHERE kode=?`).run(req.params.kode);
+    res.json({ message: 'Ditolak' });
+}));
+
+// ── Lupa kata sandi via OTP (halaman otp.html) ──
+// PENTING: belum ada layanan email/SMTP terpasang di server ini. Kode OTP
+// dicatat ke console.log server sebagai pengganti sementara — sambungkan ke
+// layanan email asli (mis. nodemailer + SMTP) tepat di baris console.log di
+// bawah begitu kredensialnya tersedia.
+function genOtp() { return String(Math.floor(100000 + Math.random() * 900000)); }
+
+app.post('/api/password/forgot', ah(async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email wajib diisi' });
+    const user = await db.prepare('SELECT kode FROM users WHERE email=?').get(email);
+    if (user) {
+        const otp = genOtp();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+        await db.prepare('INSERT INTO password_resets (email,otp,expires_at) VALUES (?,?,?)').run(email, otp, expiresAt);
+        console.log(`[OTP] Kode reset kata sandi untuk ${email}: ${otp} (berlaku 10 menit)`);
+    }
+    // Selalu balas sukses (tidak membocorkan apakah email terdaftar atau tidak).
+    res.json({ message: 'Jika email terdaftar, kode OTP telah dikirim.' });
+}));
+
+app.post('/api/password/verify-otp', ah(async (req, res) => {
+    const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ error: 'Data tidak lengkap' });
+    const row = await db.prepare('SELECT * FROM password_resets WHERE email=? AND otp=? ORDER BY id DESC LIMIT 1').get(email, otp);
+    if (!row) return res.status(400).json({ error: 'Kode OTP salah' });
+    if (new Date(row.expires_at) < new Date()) return res.status(400).json({ error: 'Kode OTP sudah kedaluwarsa' });
+    await db.prepare('UPDATE password_resets SET verified=1 WHERE id=?').run(row.id);
+    res.json({ message: 'Kode terverifikasi' });
+}));
+
+app.post('/api/password/reset', ah(async (req, res) => {
+    const { email, otp, password } = req.body;
+    if (!email || !otp || !password) return res.status(400).json({ error: 'Data tidak lengkap' });
+    if (String(password).length < 8) return res.status(400).json({ error: 'Kata sandi minimal 8 karakter' });
+    const row = await db.prepare('SELECT * FROM password_resets WHERE email=? AND otp=? AND verified=1 ORDER BY id DESC LIMIT 1').get(email, otp);
+    if (!row) return res.status(400).json({ error: 'Verifikasi OTP terlebih dahulu' });
+    if (new Date(row.expires_at) < new Date()) return res.status(400).json({ error: 'Kode OTP sudah kedaluwarsa' });
+    const hash = bcrypt.hashSync(password, 10);
+    await db.prepare('UPDATE users SET password=? WHERE email=?').run(hash, email);
+    await db.prepare('DELETE FROM password_resets WHERE email=?').run(email);
+    res.json({ message: 'Kata sandi berhasil diubah' });
 }));
 
 app.get('/api/users/:role', auth(['admin']), ah(async (req, res) => {
@@ -1185,8 +1292,8 @@ LAZY_MODULES.forEach((mod) => {
 app.use(express.static(__dirname));
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use('/js',  express.static(path.join(__dirname, 'js')));
-app.get('/login.html', (req, res) => res.redirect('/landing.html'));
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'landing.html')));
+app.get('/login.html', (req, res) => res.redirect('/masuk.html'));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 app.use((req, res) => res.status(404).json({ error: 'Endpoint tidak ditemukan' }));
 app.use((err, req, res, next) => {

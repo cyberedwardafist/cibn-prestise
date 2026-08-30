@@ -5,7 +5,7 @@ function renderAkunSub(sub){
     if (typeof _persistAdminNav === 'function') _persistAdminNav();
     document.querySelectorAll('#page-akun .sub-tab').forEach(t=>t.classList.toggle('active',t.dataset.sub===sub));
     document.querySelectorAll('#page-akun .sub-page').forEach(p=>p.classList.toggle('active',p.id===`sub-akun-${sub}`));
-    if(sub==='admin')renderAdminList();else if(sub==='review')renderReviewList();else if(sub==='user')renderUserList();else if(sub==='signup')renderSignupRequests();
+    if(sub==='admin')renderAdminList();else if(sub==='review')renderReviewList();else if(sub==='user')renderUserList();else if(sub==='signup')renderSignupRequests();else if(sub==='paket-req')renderPaketRequests();
 }
 
 // ── ADMIN LIST ──

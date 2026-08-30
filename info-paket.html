@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Paket Keanggotaan — CIBN PRESTISE</title>
+<title>Info Paket — CIBN PRESTISE</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -475,43 +475,21 @@ input{font-family:inherit}
 .empty-state{text-align:center;padding:60px 20px;color:var(--text-dim);position:relative;z-index:2}
 .empty-state b{display:block;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:20px;margin-bottom:8px}
 
-@media (max-width:640px){
-  .page-header.container{padding-left:24px;padding-right:24px}
-  .search-wrap{padding:0 8px}
-}
-
 /* ---------- PAKET PAGE GRID (plain by default; bento when showing full unfiltered set) ---------- */
 .paket-page-grid{
   display:grid;grid-template-columns:repeat(3,1fr);gap:24px;perspective:1200px;
   margin-top:60px;position:relative;z-index:1;
 }
-/* BENTO (list lengkap, tanpa filter/search): masonry/pinterest-style — dipecah jadi
-   beberapa kolom flex yang ngalir independen (dibangun via JS, lihat renderPackages),
-   supaya box pendek gak dipaksa nyamain tinggi box di sampingnya, cuma jaraknya (gap)
-   yang konsisten. Sama persis di desktop maupun mobile, cuma jumlah kolomnya beda. */
 .paket-page-grid.bento{
-  display:flex;gap:24px;align-items:flex-start;margin-top:60px;
+  grid-template-columns:1fr 1.25fr 1fr;grid-template-rows:repeat(2,minmax(210px,auto));
 }
-.paket-bento-col{
-  flex:1;min-width:0;display:flex;flex-direction:column;gap:24px;
-}
+.paket-page-grid.bento .pkg-card:nth-child(1){grid-column:1;grid-row:1}
+.paket-page-grid.bento .pkg-card:nth-child(2){grid-column:2;grid-row:1/3}
+.paket-page-grid.bento .pkg-card:nth-child(3){grid-column:3;grid-row:1}
+.paket-page-grid.bento .pkg-card:nth-child(4){grid-column:1;grid-row:2}
 @media (max-width:960px){
-  /* mobile: tetap minimal 2 kolom (bukan 1 kolom penuh) */
-  .paket-page-grid{grid-template-columns:repeat(2,1fr);grid-template-rows:auto;gap:14px}
-  .paket-page-grid.bento{gap:14px}
-  .paket-bento-col{gap:14px}
-}
-@media (max-width:640px){
-  .paket-page-grid .pkg-card{padding:20px 15px}
-  .paket-page-grid .pkg-name{font-size:16px}
-  .paket-page-grid .pkg-desc{font-size:11px;min-height:0;margin-top:6px}
-  .paket-page-grid .pkg-price{margin-top:14px}
-  .paket-page-grid .pkg-price b{font-size:20px}
-  .paket-page-grid .pkg-price span{font-size:10px}
-  .paket-page-grid .pkg-features{margin-top:14px}
-  .paket-page-grid .pkg-features li{font-size:10.5px;padding:6px 0;gap:6px}
-  .paket-page-grid .pkg-badge{font-size:8px;padding:4px 9px;top:-9px;right:12px}
-  .paket-page-grid .pkg-cta{padding:10px;font-size:9.5px;margin-top:16px}
+  .paket-page-grid,.paket-page-grid.bento{grid-template-columns:1fr;grid-template-rows:auto}
+  .paket-page-grid.bento .pkg-card{grid-column:1 !important;grid-row:auto !important}
 }
 
 /* ---------- TESTIMONI PAGE ---------- */
@@ -571,6 +549,60 @@ input{font-family:inherit}
 .filter-item{animation:fadeUp .5s var(--ease)}
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 
+/* ---------- INFO PAKET (halaman detail) ---------- */
+.info-header{padding-top:150px;position:relative;z-index:2}
+.back-arrow{
+  display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;
+  color:var(--text-dim);padding:10px 18px 10px 14px;border-radius:999px;
+  border:1px solid var(--glass-border-hover);background:var(--glass-bg);
+  backdrop-filter:blur(12px);transition:all .3s var(--ease);
+}
+.back-arrow svg{width:16px;height:16px;transition:transform .3s var(--ease)}
+.back-arrow:hover{color:var(--blue);border-color:var(--blue);transform:translateX(-2px)}
+.back-arrow:hover svg{transform:translateX(-3px)}
+
+.info-section{position:relative;padding:36px 0 110px;overflow:hidden}
+.info-grid{
+  display:grid;grid-template-columns:1.35fr 1fr;gap:36px;align-items:start;
+  position:relative;z-index:2;margin-top:34px;
+}
+.info-main{padding:44px 44px 40px;position:relative}
+.info-main .pkg-badge{position:absolute;top:-13px;right:36px}
+.info-tag{
+  display:inline-flex;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--blue);background:rgba(44,90,160,.1);border:1px solid rgba(44,90,160,.3);
+  padding:6px 14px;border-radius:999px;margin-bottom:18px;
+}
+.info-name{font-family:'Space Grotesk',sans-serif;font-size:clamp(28px,3.6vw,40px);font-weight:700;color:var(--text)}
+.info-desc{margin-top:14px;font-size:15px;color:var(--text-dim);line-height:1.8;max-width:560px}
+.info-divider{height:1px;background:var(--glass-border);margin:30px 0}
+.info-block-title{
+  font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--blue-dim);margin-bottom:18px;
+}
+.info-features{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px}
+.info-features li{
+  display:flex;align-items:flex-start;gap:12px;font-size:14.5px;color:var(--text);line-height:1.6;
+}
+.info-features li svg{width:18px;height:18px;flex-shrink:0;margin-top:1px;stroke:var(--blue);stroke-width:2}
+@media (max-width:600px){.info-features{grid-template-columns:1fr}}
+
+.info-side{position:sticky;top:110px;padding:36px 32px 32px}
+.info-price-tag{margin-bottom:6px}
+.info-price-tag b{font-family:'Space Grotesk',sans-serif;font-size:38px;color:var(--blue)}
+.info-price-tag span{font-size:13px;color:var(--text-dim)}
+.info-side-note{font-size:13px;color:var(--text-dim);margin:16px 0 24px;line-height:1.7}
+.info-side .btn{margin-bottom:12px}
+.info-mini-points{margin-top:22px;display:flex;flex-direction:column;gap:14px}
+.info-mini-point{display:flex;align-items:flex-start;gap:12px;font-size:13px;color:var(--text-dim)}
+.info-mini-point svg{width:17px;height:17px;flex-shrink:0;margin-top:1px;stroke:var(--cream-dim);stroke-width:1.8}
+
+@media (max-width:960px){
+  .info-grid{grid-template-columns:1fr}
+  .info-side{position:relative;top:auto;order:-1}
+  .info-main{padding:34px 26px 30px}
+}
+
 
 /* ---------- SECTION 2 -> 3 OVERLAP TRANSITION (teknologi stays pinned, testimoni preview slides over it) ---------- */
 #teknologi.section{
@@ -614,25 +646,19 @@ input{font-family:inherit}
   <a href="masuk.html" data-page="masuk.html">LogIn</a>
 </div>
 
-<header class="page-header container">
-  <div class="eyebrow mono" id="paketEyebrow">Keanggotaan CIBN PRESTISE</div>
-  <h1 class="serif reveal" id="paketTitle">Temukan Paket yang Tepat</h1>
-  <p class="reveal reveal-delay-1" id="paketDesc">Cari berdasarkan nama paket atau fitur yang Anda butuhkan — dari fondasi dasar hingga pendampingan privat.</p>
-  <div class="search-wrap reveal reveal-delay-2">
-    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
-    <input type="text" id="pkgSearch" placeholder="Cari paket, misal: mentorship, sinyal harian...">
-  </div>
-  <div class="result-count" id="pkgCount"></div>
+<header class="info-header container">
+  <a href="paket.html" class="back-arrow" id="backArrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    Kembali
+  </a>
 </header>
 
-<section class="section" style="padding-top:20px" id="pakets">
+<section class="info-section" id="infoPaket">
   <div class="blob blob-gold" style="width:340px;height:340px;top:20px;left:-80px"></div>
   <div class="blob blob-emerald" style="width:300px;height:300px;bottom:0;right:-60px"></div>
   <div class="container">
-    <div class="paket-page-grid" id="pkgGrid"></div>
-    <div class="empty-state" id="pkgEmpty" style="display:none">
-      <b>Tidak ada paket ditemukan</b>
-      Coba kata kunci lain, misalnya "pro" atau "privat".
+    <div class="info-grid" id="infoGrid">
+      <!-- diisi via JS berdasarkan ?id= paket -->
     </div>
   </div>
 </section>
@@ -850,7 +876,8 @@ REDUCE_3D_MQ.addEventListener('change', (e) => { REDUCE_3D = e.matches; });
 function registerScrub(el) {
   if (el._scrubRegistered) return;
   el._scrubRegistered = true;
-  el._hoverLift = 0;
+  el._hoverRX = 0;
+  el._hoverRY = 0;
   scrubEls.push(el);
 }
 
@@ -871,19 +898,19 @@ function scrubProgress(el) {
 function applyScrub(el, p) {
   const opacity = Math.max(0, Math.min(1, (p - 0.02) / 0.9));
   el.style.opacity = opacity;
-  const lift = el._hoverLift || 0; // hover: cuma naik/turun, tanpa tilt 3D ikut kursor
   if (REDUCE_3D) {
     // versi ringan utk mobile: cuma naik + fade, tanpa perspective/translateZ
-    const ty = (1 - p) * 28 + lift;
+    const ty = (1 - p) * 28;
     el.style.transform = `translateY(${ty.toFixed(1)}px)`;
   } else {
     const rotate = (1 - p) * -18;      // deg, tips back in 3D space
-    const ty = (1 - p) * 74 + lift;    // px, rises into place (+ hover lift)
+    const ty = (1 - p) * 74;           // px, rises into place
     const tz = (1 - p) * -180;         // px, comes forward out of depth
     const scale = 0.9 + p * 0.1;
     el.style.transform =
       `translateY(${ty.toFixed(1)}px) translateZ(${tz.toFixed(1)}px) ` +
-      `rotateX(${rotate.toFixed(2)}deg) scale(${scale.toFixed(3)})`;
+      `rotateX(${rotate.toFixed(2)}deg) scale(${scale.toFixed(3)}) ` +
+      `rotateY(${(el._hoverRY || 0).toFixed(2)}deg) rotateX(${(el._hoverRX || 0).toFixed(2)}deg)`;
   }
   el.classList.toggle('in-view', p > 0.04);
 }
@@ -931,9 +958,18 @@ function attachTilt(root = document) {
   cards.forEach(card => {
     if (card.dataset.tiltBound) return;
     card.dataset.tiltBound = '1';
-    const lift = 10; // px, naik saat di-hover
-    card.addEventListener('mouseenter', () => { card._hoverLift = -lift; });
-    card.addEventListener('mouseleave', () => { card._hoverLift = 0; });
+    const strength = 14;
+    card.addEventListener('mousemove', (e) => {
+      const rect = card.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      card._hoverRY = x * strength;
+      card._hoverRX = -y * strength;
+    });
+    card.addEventListener('mouseleave', () => {
+      card._hoverRX = 0;
+      card._hoverRY = 0;
+    });
   });
 }
 attachTilt();
@@ -989,80 +1025,82 @@ if (footerSpot) {
 
 </script>
 <script>
-  const pkgGrid = document.getElementById('pkgGrid');
-  const pkgEmpty = document.getElementById('pkgEmpty');
-  const pkgCount = document.getElementById('pkgCount');
-  const pkgSearch = document.getElementById('pkgSearch');
+  const infoGrid = document.getElementById('infoGrid');
+  const backArrow = document.getElementById('backArrow');
 
-  // Bento (list lengkap/tanpa filter): kolomnya 3 di desktop, 2 di mobile —
-  // dipecah round-robin (item ke-0,3,6.. kolom1; ke-1,4,7.. kolom2; dst) biar
-  // tiap kolom flex ngalir sendiri2 (tinggi independen, gak dipaksa sejajar).
-  const PKG_BENTO_MQ = window.matchMedia('(max-width: 960px)');
+  // Kalau ada riwayat halaman dalam situs yang sama (mis. datang dari paket.html),
+  // panah kembali pakai history.back() supaya lebih natural. Kalau diakses langsung,
+  // href="paket.html" pada tag <a> tetap jadi fallback yang aman.
+  if (document.referrer && document.referrer.includes(location.host) && window.history.length > 1) {
+    backArrow.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.history.back();
+    });
+  }
 
-  function pkgCardHTML(p) {
-    return `
-      <div class="pkg-card tilt-card filter-item ${p.featured ? 'featured' : ''}">
+  function getPackageIdFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('id');
+  }
+
+  function renderInfo(p) {
+    document.title = `${p.name} — Info Paket — CIBN PRESTISE`;
+    infoGrid.innerHTML = `
+      <div class="info-main glass reveal">
         ${p.featured ? '<div class="pkg-badge">' + p.tag + '</div>' : ''}
-        <div class="pkg-name serif">${p.name}</div>
-        <p class="pkg-desc">${p.desc}</p>
-        <div class="pkg-price"><b>${p.price}</b> <span>${p.period}</span></div>
-        <ul class="pkg-features">${p.features.map(f => `<li>${f}</li>`).join('')}</ul>
-        <div class="pkg-cta" onclick="location.href='info-paket.html?id=${p.id}'">Pilih Paket</div>
+        <div class="info-tag mono">${p.tag}</div>
+        <h1 class="info-name">${p.name}</h1>
+        <p class="info-desc">${p.desc}</p>
+        <div class="info-divider"></div>
+        <div class="info-block-title">Apa saja yang Anda dapatkan</div>
+        <ul class="info-features">
+          ${p.features.map(f => `
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>${f}</span>
+            </li>`).join('')}
+        </ul>
+      </div>
+      <div class="info-side glass reveal reveal-delay-1">
+        <div class="eyebrow mono">Ringkasan Paket</div>
+        <div class="info-price-tag"><b>${p.price}</b> <span>${p.period}</span></div>
+        <p class="info-side-note">Aktivasi instan setelah pembayaran terverifikasi. Anda bisa naik atau turun paket kapan saja.</p>
+        <button class="btn btn-gold btn-block" id="berlanggananBtn">Berlangganan</button>
+        <a href="paket.html" class="btn btn-ghost btn-block">Lihat Paket Lain</a>
+        <div class="info-mini-points">
+          <div class="info-mini-point">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5l-8-3z" stroke-linejoin="round"/></svg>
+            <span>Transaksi aman & terenkripsi</span>
+          </div>
+          <div class="info-mini-point">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3" stroke-linecap="round"/></svg>
+            <span>Tanpa kontrak jangka panjang</span>
+          </div>
+          <div class="info-mini-point">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="9"/></svg>
+            <span>Dukungan tim CIBN PRESTISE</span>
+          </div>
+        </div>
       </div>`;
+
+    document.getElementById('berlanggananBtn').addEventListener('click', () => {
+      window.location.href = `daftar.html?paket=${encodeURIComponent(p.name)}&harga=${encodeURIComponent((p.price||'')+' '+(p.period||''))}`;
+    });
+
+    observeReveal(infoGrid);
+    attachTilt(infoGrid);
   }
 
-  function renderBentoColumns(list) {
-    const cols = PKG_BENTO_MQ.matches ? 2 : 3;
-    const colsHTML = Array.from({ length: cols }, () => []);
-    list.forEach((p, i) => colsHTML[i % cols].push(pkgCardHTML(p)));
-    pkgGrid.innerHTML = colsHTML
-      .map(col => `<div class="paket-bento-col">${col.join('')}</div>`)
-      .join('');
-  }
-
-  function renderPackages(list) {
-    const isBento = list === PACKAGES;
-    pkgGrid.classList.toggle('bento', isBento);
-    if (isBento) {
-      renderBentoColumns(list);
-    } else {
-      pkgGrid.innerHTML = list.map(pkgCardHTML).join('');
+  infoGrid.innerHTML = '<div class="empty-state">Memuat data paket...</div>';
+  loadRealPackages().then(() => {
+    if (!PACKAGES.length) {
+      infoGrid.innerHTML = '<div class="empty-state">Belum ada paket tersedia saat ini.</div>';
+      return;
     }
-    pkgEmpty.style.display = list.length ? 'none' : 'block';
-    pkgCount.textContent = list.length ? `Menampilkan ${list.length} dari ${PACKAGES.length} paket` : '';
-    attachTilt(pkgGrid);
-  }
-
-  // render ulang susunan kolom bento saat lewat breakpoint mobile/desktop
-  PKG_BENTO_MQ.addEventListener('change', () => {
-    if (pkgGrid.classList.contains('bento')) renderPackages(PACKAGES);
+    const selectedId = getPackageIdFromUrl();
+    const selectedPackage = PACKAGES.find(p => p.id === selectedId) || PACKAGES[0];
+    renderInfo(selectedPackage);
   });
-
-  function filterPackages(query) {
-    const q = query.trim().toLowerCase();
-    if (!q) return PACKAGES;
-    return PACKAGES.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      p.tag.toLowerCase().includes(q) ||
-      p.desc.toLowerCase().includes(q) ||
-      p.features.some(f => f.toLowerCase().includes(q))
-    );
-  }
-
-  pkgSearch.addEventListener('input', (e) => renderPackages(filterPackages(e.target.value)));
-  pkgGrid.innerHTML = '<div class="empty-state">Memuat data paket...</div>';
-  loadRealPackages().then(() => renderPackages(PACKAGES));
-</script>
-<script>
-  // ===== Konten halaman ini yang bisa diatur admin (menu Editor Landing > Paket) =====
-  // Kalau admin belum pernah mengisi field-nya, teks default di HTML di atas tetap dipakai.
-  fetch(window.location.origin + '/api/landing').then(r => r.json()).then(d => {
-    if (!d || !d.paket) return;
-    const setText = (id, val) => { if (val) { const el = document.getElementById(id); if (el) el.textContent = val; } };
-    setText('paketEyebrow', d.paket.eyebrow);
-    setText('paketTitle', d.paket.title);
-    setText('paketDesc', d.paket.desc);
-  }).catch(() => {});
 </script>
 </body>
 </html>

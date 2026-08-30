@@ -5,6 +5,7 @@
     <button class="sub-tab" data-sub="review" onclick="renderAkunSub('review')">Reviewer</button>
     <button class="sub-tab" data-sub="user" onclick="renderAkunSub('user')">User</button>
     <button class="sub-tab" data-sub="signup" onclick="renderAkunSub('signup')">Pendaftaran</button>
+    <button class="sub-tab" data-sub="paket-req" onclick="renderAkunSub('paket-req')">Aktivasi Paket</button>
   </div>
   <!-- ADMIN -->
   <div class="sub-page active" id="sub-akun-admin">
@@ -52,4 +53,8 @@
   <!-- SIGNUP -->
   <div class="sub-page" id="sub-akun-signup">
     <div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap"><table><thead><tr><th>#</th><th>Nama</th><th>Email</th><th class="hide-mobile">Paket</th><th class="hide-mobile">Tgl Daftar</th><th>Aksi</th></tr></thead><tbody id="signup-req-list"></tbody></table></div><div class="swipe-list" id="signup-swipe-list"></div></div>
+  </div>
+  <!-- PAKET REQUEST (dari landing baru: akun sudah aktif, paket menunggu verifikasi pembayaran) -->
+  <div class="sub-page" id="sub-akun-paket-req">
+    <div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap"><table><thead><tr><th>#</th><th>Nama User</th><th>Email</th><th class="hide-mobile">Paket Diminta</th><th class="hide-mobile">Metode Bayar</th><th class="hide-mobile">Tgl Ajukan</th><th>Aksi</th></tr></thead><tbody id="paket-req-list"></tbody></table></div><div class="swipe-list" id="paket-req-swipe-list"></div></div>
   </div>

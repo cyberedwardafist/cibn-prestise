@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pembayaran QRIS — CIBN PRESTISE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root{
+  --bg:#f6f8fc;
+  --panel:#eef2f9;
+  --white:#ffffff;
+  --text:#15233d;
+  --text-dim:#5b6b85;
+
+  --blue:#2c5aa0;
+  --blue-light:#5c86c9;
+  --blue-dim:#4a6fa0;
+  --blue-deep:#193b6e;
+
+  --cream:#c9a961;
+  --cream-light:#e9d9ab;
+  --cream-dim:#8a7442;
+
+  --danger:#c0392b;
+
+  --line:rgba(44,90,160,0.14);
+  --line-strong:rgba(44,90,160,0.28);
+  --radius:14px;
+  --ease:cubic-bezier(.16,.84,.44,1);
+
+  --glass-bg: linear-gradient(160deg, rgba(255,255,255,0.75), rgba(255,255,255,0.40));
+  --glass-bg-hover: linear-gradient(160deg, rgba(255,255,255,0.9), rgba(255,255,255,0.58));
+  --glass-border: rgba(44,90,160,0.16);
+  --glass-border-hover: rgba(44,90,160,0.42);
+  --glass-blur: blur(22px) saturate(150%);
+  --glass-shadow: 0 1px 0 rgba(255,255,255,0.8) inset, 0 16px 34px -22px rgba(21,34,56,0.14);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;overflow-x:hidden;width:100%}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter',sans-serif;
+  font-size:16px;
+  line-height:1.6;
+  overflow-x:hidden;
+  min-height:100vh;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(44,90,160,0.10), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 20%, rgba(201,169,97,0.10), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 5% 60%, rgba(44,90,160,0.07), transparent 60%),
+    radial-gradient(ellipse 55% 45% at 80% 85%, rgba(201,169,97,0.08), transparent 60%);
+  background-attachment:fixed;
+}
+
+.serif{font-family:'Space Grotesk',sans-serif}
+.mono{font-family:'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase}
+
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+ul{list-style:none}
+
+.container{width:100%;max-width:1240px;margin:0 auto;padding:0 32px;position:relative;z-index:2}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important;scroll-behavior:auto !important}
+}
+
+/* ---------- GLASS BASE ---------- */
+.glass{
+  background:var(--glass-bg);
+  backdrop-filter:var(--glass-blur);
+  -webkit-backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-border);
+  box-shadow:var(--glass-shadow);
+}
+
+/* ---------- BACKGROUND BLOBS ---------- */
+.blob{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0}
+.blob-gold{background:radial-gradient(circle, var(--cream), transparent 70%);opacity:.16}
+.blob-emerald{background:radial-gradient(circle, var(--blue), transparent 70%);opacity:.12}
+
+/* ---------- NAVBAR ---------- */
+.navbar{position:fixed;top:18px;left:20px;right:20px;z-index:210}
+.navbar-inner{
+  max-width:1240px;margin:0 auto;padding:14px 28px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(255,255,255,0.16);
+  backdrop-filter:blur(18px) saturate(150%);
+  -webkit-backdrop-filter:blur(18px) saturate(150%);
+  border:1px solid rgba(255,255,255,0.32);
+  border-radius:999px;
+  box-shadow:0 10px 34px -16px rgba(21,34,56,0.22);
+  transition:background .4s var(--ease),border-color .4s var(--ease);
+}
+.navbar.scrolled .navbar-inner{background:rgba(255,255,255,0.4);border-color:rgba(255,255,255,0.5)}
+.brand{
+  font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(16px,2.1vw,20px);
+  letter-spacing:.06em;color:var(--blue);
+  display:flex;align-items:baseline;gap:6px;flex:0 0 auto;white-space:nowrap;
+}
+.nav-links{display:flex;gap:clamp(16px,2.6vw,44px);align-items:center}
+.nav-links a{
+  font-size:13px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text-dim);font-weight:600;position:relative;padding:6px 0;
+  transition:color .3s var(--ease);white-space:nowrap;
+}
+.nav-links a::after{
+  content:'';position:absolute;left:0;bottom:0;width:0;height:1px;background:var(--blue);
+  transition:width .35s var(--ease);
+}
+.nav-links a:hover,.nav-links a.active{color:var(--blue)}
+.nav-links a:hover::after,.nav-links a.active::after{width:100%}
+.nav-cta{
+  border:1px solid var(--glass-border-hover);padding:10px 22px;border-radius:999px;
+  font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;
+  color:var(--blue);background:var(--glass-bg);backdrop-filter:blur(12px);
+  transition:all .35s var(--ease);flex:0 0 auto;white-space:nowrap;
+}
+.nav-cta:hover{background:var(--blue);color:var(--white);border-color:var(--blue)}
+.nav-toggle{
+  display:none;width:44px;height:44px;position:relative;flex:0 0 auto;
+  border-radius:50%;background:var(--glass-bg);border:1px solid var(--glass-border-hover);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  transition:background .35s var(--ease),border-color .35s var(--ease),transform .2s var(--ease),box-shadow .35s var(--ease);
+}
+.nav-toggle:active{transform:scale(.92)}
+.nav-toggle span{
+  position:absolute;left:50%;top:50%;width:18px;height:2px;border-radius:2px;
+  background:var(--blue);
+  transition:transform .4s var(--ease),opacity .25s var(--ease),background .3s var(--ease);
+}
+.nav-toggle span:nth-child(1){transform:translate(-50%,calc(-50% - 6px))}
+.nav-toggle span:nth-child(2){transform:translate(-50%,-50%)}
+.nav-toggle span:nth-child(3){transform:translate(-50%,calc(-50% + 6px))}
+
+@media (max-width:860px){
+  .navbar{left:12px;right:12px;top:12px}
+  .navbar-inner{padding:12px 18px}
+  .nav-links{display:none}
+  .nav-cta{display:none}
+  .nav-toggle{display:block;z-index:210}
+  .nav-toggle:hover{border-color:var(--blue)}
+  .nav-toggle.open{background:var(--blue);border-color:var(--blue);box-shadow:0 8px 22px -10px rgba(44,90,160,.5)}
+  .nav-toggle.open span{background:#fff}
+  .nav-toggle.open span:nth-child(1){transform:translate(-50%,-50%) rotate(45deg)}
+  .nav-toggle.open span:nth-child(2){opacity:0}
+  .nav-toggle.open span:nth-child(3){transform:translate(-50%,-50%) rotate(-45deg)}
+}
+.mobile-menu{
+  position:fixed;inset:0;z-index:206;width:100%;
+  background:rgba(255,255,255,0.98);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  transform:translateX(100%);transition:transform .5s var(--ease);
+  padding:40px;overflow-y:auto;
+}
+.mobile-menu.open{transform:translateX(0)}
+.mobile-menu a{
+  font-family:'Space Grotesk',sans-serif;font-size:clamp(30px,8vw,40px);
+  font-weight:700;letter-spacing:.01em;color:var(--text);
+  padding:20px 0;width:100%;max-width:280px;text-align:center;
+  opacity:0;transform:translateY(16px);
+  transition:opacity .45s var(--ease),transform .45s var(--ease),color .3s var(--ease),border-color .3s var(--ease);
+}
+.mobile-menu a:not(:last-child){border-bottom:1px solid var(--glass-border)}
+.mobile-menu a.active{color:var(--blue)}
+.mobile-menu.open a{opacity:1;transform:translateY(0)}
+.mobile-menu.open a:nth-child(1){transition-delay:.08s}
+.mobile-menu.open a:nth-child(2){transition-delay:.15s}
+.mobile-menu.open a:nth-child(3){transition-delay:.22s}
+.mobile-menu.open a:nth-child(4){transition-delay:.29s}
+@media (min-width:861px){.mobile-menu{display:none}}
+@media (max-width:380px){
+  .navbar{left:8px;right:8px}
+  .navbar-inner{padding:10px 14px}
+  .brand{font-size:15px}
+}
+
+.reveal{opacity:0;transform:translateY(40px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.reveal.in-view{opacity:1;transform:none}
+
+.eyebrow{
+  display:inline-flex;align-items:center;gap:10px;color:var(--blue);
+  font-size:11px;font-weight:600;margin-bottom:26px;
+}
+.eyebrow::before{content:'';width:26px;height:1px;background:var(--blue)}
+
+/* ---------- QRIS SECTION ---------- */
+.qris-section{
+  position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:170px 0 90px;overflow:hidden;
+}
+.qris-inner{position:relative;z-index:2;display:flex;justify-content:center}
+.qris-card{
+  width:100%;max-width:480px;border-radius:26px;padding:40px 40px 36px;
+  position:relative;z-index:2;text-align:center;
+}
+.qris-back{
+  display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;
+  color:var(--text-dim);margin-bottom:22px;
+}
+.qris-back svg{width:15px;height:15px}
+.qris-back:hover{color:var(--blue)}
+
+.qris-card .eyebrow{justify-content:center}
+.qris-card h1{
+  font-size:clamp(24px,3.2vw,30px);font-weight:700;line-height:1.2;
+  color:var(--text);letter-spacing:-.01em;
+}
+.qris-card h1 em{font-style:normal;font-weight:600;color:var(--blue)}
+.qris-card p.lead{margin-top:14px;font-size:14px;color:var(--text-dim);line-height:1.7}
+
+.order-summary{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:16px 20px;border-radius:14px;margin:22px 0 26px;text-align:left;
+  background:rgba(44,90,160,.07);border:1px solid rgba(44,90,160,.22);
+}
+.order-summary-info{display:flex;flex-direction:column;gap:2px}
+.order-summary-label{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--blue-dim)}
+.order-summary-name{font-family:'Space Grotesk',sans-serif;font-size:16px;color:var(--text)}
+.order-summary-price{font-size:16px;font-weight:700;color:var(--blue);white-space:nowrap}
+
+.qris-box{display:flex;flex-direction:column;align-items:center;gap:16px;padding:10px 0 4px}
+.qris-placeholder{
+  padding:18px;border-radius:18px;background:#fff;color:var(--blue-deep);
+  border:1px solid var(--glass-border-hover);box-shadow:0 12px 30px -16px rgba(21,34,56,.2);
+}
+.qris-timer{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--blue-dim);letter-spacing:.04em}
+.qris-note{font-size:12.5px;color:var(--text-dim);max-width:340px;line-height:1.7;margin:0 auto}
+.qris-status{margin-top:4px;font-size:13px;line-height:1.6;min-height:20px;color:var(--text-dim)}
+.qris-status.success{color:#1f8a4c;font-weight:600}
+
+.qris-success-icon{
+  width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:rgba(31,138,76,.12);color:#1f8a4c;margin:6px auto 0;
+}
+.qris-success-icon svg{width:32px;height:32px}
+
+.qris-pulse{
+  width:14px;height:14px;border-radius:50%;background:var(--blue);
+  display:inline-block;margin-right:8px;animation:qris-pulse 1.4s ease-in-out infinite;
+}
+@keyframes qris-pulse{
+  0%,100%{opacity:.35;transform:scale(.85)}
+  50%{opacity:1;transform:scale(1.1)}
+}
+
+.auth-note{
+  margin-top:24px;font-size:11.5px;color:var(--text-dim);line-height:1.6;
+  text-align:center;
+}
+
+@media (max-width:420px){
+  .qris-card{padding:34px 22px 30px}
+}
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="index.html" class="brand">CIBN PRESTISE</a>
+    <div class="nav-links">
+      <a href="index.html" data-page="index.html">Home</a>
+      <a href="paket.html" data-page="paket.html">Paket</a>
+      <a href="testimoni.html" data-page="testimoni.html">Testimoni</a>
+    </div>
+    <a href="masuk.html" class="nav-cta">LogIn</a>
+    <button class="nav-toggle" aria-label="Buka menu" aria-expanded="false" aria-controls="mobileMenu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mobile-menu" id="mobileMenu">
+  <a href="index.html" data-page="index.html">Home</a>
+  <a href="paket.html" data-page="paket.html">Paket</a>
+  <a href="testimoni.html" data-page="testimoni.html">Testimoni</a>
+  <a href="masuk.html" data-page="masuk.html">LogIn</a>
+</div>
+
+<!-- ================= PEMBAYARAN QRIS ================= -->
+<section class="qris-section">
+  <div class="blob blob-gold" style="width:360px;height:360px;top:60px;left:-100px"></div>
+  <div class="blob blob-emerald" style="width:320px;height:320px;bottom:0;right:-100px"></div>
+  <div class="container qris-inner">
+
+    <div class="qris-card glass reveal">
+      <a href="pembayaran.html" class="qris-back" id="qrisBack">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Ganti Metode Pembayaran
+      </a>
+      <div class="eyebrow mono">Pembayaran QRIS</div>
+      <h1 class="serif">Pindai untuk <em>Membayar</em></h1>
+      <p class="lead">Gunakan aplikasi bank atau e-wallet apa pun yang mendukung QRIS untuk memindai kode di bawah ini.</p>
+
+      <div class="order-summary" id="orderSummary">
+        <div class="order-summary-info">
+          <span class="order-summary-label">Paket</span>
+          <span class="order-summary-name" id="orderPkgName">—</span>
+        </div>
+        <span class="order-summary-price" id="orderPkgPrice"></span>
+      </div>
+
+      <div class="qris-box" id="qrisBox">
+        <div class="qris-placeholder">
+          <svg viewBox="0 0 100 100" width="200" height="200" fill="none" stroke="currentColor" stroke-width="4">
+            <rect x="6" y="6" width="28" height="28"/><rect x="66" y="6" width="28" height="28"/><rect x="6" y="66" width="28" height="28"/>
+            <rect x="14" y="14" width="12" height="12" fill="currentColor" stroke="none"/><rect x="74" y="14" width="12" height="12" fill="currentColor" stroke="none"/><rect x="14" y="74" width="12" height="12" fill="currentColor" stroke="none"/>
+            <rect x="44" y="6" width="10" height="10" fill="currentColor" stroke="none"/><rect x="44" y="24" width="10" height="10" fill="currentColor" stroke="none"/>
+            <rect x="60" y="44" width="10" height="10" fill="currentColor" stroke="none"/><rect x="44" y="44" width="10" height="10" fill="currentColor" stroke="none"/>
+            <rect x="44" y="60" width="10" height="10" fill="currentColor" stroke="none"/><rect x="44" y="80" width="10" height="10" fill="currentColor" stroke="none"/>
+            <rect x="80" y="60" width="10" height="10" fill="currentColor" stroke="none"/><rect x="60" y="80" width="10" height="10" fill="currentColor" stroke="none"/><rect x="80" y="80" width="10" height="10" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
+        <div class="qris-timer" id="qrisTimer">Kode berlaku 15:00</div>
+        <p class="qris-note">Akun Anda sudah aktif. Setelah pembayaran berhasil, paket akan diaktifkan admin setelah diverifikasi.</p>
+        <p class="qris-status" id="qrisStatus"><span class="qris-pulse"></span>Menunggu pembayaran…</p>
+        <button type="button" class="btn btn-gold btn-block" id="qrisConfirmBtn" style="margin-top:18px">Saya Sudah Bayar</button>
+      </div>
+
+      <p class="auth-note">Kode QRIS di atas masih berupa tampilan demo (belum tersambung ke payment gateway seperti Midtrans/Xendit). Klik "Saya Sudah Bayar" untuk mengirim konfirmasi ke admin agar paket Anda diverifikasi dan diaktifkan.</p>
+    </div>
+
+  </div>
+</section>
+
+<script>
+// ===== Navbar scroll state =====
+const navbar = document.querySelector('.navbar');
+if (navbar) {
+  const onScroll = () => navbar.classList.toggle('scrolled', window.scrollY > 20);
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+}
+
+// ===== Mobile nav toggle =====
+const navToggle = document.querySelector('.nav-toggle');
+const mobileMenu = document.querySelector('.mobile-menu');
+if (navToggle && mobileMenu) {
+  const closeMenu = () => {
+    navToggle.classList.remove('open');
+    navToggle.setAttribute('aria-expanded', 'false');
+    navToggle.setAttribute('aria-label', 'Buka menu');
+    mobileMenu.classList.remove('open');
+    document.body.style.overflow = '';
+  };
+  const openMenu = () => {
+    navToggle.classList.add('open');
+    navToggle.setAttribute('aria-expanded', 'true');
+    navToggle.setAttribute('aria-label', 'Tutup menu');
+    mobileMenu.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+  navToggle.addEventListener('click', () => {
+    mobileMenu.classList.contains('open') ? closeMenu() : openMenu();
+  });
+  mobileMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeMenu();
+  });
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 860) closeMenu();
+  });
+}
+
+// ===== Simple scroll reveal =====
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('in-view');
+      revealObserver.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.15 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ===== Paket dipilih — dikirim dari pembayaran.html lewat query string asli =====
+const qrisQs = new URLSearchParams(window.location.search);
+const selectedPaketName = qrisQs.get('paket') || 'Paket CIBN PRESTISE';
+const selectedPaketHarga = qrisQs.get('harga') || '';
+const selectedPaketKode = qrisQs.get('kode') || '';
+
+document.getElementById('orderPkgName').textContent = selectedPaketName;
+document.getElementById('orderPkgPrice').textContent = selectedPaketHarga;
+
+const qrisBack = document.getElementById('qrisBack');
+qrisBack.href = `pembayaran.html?paket=${encodeURIComponent(selectedPaketName)}&harga=${encodeURIComponent(selectedPaketHarga)}${selectedPaketKode ? '&kode=' + encodeURIComponent(selectedPaketKode) : ''}`;
+
+// ===== Hitung mundur kode QRIS (demo tampilan — kode QR statis, belum tersambung gateway) =====
+const qrisTimer = document.getElementById('qrisTimer');
+let secondsLeft = 15 * 60;
+const timerInterval = setInterval(() => {
+  secondsLeft = Math.max(0, secondsLeft - 1);
+  const m = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+  const s = String(secondsLeft % 60).padStart(2, '0');
+  qrisTimer.textContent = `Kode berlaku ${m}:${s}`;
+  if (secondsLeft === 0) clearInterval(timerInterval);
+}, 1000);
+
+// ===== Konfirmasi pembayaran — terhubung ke backend asli (menunggu verifikasi admin) =====
+const qrisStatus = document.getElementById('qrisStatus');
+const qrisBox = document.getElementById('qrisBox');
+const qrisConfirmBtn = document.getElementById('qrisConfirmBtn');
+const QRIS_API_BASE = window.location.origin + '/api';
+
+qrisConfirmBtn.addEventListener('click', async () => {
+  const token = localStorage.getItem('cbn_token');
+  if (!token) {
+    qrisStatus.textContent = 'Sesi login tidak ditemukan. Silakan masuk kembali.';
+    qrisStatus.classList.add('error');
+    return;
+  }
+  qrisConfirmBtn.disabled = true;
+  qrisConfirmBtn.textContent = 'Mengirim konfirmasi…';
+  try {
+    const res = await fetch(QRIS_API_BASE + '/user/paket-requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ paket_kode: selectedPaketKode || null, paket_nama: selectedPaketName, metode_bayar: 'QRIS' })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Gagal mengirim konfirmasi');
+    clearInterval(timerInterval);
+    qrisBox.innerHTML = `
+      <div class="qris-success-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      </div>
+      <p class="qris-status success">Konfirmasi diterima! ${selectedPaketName} akan diaktifkan admin setelah diverifikasi.</p>
+      <p class="qris-note">Mengarahkan ke halaman utama…</p>`;
+    setTimeout(() => { window.location.href = 'index.html'; }, 2200);
+  } catch (e) {
+    qrisStatus.textContent = e.message || 'Gagal terhubung ke server.';
+    qrisStatus.classList.add('error');
+    qrisConfirmBtn.disabled = false;
+    qrisConfirmBtn.textContent = 'Saya Sudah Bayar';
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daftar Akun — CIBN PRESTISE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root{
+  --bg:#f6f8fc;
+  --panel:#eef2f9;
+  --white:#ffffff;
+  --text:#15233d;
+  --text-dim:#5b6b85;
+
+  --blue:#2c5aa0;
+  --blue-light:#5c86c9;
+  --blue-dim:#4a6fa0;
+  --blue-deep:#193b6e;
+
+  --cream:#c9a961;
+  --cream-light:#e9d9ab;
+  --cream-dim:#8a7442;
+
+  --line:rgba(44,90,160,0.14);
+  --line-strong:rgba(44,90,160,0.28);
+  --radius:14px;
+  --ease:cubic-bezier(.16,.84,.44,1);
+
+  --glass-bg: linear-gradient(160deg, rgba(255,255,255,0.75), rgba(255,255,255,0.40));
+  --glass-bg-hover: linear-gradient(160deg, rgba(255,255,255,0.9), rgba(255,255,255,0.58));
+  --glass-border: rgba(44,90,160,0.16);
+  --glass-border-hover: rgba(44,90,160,0.42);
+  --glass-blur: blur(22px) saturate(150%);
+  --glass-shadow: 0 1px 0 rgba(255,255,255,0.8) inset, 0 16px 34px -22px rgba(21,34,56,0.14);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;overflow-x:hidden;width:100%}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter',sans-serif;
+  font-size:16px;
+  line-height:1.6;
+  overflow-x:hidden;
+  min-height:100vh;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(44,90,160,0.10), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 20%, rgba(201,169,97,0.10), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 5% 60%, rgba(44,90,160,0.07), transparent 60%),
+    radial-gradient(ellipse 55% 45% at 80% 85%, rgba(201,169,97,0.08), transparent 60%);
+  background-attachment:fixed;
+}
+
+.serif{font-family:'Space Grotesk',sans-serif}
+.mono{font-family:'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase}
+
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+ul{list-style:none}
+input{font-family:inherit}
+
+.container{width:100%;max-width:1240px;margin:0 auto;padding:0 32px;position:relative;z-index:2}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important;scroll-behavior:auto !important}
+}
+
+/* ---------- GLASS BASE ---------- */
+.glass{
+  background:var(--glass-bg);
+  backdrop-filter:var(--glass-blur);
+  -webkit-backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-border);
+  box-shadow:var(--glass-shadow);
+}
+
+/* ---------- BACKGROUND BLOBS ---------- */
+.blob{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0}
+.blob-gold{background:radial-gradient(circle, var(--cream), transparent 70%);opacity:.16}
+.blob-emerald{background:radial-gradient(circle, var(--blue), transparent 70%);opacity:.12}
+.blob-wine{background:radial-gradient(circle, var(--blue-light), transparent 70%);opacity:.10}
+
+/* ---------- NAVBAR (floating, transparent — not edge-to-edge) ---------- */
+.navbar{position:fixed;top:18px;left:20px;right:20px;z-index:210}
+.navbar-inner{
+  max-width:1240px;margin:0 auto;padding:14px 28px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(255,255,255,0.16);
+  backdrop-filter:blur(18px) saturate(150%);
+  -webkit-backdrop-filter:blur(18px) saturate(150%);
+  border:1px solid rgba(255,255,255,0.32);
+  border-radius:999px;
+  box-shadow:0 10px 34px -16px rgba(21,34,56,0.22);
+  transition:background .4s var(--ease),border-color .4s var(--ease);
+}
+.navbar.scrolled .navbar-inner{background:rgba(255,255,255,0.4);border-color:rgba(255,255,255,0.5)}
+.brand{
+  font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(16px,2.1vw,20px);
+  letter-spacing:.06em;color:var(--blue);
+  display:flex;align-items:baseline;gap:6px;flex:0 0 auto;white-space:nowrap;
+}
+.nav-links{display:flex;gap:clamp(16px,2.6vw,44px);align-items:center}
+.nav-links a{
+  font-size:13px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text-dim);font-weight:600;position:relative;padding:6px 0;
+  transition:color .3s var(--ease);white-space:nowrap;
+}
+.nav-links a::after{
+  content:'';position:absolute;left:0;bottom:0;width:0;height:1px;background:var(--blue);
+  transition:width .35s var(--ease);
+}
+.nav-links a:hover,.nav-links a.active{color:var(--blue)}
+.nav-links a:hover::after,.nav-links a.active::after{width:100%}
+.nav-cta{
+  border:1px solid var(--glass-border-hover);padding:10px 22px;border-radius:999px;
+  font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;
+  color:var(--blue);background:var(--glass-bg);backdrop-filter:blur(12px);
+  transition:all .35s var(--ease);flex:0 0 auto;white-space:nowrap;
+}
+.nav-cta:hover{background:var(--blue);color:var(--white);border-color:var(--blue)}
+.nav-toggle{
+  display:none;width:44px;height:44px;position:relative;flex:0 0 auto;
+  border-radius:50%;background:var(--glass-bg);border:1px solid var(--glass-border-hover);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  transition:background .35s var(--ease),border-color .35s var(--ease),transform .2s var(--ease),box-shadow .35s var(--ease);
+}
+.nav-toggle:active{transform:scale(.92)}
+.nav-toggle span{
+  position:absolute;left:50%;top:50%;width:18px;height:2px;border-radius:2px;
+  background:var(--blue);
+  transition:transform .4s var(--ease),opacity .25s var(--ease),background .3s var(--ease);
+}
+.nav-toggle span:nth-child(1){transform:translate(-50%,calc(-50% - 6px))}
+.nav-toggle span:nth-child(2){transform:translate(-50%,-50%)}
+.nav-toggle span:nth-child(3){transform:translate(-50%,calc(-50% + 6px))}
+
+@media (max-width:860px){
+  .navbar{left:12px;right:12px;top:12px}
+  .navbar-inner{padding:12px 18px}
+  .nav-links{display:none}
+  .nav-cta{display:none}
+  .nav-toggle{display:block;z-index:210}
+  .nav-toggle:hover{border-color:var(--blue)}
+  .nav-toggle.open{background:var(--blue);border-color:var(--blue);box-shadow:0 8px 22px -10px rgba(44,90,160,.5)}
+  .nav-toggle.open span{background:#fff}
+  .nav-toggle.open span:nth-child(1){transform:translate(-50%,-50%) rotate(45deg)}
+  .nav-toggle.open span:nth-child(2){opacity:0}
+  .nav-toggle.open span:nth-child(3){transform:translate(-50%,-50%) rotate(-45deg)}
+}
+/* ---------- MOBILE FULLSCREEN MENU -----------
+   Ditaruh di luar .navbar-inner (bukan di dalamnya) supaya TIDAK jadi containing
+   block baru gara-gara backdrop-filter pill navbar. Kalau elemen position:fixed
+   ini nested di dalam elemen yang punya backdrop-filter/transform/filter, dia akan
+   ke-inset relatif ke elemen itu (jadi cuma strip kecil), bukan ke seluruh layar. */
+.mobile-menu{
+  position:fixed;inset:0;z-index:206;width:100%;
+  background:rgba(255,255,255,0.98);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  transform:translateX(100%);transition:transform .5s var(--ease);
+  padding:40px;overflow-y:auto;
+}
+.mobile-menu.open{transform:translateX(0)}
+.mobile-menu a{
+  font-family:'Space Grotesk',sans-serif;font-size:clamp(30px,8vw,40px);
+  font-weight:700;letter-spacing:.01em;color:var(--text);
+  padding:20px 0;width:100%;max-width:280px;text-align:center;
+  opacity:0;transform:translateY(16px);
+  transition:opacity .45s var(--ease),transform .45s var(--ease),color .3s var(--ease),border-color .3s var(--ease);
+}
+.mobile-menu a:not(:last-child){border-bottom:1px solid var(--glass-border)}
+.mobile-menu a.active{color:var(--blue)}
+.mobile-menu.open a{opacity:1;transform:translateY(0)}
+.mobile-menu.open a:nth-child(1){transition-delay:.08s}
+.mobile-menu.open a:nth-child(2){transition-delay:.15s}
+.mobile-menu.open a:nth-child(3){transition-delay:.22s}
+.mobile-menu.open a:nth-child(4){transition-delay:.29s}
+@media (min-width:861px){.mobile-menu{display:none}}
+@media (max-width:380px){
+  .navbar{left:8px;right:8px}
+  .navbar-inner{padding:10px 14px}
+  .brand{font-size:15px}
+}
+
+.reveal{opacity:0;transform:translateY(40px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.reveal.in-view{opacity:1;transform:none}
+
+.btn{
+  padding:16px 32px;border-radius:999px;font-size:13px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;transition:all .4s var(--ease);
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+}
+.btn-gold{background:linear-gradient(135deg,var(--blue-light),var(--blue));color:var(--white)}
+.btn-gold:hover{transform:translateY(-3px);box-shadow:0 14px 34px -10px rgba(44,90,160,.45)}
+.btn-ghost{border:1px solid var(--glass-border-hover);color:var(--text);background:var(--glass-bg);backdrop-filter:blur(12px)}
+.btn-ghost:hover{border-color:var(--blue);color:var(--blue);transform:translateY(-3px)}
+.btn-block{width:100%}
+
+.eyebrow{
+  display:inline-flex;align-items:center;gap:10px;color:var(--blue);
+  font-size:11px;font-weight:600;margin-bottom:26px;
+}
+.eyebrow::before{content:'';width:26px;height:1px;background:var(--blue)}
+
+/* ---------- AUTH SECTION ---------- */
+.auth-section{
+  position:relative;min-height:100vh;display:flex;align-items:center;
+  padding:170px 0 90px;overflow:hidden;
+}
+.auth-inner{
+  position:relative;z-index:2;display:grid;
+  grid-template-columns:1fr .95fr;
+  grid-template-areas:"copy card" "points card";
+  column-gap:56px;row-gap:40px;align-items:center;
+}
+.auth-copy{grid-area:copy}
+.auth-card{grid-area:card}
+.auth-points{grid-area:points}
+.auth-copy h1{
+  font-size:clamp(32px,4.4vw,50px);font-weight:700;line-height:1.12;
+  color:var(--text);letter-spacing:-.01em;
+}
+.auth-copy h1 em{font-style:normal;font-weight:600;color:var(--blue)}
+.auth-copy p.lead{margin-top:22px;font-size:16px;color:var(--text-dim);max-width:420px;line-height:1.75}
+.auth-points{margin-top:0;display:flex;flex-direction:column;gap:18px}
+.auth-point{display:flex;gap:14px;align-items:flex-start}
+.auth-point .pt-icon{
+  width:38px;height:38px;flex:none;border-radius:11px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--glass-bg);border:1px solid var(--glass-border-hover);backdrop-filter:blur(10px);
+}
+.auth-point .pt-icon svg{width:17px;height:17px;stroke:var(--blue)}
+.auth-point b{display:block;font-family:'Space Grotesk',sans-serif;font-size:15px;color:var(--text)}
+.auth-point span{font-size:13.5px;color:var(--text-dim)}
+
+.auth-card{
+  border-radius:26px;padding:38px 36px 34px;position:relative;z-index:2;
+}
+.auth-form{display:flex;flex-direction:column;gap:18px}
+.field{display:flex;flex-direction:column;gap:8px}
+.field label{font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--text-dim)}
+.field input{
+  padding:14px 18px;border-radius:12px;font-size:14px;color:var(--text);
+  background:rgba(255,255,255,.6);border:1px solid var(--glass-border-hover);
+  transition:border-color .3s,box-shadow .3s;
+}
+.field input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 4px rgba(44,90,160,.14)}
+.field input::placeholder{color:rgba(91,107,133,.55)}
+
+.field-input-wrap{position:relative}
+.field-input-wrap input{padding-right:48px;width:100%}
+.pw-toggle{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+  border-radius:9px;color:var(--text-dim);
+  transition:color .25s var(--ease),background .25s var(--ease);
+}
+.pw-toggle:hover{color:var(--blue);background:rgba(44,90,160,.08)}
+.pw-toggle svg{width:19px;height:19px}
+.pw-toggle .icon-eye-off{display:none}
+.pw-toggle.showing .icon-eye{display:none}
+.pw-toggle.showing .icon-eye-off{display:block}
+
+.field-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.check-row{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text-dim)}
+.check-row input{width:16px;height:16px;accent-color:var(--blue)}
+.link-inline{font-size:13px;color:var(--blue);font-weight:600}
+.link-inline:hover{text-decoration:underline}
+
+.auth-note{
+  margin-top:22px;font-size:11.5px;color:var(--text-dim);line-height:1.6;
+  text-align:center;
+}
+
+@media (max-width:960px){
+  .auth-inner{grid-template-columns:1fr;grid-template-areas:"copy" "card" "points";gap:40px;align-items:stretch}
+}
+
+/* ---------- PACKAGE SUMMARY BADGE (di atas form) ---------- */
+.package-chip{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 18px;border-radius:14px;margin-bottom:22px;
+  background:rgba(44,90,160,.07);border:1px solid rgba(44,90,160,.22);
+}
+.package-chip-info{display:flex;flex-direction:column;gap:2px}
+.package-chip-label{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--blue-dim)}
+.package-chip-name{font-family:'Space Grotesk',sans-serif;font-size:15px;color:var(--text)}
+.package-chip-price{font-size:13px;font-weight:700;color:var(--blue);white-space:nowrap}
+
+/* ---------- AUTH TABS (Daftar / Masuk) ---------- */
+.auth-tabs{display:flex;gap:6px;padding:5px;border-radius:14px;background:rgba(21,34,56,.05);margin-bottom:26px}
+.auth-tab{
+  flex:1;text-align:center;padding:11px;border-radius:10px;font-size:12.5px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);transition:all .3s var(--ease);
+}
+.auth-tab.active{background:var(--white);color:var(--blue);box-shadow:0 4px 14px -6px rgba(21,34,56,.2)}
+.auth-form{display:none}
+.auth-form.active{display:flex}
+.field-hint{font-size:11.5px;color:var(--text-dim);margin-top:-4px}
+
+/* ---------- TNC TRIGGER (dalam check-row) ---------- */
+.tnc-trigger{color:var(--blue);font-weight:600;text-decoration:underline;text-underline-offset:2px;display:inline}
+.tnc-trigger:hover{color:var(--blue-deep)}
+
+/* ---------- MODAL: SYARAT & KETENTUAN / KEBIJAKAN PRIVASI ---------- */
+.tnc-overlay{
+  position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;
+  padding:24px;background:rgba(21,34,56,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  opacity:0;pointer-events:none;transition:opacity .3s var(--ease);
+}
+.tnc-overlay.open{opacity:1;pointer-events:auto}
+.tnc-modal{
+  width:100%;max-width:620px;max-height:82vh;display:flex;flex-direction:column;
+  border-radius:22px;background:var(--white);border:1px solid var(--glass-border-hover);
+  box-shadow:0 30px 70px -20px rgba(21,34,56,.35);
+  transform:translateY(24px) scale(.98);opacity:0;transition:transform .35s var(--ease),opacity .35s var(--ease);
+}
+.tnc-overlay.open .tnc-modal{transform:translateY(0) scale(1);opacity:1}
+.tnc-head{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:22px 26px;border-bottom:1px solid var(--line);flex:none;
+}
+.tnc-head h2{font-family:'Space Grotesk',sans-serif;font-size:19px;color:var(--text)}
+.tnc-close{
+  width:34px;height:34px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  color:var(--text-dim);background:var(--panel);transition:all .25s var(--ease);
+}
+.tnc-close:hover{color:var(--white);background:var(--blue)}
+.tnc-close svg{width:16px;height:16px}
+.tnc-tabs{display:flex;gap:6px;padding:14px 26px 0;flex:none}
+.tnc-tab{
+  padding:9px 16px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.04em;
+  color:var(--text-dim);background:var(--panel);transition:all .25s var(--ease);
+}
+.tnc-tab.active{color:var(--white);background:var(--blue)}
+.tnc-body{padding:18px 26px 26px;overflow-y:auto;color:var(--text-dim);font-size:13.5px;line-height:1.8}
+.tnc-panel{display:none}
+.tnc-panel.active{display:block}
+.tnc-body h3{font-family:'Space Grotesk',sans-serif;font-size:14.5px;color:var(--text);margin:16px 0 6px}
+.tnc-body h3:first-child{margin-top:0}
+.tnc-body p{margin-bottom:4px}
+.tnc-body ol,.tnc-body ul{padding-left:18px;margin-bottom:4px}
+.tnc-body li{margin-bottom:4px}
+
+@media (max-width:560px){
+  .tnc-head{padding:18px 20px}
+  .tnc-tabs{padding:12px 20px 0}
+  .tnc-body{padding:16px 20px 22px}
+}
+
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="index.html" class="brand">CIBN PRESTISE</a>
+    <div class="nav-links">
+      <a href="index.html" data-page="index.html">Home</a>
+      <a href="paket.html" data-page="paket.html">Paket</a>
+      <a href="testimoni.html" data-page="testimoni.html">Testimoni</a>
+    </div>
+    <a href="masuk.html" class="nav-cta">LogIn</a>
+    <button class="nav-toggle" aria-label="Buka menu" aria-expanded="false" aria-controls="mobileMenu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mobile-menu" id="mobileMenu">
+  <a href="index.html" data-page="index.html">Home</a>
+  <a href="paket.html" data-page="paket.html">Paket</a>
+  <a href="testimoni.html" data-page="testimoni.html">Testimoni</a>
+  <a href="masuk.html" data-page="masuk.html">LogIn</a>
+</div>
+
+<!-- ================= AUTH (DAFTAR / MASUK) ================= -->
+<section class="auth-section">
+  <div class="blob blob-gold" style="width:360px;height:360px;top:60px;left:-100px"></div>
+  <div class="blob blob-emerald" style="width:320px;height:320px;bottom:0;right:-100px"></div>
+  <div class="container auth-inner">
+
+    <div class="auth-copy reveal">
+      <div class="eyebrow mono">Akses Keanggotaan</div>
+      <h1 class="serif" id="authTitle">Buat Akun <em>Prestise</em> Anda.</h1>
+      <p class="lead" id="authLead">Satu akun untuk mengelola keanggotaan, akses riset harian, dan sinyal real-time Anda.</p>
+    </div>
+
+    <div class="auth-card glass reveal">
+
+      <div class="package-chip" id="packageChip" style="display:none">
+        <div class="package-chip-info">
+          <span class="package-chip-label mono">Paket Dipilih</span>
+          <span class="package-chip-name" id="packageChipName"></span>
+        </div>
+        <span class="package-chip-price" id="packageChipPrice"></span>
+      </div>
+
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" data-tab="daftar">Daftar</button>
+        <button type="button" class="auth-tab" data-tab="masuk">Sudah Punya Akun</button>
+      </div>
+
+      <!-- ===== FORM: DAFTAR (buat akun baru) ===== -->
+      <form class="auth-form active" data-form="daftar" onsubmit="return false">
+        <div class="field">
+          <label for="daftar-nama">Nama Lengkap</label>
+          <input id="daftar-nama" type="text" placeholder="Nama sesuai identitas" required>
+        </div>
+        <div class="field">
+          <label for="daftar-email">Email</label>
+          <input id="daftar-email" type="email" placeholder="nama@email.com" required>
+        </div>
+        <div class="field">
+          <label for="daftar-wa">Nomor WhatsApp</label>
+          <input id="daftar-wa" type="tel" placeholder="08xx xxxx xxxx" required>
+        </div>
+        <div class="field">
+          <label for="daftar-password">Kata Sandi</label>
+          <div class="field-input-wrap">
+            <input id="daftar-password" type="password" placeholder="Minimal 8 karakter" required minlength="8">
+            <button type="button" class="pw-toggle" data-target="daftar-password" aria-label="Tampilkan kata sandi">
+              <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.64 21.64 0 0 1 5.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 7 11 7a21.64 21.64 0 0 1-2.66 3.79M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="daftar-password2">Konfirmasi Kata Sandi</label>
+          <div class="field-input-wrap">
+            <input id="daftar-password2" type="password" placeholder="Ulangi kata sandi" required minlength="8">
+            <button type="button" class="pw-toggle" data-target="daftar-password2" aria-label="Tampilkan kata sandi">
+              <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.64 21.64 0 0 1 5.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 7 11 7a21.64 21.64 0 0 1-2.66 3.79M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+            </button>
+          </div>
+        </div>
+        <p class="otp-msg" id="daftarMsg" style="margin:0;font-size:13px;min-height:18px"></p>
+        <label class="check-row"><input type="checkbox" required> Saya menyetujui <button type="button" class="tnc-trigger" id="tncTrigger">Syarat & Ketentuan serta Kebijakan Privasi</button></label>
+        <button type="submit" class="btn btn-gold btn-block">Daftar & Lanjut ke Pembayaran</button>
+      </form>
+
+      <!-- ===== FORM: MASUK (untuk yang sudah punya akun) ===== -->
+      <form class="auth-form" data-form="masuk" onsubmit="return false">
+        <div class="field">
+          <label for="masuk-email">Email</label>
+          <input id="masuk-email" type="email" placeholder="nama@email.com" required>
+        </div>
+        <div class="field">
+          <label for="masuk-password">Kata Sandi</label>
+          <div class="field-input-wrap">
+            <input id="masuk-password" type="password" placeholder="••••••••" required>
+            <button type="button" class="pw-toggle" data-target="masuk-password" aria-label="Tampilkan kata sandi">
+              <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.64 21.64 0 0 1 5.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 7 11 7a21.64 21.64 0 0 1-2.66 3.79M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="field-row">
+          <label class="check-row"><input type="checkbox"> Ingat saya</label>
+          <a href="otp.html" class="link-inline">Lupa kata sandi?</a>
+        </div>
+        <p class="otp-msg" id="masukMsg" style="margin:0;font-size:13px;min-height:18px"></p>
+        <button type="submit" class="btn btn-gold btn-block">Masuk & Lanjut ke Pembayaran</button>
+      </form>
+
+      <p class="auth-note">Pendaftaran baru akan diverifikasi oleh admin sebelum akun aktif. Anda akan diarahkan ke halaman pembayaran setelah mendaftar.</p>
+    </div>
+
+    <div class="auth-points reveal">
+      <div class="auth-point">
+        <div class="pt-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5l-8-3z" stroke-linejoin="round"/></svg></div>
+        <div><b>Akses Aman</b><span>Enkripsi end-to-end untuk setiap sesi masuk.</span></div>
+      </div>
+      <div class="auth-point">
+        <div class="pt-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3" stroke-linecap="round"/></svg></div>
+        <div><b>Sinyal Real-Time</b><span>Langsung terhubung ke riset dan analisis harian.</span></div>
+      </div>
+      <div class="auth-point">
+        <div class="pt-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+        <div><b>Satu Akun untuk Semua</b><span>Kelola paket, riwayat, dan preferensi di satu tempat.</span></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ================= MODAL: SYARAT & KETENTUAN / KEBIJAKAN PRIVASI ================= -->
+<div class="tnc-overlay" id="tncOverlay" aria-hidden="true">
+  <div class="tnc-modal" role="dialog" aria-modal="true" aria-labelledby="tncTitle">
+    <div class="tnc-head">
+      <h2 class="serif" id="tncTitle">Syarat & Ketentuan dan Kebijakan Privasi</h2>
+      <button type="button" class="tnc-close" id="tncClose" aria-label="Tutup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="tnc-tabs">
+      <button type="button" class="tnc-tab active" data-tnc-tab="terms">Syarat & Ketentuan</button>
+      <button type="button" class="tnc-tab" data-tnc-tab="privacy">Kebijakan Privasi</button>
+    </div>
+    <div class="tnc-body">
+      <div class="tnc-panel active" data-tnc-panel="terms">
+        <h3>1. Penerimaan Ketentuan</h3>
+        <p>Dengan mendaftar dan membuat akun di CIBN PRESTISE, Anda menyatakan telah membaca, memahami, dan menyetujui seluruh syarat dan ketentuan berikut.</p>
+        <h3>2. Sifat Layanan</h3>
+        <p>CIBN PRESTISE menyediakan riset, sinyal, dan materi edukasi terkait pasar keuangan untuk tujuan informasi. Layanan ini bukan merupakan nasihat investasi yang mengikat, dan seluruh keputusan transaksi sepenuhnya menjadi tanggung jawab pengguna.</p>
+        <h3>3. Risiko Trading</h3>
+        <ol>
+          <li>Aktivitas trading dan investasi mengandung risiko kehilangan modal.</li>
+          <li>Kinerja masa lalu tidak menjamin hasil di masa depan.</li>
+          <li>Pengguna disarankan memahami profil risiko sebelum bertransaksi.</li>
+        </ol>
+        <h3>4. Akun & Keanggotaan</h3>
+        <p>Pengguna wajib memberikan data pendaftaran yang benar dan menjaga kerahasiaan kata sandi. Satu akun hanya boleh digunakan oleh satu pemilik yang sah.</p>
+        <h3>5. Pembayaran & Langganan</h3>
+        <p>Biaya keanggotaan dibayarkan sesuai paket yang dipilih. Perpanjangan, pembatalan, dan kebijakan pengembalian dana mengikuti ketentuan yang berlaku pada halaman pembayaran.</p>
+        <h3>6. Perubahan Ketentuan</h3>
+        <p>CIBN PRESTISE dapat memperbarui syarat dan ketentuan ini sewaktu-waktu. Perubahan akan diinformasikan melalui akun atau email terdaftar pengguna.</p>
+      </div>
+      <div class="tnc-panel" data-tnc-panel="privacy">
+        <h3>1. Data yang Dikumpulkan</h3>
+        <p>Kami mengumpulkan data yang Anda berikan saat pendaftaran, seperti nama, email, nomor WhatsApp, serta data transaksi yang diperlukan untuk memproses keanggotaan.</p>
+        <h3>2. Penggunaan Data</h3>
+        <ul>
+          <li>Memverifikasi identitas dan mengelola akun Anda.</li>
+          <li>Memproses pembayaran dan mengaktifkan paket keanggotaan.</li>
+          <li>Mengirimkan informasi penting terkait layanan dan riset.</li>
+        </ul>
+        <h3>3. Keamanan Data</h3>
+        <p>Data pribadi Anda disimpan dengan langkah keamanan yang wajar, termasuk enkripsi pada proses autentikasi, untuk mencegah akses yang tidak sah.</p>
+        <h3>4. Berbagi Data ke Pihak Ketiga</h3>
+        <p>Kami tidak menjual data pribadi Anda. Data hanya dibagikan kepada mitra pemroses pembayaran sebatas yang diperlukan untuk menyelesaikan transaksi.</p>
+        <h3>5. Hak Pengguna</h3>
+        <p>Anda berhak meminta akses, koreksi, atau penghapusan data pribadi dengan menghubungi layanan pelanggan kami.</p>
+        <h3>6. Persetujuan</h3>
+        <p>Dengan mencentang kotak persetujuan pada formulir pendaftaran, Anda menyatakan setuju terhadap pengumpulan dan penggunaan data sebagaimana dijelaskan di atas.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== Navbar scroll state =====
+const navbar = document.querySelector('.navbar');
+if (navbar) {
+  const onScroll = () => navbar.classList.toggle('scrolled', window.scrollY > 20);
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+}
+
+// ===== Mobile nav toggle =====
+// mobileMenu = elemen fullscreen di luar .navbar-inner (lihat catatan di CSS .mobile-menu)
+const navToggle = document.querySelector('.nav-toggle');
+const mobileMenu = document.querySelector('.mobile-menu');
+if (navToggle && mobileMenu) {
+  const closeMenu = () => {
+    navToggle.classList.remove('open');
+    navToggle.setAttribute('aria-expanded', 'false');
+    navToggle.setAttribute('aria-label', 'Buka menu');
+    mobileMenu.classList.remove('open');
+    document.body.style.overflow = '';
+  };
+  const openMenu = () => {
+    navToggle.classList.add('open');
+    navToggle.setAttribute('aria-expanded', 'true');
+    navToggle.setAttribute('aria-label', 'Tutup menu');
+    mobileMenu.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+  navToggle.addEventListener('click', () => {
+    mobileMenu.classList.contains('open') ? closeMenu() : openMenu();
+  });
+  mobileMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeMenu();
+  });
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 860) closeMenu();
+  });
+}
+
+// ===== Toggle lihat/sembunyikan kata sandi =====
+document.querySelectorAll('.pw-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const input = document.getElementById(btn.dataset.target);
+    if (!input) return;
+    const showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    btn.classList.toggle('showing', !showing);
+    btn.setAttribute('aria-label', showing ? 'Tampilkan kata sandi' : 'Sembunyikan kata sandi');
+  });
+});
+
+// ===== Simple scroll reveal =====
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('in-view');
+      revealObserver.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.15 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ===== Modal: Syarat & Ketentuan / Kebijakan Privasi =====
+const tncTrigger = document.getElementById('tncTrigger');
+const tncOverlay = document.getElementById('tncOverlay');
+const tncClose = document.getElementById('tncClose');
+const tncTabs = document.querySelectorAll('.tnc-tab');
+const tncPanels = document.querySelectorAll('.tnc-panel');
+
+function openTnc() {
+  tncOverlay.classList.add('open');
+  tncOverlay.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+}
+function closeTnc() {
+  tncOverlay.classList.remove('open');
+  tncOverlay.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+}
+if (tncTrigger && tncOverlay) {
+  tncTrigger.addEventListener('click', openTnc);
+  tncClose.addEventListener('click', closeTnc);
+  tncOverlay.addEventListener('click', (e) => { if (e.target === tncOverlay) closeTnc(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && tncOverlay.classList.contains('open')) closeTnc(); });
+  tncTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.tncTab;
+      tncTabs.forEach(t => t.classList.toggle('active', t === tab));
+      tncPanels.forEach(p => p.classList.toggle('active', p.dataset.tncPanel === target));
+      document.querySelector('.tnc-body').scrollTop = 0;
+    });
+  });
+}
+</script>
+<script>
+// Paket dipilih dikirim lewat query string dari index.html / paket.html
+// (?paket=<nama>&harga=<harga+unit>&kode=<kode_paket>) — data paket asli
+// diambil langsung dari /api/pakets/public di masing-masing halaman.
+const qs = new URLSearchParams(window.location.search);
+const selectedPaketName = qs.get('paket');
+const selectedPaketHarga = qs.get('harga');
+const selectedPaketKode = qs.get('kode');
+
+if (selectedPaketName) {
+  document.getElementById('packageChip').style.display = 'flex';
+  document.getElementById('packageChipName').textContent = selectedPaketName;
+  document.getElementById('packageChipPrice').textContent = selectedPaketHarga || '';
+}
+
+function goToPembayaran() {
+  const params = new URLSearchParams();
+  if (selectedPaketName) params.set('paket', selectedPaketName);
+  if (selectedPaketHarga) params.set('harga', selectedPaketHarga);
+  if (selectedPaketKode) params.set('kode', selectedPaketKode);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  window.location.href = `pembayaran.html${query}`;
+}
+
+// ===== Tab switch: Daftar <-> Masuk =====
+const authTabs = document.querySelectorAll('.auth-tab');
+const authForms = document.querySelectorAll('.auth-form');
+const authTitle = document.getElementById('authTitle');
+const authLead = document.getElementById('authLead');
+const authCopy = {
+  daftar: {
+    title: 'Buat Akun <em>Prestise</em> Anda.',
+    lead: 'Satu akun untuk mengelola keanggotaan, akses riset harian, dan sinyal real-time Anda.'
+  },
+  masuk: {
+    title: 'Masuk ke Akun <em>Prestise</em> Anda.',
+    lead: 'Sudah punya akun? Masuk untuk melanjutkan proses berlangganan Anda.'
+  }
+};
+
+authTabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const target = tab.dataset.tab;
+    authTabs.forEach(t => t.classList.toggle('active', t === tab));
+    authForms.forEach(f => f.classList.toggle('active', f.dataset.form === target));
+    authTitle.innerHTML = authCopy[target].title;
+    authLead.textContent = authCopy[target].lead;
+  });
+});
+
+const API_BASE = window.location.origin + '/api';
+
+// ===== Submit: Daftar (buat akun) — terhubung ke backend asli (/api/signup) =====
+const daftarForm = document.querySelector('form[data-form="daftar"]');
+const daftarMsg = document.getElementById('daftarMsg');
+const daftarBtn = daftarForm.querySelector('button[type="submit"]');
+daftarForm.addEventListener('submit', async () => {
+  const nama = document.getElementById('daftar-nama').value.trim();
+  const email = document.getElementById('daftar-email').value.trim();
+  const wa = document.getElementById('daftar-wa').value.trim();
+  const pw = document.getElementById('daftar-password').value;
+  const pw2 = document.getElementById('daftar-password2').value;
+  daftarMsg.classList.remove('error', 'success');
+  daftarMsg.style.color = '#c0392b';
+  if (!nama || !email || !wa || !pw) { daftarMsg.textContent = 'Semua field wajib diisi.'; return; }
+  if (!email.includes('@')) { daftarMsg.textContent = 'Format email tidak valid.'; return; }
+  if (pw.length < 8) { daftarMsg.textContent = 'Kata sandi minimal 8 karakter.'; return; }
+  if (pw !== pw2) { daftarMsg.textContent = 'Konfirmasi kata sandi tidak cocok.'; return; }
+  daftarMsg.textContent = '';
+  daftarBtn.disabled = true;
+  daftarBtn.textContent = 'Memproses...';
+  try {
+    const res = await fetch(API_BASE + '/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nama: nama + (wa ? ` (WA: ${wa})` : ''), email, password: pw })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Pendaftaran gagal');
+    // Akun baru langsung aktif — simpan sesi supaya user otomatis login dan
+    // halaman pembayaran bisa mengirim permintaan aktivasi paket atas namanya.
+    localStorage.setItem('cbn_token', data.token);
+    localStorage.setItem('cbn_user', JSON.stringify(data.user));
+    daftarMsg.classList.add('success');
+    daftarMsg.style.color = '#1f8a4c';
+    daftarMsg.textContent = selectedPaketName
+      ? 'Pendaftaran berhasil! Akun Anda sudah aktif. Mengarahkan ke halaman pembayaran…'
+      : 'Pendaftaran berhasil! Akun Anda sudah aktif. Mengarahkan ke akun Anda…';
+    setTimeout(() => { selectedPaketName ? goToPembayaran() : (window.location.href = 'index_user.html'); }, 1200);
+  } catch (e) {
+    daftarMsg.textContent = e.message || 'Gagal terhubung ke server. Pastikan server aktif.';
+    daftarBtn.disabled = false;
+    daftarBtn.textContent = 'Daftar & Lanjut ke Pembayaran';
+  }
+});
+
+// ===== Submit: Masuk (login untuk yang sudah punya akun) — terhubung ke backend asli (/api/login) =====
+const masukForm = document.querySelector('form[data-form="masuk"]');
+const masukMsg = document.getElementById('masukMsg');
+const masukBtn = masukForm.querySelector('button[type="submit"]');
+masukForm.addEventListener('submit', async () => {
+  const email = document.getElementById('masuk-email').value.trim();
+  const password = document.getElementById('masuk-password').value;
+  masukMsg.classList.remove('error', 'success');
+  masukMsg.style.color = '#c0392b';
+  if (!email || !password) { masukMsg.textContent = 'Email dan kata sandi tidak boleh kosong.'; return; }
+  masukMsg.textContent = '';
+  masukBtn.disabled = true;
+  masukBtn.textContent = 'Memproses...';
+  try {
+    const res = await fetch(API_BASE + '/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Login gagal');
+    localStorage.setItem('cbn_token', data.token);
+    localStorage.setItem('cbn_user', JSON.stringify(data.user));
+    // Kalau sedang memilih paket, arahkan dulu ke pembayaran; kalau tidak, langsung ke akun.
+    if (selectedPaketName) {
+      masukMsg.classList.add('success');
+      masukMsg.style.color = '#1f8a4c';
+      masukMsg.textContent = 'Berhasil masuk! Mengarahkan ke halaman pembayaran…';
+      setTimeout(goToPembayaran, 900);
+    } else if (data.user.role === 'admin') window.location.href = 'index_admin.html';
+    else if (data.user.role === 'review') window.location.href = 'index_review.html';
+    else window.location.href = 'index_user.html';
+  } catch (e) {
+    masukMsg.textContent = e.message || 'Gagal terhubung ke server. Pastikan server aktif.';
+    masukBtn.disabled = false;
+    masukBtn.textContent = 'Masuk & Lanjut ke Pembayaran';
+  }
+});
+</script>
+</body>
+</html>

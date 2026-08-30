@@ -48,7 +48,7 @@
     (function(){
         var token = localStorage.getItem('cbn_token');
         var user  = JSON.parse(localStorage.getItem('cbn_user') || 'null');
-        if (!token || !user) { window.location.replace('landing.html'); return; }
+        if (!token || !user) { window.location.replace('index.html'); return; }
         if (user.role === 'admin') { window.location.replace('index_admin.html'); return; }
         if (user.role === 'review') { window.location.replace('index_review.html'); return; }
     })();
@@ -996,7 +996,7 @@ let _userInfo = null;
 document.addEventListener('DOMContentLoaded', async () => {
     buildParticles();
     const u = Auth.getUser();
-    if (!u) { window.location.replace('landing.html'); return; }
+    if (!u) { window.location.replace('index.html'); return; }
     // Set display from token
     document.getElementById('display-name').textContent = u.nama || u.email;
     document.getElementById('display-email').textContent = u.email;
@@ -1133,7 +1133,7 @@ async function savePassword() {
 }
 
 function handleLogout() { document.getElementById('logout-overlay').classList.add('open'); }
-function confirmLogout() { Auth.clear(); window.location.replace('landing.html'); }
+function confirmLogout() { Auth.clear(); window.location.replace('index.html'); }
 
 async function loadMyPaketsStatus() {
     try {

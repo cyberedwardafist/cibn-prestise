@@ -568,7 +568,7 @@ function _loadExamPayload() {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-  if (!getUser() || !getJWT()) { window.location.href = 'landing.html'; return; }
+  if (!getUser() || !getJWT()) { window.location.href = 'index.html'; return; }
 
   // Ambil data dari IndexedDB (kapasitas besar)
   let rawData = await CBN_DB.get('current_exam');

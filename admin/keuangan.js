@@ -9,7 +9,7 @@
 let _paketData = [], _ldPaketCache = [];
 
 function renderKeuangan() {
-    // _keuanganSub dideklarasikan (let) di admin/landing.js — kalau tab Landing
+    // _keuanganSub dideklarasikan (let) di js/pages.js — kalau modul Keuangan
     // belum pernah dibuka, identifier itu belum exist sama sekali, jadi jangan
     // baca langsung (ReferenceError). typeof aman dipakai untuk identifier
     // yang belum pernah dideklarasikan.

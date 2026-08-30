@@ -19,13 +19,6 @@ function _persistAdminNav() {
 }
 
 function _doNav(pageId, subId) {
-    // Jika keluar dari halaman landing, tutup panel editor landing (vertikal) — main-dock tidak pernah disembunyikan
-    if (AppState.currentPage === 'landing' && pageId !== 'landing') {
-        const ldWrap = document.getElementById('landing-dock-wrap');
-        if (ldWrap) ldWrap.classList.remove('open');
-        const pc = document.querySelector('.page-container');
-        if (pc) pc.style.overflow = '';
-    }
     if (pageId !== 'soal') { document.body.classList.remove('soal-building'); document.getElementById('page-soal')?.classList.remove('dock-avoid-center'); }
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
     document.querySelectorAll('.dock-item').forEach(d=>d.classList.remove('active-tab'));

@@ -239,6 +239,37 @@ CREATE TABLE IF NOT EXISTS signup_requests (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Permintaan aktivasi PAKET (bukan akun) — dipakai oleh alur landing baru:
+-- akun langsung aktif saat daftar (lihat /api/signup), tapi paket yang dipilih
+-- baru resmi aktif (masuk ke user_pakets) setelah admin memverifikasi
+-- pembayaran lewat panel admin. user_kode WAJIB mengacu ke akun yang sudah ada.
+CREATE TABLE IF NOT EXISTS paket_requests (
+    id           SERIAL PRIMARY KEY,
+    kode         TEXT UNIQUE,
+    user_kode    TEXT NOT NULL,
+    paket_kode   TEXT,
+    paket_nama   TEXT NOT NULL,
+    metode_bayar TEXT,
+    status       TEXT DEFAULT 'pending',
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_paket_requests_user   ON paket_requests(user_kode);
+CREATE INDEX IF NOT EXISTS idx_paket_requests_status ON paket_requests(status);
+
+-- Kode OTP untuk fitur "Lupa Kata Sandi" (landing baru, halaman otp.html).
+-- Belum ada layanan email/SMTP terpasang — kode saat ini dicatat ke server log
+-- (console.log) saat /api/password/forgot dipanggil. Sambungkan ke SMTP asli
+-- di titik yang sama begitu kredensial email tersedia.
+CREATE TABLE IF NOT EXISTS password_resets (
+    id         SERIAL PRIMARY KEY,
+    email      TEXT NOT NULL,
+    otp        TEXT NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    verified   SMALLINT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);
+
 -- Index untuk query yang sering dipanggil (sama seperti versi SQLite)
 CREATE INDEX IF NOT EXISTS idx_users_role        ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_email       ON users(email);

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Paket Keanggotaan — CIBN PRESTISE</title>
+<title>CIBN PRESTISE — Investasi dengan Standar Prestise</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -39,7 +39,10 @@
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
-html{scroll-behavior:smooth;overflow-x:hidden;width:100%}
+/* overflow-x:clip (bukan hidden) — mencegah layout jebol ke samping tanpa menjadikan
+   html/body scroll container baru, yang kalau tidak akan mematikan position:sticky
+   (dipakai oleh .sticky-overlap di bawah untuk efek scroll "menimpa"). */
+html{scroll-behavior:smooth;overflow-x:clip;width:100%}
 
 body{
   background:var(--bg);
@@ -47,7 +50,7 @@ body{
   font-family:'Inter',sans-serif;
   font-size:16px;
   line-height:1.6;
-  overflow-x:hidden;
+  overflow-x:clip;
   min-height:100vh;
   background-image:
     radial-gradient(ellipse 80% 50% at 50% -10%, rgba(44,90,160,0.10), transparent 60%),
@@ -91,7 +94,7 @@ input{font-family:inherit}
 .blob-emerald{background:radial-gradient(circle, var(--blue), transparent 70%);opacity:.12}
 .blob-wine{background:radial-gradient(circle, var(--blue-light), transparent 70%);opacity:.10}
 
-/* ---------- NAVBAR ---------- */
+/* ---------- NAVBAR (floating, transparent — not edge-to-edge) ---------- */
 .navbar{
   position:fixed;top:18px;left:20px;right:20px;z-index:210; /* Naikkan menjadi 210 */
 }
@@ -189,6 +192,7 @@ input{font-family:inherit}
 .mobile-menu.open a:nth-child(1){transition-delay:.08s}
 .mobile-menu.open a:nth-child(2){transition-delay:.15s}
 .mobile-menu.open a:nth-child(3){transition-delay:.22s}
+.mobile-menu.open a:nth-child(4){transition-delay:.29s}
 @media (min-width:861px){.mobile-menu{display:none}}
 @media (max-width:380px){
   .navbar{left:8px;right:8px}
@@ -208,15 +212,38 @@ input{font-family:inherit}
 .hero{
   position:relative;min-height:100vh;display:flex;align-items:center;
   padding:160px 0 100px;perspective:1400px;overflow:hidden;
+  background:var(--bg); /* warna dasar bersih, nongol pas video & overlay memudar di bawah */
 }
 .hero-bg-grid{
-  position:absolute;inset:0;z-index:0;opacity:.28;
-  background-image:linear-gradient(var(--line) 1px, transparent 1px),linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  position:absolute;inset:0;z-index:2;opacity:.16;
+  background-image:linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px),linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px);
   background-size:64px 64px;
   mask-image:radial-gradient(ellipse 70% 60% at 50% 30%, black, transparent 75%);
 }
+/* ---------- HERO FULLSCREEN VIDEO BACKGROUND ---------- */
+.hero-video-media{
+  position:absolute;inset:0;width:100%;height:100%;z-index:0;overflow:hidden;background:#0b1424;
+  will-change:transform;
+  /* video-nya sendiri yang memudar jadi transparan di bawah (bukan ketutup lapisan
+     abu-abu terang), dan zona fade-nya dipersingkat jadi cuma di ujung bawah aja
+     biar sebagian besar hero tetap video penuh & tajam, transisinya jadi lebih bersih */
+  mask-image:linear-gradient(180deg, black 0%, black 82%, transparent 99%);
+  -webkit-mask-image:linear-gradient(180deg, black 0%, black 82%, transparent 99%);
+}
+.hero-video{
+  width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;
+}
+.hero-video-overlay{
+  position:absolute;inset:0;z-index:1;
+  /* scrim gelap ini cuma buat kontras teks di atas video, dan ikut memudar
+     ke TRANSPARAN (bukan ke warna terang) — biar gak ada blending gelap+terang
+     yang menghasilkan gradasi abu-abu di tengah. Dikompres ke ujung bawah juga,
+     senada sama fade video di atas */
+  background:
+    linear-gradient(180deg, rgba(9,16,30,.62) 0%, rgba(9,16,30,.5) 60%, rgba(9,16,30,0) 84%);
+}
 .hero-inner{
-  position:relative;z-index:2;display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center;
+  position:relative;z-index:3;display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center;
 }
 .eyebrow{
   display:inline-flex;align-items:center;gap:10px;color:var(--blue);
@@ -225,12 +252,14 @@ input{font-family:inherit}
 .eyebrow::before{content:'';width:26px;height:1px;background:var(--blue)}
 .hero h1{
   font-size:clamp(38px,5.4vw,66px);font-weight:700;line-height:1.08;
-  color:var(--text);letter-spacing:-.01em;
+  color:#fff;letter-spacing:-.01em;text-shadow:0 4px 24px rgba(0,0,0,.25);
 }
-.hero h1 em{font-style:normal;font-weight:600;color:var(--blue)}
+.hero h1 em{font-style:normal;font-weight:600;color:var(--cream-light)}
 .hero p.lead{
-  margin-top:26px;font-size:17px;color:var(--text-dim);max-width:480px;line-height:1.75;
+  margin-top:26px;font-size:17px;color:rgba(255,255,255,.82);max-width:480px;line-height:1.75;
 }
+.hero .eyebrow{color:var(--cream-light)}
+.hero .eyebrow::before{background:var(--cream-light)}
 .hero-actions{display:flex;gap:18px;margin-top:40px;flex-wrap:wrap}
 .btn{
   padding:16px 32px;border-radius:999px;font-size:13px;font-weight:700;
@@ -243,35 +272,38 @@ input{font-family:inherit}
 .btn-ghost:hover{border-color:var(--blue);color:var(--blue);transform:translateY(-3px)}
 
 .hero-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:56px;max-width:480px}
-.hero-stats .stat{border-radius:14px;padding:16px 14px}
-.hero-stats .stat b{font-family:'Space Grotesk',sans-serif;font-size:24px;color:var(--blue);display:block}
-.hero-stats .stat span{font-size:10.5px;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase}
+.hero-stats .stat{
+  border-radius:14px;padding:16px 14px;
+  background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.22);
+}
+.hero-stats .stat b{font-family:'Space Grotesk',sans-serif;font-size:24px;color:#fff;display:block}
+.hero-stats .stat span{font-size:10.5px;color:rgba(255,255,255,.68);letter-spacing:.08em;text-transform:uppercase}
 
-/* 3D emblem */
-.hero-emblem-wrap{position:relative;height:460px;transform-style:preserve-3d}
-.emblem{
-  position:absolute;inset:0;margin:auto;width:320px;height:320px;
-  transform-style:preserve-3d;
-  animation:emblem-spin 22s linear infinite;
-  will-change:transform;
-}
-@keyframes emblem-spin{from{transform:rotateY(0deg) rotateX(8deg)}to{transform:rotateY(360deg) rotateX(8deg)}}
+/* ---------- EMBLEM: logo statis, ring melingkar di belakangnya ---------- */
+.hero-emblem-wrap{position:relative;height:460px;display:flex;align-items:center;justify-content:center}
+.emblem{position:relative;width:320px;height:320px}
 .emblem-ring{
-  position:absolute;inset:0;border-radius:50%;
-  border:1px solid var(--line-strong);
+  position:absolute;top:50%;left:50%;width:100%;height:100%;
+  transform:translate(-50%,-50%);
+  border-radius:50%;border:2px solid transparent;z-index:0;
 }
-.emblem-ring.r1{transform:rotateX(72deg) rotateZ(0deg);border-color:rgba(44,90,160,.4)}
-.emblem-ring.r2{transform:rotateX(72deg) rotateZ(60deg);width:88%;height:88%;top:6%;left:6%;border-color:rgba(201,169,97,.5)}
-.emblem-ring.r3{transform:rotateX(72deg) rotateZ(120deg);width:74%;height:74%;top:13%;left:13%;border-color:rgba(92,134,201,.35)}
-.emblem-core{
-  position:absolute;inset:0;margin:auto;width:150px;height:150px;
-  background:linear-gradient(150deg,var(--blue-light),var(--blue-deep) 70%);
-  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
-  box-shadow:0 0 90px rgba(44,90,160,.4), inset 0 0 30px rgba(0,0,0,.18);
-  transform:translateZ(60px);
-  display:flex;align-items:center;justify-content:center;
+.emblem-ring.r2{
+  border-top-color:var(--cream);
+  border-right-color:rgba(201,169,97,.35);
+  box-shadow:0 0 30px -8px rgba(201,169,97,.35);
+  animation:ring-orbit 16s linear infinite;
 }
-.emblem-core span{font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--white);font-size:26px}
+.emblem-ring.r2::after{
+  content:'';position:absolute;top:-5px;left:50%;width:9px;height:9px;margin-left:-4.5px;
+  border-radius:50%;background:var(--cream);
+  box-shadow:0 0 12px var(--cream), 0 0 26px var(--cream-light);
+}
+@keyframes ring-orbit{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
+.emblem-logo{
+  position:absolute;top:50%;left:50%;width:340px;height:340px;object-fit:contain;
+  transform:translate(-50%,-50%);z-index:1;
+  filter:drop-shadow(0 10px 34px rgba(21,34,56,.22));
+}
 .emblem-particle{
   position:absolute;width:5px;height:5px;border-radius:50%;background:var(--cream);
   box-shadow:0 0 10px var(--cream);
@@ -280,6 +312,7 @@ input{font-family:inherit}
   .hero-inner{grid-template-columns:1fr}
   .hero-emblem-wrap{height:280px;order:-1}
   .emblem{width:220px;height:220px}
+  .emblem-logo{width:230px;height:230px}
 }
 
 /* ---------- SECTION HEADS ---------- */
@@ -475,43 +508,21 @@ input{font-family:inherit}
 .empty-state{text-align:center;padding:60px 20px;color:var(--text-dim);position:relative;z-index:2}
 .empty-state b{display:block;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:20px;margin-bottom:8px}
 
-@media (max-width:640px){
-  .page-header.container{padding-left:24px;padding-right:24px}
-  .search-wrap{padding:0 8px}
-}
-
 /* ---------- PAKET PAGE GRID (plain by default; bento when showing full unfiltered set) ---------- */
 .paket-page-grid{
   display:grid;grid-template-columns:repeat(3,1fr);gap:24px;perspective:1200px;
   margin-top:60px;position:relative;z-index:1;
 }
-/* BENTO (list lengkap, tanpa filter/search): masonry/pinterest-style — dipecah jadi
-   beberapa kolom flex yang ngalir independen (dibangun via JS, lihat renderPackages),
-   supaya box pendek gak dipaksa nyamain tinggi box di sampingnya, cuma jaraknya (gap)
-   yang konsisten. Sama persis di desktop maupun mobile, cuma jumlah kolomnya beda. */
 .paket-page-grid.bento{
-  display:flex;gap:24px;align-items:flex-start;margin-top:60px;
+  grid-template-columns:1fr 1.25fr 1fr;grid-template-rows:repeat(2,minmax(210px,auto));
 }
-.paket-bento-col{
-  flex:1;min-width:0;display:flex;flex-direction:column;gap:24px;
-}
+.paket-page-grid.bento .pkg-card:nth-child(1){grid-column:1;grid-row:1}
+.paket-page-grid.bento .pkg-card:nth-child(2){grid-column:2;grid-row:1/3}
+.paket-page-grid.bento .pkg-card:nth-child(3){grid-column:3;grid-row:1}
+.paket-page-grid.bento .pkg-card:nth-child(4){grid-column:1;grid-row:2}
 @media (max-width:960px){
-  /* mobile: tetap minimal 2 kolom (bukan 1 kolom penuh) */
-  .paket-page-grid{grid-template-columns:repeat(2,1fr);grid-template-rows:auto;gap:14px}
-  .paket-page-grid.bento{gap:14px}
-  .paket-bento-col{gap:14px}
-}
-@media (max-width:640px){
-  .paket-page-grid .pkg-card{padding:20px 15px}
-  .paket-page-grid .pkg-name{font-size:16px}
-  .paket-page-grid .pkg-desc{font-size:11px;min-height:0;margin-top:6px}
-  .paket-page-grid .pkg-price{margin-top:14px}
-  .paket-page-grid .pkg-price b{font-size:20px}
-  .paket-page-grid .pkg-price span{font-size:10px}
-  .paket-page-grid .pkg-features{margin-top:14px}
-  .paket-page-grid .pkg-features li{font-size:10.5px;padding:6px 0;gap:6px}
-  .paket-page-grid .pkg-badge{font-size:8px;padding:4px 9px;top:-9px;right:12px}
-  .paket-page-grid .pkg-cta{padding:10px;font-size:9.5px;margin-top:16px}
+  .paket-page-grid,.paket-page-grid.bento{grid-template-columns:1fr;grid-template-rows:auto}
+  .paket-page-grid.bento .pkg-card{grid-column:1 !important;grid-row:auto !important}
 }
 
 /* ---------- TESTIMONI PAGE ---------- */
@@ -572,14 +583,26 @@ input{font-family:inherit}
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 
 
-/* ---------- SECTION 2 -> 3 OVERLAP TRANSITION (teknologi stays pinned, testimoni preview slides over it) ---------- */
+/* ---------- STACKED SECTION OVERLAP TRANSITIONS (curtain-reveal) ----------
+   .sticky-overlap wraps #teknologi + #testimoni-preview + #video-promo. Each section in
+   the stack (except the last) is position:sticky;top:0 with an increasing z-index, so as
+   you scroll, the next section slides up and over the previous one — which stays pinned
+   underneath, hidden behind the new section's opaque background + rounded top + shadow.
+   Because position:sticky is confined to its parent's box, wrapping just these three
+   sections (instead of leaving them sticky directly under <body>) caps the "stuck" range
+   to exactly this trio — it releases the instant #video-promo finishes scrolling past, so
+   #paket-preview and the footer scroll normally and are unaffected. */
+.sticky-overlap{
+  position:relative;
+}
 #teknologi.section{
   position:sticky;
   top:0;
   z-index:1;
 }
 #testimoni-preview.section{
-  position:relative;
+  position:sticky;
+  top:0;
   z-index:2;
   background:var(--bg);
   border-radius:40px 40px 0 0;
@@ -588,7 +611,57 @@ input{font-family:inherit}
 @media (max-width:900px){
   /* sticky overlap can feel cramped on short mobile viewports; keep it simple there */
   #teknologi.section{position:relative;top:auto}
-  #testimoni-preview.section{border-radius:0;box-shadow:none}
+  #testimoni-preview.section{position:relative;top:auto;border-radius:0;box-shadow:none}
+}
+
+/* ---------- VIDEO PROMO (full-screen autoplay background video) ----------
+   Slides over #testimoni-preview as the third card in the curtain-reveal stack above
+   (same stacking mechanic as teknologi -> testimoni-preview: it slides over a sticky
+   predecessor via z-index, just without the rounded-corner/shadow "curtain" styling).
+   Its exit into #paket-preview instead reuses the hero's cinematic pull-back parallax
+   (see videoPromoParallax in the script), matching how the hero recedes into #teknologi. */
+.video-promo{
+  position:relative;
+  z-index:3;
+  height:100vh;
+  min-height:100vh;
+  margin-top:-2px; /* closes any subpixel seam with the sticky section underneath */
+  padding:0;        /* override .section's default 130px 0 — this section must be truly edge-to-edge */
+  display:flex;
+  align-items:center;
+  overflow:hidden;
+  background:#0b1424;
+  perspective:1400px;
+}
+.video-promo .container{padding-top:0;padding-bottom:0}
+.video-promo-media{
+  position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;z-index:0;
+  will-change:transform;
+}
+.video-promo-video{
+  width:100%;height:100%;object-fit:cover;display:block;
+}
+.video-promo-overlay{
+  position:absolute;inset:0;
+  background:
+    linear-gradient(180deg, rgba(11,20,36,.55) 0%, rgba(11,20,36,.62) 45%, rgba(11,20,36,.92) 100%);
+}
+.video-promo-content{
+  position:relative;z-index:1;color:#fff;max-width:620px;
+  will-change:transform,opacity;
+}
+.video-promo-content .eyebrow{color:var(--cream-light)}
+.video-promo-content .eyebrow::before{background:var(--cream-light)}
+.video-promo-content h2{
+  font-size:clamp(30px,4.4vw,52px);font-weight:700;line-height:1.14;
+  color:#fff;letter-spacing:-.01em;margin-top:14px;
+}
+.video-promo-content p{
+  margin-top:18px;font-size:16px;line-height:1.75;color:rgba(255,255,255,.78);max-width:480px;
+}
+.video-promo-content .btn{margin-top:34px}
+@media (max-width:900px){
+  .video-promo{height:82vh;min-height:82vh}
 }
 
 </style>
@@ -614,29 +687,139 @@ input{font-family:inherit}
   <a href="masuk.html" data-page="masuk.html">LogIn</a>
 </div>
 
-<header class="page-header container">
-  <div class="eyebrow mono" id="paketEyebrow">Keanggotaan CIBN PRESTISE</div>
-  <h1 class="serif reveal" id="paketTitle">Temukan Paket yang Tepat</h1>
-  <p class="reveal reveal-delay-1" id="paketDesc">Cari berdasarkan nama paket atau fitur yang Anda butuhkan — dari fondasi dasar hingga pendampingan privat.</p>
-  <div class="search-wrap reveal reveal-delay-2">
-    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
-    <input type="text" id="pkgSearch" placeholder="Cari paket, misal: mentorship, sinyal harian...">
+<!-- ================= HERO ================= -->
+<header class="hero">
+  <div class="hero-video-media">
+    <!-- Ganti src di bawah dengan file video latar Anda sendiri (mp4, idealnya <=15MB, 1920x1080) -->
+    <video class="hero-video" id="heroVideo" autoplay muted loop playsinline preload="auto"
+           disablePictureInPicture disableRemotePlayback tabindex="-1"
+           controlsList="nodownload noplaybackrate nofullscreen"
+           oncontextmenu="return false"
+           poster="https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1600&q=60">
+      <source src="assets/hero-video.mp4" type="video/mp4">
+    </video>
+    <div class="hero-video-overlay"></div>
   </div>
-  <div class="result-count" id="pkgCount"></div>
+  <div class="hero-bg-grid"></div>
+  <div class="container hero-inner">
+    <div>
+      <div class="eyebrow mono" id="heroEyebrow">Manajemen Investasi Prestise</div>
+      <h1 class="serif" id="heroTitle">Investasi Bukan Sekadar Angka. <em>Ini Warisan.</em></h1>
+      <p class="lead" id="heroLead">CIBN PRESTISE memadukan riset pasar mendalam, teknologi analisis real-time, dan pendampingan personal — untuk mereka yang menganggap serius setiap keputusan finansial.</p>
+      <div class="hero-actions">
+        <a href="paket.html" class="btn btn-gold" id="heroCtaPrimary">Lihat Paket Keanggotaan</a>
+        <a href="testimoni.html" class="btn btn-ghost" id="heroCtaSecondary">Baca Testimoni</a>
+      </div>
+      <div class="hero-stats" id="heroStats">
+        <div class="stat glass"><b>12rb+</b><span>Anggota Aktif</span></div>
+        <div class="stat glass"><b>8 Tahun</b><span>Pengalaman Riset</span></div>
+        <div class="stat glass"><b>97%</b><span>Tingkat Kepuasan</span></div>
+      </div>
+    </div>
+    <div class="hero-emblem-wrap">
+      <div class="emblem">
+        <div class="emblem-ring r2"></div>
+        <img src="assets/logo-cibn-prestise.png" alt="CIBN PRESTISE" class="emblem-logo">
+      </div>
+    </div>
+  </div>
 </header>
 
-<section class="section" style="padding-top:20px" id="pakets">
-  <div class="blob blob-gold" style="width:340px;height:340px;top:20px;left:-80px"></div>
-  <div class="blob blob-emerald" style="width:300px;height:300px;bottom:0;right:-60px"></div>
+<!-- ================= STICKY OVERLAP WRAP: batasi area sticky hanya utk teknologi -> testimoni ================= -->
+<div class="sticky-overlap">
+
+<!-- ================= TEKNOLOGI ================= -->
+<section class="section" id="teknologi">
+  <div class="blob blob-gold" style="width:360px;height:360px;top:-60px;left:-80px"></div>
+  <div class="blob blob-emerald" style="width:300px;height:300px;bottom:-80px;right:-60px"></div>
   <div class="container">
-    <div class="paket-page-grid" id="pkgGrid"></div>
-    <div class="empty-state" id="pkgEmpty" style="display:none">
-      <b>Tidak ada paket ditemukan</b>
-      Coba kata kunci lain, misalnya "pro" atau "privat".
+    <div class="section-head reveal">
+      <div class="eyebrow mono" id="teknologiEyebrow">Di Balik Layar</div>
+      <h2 class="serif" id="teknologiHeading">Teknologi yang Kami Gunakan</h2>
+      <p id="teknologiDesc">Setiap keputusan didukung oleh infrastruktur analisis yang dibangun untuk kecepatan, akurasi, dan keamanan.</p>
+    </div>
+    <div class="tech-grid" id="teknologiCards">
+      <div class="tech-card tilt-card reveal">
+        <div class="tech-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+        <h3 class="tc-title">Analisis Bertenaga AI</h3>
+        <p class="tc-desc">Model prediktif membaca ribuan titik data pasar setiap detik untuk menyaring sinyal yang relevan.</p>
+      </div>
+      <div class="tech-card tilt-card reveal reveal-delay-1">
+        <div class="tech-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3" stroke-linecap="round"/></svg></div>
+        <h3 class="tc-title">Data Real-Time Multi-Bursa</h3>
+        <p class="tc-desc">Feed harga dan likuiditas tersinkron langsung dari berbagai bursa global tanpa jeda berarti.</p>
+      </div>
+      <div class="tech-card tilt-card reveal reveal-delay-2">
+        <div class="tech-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5l-8-3z" stroke-linejoin="round"/></svg></div>
+        <h3 class="tc-title">Keamanan Tingkat Bank</h3>
+        <p class="tc-desc">Enkripsi end-to-end dan audit berkala menjaga data serta strategi keanggotaan Anda tetap privat.</p>
+      </div>
+      <div class="tech-card tilt-card reveal reveal-delay-3">
+        <div class="tech-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6" /><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></div>
+        <h3 class="tc-title">Infrastruktur Cloud Global</h3>
+        <p class="tc-desc">Server terdistribusi menjaga latensi rendah dan keandalan akses di manapun Anda berada.</p>
+      </div>
     </div>
   </div>
 </section>
 
+<!-- ================= TESTIMONI PREVIEW ================= -->
+<section class="section" id="testimoni-preview">
+  <div class="blob blob-wine" style="width:340px;height:340px;top:-40px;right:-70px"></div>
+  <div class="blob blob-gold" style="width:280px;height:280px;bottom:-60px;left:-60px"></div>
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="eyebrow mono" id="testimoniPreviewEyebrow">Kata Mereka</div>
+      <h2 class="serif" id="testimoniPreviewHeading">Dipercaya oleh Investor & Trader Serius</h2>
+      <p id="testimoniPreviewDesc">Pengalaman nyata dari anggota yang telah menjadikan CIBN PRESTISE bagian dari perjalanan finansial mereka.</p>
+    </div>
+    <div class="testi-grid" id="testiPreview"></div>
+    <div class="section-foot-link reveal">
+      <a href="testimoni.html" class="btn btn-ghost">Lihat Semua Testimoni</a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= VIDEO PROMO (full-screen autoplay background video) ================= -->
+<section class="section video-promo" id="video-promo">
+  <div class="video-promo-media">
+    <!-- Ganti src di bawah dengan file video promosi Anda sendiri (mp4, idealnya <=15MB, 1920x1080) -->
+    <video class="video-promo-video" autoplay muted loop playsinline preload="metadata"
+           poster="https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1600&q=60">
+      <source src="assets/video-promo.mp4" type="video/mp4">
+    </video>
+    <div class="video-promo-overlay"></div>
+  </div>
+  <div class="container">
+    <div class="video-promo-content">
+      <div class="eyebrow mono" id="vpEyebrow">Lihat Prestise Bergerak</div>
+      <h2 class="serif" id="vpHeading">Satu Menit untuk Memahami Standar Kami</h2>
+      <p id="vpDesc">Riset mendalam, teknologi real-time, dan pendampingan personal — disatukan dalam satu ekosistem investasi yang dirancang untuk hasil yang serius.</p>
+      <a href="paket.html" class="btn btn-gold" id="vpCta">Lihat Paket Keanggotaan</a>
+    </div>
+  </div>
+</section>
+
+</div><!-- /.sticky-overlap -->
+
+<!-- ================= PAKET PREVIEW ================= -->
+<section class="section" id="paket-preview">
+  <div class="blob blob-emerald" style="width:320px;height:320px;top:-50px;left:-60px"></div>
+  <div class="blob blob-gold" style="width:340px;height:340px;bottom:-90px;right:-80px"></div>
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="eyebrow mono" id="paketPreviewEyebrow">Keanggotaan</div>
+      <h2 class="serif" id="paketPreviewHeading">Pilih Paket Sesuai Perjalanan Anda</h2>
+      <p id="paketPreviewDesc">Dari langkah pertama hingga pendampingan privat — setiap paket dirancang untuk level dan tujuan yang berbeda.</p>
+    </div>
+    <div class="pkg-grid" id="pkgPreview"></div>
+    <div class="section-foot-link reveal">
+      <a href="paket.html" class="btn btn-gold">Lihat Semua Paket</a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FOOTER ================= -->
 <footer class="footer">
   <div class="footer-spotlight">
     <div class="footer-wordmark">CIBN PRESTISE</div>
@@ -645,11 +828,11 @@ input{font-family:inherit}
     <div class="container footer-grid">
       <div class="footer-brand">
         <a href="index.html" class="brand">CIBN PRESTISE</a>
-        <p>Manajemen investasi dan edukasi pasar dengan standar prestise — riset mendalam, teknologi presisi, pendampingan personal.</p>
+        <p id="footerDesc">Manajemen investasi dan edukasi pasar dengan standar prestise — riset mendalam, teknologi presisi, pendampingan personal.</p>
         <div class="footer-social">
-          <a href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg></a>
-          <a href="#" aria-label="Twitter"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M22 5.8c-.7.3-1.5.5-2.3.6.8-.5 1.5-1.3 1.8-2.3-.8.5-1.7.8-2.6 1a4.1 4.1 0 0 0-7 3.7A11.6 11.6 0 0 1 3.4 4.6a4.1 4.1 0 0 0 1.3 5.5c-.7 0-1.3-.2-1.9-.5v.1a4.1 4.1 0 0 0 3.3 4 4.2 4.2 0 0 1-1.9.1 4.1 4.1 0 0 0 3.8 2.9A8.3 8.3 0 0 1 2 18.4a11.6 11.6 0 0 0 6.3 1.9c7.5 0 11.7-6.3 11.7-11.7v-.5c.8-.6 1.5-1.3 2-2.1z"/></svg></a>
-          <a href="#" aria-label="LinkedIn"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 10v7M8 7v.01M12 17v-4.5c0-1.4 1-2.5 2.5-2.5s2.5 1.1 2.5 2.5V17" stroke-linecap="round"/></svg></a>
+          <a href="#" id="footerInstagram" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg></a>
+          <a href="#" id="footerTwitter" aria-label="Twitter"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M22 5.8c-.7.3-1.5.5-2.3.6.8-.5 1.5-1.3 1.8-2.3-.8.5-1.7.8-2.6 1a4.1 4.1 0 0 0-7 3.7A11.6 11.6 0 0 1 3.4 4.6a4.1 4.1 0 0 0 1.3 5.5c-.7 0-1.3-.2-1.9-.5v.1a4.1 4.1 0 0 0 3.3 4 4.2 4.2 0 0 1-1.9.1 4.1 4.1 0 0 0 3.8 2.9A8.3 8.3 0 0 1 2 18.4a11.6 11.6 0 0 0 6.3 1.9c7.5 0 11.7-6.3 11.7-11.7v-.5c.8-.6 1.5-1.3 2-2.1z"/></svg></a>
+          <a href="#" id="footerLinkedin" aria-label="LinkedIn"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 10v7M8 7v.01M12 17v-4.5c0-1.4 1-2.5 2.5-2.5s2.5 1.1 2.5 2.5V17" stroke-linecap="round"/></svg></a>
         </div>
       </div>
       <div class="footer-col">
@@ -672,14 +855,14 @@ input{font-family:inherit}
       <div class="footer-col">
         <h4>Kontak</h4>
         <ul>
-          <li><a href="mailto:hello@cibnprestise.id">hello@cibnprestise.id</a></li>
-          <li><a href="tel:+622112345678">+62 21 1234 5678</a></li>
-          <li><a href="#">Jakarta, Indonesia</a></li>
+          <li><a href="mailto:hello@cibnprestise.id" id="footerEmail">hello@cibnprestise.id</a></li>
+          <li><a href="tel:+622112345678" id="footerPhone">+62 21 1234 5678</a></li>
+          <li><a href="#" id="footerAddress">Jakarta, Indonesia</a></li>
         </ul>
       </div>
     </div>
     <div class="container footer-bottom">
-      <span>© 2026 CIBN PRESTISE. Seluruh hak cipta dilindungi.</span>
+      <span id="footerCopyright">© 2026 CIBN PRESTISE. Seluruh hak cipta dilindungi.</span>
       <span>Dibuat dengan presisi untuk investor yang serius.</span>
     </div>
   </div>
@@ -712,8 +895,10 @@ async function loadRealPackages() {
 }
 
 // Testimoni belum punya tabel database tersendiri — tetap konten statis (materi
-// marketing), sama seperti di testimoni.html.
-const TESTIMONIALS = [
+// marketing) sebagai fallback, dipakai kalau admin belum mengisi daftar testimoni
+// lewat menu Editor Landing > Testimoni. Kalau sudah diisi, TESTIMONIALS ditimpa
+// dengan data admin (lihat fetch /api/landing di bawah).
+const DEFAULT_TESTIMONIALS = [
   {
     id: 1,
     name: "Raka Adiputra",
@@ -779,6 +964,7 @@ const TESTIMONIALS = [
     quote: "Ruang diskusi privatnya diisi orang-orang serius. Kualitas percakapannya jauh di atas grup trading pada umumnya."
   }
 ];
+let TESTIMONIALS = DEFAULT_TESTIMONIALS;
 
 </script>
 <script>
@@ -816,6 +1002,7 @@ if (navToggle && mobileMenu) {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeMenu();
   });
+  // jika resize ke layar desktop saat menu mobile masih terbuka, tutup otomatis
   window.addEventListener('resize', () => {
     if (window.innerWidth > 860) closeMenu();
   });
@@ -850,7 +1037,8 @@ REDUCE_3D_MQ.addEventListener('change', (e) => { REDUCE_3D = e.matches; });
 function registerScrub(el) {
   if (el._scrubRegistered) return;
   el._scrubRegistered = true;
-  el._hoverLift = 0;
+  el._hoverRX = 0;
+  el._hoverRY = 0;
   scrubEls.push(el);
 }
 
@@ -871,53 +1059,87 @@ function scrubProgress(el) {
 function applyScrub(el, p) {
   const opacity = Math.max(0, Math.min(1, (p - 0.02) / 0.9));
   el.style.opacity = opacity;
-  const lift = el._hoverLift || 0; // hover: cuma naik/turun, tanpa tilt 3D ikut kursor
   if (REDUCE_3D) {
     // versi ringan utk mobile: cuma naik + fade, tanpa perspective/translateZ
-    const ty = (1 - p) * 28 + lift;
+    const ty = (1 - p) * 28;
     el.style.transform = `translateY(${ty.toFixed(1)}px)`;
   } else {
     const rotate = (1 - p) * -18;      // deg, tips back in 3D space
-    const ty = (1 - p) * 74 + lift;    // px, rises into place (+ hover lift)
+    const ty = (1 - p) * 74;           // px, rises into place
     const tz = (1 - p) * -180;         // px, comes forward out of depth
     const scale = 0.9 + p * 0.1;
     el.style.transform =
       `translateY(${ty.toFixed(1)}px) translateZ(${tz.toFixed(1)}px) ` +
-      `rotateX(${rotate.toFixed(2)}deg) scale(${scale.toFixed(3)})`;
+      `rotateX(${rotate.toFixed(2)}deg) scale(${scale.toFixed(3)}) ` +
+      `rotateY(${(el._hoverRY || 0).toFixed(2)}deg) rotateX(${(el._hoverRX || 0).toFixed(2)}deg)`;
   }
   el.classList.toggle('in-view', p > 0.04);
 }
 
-// ----- Hero cinematic parallax (pulls back into depth as you scroll past it) -----
-const heroEl = document.querySelector('.hero');
-const heroInner = document.querySelector('.hero-inner');
-const heroGrid = document.querySelector('.hero-bg-grid');
-function heroParallax() {
-  if (!heroEl) return;
-  const rect = heroEl.getBoundingClientRect();
-  const vh = window.innerHeight;
-  const p = Math.min(Math.max(-rect.top / (rect.height * 0.85), 0), 1);
-  if (heroInner) {
-    if (REDUCE_3D) {
-      heroInner.style.transform = `translateY(${(p * 40).toFixed(1)}px)`;
-    } else {
-      heroInner.style.transform = `translateY(${(p * 100).toFixed(1)}px) translateZ(${(p * -220).toFixed(1)}px) scale(${(1 - p * 0.12).toFixed(3)})`;
+// ----- Cinematic pull-back parallax (reusable): a section's content translates back into
+// depth, shrinks and fades as you scroll past it, while its background layer scales up
+// slightly for depth — the same "recedes into the next section" effect used for the hero
+// as it gives way to #teknologi, and reused below for #video-promo giving way to
+// #paket-preview. -----
+function makeCinematicParallax(sectionEl, contentEl, bgEl) {
+  if (!sectionEl) return () => {};
+  return function () {
+    const rect = sectionEl.getBoundingClientRect();
+    const p = Math.min(Math.max(-rect.top / (rect.height * 0.85), 0), 1);
+    if (contentEl) {
+      if (REDUCE_3D) {
+        contentEl.style.transform = `translateY(${(p * 40).toFixed(1)}px)`;
+      } else {
+        contentEl.style.transform = `translateY(${(p * 100).toFixed(1)}px) translateZ(${(p * -220).toFixed(1)}px) scale(${(1 - p * 0.12).toFixed(3)})`;
+      }
+      contentEl.style.opacity = `${Math.max(0, 1 - p * 1.15).toFixed(2)}`;
     }
-    heroInner.style.opacity = `${Math.max(0, 1 - p * 1.15).toFixed(2)}`;
-  }
-  if (heroGrid) {
-    if (REDUCE_3D) {
-      heroGrid.style.transform = `translateY(${(p * 25).toFixed(1)}px)`;
-    } else {
-      heroGrid.style.transform = `translateY(${(p * 70).toFixed(1)}px) scale(${(1 + p * 0.15).toFixed(3)})`;
+    if (bgEl) {
+      if (REDUCE_3D) {
+        bgEl.style.transform = `translateY(${(p * 25).toFixed(1)}px)`;
+      } else {
+        bgEl.style.transform = `translateY(${(p * 70).toFixed(1)}px) scale(${(1 + p * 0.15).toFixed(3)})`;
+      }
     }
-  }
+  };
 }
+
+// ----- Hero -> Teknologi -----
+const heroParallax = makeCinematicParallax(
+  document.querySelector('.hero'),
+  document.querySelector('.hero-inner'),
+  document.querySelector('.hero-video-media')
+);
+
+// ----- Hero video: paksa selalu autoplay & tidak bisa dijeda user -----
+(function lockHeroVideo() {
+  const v = document.getElementById('heroVideo');
+  if (!v) return;
+  const forcePlay = () => { v.play().catch(() => {}); };
+  forcePlay();
+  // setiap kali browser/JS lain mencoba men-jeda video, langsung dilanjutkan lagi
+  v.addEventListener('pause', forcePlay);
+  v.addEventListener('ended', forcePlay);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) forcePlay(); });
+  // jaring pengaman tambahan tiap 1 detik, untuk kasus browser menjeda diam-diam
+  setInterval(() => { if (v.paused) forcePlay(); }, 1000);
+  // cegah interaksi klik/keyboard/klik-kanan yang bisa memicu kontrol pause
+  v.addEventListener('click', (e) => e.preventDefault());
+  v.addEventListener('keydown', (e) => e.preventDefault());
+})();
+
+// ----- Video promo -> Keanggotaan (mirrors the hero's exit exactly) -----
+const videoPromoParallax = makeCinematicParallax(
+  document.querySelector('#video-promo'),
+  document.querySelector('.video-promo-content'),
+  document.querySelector('.video-promo-media')
+);
 
 // ----- Persistent render loop: keeps everything scrubbing smoothly, incl. inertia scroll -----
 function scrubLoop() {
   scrubEls.forEach(el => applyScrub(el, scrubProgress(el)));
   heroParallax();
+  videoPromoParallax();
   requestAnimationFrame(scrubLoop);
 }
 requestAnimationFrame(scrubLoop);
@@ -931,26 +1153,25 @@ function attachTilt(root = document) {
   cards.forEach(card => {
     if (card.dataset.tiltBound) return;
     card.dataset.tiltBound = '1';
-    const lift = 10; // px, naik saat di-hover
-    card.addEventListener('mouseenter', () => { card._hoverLift = -lift; });
-    card.addEventListener('mouseleave', () => { card._hoverLift = 0; });
+    const strength = 14;
+    card.addEventListener('mousemove', (e) => {
+      const rect = card.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      card._hoverRY = x * strength;
+      card._hoverRX = -y * strength;
+    });
+    card.addEventListener('mouseleave', () => {
+      card._hoverRX = 0;
+      card._hoverRY = 0;
+    });
   });
 }
 attachTilt();
 
-// ===== Hero emblem: parallax tilt following cursor + floating particles =====
+// ===== Hero emblem: logo diam, hanya floating gold particles di sekitarnya =====
 const emblemWrap = document.querySelector('.hero-emblem-wrap');
 if (emblemWrap) {
-  const emblem = emblemWrap.querySelector('.emblem');
-  document.addEventListener('mousemove', (e) => {
-    const rect = emblemWrap.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const dx = (e.clientX - cx) / rect.width;
-    const dy = (e.clientY - cy) / rect.height;
-    emblemWrap.style.transform = `rotateY(${(dx * 14).toFixed(2)}deg) rotateX(${(-dy * 14).toFixed(2)}deg)`;
-  });
-
   // floating gold particles
   for (let i = 0; i < 14; i++) {
     const p = document.createElement('div');
@@ -989,79 +1210,116 @@ if (footerSpot) {
 
 </script>
 <script>
-  const pkgGrid = document.getElementById('pkgGrid');
-  const pkgEmpty = document.getElementById('pkgEmpty');
-  const pkgCount = document.getElementById('pkgCount');
-  const pkgSearch = document.getElementById('pkgSearch');
-
-  // Bento (list lengkap/tanpa filter): kolomnya 3 di desktop, 2 di mobile —
-  // dipecah round-robin (item ke-0,3,6.. kolom1; ke-1,4,7.. kolom2; dst) biar
-  // tiap kolom flex ngalir sendiri2 (tinggi independen, gak dipaksa sejajar).
-  const PKG_BENTO_MQ = window.matchMedia('(max-width: 960px)');
-
-  function pkgCardHTML(p) {
-    return `
-      <div class="pkg-card tilt-card filter-item ${p.featured ? 'featured' : ''}">
-        ${p.featured ? '<div class="pkg-badge">' + p.tag + '</div>' : ''}
-        <div class="pkg-name serif">${p.name}</div>
-        <p class="pkg-desc">${p.desc}</p>
-        <div class="pkg-price"><b>${p.price}</b> <span>${p.period}</span></div>
-        <ul class="pkg-features">${p.features.map(f => `<li>${f}</li>`).join('')}</ul>
-        <div class="pkg-cta" onclick="location.href='info-paket.html?id=${p.id}'">Pilih Paket</div>
-      </div>`;
+  // preview: 3 testimoni pertama (Sorotan kalau admin sudah mengatur, kalau belum
+  // pakai 3 pertama dari data default)
+  const testiPreview = document.getElementById('testiPreview');
+  function renderTestiPreview() {
+    testiPreview.innerHTML = '';
+    TESTIMONIALS.slice(0, 3).forEach((t, i) => {
+      testiPreview.innerHTML += `
+        <div class="testi-card tilt-card reveal reveal-delay-${i+1}">
+          <p class="testi-quote">${t.quote}</p>
+          <div class="testi-person">
+            <img src="${t.photo}" alt="${t.name}" loading="lazy">
+            <div><b>${t.name}</b><span>${t.role}</span></div>
+          </div>
+        </div>`;
+    });
+    observeReveal(testiPreview);
+    attachTilt(testiPreview);
   }
+  renderTestiPreview();
 
-  function renderBentoColumns(list) {
-    const cols = PKG_BENTO_MQ.matches ? 2 : 3;
-    const colsHTML = Array.from({ length: cols }, () => []);
-    list.forEach((p, i) => colsHTML[i % cols].push(pkgCardHTML(p)));
-    pkgGrid.innerHTML = colsHTML
-      .map(col => `<div class="paket-bento-col">${col.join('')}</div>`)
-      .join('');
+  // preview: paket, klik kartu -> paket.html
+  const pkgPreview = document.getElementById('pkgPreview');
+  function renderPkgPreview() {
+    if (!PACKAGES.length) return;
+    PACKAGES.slice(0, 3).forEach((p, i) => {
+      pkgPreview.innerHTML += `
+        <div class="pkg-card tilt-card reveal reveal-delay-${i+1} ${p.featured ? 'featured' : ''}" onclick="location.href='paket.html'">
+          ${p.featured ? '<div class="pkg-badge">' + p.tag + '</div>' : ''}
+          <div class="pkg-name serif">${p.name}</div>
+          <p class="pkg-desc">${p.desc}</p>
+          <div class="pkg-price"><b>${p.price}</b> <span>${p.period}</span></div>
+          <ul class="pkg-features">${p.features.slice(0,3).map(f => `<li>${f}</li>`).join('')}</ul>
+          <div class="pkg-cta" onclick="event.stopPropagation(); location.href='info-paket.html?id=${p.id}'">Pilih Paket</div>
+        </div>`;
+    });
+    observeReveal(pkgPreview);
+    attachTilt(pkgPreview);
   }
+  loadRealPackages().then(renderPkgPreview);
 
-  function renderPackages(list) {
-    const isBento = list === PACKAGES;
-    pkgGrid.classList.toggle('bento', isBento);
-    if (isBento) {
-      renderBentoColumns(list);
-    } else {
-      pkgGrid.innerHTML = list.map(pkgCardHTML).join('');
-    }
-    pkgEmpty.style.display = list.length ? 'none' : 'block';
-    pkgCount.textContent = list.length ? `Menampilkan ${list.length} dari ${PACKAGES.length} paket` : '';
-    attachTilt(pkgGrid);
-  }
+  observeReveal();
+  attachTilt();
 
-  // render ulang susunan kolom bento saat lewat breakpoint mobile/desktop
-  PKG_BENTO_MQ.addEventListener('change', () => {
-    if (pkgGrid.classList.contains('bento')) renderPackages(PACKAGES);
-  });
-
-  function filterPackages(query) {
-    const q = query.trim().toLowerCase();
-    if (!q) return PACKAGES;
-    return PACKAGES.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      p.tag.toLowerCase().includes(q) ||
-      p.desc.toLowerCase().includes(q) ||
-      p.features.some(f => f.toLowerCase().includes(q))
-    );
-  }
-
-  pkgSearch.addEventListener('input', (e) => renderPackages(filterPackages(e.target.value)));
-  pkgGrid.innerHTML = '<div class="empty-state">Memuat data paket...</div>';
-  loadRealPackages().then(() => renderPackages(PACKAGES));
-</script>
-<script>
-  // ===== Konten halaman ini yang bisa diatur admin (menu Editor Landing > Paket) =====
-  // Kalau admin belum pernah mengisi field-nya, teks default di HTML di atas tetap dipakai.
+  // ===== Konten landing yang bisa diatur admin (menu Editor Landing) =====
+  // Kalau admin belum pernah mengisi suatu field, teks default di HTML di atas
+  // tetap dipakai (tidak ditimpa dengan string kosong).
   fetch(window.location.origin + '/api/landing').then(r => r.json()).then(d => {
-    if (!d || !d.paket) return;
+    if (!d) return;
     const setText = (id, val) => { if (val) { const el = document.getElementById(id); if (el) el.textContent = val; } };
-    setText('paketEyebrow', d.paket.eyebrow);
-    setText('paketTitle', d.paket.title);
-    setText('paketDesc', d.paket.desc);
+    const setHref = (id, val) => { if (val) { const el = document.getElementById(id); if (el) el.href = val; } };
+
+    if (d.hero) {
+      setText('heroEyebrow', d.hero.eyebrow);
+      if (d.hero.titleMain || d.hero.titleEm) {
+        const t = document.getElementById('heroTitle');
+        if (t) t.innerHTML = `${d.hero.titleMain ?? 'Investasi Bukan Sekadar Angka.'} <em>${d.hero.titleEm ?? 'Ini Warisan.'}</em>`;
+      }
+      setText('heroLead', d.hero.lead);
+      setText('heroCtaPrimary', d.hero.ctaPrimaryText);
+      setText('heroCtaSecondary', d.hero.ctaSecondaryText);
+      if (Array.isArray(d.hero.stats) && d.hero.stats.length) {
+        const wrap = document.getElementById('heroStats');
+        if (wrap) wrap.innerHTML = d.hero.stats.map(s => `<div class="stat glass"><b>${s.value || ''}</b><span>${s.label || ''}</span></div>`).join('');
+      }
+    }
+    if (d.teknologi) {
+      setText('teknologiEyebrow', d.teknologi.eyebrow);
+      setText('teknologiHeading', d.teknologi.heading);
+      setText('teknologiDesc', d.teknologi.desc);
+      if (Array.isArray(d.teknologi.cards) && d.teknologi.cards.length) {
+        const cards = document.querySelectorAll('#teknologiCards .tech-card');
+        d.teknologi.cards.forEach((c, i) => {
+          if (!cards[i]) return;
+          if (c.title) cards[i].querySelector('.tc-title').textContent = c.title;
+          if (c.desc) cards[i].querySelector('.tc-desc').textContent = c.desc;
+        });
+      }
+    }
+    if (d.videoPromo) {
+      setText('vpEyebrow', d.videoPromo.eyebrow);
+      setText('vpHeading', d.videoPromo.heading);
+      setText('vpDesc', d.videoPromo.desc);
+      setText('vpCta', d.videoPromo.ctaText);
+    }
+    if (d.footer) {
+      setText('footerDesc', d.footer.brandDesc);
+      setText('footerCopyright', d.footer.copyright);
+      if (d.footer.email) { setText('footerEmail', d.footer.email); setHref('footerEmail', 'mailto:' + d.footer.email); }
+      if (d.footer.phone) { setText('footerPhone', d.footer.phone); setHref('footerPhone', 'tel:' + d.footer.phone.replace(/[^+\d]/g, '')); }
+      setText('footerAddress', d.footer.address);
+      setHref('footerInstagram', d.footer.instagram);
+      setHref('footerTwitter', d.footer.twitter);
+      setHref('footerLinkedin', d.footer.linkedin);
+    }
+    if (d.paket) {
+      setText('paketPreviewEyebrow', d.paket.previewEyebrow);
+      setText('paketPreviewHeading', d.paket.previewHeading);
+      setText('paketPreviewDesc', d.paket.previewDesc);
+    }
+    if (d.testimoni) {
+      setText('testimoniPreviewEyebrow', d.testimoni.previewEyebrow);
+      setText('testimoniPreviewHeading', d.testimoni.previewHeading);
+      setText('testimoniPreviewDesc', d.testimoni.previewDesc);
+      if (Array.isArray(d.testimoni.items) && d.testimoni.items.length) {
+        const semua = d.testimoni.items.filter(t => t.semua !== false);
+        const sorotan = d.testimoni.items.filter(t => t.sorotan);
+        TESTIMONIALS = (sorotan.length ? sorotan : (semua.length ? semua : d.testimoni.items));
+        renderTestiPreview();
+      }
+    }
   }).catch(() => {});
 </script>
 </body>

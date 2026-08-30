@@ -116,6 +116,14 @@ const UsersAPI = {
     async rejectSignup(id) { return await apiDel(`/signup-requests/${id}`); }
 };
 
+// ── PAKET REQUESTS API (aktivasi paket landing baru — akun sudah aktif,
+//    tinggal paketnya yang menunggu verifikasi pembayaran oleh admin) ──
+const PaketRequestsAPI = {
+    async getAll() { return await apiGet('/paket-requests') || []; },
+    async approve(kode) { return await apiPost(`/paket-requests/${kode}/approve`, {}); },
+    async reject(kode) { return await apiDel(`/paket-requests/${kode}`); }
+};
+
 // ── GRUBS API ──
 const GrubsAPI = {
     async getAll() { return await apiGet('/grubs'); },
