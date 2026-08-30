@@ -248,6 +248,45 @@ async function submitTestiForm() {
   const quote = document.getElementById('ld-testi-form-quote').value.trim();
   if (!name || !quote) { showToast('Nama & kutipan testimoni wajib diisi', 'danger'); return; }
   const kelompokKode = document.getElementById('ld-testi-form-kelompok').value || '';
+  const sorotanChecked = document.getElementById('ld-testi-form-sorotan').checked;
+  const editIdx = idxRaw !== '' ? parseInt(idxRaw) : -1;
+
+  // Sorotan sekarang boleh lebih dari 4, TAPI tidak boleh 2 testimoni dari kelompok
+  // pendaftaran yang sama sama-sama jadi Sorotan. Kalau bentrok, tanya dulu (Ganti | Batal)
+  // sebelum benar-benar disimpan.
+  if (sorotanChecked && kelompokKode) {
+    const conflict = _ldTestiItemsData.find((t, i) => i !== editIdx && t.sorotan && t.kelompokKode === kelompokKode);
+    if (conflict) {
+      const kelNama = _ldTestiKelompokNama(kelompokKode);
+      showConfirm(
+        'Kelompok Sudah Ada di Sorotan',
+        `Kelompok "${kelNama}" sudah punya testimoni Sorotan, yaitu "${conflict.name}". Ganti testimoni sorotan kelompok ini dengan yang baru?`,
+        'warning',
+        async () => {
+          // Ganti: matikan Sorotan milik testimoni lama di kelompok ini, lalu simpan yang baru dengan Sorotan aktif.
+          _ldTestiItemsData.forEach(t => { if (t.sorotan && t.kelompokKode === kelompokKode) t.sorotan = false; });
+          await _doSubmitTestiForm(editIdx, true);
+        },
+        {
+          yesLabel: 'Ganti',
+          noLabel: 'Batal',
+          noCb: () => {
+            // Batal: tutup pertanyaan, matikan switch Sorotan di form, TIDAK jadi disimpan.
+            // Admin harus klik Simpan lagi kalau mau menyimpan (kali ini tanpa Sorotan).
+            const sw = document.getElementById('ld-testi-form-sorotan');
+            if (sw) sw.checked = false;
+          }
+        }
+      );
+      return;
+    }
+  }
+  await _doSubmitTestiForm(editIdx, sorotanChecked);
+}
+async function _doSubmitTestiForm(editIdx, sorotanValue) {
+  const name = document.getElementById('ld-testi-form-name').value.trim();
+  const quote = document.getElementById('ld-testi-form-quote').value.trim();
+  const kelompokKode = document.getElementById('ld-testi-form-kelompok').value || '';
   const tahun = document.getElementById('ld-testi-form-tahun').value.trim();
   const kelNama = _ldTestiKelompokNama(kelompokKode);
   const item = {
@@ -258,12 +297,12 @@ async function submitTestiForm() {
     kelompokKode,
     tahun,
     accepted: kelNama ? `Diterima di ${kelNama}${tahun ? ' · ' + tahun : ''}` : (tahun ? `Bergabung sejak ${tahun}` : ''),
-    sorotan: document.getElementById('ld-testi-form-sorotan').checked,
+    sorotan: sorotanValue,
     semua: document.getElementById('ld-testi-form-semua').checked,
     marquee: document.getElementById('ld-testi-form-marquee').checked
   };
-  const isEdit = idxRaw !== '';
-  if (isEdit) _ldTestiItemsData[parseInt(idxRaw)] = item;
+  const isEdit = editIdx !== -1;
+  if (isEdit) _ldTestiItemsData[editIdx] = item;
   else _ldTestiItemsData.push(item);
   try {
     await saveLandingTestimoni(true);

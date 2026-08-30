@@ -198,21 +198,34 @@ function openOverlay(el) { el.classList.add('open'); }
 function closeOverlay(el) { el.classList.remove('open'); }
 
 let _confirmCb = null;
-function showConfirm(title, msg, type='danger', cb=null) {
+let _confirmNoCb = null;
+// opts opsional: { yesLabel, noLabel, noCb } — dipakai buat dialog custom (mis. "Ganti" / "Batal")
+// tanpa mengubah pemanggilan showConfirm(title,msg,type,cb) yang sudah ada di seluruh project.
+function showConfirm(title, msg, type='danger', cb=null, opts={}) {
     document.getElementById('confirm-title').textContent = title;
     document.getElementById('confirm-msg').textContent = msg;
     document.getElementById('confirm-icon').className = 'confirm-icon ' + type;
-    _confirmCb = cb; openModal('confirm-overlay');
+    const yesBtn = document.getElementById('confirm-yes-btn');
+    if (yesBtn) yesBtn.textContent = (opts && opts.yesLabel) || 'Ya, Lanjutkan';
+    const noBtn = document.querySelector('#confirm-overlay .confirm-btns .btn-secondary');
+    if (noBtn) noBtn.textContent = (opts && opts.noLabel) || 'Batal';
+    _confirmCb = cb; _confirmNoCb = (opts && opts.noCb) || null;
+    openModal('confirm-overlay');
 }
 async function handleConfirmYes() {
     closeModal('confirm-overlay');
-    const cb = _confirmCb; _confirmCb = null;
+    const cb = _confirmCb; _confirmCb = null; _confirmNoCb = null;
     if (cb) {
         try { await cb(); }
         catch (e) { showToast('Gagal: ' + (e.message || 'Terjadi kesalahan'), 'danger'); }
     }
 }
-function handleConfirmNo() { closeModal('confirm-overlay'); _confirmCb=null; }
+function handleConfirmNo() {
+    closeModal('confirm-overlay');
+    const noCb = _confirmNoCb;
+    _confirmCb = null; _confirmNoCb = null;
+    if (noCb) { try { noCb(); } catch (e) {} }
+}
 
 function showFormResult(el, ok, msg) {
     const svgOk=`<svg class="form-result-svg anim-check" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="28" stroke-width="2.5" stroke="var(--success)" fill="rgba(22,163,74,0.1)"/><path d="M20 32 L28 40 L44 24" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="60" stroke-dashoffset="60" style="animation:checkAnim 0.5s 0.1s forwards"/></svg>`;

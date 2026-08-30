@@ -1115,7 +1115,7 @@ if (footerSpot) {
   // ---- Spotlight cards (fokus foto orang) ----
   const spotlightGrid = document.getElementById('spotlightGrid');
   function renderSpotlight(list) {
-    spotlightGrid.innerHTML = list.slice(0, 4).map((t, i) => `
+    spotlightGrid.innerHTML = list.map((t, i) => `
       <div class="spotlight-card tilt-card filter-item">
         <div class="spotlight-photo"><img src="${t.photo}" alt="${t.name}" loading="lazy"></div>
         <div class="spotlight-body">
