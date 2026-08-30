@@ -154,6 +154,107 @@ html.vp-resizing *::after {
     box-shadow: 0 4px 12px rgba(19,50,89,0.25);
 }
 
+/* ── SUB-TABS "DOCK" VARIANT ──
+   Dipakai di editor Landing (.sub-tabs-dock) supaya tampil & berperilaku
+   seperti floating dock (main-dock / side-dock): satu baris (tidak wrap),
+   digeser (scroll) horizontal saat item tidak muat, dan menempel (sticky)
+   di ATAS area konten yang bisa di-scroll — bukan fixed/floating bebas —
+   sehingga TIDAK PERNAH bertumpuk dengan dock utama di bawah layar. */
+.sub-tabs.sub-tabs-dock {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    gap: 4px;
+    padding: 8px 10px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px) saturate(1.6);
+    -webkit-backdrop-filter: blur(24px) saturate(1.6);
+    border: 1.5px solid var(--glass-border);
+    border-radius: 16px;
+    box-shadow: var(--glass-shadow);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+}
+.sub-tabs.sub-tabs-dock::-webkit-scrollbar { display: none; }
+.sub-tabs.sub-tabs-dock .sub-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    flex: 0 0 auto;
+    min-width: 62px;
+    padding: 8px 10px 7px;
+    border-radius: 12px;
+    scroll-snap-align: center;
+    border: 1.5px solid transparent;
+    background: transparent;
+    white-space: nowrap;
+}
+.sub-tabs.sub-tabs-dock .sub-tab:hover { background: rgba(255,255,255,0.55); border-color: transparent; }
+.sub-tabs.sub-tabs-dock .sub-tab.active {
+    background: var(--blue);
+    border-color: var(--blue);
+    box-shadow: 0 4px 12px rgba(19,50,89,0.25);
+}
+.sub-tabs.sub-tabs-dock .std-icon { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; }
+.sub-tabs.sub-tabs-dock .std-icon svg { width: 17px; height: 17px; color: var(--text-sub); transition: color 0.2s; }
+.sub-tabs.sub-tabs-dock .std-label { font-size: 9.5px; font-weight: 700; letter-spacing: 0.03em; color: var(--text-sub); transition: color 0.2s; }
+.sub-tabs.sub-tabs-dock .sub-tab.active .std-icon svg { color: #fff; }
+.sub-tabs.sub-tabs-dock .sub-tab.active .std-label { color: #fff; }
+@media (max-width: 480px) {
+    .sub-tabs.sub-tabs-dock .sub-tab { min-width: 56px; padding: 7px 8px 6px; }
+    .sub-tabs.sub-tabs-dock .std-label { font-size: 9px; }
+}
+
+/* ── LD MEDIA UPLOAD (Editor Landing — Logo/Video Hero & Video Promo) ── */
+.ld-media-upload {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+.ld-media-preview {
+    flex-shrink: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(19,50,89,0.06);
+    border: 1.5px dashed rgba(19,50,89,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ld-media-preview-square { width: 80px; height: 80px; }
+.ld-media-preview-wide { width: 160px; height: 90px; }
+.ld-media-preview img, .ld-media-preview video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ld-media-preview:empty::after {
+    content: 'Bawaan';
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-sub);
+    text-align: center;
+}
+.ld-media-controls { flex: 1; min-width: 180px; }
+.ld-media-controls input[type=file] {
+    font-size: 12px;
+    color: var(--text-sub);
+    max-width: 100%;
+}
+.ld-media-hint { font-size: 11px; color: rgba(19,50,89,0.5); margin-top: 4px; }
+.ld-media-reset-btn { margin-top: 6px; padding: 5px 12px; font-size: 11px; }
+@media (max-width: 480px) {
+    .ld-media-upload { gap: 10px; }
+    .ld-media-preview-wide { width: 120px; height: 68px; }
+}
+
 /* ── SUB-PAGE ── */
 .sub-page { display: none; }
 .sub-page.active { display: block; }

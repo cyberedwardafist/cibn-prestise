@@ -6,6 +6,11 @@ let _ldData = {};
 let _ldLoaded = false;
 let _ldSub = 'hero';
 
+// URL media (logo Hero, video Hero, video Video Promo) yang sedang aktif dipakai —
+// diisi dari data tersimpan saat load, diperbarui begitu upload baru sukses,
+// dan baru benar-benar disimpan ke DB saat tombol "Simpan Bagian ..." ditekan.
+let _ldPendingMedia = { heroLogo: '', heroVideo: '', videoPromo: '' };
+
 const LD_TEK_DEFAULTS = [
   { title: 'Analisis Bertenaga AI', desc: 'Model prediktif membaca ribuan titik data pasar setiap detik untuk menyaring sinyal yang relevan.' },
   { title: 'Data Real-Time Multi-Bursa', desc: 'Feed harga dan likuiditas tersinkron langsung dari berbagai bursa global tanpa jeda berarti.' },
@@ -36,6 +41,54 @@ function renderLandingSub(sub) {
   document.querySelectorAll('#page-landing .sub-tab').forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
   document.querySelectorAll('#page-landing .sub-page').forEach(p => p.classList.remove('active'));
   document.getElementById('sub-landing-' + sub)?.classList.add('active');
+  // Geser dock supaya tab aktif selalu terlihat penuh (berguna saat dock di-scroll horizontal di HP)
+  document.querySelector(`#page-landing .sub-tab[data-sub="${sub}"]`)
+    ?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+}
+
+// ── UPLOAD MEDIA (Logo Hero, Video Hero, Video Promo) ──
+function ldRenderMediaPreview(previewId, kind, url) {
+  const el = document.getElementById(previewId);
+  if (!el) return;
+  if (!url) { el.innerHTML = ''; return; }
+  el.innerHTML = kind === 'video'
+    ? `<video src="${url}" muted loop autoplay playsinline></video>`
+    : `<img src="${url}" alt="">`;
+}
+
+async function ldHandleMediaUpload(input, kind, slot, previewId) {
+  const file = input.files[0];
+  if (!file) return;
+  const maxMB = kind === 'video' ? 40 : 10;
+  if (file.size > maxMB * 1024 * 1024) {
+    showToast(`File terlalu besar (maks ${maxMB}MB)`, 'danger');
+    input.value = '';
+    return;
+  }
+  const oldUrl = _ldPendingMedia[slot] || '';
+  input.disabled = true;
+  try {
+    const result = await apiUploadLandingMedia(file, kind, slot, oldUrl);
+    if (!result || result.error || result.rejected) {
+      showToast('Gagal upload: ' + (result?.error || 'tidak diketahui'), 'danger');
+    } else if (result.networkError) {
+      showToast('Gagal terhubung ke server. Coba lagi.', 'danger');
+    } else if (result.url) {
+      _ldPendingMedia[slot] = result.url;
+      ldRenderMediaPreview(previewId, kind, result.url);
+      showToast('File terunggah — klik "Simpan Bagian" untuk menerapkan', 'success');
+    }
+  } catch (e) {
+    showToast('Gagal upload: ' + e.message, 'danger');
+  }
+  input.disabled = false;
+  input.value = '';
+}
+
+function ldClearMedia(slot, previewId, btnEl) {
+  _ldPendingMedia[slot] = '';
+  ldRenderMediaPreview(previewId, slot === 'heroLogo' ? 'image' : 'video', '');
+  showToast('Diset ke bawaan — klik "Simpan Bagian" untuk menerapkan', 'success');
 }
 
 function _ldFillTeknologiCards(cards) {
@@ -107,6 +160,10 @@ async function renderLanding() {
     document.getElementById(`ld-hero-stat${i+1}-value`).value = s.value || '';
     document.getElementById(`ld-hero-stat${i+1}-label`).value = s.label || '';
   });
+  _ldPendingMedia.heroLogo = h.logoUrl || '';
+  _ldPendingMedia.heroVideo = h.videoUrl || '';
+  ldRenderMediaPreview('ld-hero-logo-preview', 'image', _ldPendingMedia.heroLogo);
+  ldRenderMediaPreview('ld-hero-video-preview', 'video', _ldPendingMedia.heroVideo);
 
   const t = _ldData.teknologi || {};
   document.getElementById('ld-tek-eyebrow').value = t.eyebrow || '';
@@ -119,6 +176,8 @@ async function renderLanding() {
   document.getElementById('ld-vp-heading').value = v.heading || '';
   document.getElementById('ld-vp-desc').value = v.desc || '';
   document.getElementById('ld-vp-cta').value = v.ctaText || '';
+  _ldPendingMedia.videoPromo = v.videoUrl || '';
+  ldRenderMediaPreview('ld-vp-video-preview', 'video', _ldPendingMedia.videoPromo);
 
   const pk = _ldData.paket || {};
   document.getElementById('ld-paket-eyebrow').value = pk.eyebrow || '';
@@ -177,7 +236,9 @@ async function saveLandingHero() {
     stats: [1,2,3].map(i => ({
       value: document.getElementById(`ld-hero-stat${i}-value`).value.trim(),
       label: document.getElementById(`ld-hero-stat${i}-label`).value.trim()
-    }))
+    })),
+    logoUrl: _ldPendingMedia.heroLogo,
+    videoUrl: _ldPendingMedia.heroVideo
   };
   try { await LandingAPI.save({ hero }); _ldData.hero = hero; showToast('Bagian Hero disimpan!', 'success'); }
   catch (e) { showToast('Gagal menyimpan: ' + e.message, 'danger'); }
@@ -203,7 +264,8 @@ async function saveLandingVideoPromo() {
     eyebrow: document.getElementById('ld-vp-eyebrow').value.trim(),
     heading: document.getElementById('ld-vp-heading').value.trim(),
     desc: document.getElementById('ld-vp-desc').value.trim(),
-    ctaText: document.getElementById('ld-vp-cta').value.trim()
+    ctaText: document.getElementById('ld-vp-cta').value.trim(),
+    videoUrl: _ldPendingMedia.videoPromo
   };
   try { await LandingAPI.save({ videoPromo }); _ldData.videoPromo = videoPromo; showToast('Bagian Video Promo disimpan!', 'success'); }
   catch (e) { showToast('Gagal menyimpan: ' + e.message, 'danger'); }

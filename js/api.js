@@ -97,6 +97,34 @@ async function apiUploadImage(file) {
     return data || { networkError: true };
 }
 
+// ── UPLOAD LANDING MEDIA (Editor Landing: Logo Hero, Video Hero, Video Promo) ──
+// kind  : 'image' (logo) atau 'video' (video latar)
+// slot  : nama slot ('heroLogo' | 'heroVideo' | 'videoPromo') — dipakai sbg nama file di Supabase
+// oldUrl: URL file lama (kalau ada) supaya server sekalian menghapusnya dari Supabase Storage
+async function apiUploadLandingMedia(file, kind, slot, oldUrl) {
+    const token = Auth.getToken();
+    const form = new FormData();
+    form.append('file', file);
+    const qs = new URLSearchParams({ kind: kind === 'video' ? 'video' : 'image', slot: slot || 'media' });
+    if (oldUrl) qs.set('oldUrl', oldUrl);
+    let res;
+    try {
+        res = await fetch(API_BASE + '/upload-landing?' + qs.toString(), {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: form
+        });
+    } catch (e) {
+        return { networkError: true };
+    }
+    let data = null;
+    try { data = await res.json(); } catch (e) { /* ignore */ }
+    if (!res.ok) {
+        return { error: (data && data.error) || `HTTP ${res.status}`, rejected: true };
+    }
+    return data || { networkError: true };
+}
+
 // ── AUTH API ──
 const AuthAPI = {
     async login(email, password) { return apiPost('/login', { email, password }); },

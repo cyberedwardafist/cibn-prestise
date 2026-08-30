@@ -696,7 +696,7 @@ input{font-family:inherit}
            controlsList="nodownload noplaybackrate nofullscreen"
            oncontextmenu="return false"
            poster="https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1600&q=60">
-      <source src="assets/hero-video.mp4" type="video/mp4">
+      <source id="heroVideoSource" src="assets/hero-video.mp4" type="video/mp4">
     </video>
     <div class="hero-video-overlay"></div>
   </div>
@@ -719,7 +719,7 @@ input{font-family:inherit}
     <div class="hero-emblem-wrap">
       <div class="emblem">
         <div class="emblem-ring r2"></div>
-        <img src="assets/logo-cibn-prestise.png" alt="CIBN PRESTISE" class="emblem-logo">
+        <img id="heroLogo" src="assets/logo-cibn-prestise.png" alt="CIBN PRESTISE" class="emblem-logo">
       </div>
     </div>
   </div>
@@ -784,9 +784,9 @@ input{font-family:inherit}
 <section class="section video-promo" id="video-promo">
   <div class="video-promo-media">
     <!-- Ganti src di bawah dengan file video promosi Anda sendiri (mp4, idealnya <=15MB, 1920x1080) -->
-    <video class="video-promo-video" autoplay muted loop playsinline preload="metadata"
+    <video id="vpVideo" class="video-promo-video" autoplay muted loop playsinline preload="metadata"
            poster="https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1600&q=60">
-      <source src="assets/video-promo.mp4" type="video/mp4">
+      <source id="vpVideoSource" src="assets/video-promo.mp4" type="video/mp4">
     </video>
     <div class="video-promo-overlay"></div>
   </div>
@@ -1274,6 +1274,17 @@ if (footerSpot) {
         const wrap = document.getElementById('heroStats');
         if (wrap) wrap.innerHTML = d.hero.stats.map(s => `<div class="stat glass"><b>${s.value || ''}</b><span>${s.label || ''}</span></div>`).join('');
       }
+      // Logo & video latar Hero — kalau admin sudah upload lewat Editor Landing,
+      // pakai file itu; kalau belum (kosong), tetap pakai file bawaan di assets/.
+      if (d.hero.logoUrl) {
+        const lg = document.getElementById('heroLogo');
+        if (lg) lg.src = d.hero.logoUrl;
+      }
+      if (d.hero.videoUrl) {
+        const src = document.getElementById('heroVideoSource');
+        const vid = document.getElementById('heroVideo');
+        if (src && vid) { src.src = d.hero.videoUrl; vid.load(); }
+      }
     }
     if (d.teknologi) {
       setText('teknologiEyebrow', d.teknologi.eyebrow);
@@ -1293,6 +1304,12 @@ if (footerSpot) {
       setText('vpHeading', d.videoPromo.heading);
       setText('vpDesc', d.videoPromo.desc);
       setText('vpCta', d.videoPromo.ctaText);
+      // Video latar Video Promo — kalau admin sudah upload, pakai file itu.
+      if (d.videoPromo.videoUrl) {
+        const src = document.getElementById('vpVideoSource');
+        const vid = document.getElementById('vpVideo');
+        if (src && vid) { src.src = d.videoPromo.videoUrl; vid.load(); }
+      }
     }
     if (d.footer) {
       setText('footerDesc', d.footer.brandDesc);

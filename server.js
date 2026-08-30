@@ -72,6 +72,23 @@ const uploadEbook = multer({
     }
 });
 
+// Upload media Editor Landing (logo Hero = gambar, video Hero & Video Promo = video)
+const ALLOWED_LANDING_VIDEO_MIME = { 'video/mp4': '.mp4', 'video/webm': '.webm' };
+const MAX_LANDING_VIDEO_SIZE = 40 * 1024 * 1024; // 40MB (video)
+const uploadLandingMedia = multer({
+    storage: memoryStorage,
+    limits: { fileSize: MAX_LANDING_VIDEO_SIZE },
+    fileFilter: (req, file, cb) => {
+        const kind = req.query.kind === 'video' ? 'video' : 'image';
+        if (kind === 'video') {
+            if (!ALLOWED_LANDING_VIDEO_MIME[file.mimetype]) return cb(new Error('INVALID_VIDEO_TYPE'));
+        } else {
+            if (!ALLOWED_IMAGE_MIME[file.mimetype]) return cb(new Error('INVALID_FILE_TYPE'));
+        }
+        cb(null, true);
+    }
+});
+
 // ── UPLOAD CLEANUP HELPERS (SUPABASE) ─────────────────────────────────────────
 function extractUploadFilenames(text) {
     if (!text) return new Set();
@@ -783,6 +800,48 @@ app.post('/api/upload', auth(['admin']), (req, res) => {
             if (error) throw error;
             const { data: publicUrlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
             
+            res.json({ url: publicUrlData.publicUrl });
+        } catch (e) {
+            res.status(500).json({ error: 'Gagal upload ke Supabase', details: e.message });
+        }
+    });
+});
+
+// Upload media Editor Landing → folder baru "landing/" di bucket Supabase yang sama.
+// ?kind=image (logo Hero) atau ?kind=video (Video Latar Hero / Video Promo)
+// ?slot=heroLogo|heroVideo|videoPromo → dipakai sbg awalan nama file
+// ?oldUrl=... (opsional) → file lama dihapus dari Supabase begitu upload baru sukses
+app.post('/api/upload-landing', auth(['admin']), (req, res) => {
+    uploadLandingMedia.single('file')(req, res, async (err) => {
+        if (err) {
+            if (err.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ error: 'File terlalu besar (maks 40MB untuk video, 10MB untuk gambar)' });
+            if (err.message === 'INVALID_VIDEO_TYPE') return res.status(400).json({ error: 'Format video tidak didukung (gunakan MP4/WEBM)' });
+            if (err.message === 'INVALID_FILE_TYPE') return res.status(400).json({ error: 'Format gambar tidak didukung' });
+            return res.status(400).json({ error: err.message });
+        }
+        if (!req.file) return res.status(400).json({ error: 'Tidak ada file' });
+
+        const kind = req.query.kind === 'video' ? 'video' : 'image';
+        if (kind === 'image' && req.file.size > MAX_UPLOAD_SIZE) {
+            return res.status(400).json({ error: 'Gambar terlalu besar (maks 10MB)' });
+        }
+
+        try {
+            const slot = safeFolderName(req.query.slot || 'media');
+            const ext = (kind === 'video' ? ALLOWED_LANDING_VIDEO_MIME[req.file.mimetype] : ALLOWED_IMAGE_MIME[req.file.mimetype]) || '';
+            const fileName = `${slot}-${Date.now()}${ext}`;
+            const filePath = `landing/${fileName}`;
+
+            const { error } = await supabase.storage
+                .from(BUCKET_NAME)
+                .upload(filePath, req.file.buffer, { contentType: req.file.mimetype });
+            if (error) throw error;
+
+            const { data: publicUrlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
+
+            // Bersihkan file lama (kalau ada) supaya storage tidak menumpuk file yatim
+            if (req.query.oldUrl) deleteUploadedFileByUrl(req.query.oldUrl).catch(() => {});
+
             res.json({ url: publicUrlData.publicUrl });
         } catch (e) {
             res.status(500).json({ error: 'Gagal upload ke Supabase', details: e.message });
