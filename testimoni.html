@@ -1138,13 +1138,21 @@ if (footerSpot) {
   const testiEmpty = document.getElementById('testiEmpty');
   const testiCount = document.getElementById('testiCount');
 
+  function kelompokTahunLine(t) {
+    const nama = TESTI_KELOMPOK[t.kelompokKode] || '';
+    const tahun = t.tahun || '';
+    if (nama && tahun) return `${nama} (${tahun})`;
+    return nama || tahun || '';
+  }
+
   function miniCardHTML(t) {
+    const kel = kelompokTahunLine(t);
     return `
       <div class="testi-card testi-mini-card">
         <p class="testi-quote">${t.quote}</p>
         <div class="testi-person">
           <img src="${t.photo}" alt="${t.name}" loading="lazy">
-          <div><b>${t.name}</b></div>
+          <div><b>${t.name}</b>${kel ? `<span>${kel}</span>` : ''}</div>
         </div>
       </div>`;
   }
@@ -1169,14 +1177,17 @@ if (footerSpot) {
 
   function renderTextGrid(list) {
     textGrid.classList.remove('is-marquee');
-    textGrid.innerHTML = list.map(t => `
+    textGrid.innerHTML = list.map(t => {
+      const kel = kelompokTahunLine(t);
+      return `
       <div class="testi-card tilt-card filter-item">
         <p class="testi-quote">${t.quote}</p>
         <div class="testi-person">
           <img src="${t.photo}" alt="${t.name}" loading="lazy">
-          <div><b>${t.name}</b></div>
+          <div><b>${t.name}</b>${kel ? `<span>${kel}</span>` : ''}</div>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     attachTilt(textGrid);
   }
 
@@ -1221,6 +1232,7 @@ if (footerSpot) {
   // penempatan (Sorotan / Semua Testimoni / Marquee) sesuai centang di admin.
   // Kalau admin belum pernah mengisi, tetap pakai data statis di atas seperti semula.
   let MARQUEE_LIST = DEFAULT_TESTIMONIALS;
+  let TESTI_KELOMPOK = {};
 
   fetch(window.location.origin + '/api/landing').then(r => r.json()).then(d => {
     if (!d) return;
@@ -1245,6 +1257,8 @@ if (footerSpot) {
     }
 
     if (Array.isArray(t.items) && t.items.length) {
+      TESTI_KELOMPOK = {};
+      (Array.isArray(t.kelompok) ? t.kelompok : []).forEach(k => { TESTI_KELOMPOK[k.kode] = k.nama; });
       const semua = t.items.filter(x => x.semua !== false);
       const sorotan = t.items.filter(x => x.sorotan);
       const marquee = t.items.filter(x => x.marquee !== false);
