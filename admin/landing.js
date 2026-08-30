@@ -156,7 +156,7 @@ function _renderLdTestiList() {
   let data = _ldTestiItemsData.map((t, i) => ({ ...t, _idx: i }));
   if (_ldTestiSearch) {
     const q = _ldTestiSearch.toLowerCase();
-    data = data.filter(t => (t.name || '').toLowerCase().includes(q) || (t.quote || '').toLowerCase().includes(q) || (_ldTestiKelompokNama(t.kelompokKode) || '').toLowerCase().includes(q));
+    data = data.filter(t => (t.name || '').toLowerCase().includes(q) || (t.quote || '').toLowerCase().includes(q) || (t.tahun || '').toString().toLowerCase().includes(q) || (_ldTestiKelompokNama(t.kelompokKode) || '').toLowerCase().includes(q));
   }
   if (_ldTestiKelompokFilter === 'none') data = data.filter(t => !t.kelompokKode);
   else if (_ldTestiKelompokFilter !== 'all') data = data.filter(t => t.kelompokKode === _ldTestiKelompokFilter);
