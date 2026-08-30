@@ -1,3 +1,14 @@
+<!-- ld-testi-kelompok-overlay — Kelola Kelompok Pendaftaran (desain disamakan
+     persis dengan "Kelola Kelompok E-Book" di admin/ebook-modals.html) -->
+<div class="overlay" id="ld-testi-kelompok-overlay"><div class="modal"><div class="modal-header"><div class="modal-title">Kelola Kelompok Pendaftaran</div><button class="modal-close" onclick="closeModal('ld-testi-kelompok-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <input id="ld-testi-kelompok-new-input" class="form-input" type="text" placeholder="Nama kelompok baru" onkeydown="if(event.key==='Enter')addTestiKelompok()">
+    <button class="btn btn-primary" style="flex-shrink:0" onclick="addTestiKelompok()">Tambah</button>
+  </div>
+  <div id="ld-testi-kelompok-manage-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('ld-testi-kelompok-overlay')">Tutup</button></div>
+</div></div>
+
 <!-- ld-testi-form-overlay — Edit Testimoni (Tambah sekarang inline di tab "Buat Testimoni") -->
 <div class="overlay" id="ld-testi-form-overlay"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title" id="ld-testi-form-title">Edit Testimoni</div><button class="modal-close" onclick="closeModal('ld-testi-form-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
   <input type="hidden" id="ld-testi-form-id" value="">

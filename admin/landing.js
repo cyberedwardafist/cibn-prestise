@@ -141,7 +141,6 @@ function _ldFillTestiItems(items) {
   _ldTestiItemsData = (Array.isArray(items) && items.length) ? items.map(t => ({ ...t })) : LD_TESTI_DEFAULTS.map(t => ({ ...t }));
   _renderLdTestiFilters();
   _renderLdTestiList();
-  _renderTestiKelompokManageList();
   resetNewTestiForm();
 }
 
@@ -415,8 +414,12 @@ async function _doSubmitNewTesti(sorotanValue) {
 
 // ── KELOLA KELOMPOK PENDAFTARAN (khusus Testimoni) — pola sama seperti
 // "Kelola Kelompok" Soal/Modul, tapi disimpan di dalam JSON testimoni.kelompok
-// (bukan tabel DB terpisah) supaya tetap lewat /api/landing generik yang sudah ada.
-// Sekarang tampil inline di tab "Buat Testimoni" (bukan modal lagi). ──
+// (bukan tabel DB terpisah) supaya tetap lewat /api/landing generik yang sudah ada. ──
+function openTestiKelompokManage() {
+  const input = document.getElementById('ld-testi-kelompok-new-input'); if (input) input.value = '';
+  _renderTestiKelompokManageList();
+  openModal('ld-testi-kelompok-overlay');
+}
 function _renderTestiKelompokManageList() {
   const el = document.getElementById('ld-testi-kelompok-manage-list'); if (!el) return;
   if (!_ldTestiKelompok.length) { el.innerHTML = '<p style="color:var(--text-sub);font-size:13px">Belum ada kelompok. Tambahkan lewat kolom di atas.</p>'; return; }
