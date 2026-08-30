@@ -30,6 +30,7 @@ function _doNav(pageId, subId) {
     AppState.currentPage = pageId;
     _persistAdminNav();
     if (typeof syncSideDockForPage === 'function') syncSideDockForPage(pageId);
+    if (typeof syncLandingDockForPage === 'function') syncLandingDockForPage(pageId);
     closeDockMore();
     // subId (sub-tab) sengaja DITUNGGU sampai modul halaman ini selesai lazy-load
     // (lihat renderPage) sebelum switchSubPage dipanggil — kalau tidak, di koneksi

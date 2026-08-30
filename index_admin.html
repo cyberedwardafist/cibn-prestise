@@ -587,6 +587,51 @@ body.soal-building #side-dock-wrap.side-dock-right{
     <div class="side-dock-scroll" id="side-dock-items"></div>
   </div>
 </div>
+
+<!-- LANDING DOCK — panel vertikal navigasi section Editor Landing (HERO/TEKNOLOGI/
+     VIDEO/PAKET/TESTIMONI/LEGAL/FOOTER). Strukturnya SAMA PERSIS dengan #side-dock-wrap
+     di atas (id="ld-sub-tabs" di sini berperan seperti id="side-dock" di sana) —
+     bedanya daftar section-nya statis (tidak pernah berubah per-halaman), jadi
+     ditulis langsung di HTML, bukan digenerate lewat SIDE_DOCK_GROUPS. Muncul/hilang
+     otomatis mengikuti tab Landing lewat syncLandingDockForPage() (dipanggil dari
+     _doNav di js/app.js). -->
+<div class="side-dock-wrap" id="landing-dock-wrap">
+  <div class="side-dock" id="ld-sub-tabs">
+    <button class="side-dock-pos-btn" onclick="toggleSideDockPosition('landing-dock-wrap')" title="Pindah panel ke sisi lain">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+    </button>
+    <div class="side-dock-scroll" id="ld-sub-tabs-items">
+      <button class="dock-item active-tab" data-sub="hero" onclick="renderLandingSub('hero')">
+        <div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+        <span class="dock-label">HERO</span>
+      </button>
+      <button class="dock-item" data-sub="teknologi" onclick="renderLandingSub('teknologi')">
+        <div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+        <span class="dock-label">TEKNOLOGI</span>
+      </button>
+      <button class="dock-item" data-sub="video" onclick="renderLandingSub('video')">
+        <div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></div>
+        <span class="dock-label">VIDEO</span>
+      </button>
+      <button class="dock-item" data-sub="paket" onclick="renderLandingSub('paket')">
+        <div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
+        <span class="dock-label">PAKET</span>
+      </button>
+      <button class="dock-item" data-sub="testimoni" onclick="renderLandingSub('testimoni')">
+        <div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+        <span class="dock-label">TESTIMONI</span>
+      </button>
+      <button class="dock-item" data-sub="legal" onclick="renderLandingSub('legal')">
+        <div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <span class="dock-label">LEGAL</span>
+      </button>
+      <button class="dock-item" data-sub="footer" onclick="renderLandingSub('footer')">
+        <div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg></div>
+        <span class="dock-label">FOOTER</span>
+      </button>
+    </div>
+  </div>
+</div>
 </div><!-- /app-wrapper -->
 
 <!-- ═══════════ MODALS ═══════════ -->
@@ -865,6 +910,19 @@ function toggleSideDockPosition(wrapId) {
   const wrap = document.getElementById(wrapId);
   if (wrap) wrap.classList.toggle('side-dock-right');
   if (wrapId === 'side-dock-wrap') _syncDockLayoutOffset();
+}
+
+// ── LANDING DOCK (#landing-dock-wrap) — buka/tutup mengikuti tab aktif ──
+// Beda dengan #side-dock-wrap (dipakai bergantian oleh 3 grup lewat SIDE_DOCK_GROUPS),
+// panel ini KHUSUS tab Landing dan daftar item-nya statis (ditulis langsung di HTML),
+// jadi cukup toggle class "open" saja — tidak perlu di-generate ulang tiap navigasi.
+// Tidak dihubungkan ke --side-dock-offset/.dock-avoid: di lebar ≥1024px panel ini
+// duduk di ruang kosong samping card yang sudah center (sama seperti box "Buat Soal"),
+// dan di ≤1024px otomatis berubah jadi strip horizontal di atas dock utama (lihat
+// media query #landing-dock-wrap di atas) sehingga tidak pernah menimpa konten.
+function syncLandingDockForPage(pageId) {
+  const wrap = document.getElementById('landing-dock-wrap');
+  if (wrap) wrap.classList.toggle('open', pageId === 'landing');
 }
 
 // Auto-save editor landing: setiap ketikan/perubahan di dalam panel langsung antre simpan otomatis

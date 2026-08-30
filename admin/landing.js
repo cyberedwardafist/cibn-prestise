@@ -38,11 +38,12 @@ function _ldEsc(s) {
 
 function renderLandingSub(sub) {
   _ldSub = sub;
-  document.querySelectorAll('#page-landing .sub-tab').forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
+  document.querySelectorAll('#ld-sub-tabs-items .dock-item').forEach(b => b.classList.toggle('active-tab', b.dataset.sub === sub));
   document.querySelectorAll('#page-landing .sub-page').forEach(p => p.classList.remove('active'));
   document.getElementById('sub-landing-' + sub)?.classList.add('active');
-  // Geser dock supaya tab aktif selalu terlihat penuh (berguna saat dock di-scroll horizontal di HP)
-  document.querySelector(`#page-landing .sub-tab[data-sub="${sub}"]`)
+  // Geser panel supaya item aktif selalu terlihat penuh — berguna saat panel di-scroll
+  // vertikal (desktop, banyak section) maupun horizontal (jadi strip di layar sempit).
+  document.querySelector(`#ld-sub-tabs-items .dock-item[data-sub="${sub}"]`)
     ?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
 }
 
