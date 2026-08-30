@@ -314,35 +314,16 @@ div:hover>.soal-nav-del{opacity:1}
   .side-dock-wrap.side-dock-right{ right:10px; }
 }
 
-/* ── SIDE-DOCK DI MOBILE/TABLET (≤1024px) ──
-   Panel vertikal di sisi layar (bisa berisi banyak sekali item, mis. 14 panel
-   di Editor Landing) terlalu memakan tinggi layar kalau dipaksa tetap vertikal
-   di layar sempit/pendek. Di lebar ini, panel diubah jadi STRIP HORIZONTAL
-   yang "menempel"/ditimpakan tepat di atas dock utama (bukan lagi mengambang
-   di sisi kiri/kanan) — geser dengan swipe kiri-kanan, tidak makan tempat
-   vertikal, dan tidak mendorong konten (dock-avoid dimatikan). */
-@media (max-width:1024px){
-  /* Landing-dock (14 item) yang jadi strip horizontal — grup CAT/SOAL cuma 3 item,
-     jadi cukup tetap vertikal seperti biasa & mendorong konten (lihat .dock-avoid). */
-  #landing-dock-wrap{
-    left:8px !important; right:8px !important; top:auto !important;
-    bottom:calc(var(--taskbar-h) + 24px) !important;
-    transform:translateY(10px) scale(.96) !important;
-    max-height:none; width:auto;
-  }
-  #landing-dock-wrap.open{ transform:translateY(0) scale(1) !important; }
-  #landing-dock-wrap .side-dock{
-    width:100%; max-width:100%; max-height:none;
-    flex-direction:row; align-items:stretch; padding:6px 8px;
-  }
-  #landing-dock-wrap .side-dock-pos-btn{ display:none; }
-  #landing-dock-wrap .side-dock-scroll{
-    flex-direction:row; overflow-x:auto; overflow-y:hidden;
-    -webkit-overflow-scrolling:touch; padding:2px 2px 4px;
-    scrollbar-width:thin;
-  }
-  #landing-dock-wrap .side-dock-scroll .dock-item{ width:auto; }
-  #landing-dock-wrap .side-dock-autosave{ display:none; }
+/* ── LANDING-DOCK — dibuat SAMA PERSIS seperti #side-dock-wrap (grup CAT/SOAL):
+   tetap panel vertikal mengambang di sisi layar (kiri/kanan) di semua ukuran layar,
+   TIDAK diubah jadi strip horizontal lagi, jadi tidak akan pernah menempel/menimpa
+   dock utama di manapun — cukup pakai rule dasar .side-dock-wrap/.side-dock di atas,
+   sama seperti #side-dock-wrap tidak butuh override khusus mobile selain padding
+   di ≤640px. Kalau daftar section terlalu panjang di layar pendek, .side-dock-scroll
+   sudah overflow-y:auto sehingga tinggal discroll di dalam panelnya sendiri. */
+@media (max-width:640px){
+  #landing-dock-wrap .side-dock{ padding:6px; gap:2px; }
+  #landing-dock-wrap .dock-item{ padding:6px 8px; }
 }
 
 /* ── Grup CAT/SOAL (#side-dock-wrap, 3 item) di mobile/tablet: TETAP panel vertikal,
@@ -923,10 +904,10 @@ function toggleSideDockPosition(wrapId) {
 // Beda dengan #side-dock-wrap (dipakai bergantian oleh 3 grup lewat SIDE_DOCK_GROUPS),
 // panel ini KHUSUS tab Landing dan daftar item-nya statis (ditulis langsung di HTML),
 // jadi cukup toggle class "open" saja — tidak perlu di-generate ulang tiap navigasi.
-// Tidak dihubungkan ke --side-dock-offset/.dock-avoid: di lebar ≥1024px panel ini
-// duduk di ruang kosong samping card yang sudah center (sama seperti box "Buat Soal"),
-// dan di ≤1024px otomatis berubah jadi strip horizontal di atas dock utama (lihat
-// media query #landing-dock-wrap di atas) sehingga tidak pernah menimpa konten.
+// Tidak dihubungkan ke --side-dock-offset/.dock-avoid: panel ini duduk di ruang kosong
+// samping card yang sudah center (sama seperti box "Buat Soal"), di SEMUA ukuran layar
+// (tidak lagi berubah jadi strip horizontal di layar sempit — lihat rule dasar
+// .side-dock-wrap/.side-dock yang sekarang dipakai apa adanya, sama seperti #side-dock-wrap).
 function syncLandingDockForPage(pageId) {
   const wrap = document.getElementById('landing-dock-wrap');
   if (wrap) wrap.classList.toggle('open', pageId === 'landing');
