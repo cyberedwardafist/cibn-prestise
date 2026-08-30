@@ -108,6 +108,7 @@
 <div class="sub-page dock-avoid-center" id="sub-landing-testimoni">
   <div class="sub-tabs" style="max-width:760px;margin:0 auto 16px">
     <button class="sub-tab active" data-testi-sub="teks" onclick="renderLandingTestiSub('teks')">Teks</button>
+    <button class="sub-tab" data-testi-sub="buat" onclick="renderLandingTestiSub('buat')">Buat Testimoni</button>
     <button class="sub-tab" data-testi-sub="list" onclick="renderLandingTestiSub('list')">Isi Testimoni</button>
   </div>
 
@@ -137,16 +138,62 @@
     </div>
   </div>
 
+  <div class="ld-testi-panel" id="ld-testi-panel-buat">
+    <div class="card" style="margin:0 auto 16px;max-width:640px">
+      <div class="section-sub" style="margin:-4px 0 12px">Tambahkan testimoni baru — otomatis masuk ke daftar di tab <b>Isi Testimoni</b> setelah disimpan.</div>
+
+      <label class="form-label" style="display:block">Foto</label>
+      <div class="ld-media-upload" style="margin-bottom:14px">
+        <div id="ld-testi-new-photo-preview" class="ld-media-preview ld-media-preview-square"></div>
+        <div class="ld-media-controls">
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" id="ld-testi-new-photo-input" onchange="ldTestiNewPhotoUpload(this)">
+          <p class="ld-media-hint">PNG/JPG/WEBP, maks 10MB.</p>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Nama</label><input id="ld-testi-new-name" class="form-input" type="text" placeholder="Nama anggota"></div>
+        <div class="form-group"><label class="form-label">Peran / Kota <span style="font-weight:400;color:var(--text-sub)">(opsional)</span></label><input id="ld-testi-new-role" class="form-input" type="text" placeholder="Trader Retail, Surabaya"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Daftar Sebagai (Kelompok)</label><select id="ld-testi-new-kelompok" class="form-input"><option value="">-- Pilih Kelompok --</option></select></div>
+        <div class="form-group"><label class="form-label">Tahun Diterima</label><input id="ld-testi-new-tahun" class="form-input" type="number" min="2000" max="2100" placeholder="2026"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Kutipan Testimoni</label><textarea id="ld-testi-new-quote" class="form-input" rows="3" placeholder="Isi testimoni..."></textarea></div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
+        <div class="switch-row">
+          <div><div class="switch-label">Sorotan</div><div class="switch-desc">Tampil di kartu foto besar (Sorotan) di testimoni.html</div></div>
+          <label class="switch"><input type="checkbox" id="ld-testi-new-sorotan"><span class="switch-slider"></span></label>
+        </div>
+        <div class="switch-row">
+          <div><div class="switch-label">Semua Testimoni</div><div class="switch-desc">Tampil di daftar teks yang bisa dicari</div></div>
+          <label class="switch"><input type="checkbox" id="ld-testi-new-semua" checked><span class="switch-slider"></span></label>
+        </div>
+        <div class="switch-row">
+          <div><div class="switch-label">Marquee Berjalan</div><div class="switch-desc">Tampil di baris teks berjalan (marquee-wrap) di atas halaman</div></div>
+          <label class="switch"><input type="checkbox" id="ld-testi-new-marquee" checked><span class="switch-slider"></span></label>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="submitNewTesti()">+ Simpan Testimoni</button>
+    </div>
+
+    <div class="card" style="margin:0 auto 16px;max-width:640px">
+      <div class="section-sub" style="margin:-4px 0 12px">Kelola Kelompok Pendaftaran — dipakai untuk mengelompokkan testimoni & aturan satu Sorotan per kelompok.</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <input id="ld-testi-kelompok-new-input" class="form-input" type="text" placeholder="Nama kelompok baru" onkeydown="if(event.key==='Enter')addTestiKelompok()">
+        <button class="btn btn-primary" style="flex-shrink:0" onclick="addTestiKelompok()">Tambah</button>
+      </div>
+      <div id="ld-testi-kelompok-manage-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+    </div>
+  </div>
+
   <div class="ld-testi-panel" id="ld-testi-panel-list">
     <div class="card" style="margin:0 auto 16px;max-width:760px">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-        <div class="section-sub" style="margin:0;max-width:460px">Daftar testimoni yang tampil di testimoni.html, dikelompokkan per <b>kelompok pendaftaran</b>. Centang Sorotan / Semua Testimoni / Marquee Berjalan lewat form tambah-edit untuk atur penempatannya.</div>
-        <button class="btn btn-secondary" onclick="openTestiKelompokManage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Kelola Kelompok</button>
-      </div>
+      <div class="section-sub" style="margin:0 0 12px;max-width:520px">Daftar testimoni yang tampil di testimoni.html, dikelompokkan per <b>kelompok pendaftaran</b>. Centang Sorotan / Semua Testimoni / Marquee Berjalan lewat form edit untuk atur penempatannya. Untuk menambah testimoni baru atau mengelola kelompok, buka tab <b>Buat Testimoni</b>.</div>
       <div class="search-bar" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
         <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari nama / tahun / kutipan..." oninput="_ldTestiSearch=this.value;_renderLdTestiList()"></div>
         <div id="ld-testi-filters"></div>
-        <button type="button" class="btn btn-primary" style="margin-left:auto" onclick="openAddTesti()">+ Tambah Testimoni</button>
       </div>
       <div id="ld-testi-list"></div>
     </div>

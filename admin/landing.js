@@ -129,6 +129,7 @@ let _ldTestiKelompok = [];
 let _ldTestiSearch = '';
 let _ldTestiKelompokFilter = 'all';
 let _ldTestiPendingPhoto = '';
+let _ldTestiNewPendingPhoto = '';
 
 function _ldTestiKelompokNama(kode) {
   if (!kode) return null;
@@ -140,6 +141,8 @@ function _ldFillTestiItems(items) {
   _ldTestiItemsData = (Array.isArray(items) && items.length) ? items.map(t => ({ ...t })) : LD_TESTI_DEFAULTS.map(t => ({ ...t }));
   _renderLdTestiFilters();
   _renderLdTestiList();
+  _renderTestiKelompokManageList();
+  resetNewTestiForm();
 }
 
 function _renderLdTestiFilters() {
@@ -193,26 +196,12 @@ function _renderLdTestiList() {
   }).join('');
 }
 
-// ── Modal Tambah/Edit Testimoni ──
+// ── Modal Edit Testimoni (Tambah sekarang inline di tab "Buat Testimoni", lihat
+// bagian "Form inline Buat Testimoni" di bawah) ──
 function _populateTestiKelompokSelect(selected) {
   const sel = document.getElementById('ld-testi-form-kelompok'); if (!sel) return;
   sel.innerHTML = '<option value="">-- Pilih Kelompok --</option>' + _ldTestiKelompok.map(k => `<option value="${k.kode}">${_ldEsc(k.nama)}</option>`).join('');
   sel.value = selected || '';
-}
-function openAddTesti() {
-  document.getElementById('ld-testi-form-id').value = '';
-  document.getElementById('ld-testi-form-title').textContent = 'Tambah Testimoni';
-  document.getElementById('ld-testi-form-name').value = '';
-  document.getElementById('ld-testi-form-role').value = '';
-  document.getElementById('ld-testi-form-tahun').value = '';
-  document.getElementById('ld-testi-form-quote').value = '';
-  document.getElementById('ld-testi-form-sorotan').checked = false;
-  document.getElementById('ld-testi-form-semua').checked = true;
-  document.getElementById('ld-testi-form-marquee').checked = true;
-  _ldTestiPendingPhoto = '';
-  ldRenderMediaPreview('ld-testi-form-photo-preview', 'image', '');
-  _populateTestiKelompokSelect('');
-  openModal('ld-testi-form-overlay');
 }
 function openEditTesti(idx) {
   const t = _ldTestiItemsData[idx]; if (!t) return;
@@ -324,14 +313,110 @@ function deleteTestiItem(idx) {
   });
 }
 
+// ── Form inline Buat Testimoni (tab "Buat Testimoni") — pengganti openAddTesti()
+// lama yang berupa modal. Field-nya pakai id ld-testi-new-* (terpisah dari
+// ld-testi-form-* yang sekarang khusus modal Edit) supaya keduanya bisa hidup
+// bareng di DOM tanpa bentrok id. ──
+function _populateTestiNewKelompokSelect(selected) {
+  const sel = document.getElementById('ld-testi-new-kelompok'); if (!sel) return;
+  sel.innerHTML = '<option value="">-- Pilih Kelompok --</option>' + _ldTestiKelompok.map(k => `<option value="${k.kode}">${_ldEsc(k.nama)}</option>`).join('');
+  sel.value = selected || '';
+}
+function resetNewTestiForm() {
+  const name = document.getElementById('ld-testi-new-name'); if (!name) return; // panel belum ke-render
+  name.value = '';
+  document.getElementById('ld-testi-new-role').value = '';
+  document.getElementById('ld-testi-new-tahun').value = '';
+  document.getElementById('ld-testi-new-quote').value = '';
+  document.getElementById('ld-testi-new-sorotan').checked = false;
+  document.getElementById('ld-testi-new-semua').checked = true;
+  document.getElementById('ld-testi-new-marquee').checked = true;
+  _ldTestiNewPendingPhoto = '';
+  ldRenderMediaPreview('ld-testi-new-photo-preview', 'image', '');
+  const photoInput = document.getElementById('ld-testi-new-photo-input'); if (photoInput) photoInput.value = '';
+  _populateTestiNewKelompokSelect('');
+}
+async function ldTestiNewPhotoUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { showToast('File terlalu besar (maks 10MB)', 'danger'); input.value = ''; return; }
+  input.disabled = true;
+  try {
+    const result = await apiUploadLandingMedia(file, 'image', 'testiPhoto-' + Date.now().toString(36), _ldTestiNewPendingPhoto);
+    if (!result || result.error || result.rejected) showToast('Gagal upload: ' + (result?.error || 'tidak diketahui'), 'danger');
+    else if (result.networkError) showToast('Gagal terhubung ke server. Coba lagi.', 'danger');
+    else if (result.url) { _ldTestiNewPendingPhoto = result.url; ldRenderMediaPreview('ld-testi-new-photo-preview', 'image', result.url); showToast('Foto terunggah', 'success'); }
+  } catch (e) { showToast('Gagal upload: ' + e.message, 'danger'); }
+  input.disabled = false; input.value = '';
+}
+async function submitNewTesti() {
+  const name = document.getElementById('ld-testi-new-name').value.trim();
+  const quote = document.getElementById('ld-testi-new-quote').value.trim();
+  if (!name || !quote) { showToast('Nama & kutipan testimoni wajib diisi', 'danger'); return; }
+  const kelompokKode = document.getElementById('ld-testi-new-kelompok').value || '';
+  const sorotanChecked = document.getElementById('ld-testi-new-sorotan').checked;
+
+  // Sama seperti validasi di form Edit: satu kelompok cuma boleh punya satu
+  // testimoni Sorotan. Kalau bentrok, tanya dulu (Ganti | Batal).
+  if (sorotanChecked && kelompokKode) {
+    const conflict = _ldTestiItemsData.find(t => t.sorotan && t.kelompokKode === kelompokKode);
+    if (conflict) {
+      const kelNama = _ldTestiKelompokNama(kelompokKode);
+      showConfirm(
+        'Kelompok Sudah Ada di Sorotan',
+        `Kelompok "${kelNama}" sudah punya testimoni Sorotan, yaitu "${conflict.name}". Ganti testimoni sorotan kelompok ini dengan yang baru?`,
+        'warning',
+        async () => {
+          _ldTestiItemsData.forEach(t => { if (t.sorotan && t.kelompokKode === kelompokKode) t.sorotan = false; });
+          await _doSubmitNewTesti(true);
+        },
+        {
+          yesLabel: 'Ganti',
+          noLabel: 'Batal',
+          noCb: () => {
+            const sw = document.getElementById('ld-testi-new-sorotan');
+            if (sw) sw.checked = false;
+          }
+        }
+      );
+      return;
+    }
+  }
+  await _doSubmitNewTesti(sorotanChecked);
+}
+async function _doSubmitNewTesti(sorotanValue) {
+  const name = document.getElementById('ld-testi-new-name').value.trim();
+  const quote = document.getElementById('ld-testi-new-quote').value.trim();
+  const kelompokKode = document.getElementById('ld-testi-new-kelompok').value || '';
+  const tahun = document.getElementById('ld-testi-new-tahun').value.trim();
+  const kelNama = _ldTestiKelompokNama(kelompokKode);
+  const item = {
+    name,
+    role: document.getElementById('ld-testi-new-role').value.trim(),
+    photo: _ldTestiNewPendingPhoto,
+    quote,
+    kelompokKode,
+    tahun,
+    accepted: kelNama ? `Diterima di ${kelNama}${tahun ? ' · ' + tahun : ''}` : (tahun ? `Bergabung sejak ${tahun}` : ''),
+    sorotan: sorotanValue,
+    semua: document.getElementById('ld-testi-new-semua').checked,
+    marquee: document.getElementById('ld-testi-new-marquee').checked
+  };
+  _ldTestiItemsData.push(item);
+  try {
+    await saveLandingTestimoni(true);
+    resetNewTestiForm();
+    _renderLdTestiList();
+    showToast('Testimoni ditambahkan!', 'success');
+  } catch (e) {
+    _ldTestiItemsData.pop();
+    showToast('Gagal menyimpan: ' + e.message, 'danger');
+  }
+}
+
 // ── KELOLA KELOMPOK PENDAFTARAN (khusus Testimoni) — pola sama seperti
 // "Kelola Kelompok" Soal/Modul, tapi disimpan di dalam JSON testimoni.kelompok
-// (bukan tabel DB terpisah) supaya tetap lewat /api/landing generik yang sudah ada. ──
-function openTestiKelompokManage() {
-  const input = document.getElementById('ld-testi-kelompok-new-input'); if (input) input.value = '';
-  _renderTestiKelompokManageList();
-  openModal('ld-testi-kelompok-overlay');
-}
+// (bukan tabel DB terpisah) supaya tetap lewat /api/landing generik yang sudah ada.
+// Sekarang tampil inline di tab "Buat Testimoni" (bukan modal lagi). ──
 function _renderTestiKelompokManageList() {
   const el = document.getElementById('ld-testi-kelompok-manage-list'); if (!el) return;
   if (!_ldTestiKelompok.length) { el.innerHTML = '<p style="color:var(--text-sub);font-size:13px">Belum ada kelompok. Tambahkan lewat kolom di atas.</p>'; return; }
@@ -377,6 +462,7 @@ function deleteTestiKelompokItem(kode, nama) {
 async function _afterTestiKelompokChange(msg, type) {
   _renderTestiKelompokManageList();
   if (document.getElementById('ld-testi-form-kelompok')) _populateTestiKelompokSelect(document.getElementById('ld-testi-form-kelompok').value);
+  if (document.getElementById('ld-testi-new-kelompok')) _populateTestiNewKelompokSelect(document.getElementById('ld-testi-new-kelompok').value);
   _renderLdTestiFilters();
   _renderLdTestiList();
   try { await saveLandingTestimoni(true); showToast(msg, type); }
