@@ -46,7 +46,8 @@ async function renderPaketGrid() {
     }
 
     grid.innerHTML = _paketData.map((p, i) => {
-        const fiturList = (p.fitur || '').split('\n').filter(f => f.trim()).map(f => `<li>${f}</li>`).join('');
+        const fiturArr = Array.isArray(p.fitur) ? p.fitur : (p.fitur || '').split('\n');
+        const fiturList = fiturArr.filter(f => (f || '').trim()).map(f => `<li>${f}</li>`).join('');
         const colorMap = { gold: '#b8860b', green: '#16a34a', purple: '#7c3aed', blue: '#133259' };
         const accentColor = colorMap[p.warna] || colorMap.blue;
         const hakList = Array.isArray(p.hak_akses) ? p.hak_akses : (p.hak_akses ? JSON.parse(p.hak_akses) : []);

@@ -169,25 +169,46 @@
                 <label class="form-label" style="font-size:10px">Kuota Permintaan Jadwal Mentoring <span style="font-weight:400;color:var(--text-sub)">(kosong = ∞)</span></label>
                 <input id="pf-mentoring-kuota" class="form-input" type="number" min="0" placeholder="Contoh: 4 per bulan" oninput="onPfMentoringKuotaChange()">
               </div>
-              <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 8px;flex-wrap:wrap;gap:6px">
-                <span style="font-size:10px;color:var(--text-sub)">Modul terkait sesi mentoring ini:</span>
-                <span style="font-size:10px;color:var(--text-sub)" id="pf-mentoring-picker-hint">Cari &amp; pilih modul untuk sesi mentoring</span>
+              <div style="font-size:10px;color:var(--text-sub);margin:8px 0 4px">Materi sesi mentoring:</div>
+
+              <!-- VIEW 1: Daftar Materi (default) -->
+              <div id="pf-mentoring-materi-view">
+                <div id="pf-mentoring-materi-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+                <button type="button" class="btn btn-secondary btn-sm" style="width:100%" onclick="_pfMentoringAddMateri()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Tambah Materi
+                </button>
               </div>
-              <div class="search-bar" id="pf-mentoring-picker-searchbar" style="flex-wrap:wrap;gap:8px;margin-bottom:8px">
-                <div class="search-input-wrap" style="min-width:120px">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                  <input class="search-input" type="text" id="pf-mentoring-picker-search-input" placeholder="Cari modul..." oninput="_pfMentoringPickerSearch=this.value;_renderPfMentoringPicker()">
+
+              <!-- VIEW 2: Editor Materi (search+pilih modul, lalu atur urutan) -->
+              <div id="pf-mentoring-editor-view" style="display:none">
+                <button type="button" class="btn btn-secondary btn-sm" style="margin-bottom:8px" onclick="_pfMentoringBackToList()">&larr; Daftar Materi</button>
+                <div class="form-group" style="margin-bottom:8px">
+                  <label class="form-label" style="font-size:10px">Nama Materi</label>
+                  <input type="text" id="pf-mentoring-materi-nama" class="form-input" placeholder="Contoh: Sesi 1 - Dasar Public Speaking" oninput="setDirty('paket')">
                 </div>
-                <div id="pf-mentoring-picker-filters"></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 8px;flex-wrap:wrap;gap:6px">
+                  <span style="font-size:10px;color:var(--text-sub)">Modul terkait sesi mentoring ini:</span>
+                  <span style="font-size:10px;color:var(--text-sub)" id="pf-mentoring-picker-hint">Cari &amp; pilih modul untuk sesi mentoring</span>
+                </div>
+                <div class="search-bar" id="pf-mentoring-picker-searchbar" style="flex-wrap:wrap;gap:8px;margin-bottom:8px">
+                  <div class="search-input-wrap" style="min-width:120px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input class="search-input" type="text" id="pf-mentoring-picker-search-input" placeholder="Cari modul..." oninput="_pfMentoringPickerSearch=this.value;_renderPfMentoringPicker()">
+                  </div>
+                  <div id="pf-mentoring-picker-filters"></div>
+                </div>
+                <div id="pf-mentoring-picker-list" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+                  <button type="button" class="btn btn-secondary btn-sm" id="pf-mentoring-back-btn" style="display:none" onclick="_pfMentoringGoToSelectStep()">&larr; Kembali</button>
+                  <button type="button" class="btn btn-primary btn-sm" id="pf-mentoring-next-btn" onclick="_pfMentoringGoToOrderStep()">Atur Urutan &rarr;</button>
+                  <button type="button" class="btn btn-primary btn-sm" id="pf-mentoring-save-btn" style="display:none" onclick="_pfMentoringSaveMateri()">💾 Simpan</button>
+                </div>
               </div>
-              <div id="pf-mentoring-picker-list" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
-              <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
-                <button type="button" class="btn btn-secondary btn-sm" id="pf-mentoring-back-btn" style="display:none" onclick="_pfMentoringGoToSelectStep()">&larr; Kembali</button>
-                <button type="button" class="btn btn-primary btn-sm" id="pf-mentoring-next-btn" onclick="_pfMentoringGoToOrderStep()">Atur Urutan &rarr;</button>
-              </div>
-              <!-- Input tersembunyi: merepresentasikan pilihan+urutan modul terpilih sbg
-                   checkbox name="pf-aturan" berurutan (dibaca submitPaket() sama seperti
-                   checkbox lain, jadi urutannya kebawa otomatis tanpa ubah logic submit). -->
+
+              <!-- Input tersembunyi: merepresentasikan seluruh materi (nama+modul terurut) yg
+                   SUDAH di-"Simpan" sbg checkbox name="pf-aturan" (dibaca submitPaket() sama
+                   seperti checkbox lain, jadi kebawa otomatis tanpa ubah logic submit). -->
               <div id="pf-mentoring-order-inputs" style="display:none"></div>
               </div>
             </div>
