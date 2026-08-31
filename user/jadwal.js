@@ -286,7 +286,9 @@ const JadwalPage = {
         const existing = entryId ? JadwalStore.get(entryId) : null;
         this.pickedSlot = existing ? existing.slotId : null;
         this.pickedMateri = existing ? existing.materiId : null;
-        document.getElementById('jdw-ajukan-title').textContent = existing ? (existing.status === 'acc' ? 'Jadwal Ulang' : 'Ubah Pengajuan') : 'Ajukan Jadwal';
+        const isReschedule = existing && existing.status === 'acc';
+        document.getElementById('jdw-ajukan-title').textContent = existing ? (isReschedule ? 'Jadwal Ulang' : 'Ubah Pengajuan') : 'Ajukan Jadwal';
+        document.getElementById('jdw-submit-btn').textContent = existing ? (isReschedule ? 'AJUKAN ULANG' : 'EDIT PENGAJUAN') : 'AJUKAN';
 
         // Jam yang sudah dipakai entri lain (selain yang sedang diedit) di tanggal ini -> dikunci, tidak boleh dobel.
         const takenSlotIds = new Set(
