@@ -252,7 +252,7 @@ const JadwalPage = {
                 <td><span class="jdw-status-badge ${e.status}">${JDW_STATUS_LABEL[e.status] || e.status}</span></td>
                 <td><div style="display:flex;gap:6px;flex-wrap:wrap">
                     <button class="jdw-btn jdw-btn-danger jdw-btn-sm" onclick="JadwalPage.batalEntry('${e.id}')">Batal</button>
-                    <button class="jdw-btn jdw-btn-secondary jdw-btn-sm" onclick="JadwalPage.editEntry('${e.id}')">Edit</button>
+                    ${e.status !== 'acc' ? `<button class="jdw-btn jdw-btn-secondary jdw-btn-sm" onclick="JadwalPage.editEntry('${e.id}')">Edit</button>` : ''}
                     ${e.status === 'acc' ? `<button class="jdw-btn jdw-btn-secondary jdw-btn-sm" onclick="JadwalPage.resejadwalEntry('${e.id}')">Jadwal Ulang</button>` : ''}
                 </div></td>
             </tr>`;
@@ -267,8 +267,9 @@ const JadwalPage = {
     _entryCardHtml(e) {
         const slot = JDW_SLOTS.find(s => s.id === e.slotId);
         const materi = JDW_MATERI.find(m => m.id === e.materiId);
-        const leftActions = [{ icon: 'edit', label: 'Edit', cls: 'act-edit', onClick: `JadwalPage.editEntry('${e.id}')` }];
-        if (e.status === 'acc') leftActions.push({ icon: 'refresh', label: 'Jadwal Ulang', cls: 'act-primary', onClick: `JadwalPage.resejadwalEntry('${e.id}')` });
+        const leftActions = [];
+        if (e.status !== 'acc') leftActions.push({ icon: 'edit', label: 'Edit', cls: 'act-edit', onClick: `JadwalPage.editEntry('${e.id}')` });
+        else leftActions.push({ icon: 'refresh', label: 'Jadwal Ulang', cls: 'act-primary', onClick: `JadwalPage.resejadwalEntry('${e.id}')` });
         const rightActions = [{ icon: 'trash', label: 'Batal', cls: 'act-danger', onClick: `JadwalPage.batalEntry('${e.id}')` }];
         return SwipeCards.buildSwipeCardHtml({
             title: slot ? slot.label : '-',
