@@ -1,10 +1,58 @@
-  <div class="jadwal-header-row">
-    <div class="jadwal-title">Jadwal Ujian</div>
-    <button class="jadwal-refresh-btn" onclick="loadJadwal()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-      Refresh
-    </button>
+<div class="jadwal-header-row">
+  <div class="jadwal-title">Jadwal Mentoring</div>
+  <button class="jadwal-refresh-btn" onclick="loadJadwal()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    Refresh
+  </button>
+</div>
+
+<div class="glass jdw-week-card">
+  <div class="jdw-week-caption" id="jdw-week-caption">Minggu ini</div>
+  <div class="jdw-week-strip" id="jdw-week-strip"></div>
+</div>
+<div class="jdw-week-hint">Ketuk salah satu tanggal untuk atur jadwal mentoring kamu</div>
+
+<!-- ══════ HALAMAN: DETAIL TANGGAL (list jadwal + tombol Ajukan) ══════ -->
+<div class="overlay overlay-fullscreen" id="jdw-day-overlay">
+  <div class="modal modal-fullscreen">
+    <div class="jdw-modal-header">
+      <button class="jdw-icon-btn" onclick="JadwalPage.closeDayOverlay()" aria-label="Kembali">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="jdw-modal-title" id="jdw-day-title">Jadwal</div>
+      <button class="jdw-btn jdw-btn-primary jdw-btn-sm jdw-ajukan-corner-btn" id="jdw-ajukan-corner-btn" onclick="JadwalPage.openAjukanOverlay()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Ajukan
+      </button>
+    </div>
+    <div class="jdw-modal-body">
+      <div id="jdw-day-content"></div>
+    </div>
   </div>
-  <div id="jadwal-list-wrap" class="jadwal-list">
-    <div class="jadwal-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><p>Memuat jadwal...</p><small>Mohon tunggu sebentar</small></div>
+</div>
+
+<!-- ══════ HALAMAN: AJUKAN JADWAL (pilih jam + materi) ══════ -->
+<div class="overlay overlay-fullscreen" id="jdw-ajukan-overlay">
+  <div class="modal modal-fullscreen">
+    <div class="jdw-modal-header">
+      <button class="jdw-icon-btn" onclick="JadwalPage.closeAjukanOverlay()" aria-label="Kembali">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="jdw-modal-title" id="jdw-ajukan-title">Ajukan Jadwal</div>
+      <span style="width:32px"></span>
+    </div>
+    <div class="jdw-modal-body">
+      <div class="jdw-form-section">
+        <div class="jdw-form-label">Pilih Jam</div>
+        <div class="jdw-chip-grid" id="jdw-slot-grid"></div>
+      </div>
+      <div class="jdw-form-section">
+        <div class="jdw-form-label">Pilih Materi</div>
+        <div class="jdw-materi-grid" id="jdw-materi-grid"></div>
+      </div>
+    </div>
+    <div class="jdw-modal-footer">
+      <button class="jdw-btn jdw-btn-primary jdw-btn-block" id="jdw-submit-btn" onclick="JadwalPage.submitAjukan()" disabled>AJUKAN</button>
+    </div>
   </div>
+</div>
