@@ -123,10 +123,55 @@ function _jdwFmtDateLong(iso) {
 }
 
 /* ══════════════════════════════════════════
+   STATE PERSISTENCE — supaya posisi (overlay tanggal / form ajukan +
+   jam & materi yang lagi dipilih) TIDAK hilang & TIDAK balik ke kalender
+   kalau halaman di-refresh / Ctrl+Shift+R. Disimpan tiap ada perubahan,
+   dipulihkan otomatis tiap kali loadJadwal() jalan (dipanggil dari
+   shell index_user.html saat tab Jadwal dibuka, termasuk sesaat setelah
+   reload penuh lewat cbn_user_lastpage).
+   ══════════════════════════════════════════ */
+const JDW_STATE_KEY = 'cbn_user_jadwal_state';
+function _jdwSaveState() {
+    try {
+        const ajukanOv = document.getElementById('jdw-ajukan-overlay');
+        const dayOv = document.getElementById('jdw-day-overlay');
+        let overlay = null;
+        if (ajukanOv && ajukanOv.classList.contains('open')) overlay = 'ajukan';
+        else if (dayOv && dayOv.classList.contains('open')) overlay = 'day';
+        if (!overlay) { localStorage.removeItem(JDW_STATE_KEY); return; }
+        localStorage.setItem(JDW_STATE_KEY, JSON.stringify({
+            overlay,
+            selectedDate: JadwalPage.selectedDate,
+            editingId: JadwalPage.editingId,
+            pickedSlot: JadwalPage.pickedSlot,
+            pickedMateri: JadwalPage.pickedMateri,
+        }));
+    } catch (e) {}
+}
+function _jdwRestoreState() {
+    let raw;
+    try { raw = localStorage.getItem(JDW_STATE_KEY); } catch (e) { return; }
+    if (!raw) return;
+    let st;
+    try { st = JSON.parse(raw); } catch (e) { return; }
+    if (!st || !st.overlay || !st.selectedDate) return;
+    JadwalPage.openDay(st.selectedDate);
+    if (st.overlay === 'ajukan') {
+        JadwalPage.openAjukanOverlay(st.editingId || null);
+        // Timpa pilihan default hasil lookup entri (di atas) dengan yang persis
+        // lagi dipilih user sebelum refresh — termasuk pengajuan baru yang belum
+        // official (belum ada editingId) tapi jam/materinya sudah sempat dipilih.
+        if (st.pickedSlot) JadwalPage.pickSlot(st.pickedSlot);
+        if (st.pickedMateri) JadwalPage.pickMateri(st.pickedMateri);
+    }
+}
+
+/* ══════════════════════════════════════════
    PAGE UTAMA — KALENDER 1 MINGGU (ala kalender iPhone)
    ══════════════════════════════════════════ */
 function loadJadwal() {
     _jdwRenderWeek();
+    _jdwRestoreState();
 }
 
 function _jdwRenderWeek() {
@@ -171,10 +216,12 @@ const JadwalPage = {
         overlay.classList.add('open');
         const body = overlay.querySelector('.jdw-modal-body');
         if (body) body.scrollTop = 0;
+        _jdwSaveState();
     },
     closeDayOverlay() {
         document.getElementById('jdw-day-overlay').classList.remove('open');
         _jdwRenderWeek();
+        _jdwSaveState();
     },
     _renderDayContent() {
         const wrap = document.getElementById('jdw-day-content');
@@ -263,21 +310,25 @@ const JadwalPage = {
         overlay.classList.add('open');
         const body = overlay.querySelector('.jdw-modal-body');
         if (body) body.scrollTop = 0;
+        _jdwSaveState();
     },
     closeAjukanOverlay() {
         document.getElementById('jdw-ajukan-overlay').classList.remove('open');
+        _jdwSaveState();
     },
     pickSlot(id) {
         this.pickedSlot = id;
         document.querySelectorAll('#jdw-slot-grid .jdw-chip').forEach(el => el.classList.remove('selected'));
         JDW_SLOTS.forEach((s, i) => { if (s.id === id) document.querySelectorAll('#jdw-slot-grid .jdw-chip')[i].classList.add('selected'); });
         this._refreshSubmitBtn();
+        _jdwSaveState();
     },
     pickMateri(id) {
         this.pickedMateri = id;
         document.querySelectorAll('#jdw-materi-grid .jdw-materi-chip').forEach(el => el.classList.remove('selected'));
         JDW_MATERI.forEach((m, i) => { if (m.id === id) document.querySelectorAll('#jdw-materi-grid .jdw-materi-chip')[i].classList.add('selected'); });
         this._refreshSubmitBtn();
+        _jdwSaveState();
     },
     _refreshSubmitBtn() {
         const btn = document.getElementById('jdw-submit-btn');
@@ -296,6 +347,7 @@ const JadwalPage = {
         }
         this.closeAjukanOverlay();
         this._renderDayContent();
+        _jdwSaveState();
     },
 
     /* ── Aksi list (dipanggil dari sweep card / tombol tabel) ── */
