@@ -326,6 +326,7 @@ ul{list-style:none}
   </div>
 </section>
 
+<script src="js/qrcode-gen.js"></script>
 <script>
 // ===== Navbar scroll state =====
 const navbar = document.querySelector('.navbar');
@@ -403,7 +404,90 @@ const timerInterval = setInterval(() => {
 const qrisStatus = document.getElementById('qrisStatus');
 const qrisBox = document.getElementById('qrisBox');
 const qrisConfirmBtn = document.getElementById('qrisConfirmBtn');
+const qrisNote = document.querySelector('.qris-note');
+const qrisAuthNote = document.querySelector('.auth-note');
 const QRIS_API_BASE = window.location.origin + '/api';
+
+let qrisOrderId = null;
+let qrisPollTimer = null;
+
+function stopQrisPolling() { if (qrisPollTimer) { clearInterval(qrisPollTimer); qrisPollTimer = null; } }
+
+function showQrisSuccess(paketNama) {
+  clearInterval(timerInterval);
+  stopQrisPolling();
+  qrisBox.innerHTML = `
+    <div class="qris-success-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+    </div>
+    <p class="qris-status success">Pembayaran berhasil! ${paketNama || selectedPaketName} sudah aktif.</p>
+    <p class="qris-note">Mengarahkan ke halaman utama…</p>`;
+  setTimeout(() => { window.location.href = 'index.html'; }, 2200);
+}
+
+function pollQrisStatus() {
+  if (!qrisOrderId) return;
+  qrisPollTimer = setInterval(async () => {
+    const token = localStorage.getItem('cbn_token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${QRIS_API_BASE}/pembayaran/status/${qrisOrderId}`, { headers: { 'Authorization': 'Bearer ' + token } });
+      const data = await res.json();
+      if (!res.ok) return;
+      if (data.status === 'success') { showQrisSuccess(data.paket_nama); }
+      else if (data.status === 'expired' || data.status === 'failed') {
+        stopQrisPolling();
+        qrisStatus.textContent = data.status === 'expired' ? 'Kode QRIS sudah kedaluwarsa. Silakan ulangi pembayaran.' : 'Pembayaran gagal/dibatalkan. Silakan ulangi.';
+        qrisStatus.classList.add('error');
+      }
+    } catch (e) { /* diamkan, coba lagi di polling berikutnya */ }
+  }, 4000);
+}
+
+// ===== Coba buat QRIS REAL lewat gateway aktif (Midtrans/Xendit); kalau gateway
+// belum diaktifkan admin (atau paket tidak punya kode valid), fallback ke tampilan
+// demo + konfirmasi manual "Saya Sudah Bayar" seperti sebelumnya. =====
+async function initQris() {
+  const token = localStorage.getItem('cbn_token');
+  if (!token || !selectedPaketKode) return; // fallback demo, tombol manual tetap berfungsi
+
+  let statusData;
+  try {
+    const r = await fetch(QRIS_API_BASE + '/pembayaran/gateway-status');
+    statusData = await r.json();
+  } catch (e) { return; }
+  if (!statusData || statusData.active_provider === 'none') return; // fallback demo
+
+  try {
+    const res = await fetch(QRIS_API_BASE + '/pembayaran/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ paket_kode: selectedPaketKode, metode: 'qris' })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Gagal membuat QRIS');
+
+    qrisOrderId = data.order_id;
+    const qrImageUrl = data.qr_image_url; // Midtrans: URL gambar QR siap pakai
+    const qrString = data.qr_string;      // Xendit: string mentah, perlu digambar sendiri
+
+    if (qrImageUrl) {
+      qrisBox.querySelector('.qris-placeholder').outerHTML = `<img src="${qrImageUrl}" alt="QRIS" style="width:200px;height:200px;border-radius:8px">`;
+    } else if (qrString && typeof qrcode === 'function') {
+      const qr = qrcode(0, 'M');
+      qr.addData(qrString);
+      qr.make();
+      qrisBox.querySelector('.qris-placeholder').outerHTML = `<div style="display:inline-block">${qr.createSvgTag(5)}</div>`;
+    }
+    if (qrisNote) qrisNote.textContent = 'QRIS ini asli dari payment gateway — status akan terverifikasi otomatis begitu Anda membayar.';
+    if (qrisAuthNote) qrisAuthNote.textContent = 'Setelah discan & dibayar, sistem otomatis mendeteksi pembayaran dan mengaktifkan paket Anda — tanpa perlu klik apa pun.';
+    if (qrisConfirmBtn) qrisConfirmBtn.style.display = 'none'; // tidak perlu konfirmasi manual, sudah real-time
+    pollQrisStatus();
+  } catch (e) {
+    qrisStatus.textContent = e.message || 'Gagal membuat QRIS dari gateway, gunakan konfirmasi manual di bawah.';
+  }
+}
+initQris();
 
 qrisConfirmBtn.addEventListener('click', async () => {
   const token = localStorage.getItem('cbn_token');

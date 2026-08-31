@@ -6,11 +6,12 @@ const multer    = require('multer');
 const bcrypt    = require('bcryptjs');
 const jwt       = require('jsonwebtoken');
 const path      = require('path');
+const crypto    = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 const { db, transaction } = require('./db/pool');
-const { initSchema, seedIfEmpty, sanityCheckEbooks } = require('./db/init');
+const { initSchema, seedIfEmpty, sanityCheckEbooks, ensureGatewayConfig } = require('./db/init');
 
 const app       = express();
 const PORT      = process.env.PORT || 3000;
@@ -244,6 +245,43 @@ async function syncUserPaketLegacy(user_kode, tdb) {
     }
 }
 
+// Aktivasi paket otomatis (dipakai oleh approve manual admin & webhook payment gateway asli).
+// WAJIB dipanggil di dalam transaction() dan diberi `tdb` yang sama supaya atomik.
+async function aktivasiPaketOtomatis(user_kode, paket_kode, paket_nama, tdb) {
+    const paket = paket_kode ? await tdb.prepare('SELECT * FROM pakets WHERE kode=?').get(paket_kode) : null;
+    if (paket) {
+        const { mulai, akhir } = await hitungMulaiAkhirPaket(user_kode, paket_kode, paket.periode_hari);
+        const upKode = await genKode('UP', 'user_pakets');
+        await tdb.prepare('INSERT INTO user_pakets (kode,user_kode,paket_kode,paket_nama,periode_hari,mulai,akhir,status) VALUES (?,?,?,?,?,?,?,?)')
+            .run(upKode, user_kode, paket_kode, paket.nama, paket.periode_hari, mulai, akhir, 'aktif');
+    } else {
+        const today = new Date(); const mulai = today.toISOString().split('T')[0];
+        const ak = new Date(today); ak.setDate(ak.getDate() + 29);
+        await upsertManualPaket(tdb, user_kode, paket_nama, mulai, ak.toISOString().split('T')[0]);
+    }
+    await syncUserPaketLegacy(user_kode, tdb);
+}
+
+// ── PAYMENT GATEWAY (KONEKSI PIHAK KE-3 ASLI: MIDTRANS / XENDIT) ────────────
+// Konfigurasi disimpan di tabel payment_gateway_config (1 baris, id=1), diisi
+// admin lewat panel Keuangan > Payment Gateway. Server Key/Secret Key TIDAK
+// PERNAH dikirim balik ke browser dalam bentuk asli — hanya versi masked.
+async function getGatewayConfig() {
+    let cfg = await db.prepare('SELECT * FROM payment_gateway_config WHERE id=1').get();
+    if (!cfg) {
+        await db.prepare("INSERT INTO payment_gateway_config (id,active_provider,midtrans_mode) VALUES (1,'none','sandbox') ON CONFLICT (id) DO NOTHING").run();
+        cfg = await db.prepare('SELECT * FROM payment_gateway_config WHERE id=1').get();
+    }
+    return cfg || { active_provider: 'none', midtrans_mode: 'sandbox' };
+}
+function maskGatewayKey(k) {
+    if (!k) return '';
+    return k.length <= 8 ? '••••••••' : k.slice(0, 6) + '••••••••' + k.slice(-4);
+}
+function genOrderId(prefix) {
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+}
+
 // Switch "Review" di Hak Akses Paket (Laporan & Statistik) — kalau aktif, SELURUH
 // laporan/token user dgn paket ini bisa direview, walau token/laporan itu sendiri
 // tidak disetel izinkan_review saat dibuat. Dicek dari paket AKTIF user (user_pakets),
@@ -450,19 +488,7 @@ app.post('/api/paket-requests/:kode/approve', auth(['admin']), ah(async (req, re
     if (!r) return res.status(404).json({ error: 'Tidak ditemukan' });
     try {
         await transaction(async (tdb) => {
-            const paket = r.paket_kode ? await tdb.prepare('SELECT * FROM pakets WHERE kode=?').get(r.paket_kode) : null;
-            if (paket) {
-                const { mulai, akhir } = await hitungMulaiAkhirPaket(r.user_kode, r.paket_kode, paket.periode_hari);
-                const upKode = await genKode('UP', 'user_pakets');
-                await tdb.prepare('INSERT INTO user_pakets (kode,user_kode,paket_kode,paket_nama,periode_hari,mulai,akhir,status) VALUES (?,?,?,?,?,?,?,?)')
-                    .run(upKode, r.user_kode, r.paket_kode, paket.nama, paket.periode_hari, mulai, akhir, 'aktif');
-            } else {
-                // Paket custom/tanpa kode template (mis. "Hubungi Kami") — aktifkan manual 30 hari.
-                const today = new Date(); const mulai = today.toISOString().split('T')[0];
-                const ak = new Date(today); ak.setDate(ak.getDate() + 29);
-                await upsertManualPaket(tdb, r.user_kode, r.paket_nama, mulai, ak.toISOString().split('T')[0]);
-            }
-            await syncUserPaketLegacy(r.user_kode, tdb);
+            await aktivasiPaketOtomatis(r.user_kode, r.paket_kode, r.paket_nama, tdb);
             await tdb.prepare(`UPDATE paket_requests SET status='aktif' WHERE kode=?`).run(r.kode);
         });
         res.json({ message: 'Paket berhasil diaktifkan' });
@@ -471,6 +497,248 @@ app.post('/api/paket-requests/:kode/approve', auth(['admin']), ah(async (req, re
 app.delete('/api/paket-requests/:kode', auth(['admin']), ah(async (req, res) => {
     await db.prepare(`UPDATE paket_requests SET status='ditolak' WHERE kode=?`).run(req.params.kode);
     res.json({ message: 'Ditolak' });
+}));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAYMENT GATEWAY ASLI (Midtrans / Xendit) — koneksi pihak ke-3 sungguhan.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Admin: lihat & simpan konfigurasi gateway ──
+app.get('/api/admin/gateway', auth(['admin']), ah(async (req, res) => {
+    const cfg = await getGatewayConfig();
+    const host = `${req.protocol}://${req.get('host')}`;
+    res.json({
+        active_provider: cfg.active_provider || 'none',
+        midtrans: {
+            configured: !!(cfg.midtrans_server_key && cfg.midtrans_client_key),
+            server_key_masked: maskGatewayKey(cfg.midtrans_server_key),
+            client_key_masked: maskGatewayKey(cfg.midtrans_client_key),
+            mode: cfg.midtrans_mode || 'sandbox',
+            webhook_url: `${host}/api/pembayaran/notify/midtrans`
+        },
+        xendit: {
+            configured: !!cfg.xendit_secret_key,
+            secret_key_masked: maskGatewayKey(cfg.xendit_secret_key),
+            callback_token_configured: !!cfg.xendit_callback_token,
+            webhook_url: `${host}/api/pembayaran/notify/xendit`
+        }
+    });
+}));
+app.post('/api/admin/gateway', auth(['admin']), ah(async (req, res) => {
+    const b = req.body || {};
+    const cfg = await getGatewayConfig();
+    const next = {
+        active_provider: b.active_provider !== undefined ? String(b.active_provider) : (cfg.active_provider || 'none'),
+        midtrans_server_key: b.midtrans_server_key ? String(b.midtrans_server_key).trim() : cfg.midtrans_server_key || null,
+        midtrans_client_key: b.midtrans_client_key ? String(b.midtrans_client_key).trim() : cfg.midtrans_client_key || null,
+        midtrans_mode: b.midtrans_mode || cfg.midtrans_mode || 'sandbox',
+        xendit_secret_key: b.xendit_secret_key ? String(b.xendit_secret_key).trim() : cfg.xendit_secret_key || null,
+        xendit_callback_token: b.xendit_callback_token ? String(b.xendit_callback_token).trim() : cfg.xendit_callback_token || null,
+    };
+    if (!['none', 'midtrans', 'xendit'].includes(next.active_provider))
+        return res.status(400).json({ error: 'active_provider tidak valid' });
+    if (next.active_provider === 'midtrans' && !(next.midtrans_server_key && next.midtrans_client_key))
+        return res.status(400).json({ error: 'Isi Server Key & Client Key Midtrans dulu sebelum mengaktifkannya sebagai gateway aktif' });
+    if (next.active_provider === 'xendit' && !next.xendit_secret_key)
+        return res.status(400).json({ error: 'Isi Secret Key Xendit dulu sebelum mengaktifkannya sebagai gateway aktif' });
+    await db.prepare(`UPDATE payment_gateway_config SET active_provider=?, midtrans_server_key=?, midtrans_client_key=?, midtrans_mode=?, xendit_secret_key=?, xendit_callback_token=?, updated_at=CURRENT_TIMESTAMP WHERE id=1`)
+        .run(next.active_provider, next.midtrans_server_key, next.midtrans_client_key, next.midtrans_mode, next.xendit_secret_key, next.xendit_callback_token);
+    res.json({ message: 'Konfigurasi payment gateway disimpan', active_provider: next.active_provider });
+}));
+
+// ── Admin: daftar transaksi ASLI dari gateway (bukan lagi localStorage demo) ──
+app.get('/api/admin/transaksi', auth(['admin']), ah(async (req, res) => {
+    res.json(await db.prepare(`SELECT t.*, u.nama as user_nama, u.email as user_email FROM transaksi t LEFT JOIN users u ON t.user_kode = u.kode ORDER BY t.created_at DESC LIMIT 300`).all());
+}));
+
+// ── Publik: status gateway aktif saja (TANPA kredensial) — dipakai pembayaran.html/qris.html
+// untuk tahu apakah harus memakai alur real-time atau fallback konfirmasi manual. ──
+app.get('/api/pembayaran/gateway-status', ah(async (req, res) => {
+    const cfg = await getGatewayConfig();
+    res.json({ active_provider: cfg.active_provider || 'none' });
+}));
+
+// ── User: buat transaksi pembayaran REAL ke Midtrans/Xendit ──
+// body: { paket_kode, metode: 'snap'|'qris'|'invoice' }
+app.post('/api/pembayaran/create', auth(['user', 'admin', 'review']), ah(async (req, res) => {
+    const { paket_kode, metode } = req.body || {};
+    if (!paket_kode) return res.status(400).json({ error: 'Paket wajib dipilih' });
+    const paket = await db.prepare("SELECT * FROM pakets WHERE kode=? AND status='aktif'").get(paket_kode);
+    if (!paket) return res.status(404).json({ error: 'Paket tidak ditemukan atau tidak aktif' });
+    const cfg = await getGatewayConfig();
+    const provider = cfg.active_provider || 'none';
+    if (provider === 'none') return res.status(400).json({ error: 'Payment gateway belum diaktifkan admin. Gunakan konfirmasi manual (Saya Sudah Bayar).' });
+    const user = await db.prepare('SELECT * FROM users WHERE kode=?').get(req.user.kode);
+    if (!user) return res.status(404).json({ error: 'Akun tidak ditemukan' });
+    const orderId = genOrderId('CIBN');
+    const jumlah  = parseInt(paket.harga || 0, 10);
+    const host    = `${req.protocol}://${req.get('host')}`;
+    const namaSplit = (user.nama || 'Pengguna').trim().split(/\s+/);
+    const firstName = namaSplit[0] || 'Pengguna';
+    const lastName  = namaSplit.slice(1).join(' ') || undefined;
+
+    try {
+        if (provider === 'midtrans') {
+            if (!cfg.midtrans_server_key) return res.status(400).json({ error: 'Server Key Midtrans belum diisi admin' });
+            const isProd = cfg.midtrans_mode === 'production';
+            const authHeader = 'Basic ' + Buffer.from(cfg.midtrans_server_key + ':').toString('base64');
+
+            if (metode === 'qris') {
+                const base = isProd ? 'https://api.midtrans.com' : 'https://api.sandbox.midtrans.com';
+                const r = await fetch(`${base}/v2/charge`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': authHeader },
+                    body: JSON.stringify({
+                        payment_type: 'qris',
+                        transaction_details: { order_id: orderId, gross_amount: jumlah },
+                        qris: { acquirer: 'gopay' },
+                        customer_details: { first_name: firstName, last_name: lastName, email: user.email }
+                    })
+                });
+                const result = await r.json();
+                if (!r.ok) throw new Error(result.status_message || 'Gagal membuat transaksi QRIS Midtrans');
+                const qrAction = (result.actions || []).find(a => a.name === 'generate-qr-code');
+                await db.prepare(`INSERT INTO transaksi (order_id,user_kode,paket_kode,paket_nama,gateway,metode,jumlah,status,qr_string,raw_response) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+                    .run(orderId, req.user.kode, paket.kode, paket.nama, 'midtrans', 'qris', jumlah, 'pending', qrAction ? qrAction.url : null, JSON.stringify(result));
+                return res.json({ order_id: orderId, gateway: 'midtrans', metode: 'qris', qr_image_url: qrAction ? qrAction.url : null, jumlah, paket_nama: paket.nama });
+            } else {
+                const base = isProd ? 'https://app.midtrans.com' : 'https://app.sandbox.midtrans.com';
+                const r = await fetch(`${base}/snap/v1/transactions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': authHeader },
+                    body: JSON.stringify({
+                        transaction_details: { order_id: orderId, gross_amount: jumlah },
+                        customer_details: { first_name: firstName, last_name: lastName, email: user.email },
+                        callbacks: { finish: `${host}/pembayaran.html?status=selesai&order_id=${orderId}` }
+                    })
+                });
+                const result = await r.json();
+                if (!r.ok) throw new Error((result.error_messages || []).join(', ') || 'Gagal membuat transaksi Midtrans');
+                await db.prepare(`INSERT INTO transaksi (order_id,user_kode,paket_kode,paket_nama,gateway,metode,jumlah,status,redirect_url,raw_response) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+                    .run(orderId, req.user.kode, paket.kode, paket.nama, 'midtrans', 'snap', jumlah, 'pending', result.redirect_url, JSON.stringify(result));
+                return res.json({ order_id: orderId, gateway: 'midtrans', metode: 'snap', snap_token: result.token, redirect_url: result.redirect_url, client_key: cfg.midtrans_client_key, is_production: isProd, jumlah, paket_nama: paket.nama });
+            }
+        } else if (provider === 'xendit') {
+            if (!cfg.xendit_secret_key) return res.status(400).json({ error: 'Secret Key Xendit belum diisi admin' });
+            const authHeader = 'Basic ' + Buffer.from(cfg.xendit_secret_key + ':').toString('base64');
+
+            if (metode === 'qris') {
+                const r = await fetch('https://api.xendit.co/qr_codes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': authHeader },
+                    body: JSON.stringify({ external_id: orderId, type: 'DYNAMIC', callback_url: `${host}/api/pembayaran/notify/xendit`, amount: jumlah })
+                });
+                const result = await r.json();
+                if (!r.ok) throw new Error(result.message || 'Gagal membuat QRIS Xendit');
+                await db.prepare(`INSERT INTO transaksi (order_id,user_kode,paket_kode,paket_nama,gateway,metode,jumlah,status,external_id,qr_string,raw_response) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+                    .run(orderId, req.user.kode, paket.kode, paket.nama, 'xendit', 'qris', jumlah, 'pending', result.id || null, result.qr_string || null, JSON.stringify(result));
+                return res.json({ order_id: orderId, gateway: 'xendit', metode: 'qris', qr_string: result.qr_string, jumlah, paket_nama: paket.nama });
+            } else {
+                const r = await fetch('https://api.xendit.co/v2/invoices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': authHeader },
+                    body: JSON.stringify({
+                        external_id: orderId, amount: jumlah, payer_email: user.email,
+                        description: `Pembayaran paket ${paket.nama} - CIBN PRESTISE`,
+                        success_redirect_url: `${host}/pembayaran.html?status=selesai&order_id=${orderId}`,
+                        failure_redirect_url: `${host}/pembayaran.html?status=gagal&order_id=${orderId}`
+                    })
+                });
+                const result = await r.json();
+                if (!r.ok) throw new Error(result.message || 'Gagal membuat invoice Xendit');
+                await db.prepare(`INSERT INTO transaksi (order_id,user_kode,paket_kode,paket_nama,gateway,metode,jumlah,status,external_id,redirect_url,raw_response) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+                    .run(orderId, req.user.kode, paket.kode, paket.nama, 'xendit', 'invoice', jumlah, 'pending', result.id || null, result.invoice_url || null, JSON.stringify(result));
+                return res.json({ order_id: orderId, gateway: 'xendit', metode: 'invoice', redirect_url: result.invoice_url, jumlah, paket_nama: paket.nama });
+            }
+        }
+        return res.status(400).json({ error: 'Provider gateway tidak dikenali' });
+    } catch (e) {
+        console.error('[PEMBAYARAN CREATE ERROR]', e.message);
+        return res.status(502).json({ error: 'Gagal menghubungi payment gateway: ' + e.message });
+    }
+}));
+
+// ── User/Admin: cek status transaksi (untuk polling di halaman qris.html/pembayaran.html) ──
+app.get('/api/pembayaran/status/:order_id', auth(['user', 'admin', 'review']), ah(async (req, res) => {
+    const trx = await db.prepare('SELECT * FROM transaksi WHERE order_id=?').get(req.params.order_id);
+    if (!trx) return res.status(404).json({ error: 'Transaksi tidak ditemukan' });
+    if (req.user.role === 'user' && trx.user_kode !== req.user.kode) return res.status(403).json({ error: 'Forbidden' });
+    res.json({ order_id: trx.order_id, status: trx.status, paket_nama: trx.paket_nama, jumlah: trx.jumlah, gateway: trx.gateway });
+}));
+
+// ── Webhook Midtrans (dipanggil server Midtrans, BUKAN oleh browser — tanpa JWT) ──
+// Daftarkan URL ini ("<host>/api/pembayaran/notify/midtrans") di dashboard Midtrans:
+// Settings > Configuration > Payment Notification URL.
+app.post('/api/pembayaran/notify/midtrans', ah(async (req, res) => {
+    const body = req.body || {};
+    const { order_id, status_code, gross_amount, signature_key, transaction_status, fraud_status } = body;
+    if (!order_id) return res.status(400).json({ error: 'order_id wajib' });
+    const cfg = await getGatewayConfig();
+    if (!cfg.midtrans_server_key) return res.status(400).json({ error: 'Gateway Midtrans belum dikonfigurasi' });
+    const expectedSig = crypto.createHash('sha512').update(`${order_id}${status_code}${gross_amount}${cfg.midtrans_server_key}`).digest('hex');
+    if (signature_key !== expectedSig) {
+        console.warn('[MIDTRANS NOTIFY] Signature tidak valid untuk order_id', order_id);
+        return res.status(403).json({ error: 'Signature tidak valid' });
+    }
+    const trx = await db.prepare('SELECT * FROM transaksi WHERE order_id=?').get(order_id);
+    if (!trx) return res.status(404).json({ error: 'Transaksi tidak ditemukan' });
+    let newStatus = trx.status;
+    if (transaction_status === 'capture' || transaction_status === 'settlement') {
+        newStatus = (fraud_status && fraud_status !== 'accept') ? 'pending' : 'success';
+    } else if (transaction_status === 'expire') newStatus = 'expired';
+    else if (['deny', 'cancel', 'failure'].includes(transaction_status)) newStatus = 'failed';
+    if (newStatus !== trx.status) {
+        if (newStatus === 'success') {
+            await transaction(async (tdb) => {
+                await tdb.prepare('UPDATE transaksi SET status=?, raw_response=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?').run(newStatus, JSON.stringify(body), order_id);
+                await aktivasiPaketOtomatis(trx.user_kode, trx.paket_kode, trx.paket_nama, tdb);
+            });
+        } else {
+            await db.prepare('UPDATE transaksi SET status=?, raw_response=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?').run(newStatus, JSON.stringify(body), order_id);
+        }
+    }
+    res.json({ message: 'OK' });
+}));
+
+// ── Webhook Xendit (dipanggil server Xendit — verifikasi via header x-callback-token) ──
+// Daftarkan URL ini di dashboard Xendit: Settings > Developers > Webhooks (Invoice
+// Paid & QR Code Payment), lalu tempel "Verification Token" yang sama ke panel admin.
+app.post('/api/pembayaran/notify/xendit', ah(async (req, res) => {
+    const cfg = await getGatewayConfig();
+    const token = req.headers['x-callback-token'];
+    if (cfg.xendit_callback_token && token !== cfg.xendit_callback_token) {
+        console.warn('[XENDIT NOTIFY] Callback token tidak valid');
+        return res.status(403).json({ error: 'Callback token tidak valid' });
+    }
+    const body = req.body || {};
+    let externalId = body.external_id;
+    let paid = false;
+    if (body.event && body.data) {
+        // Callback QR Code (event: 'qr.payment')
+        externalId = body.data.reference_id || body.data.external_id || externalId;
+        paid = true;
+    } else if (body.status) {
+        // Callback Invoice
+        paid = ['PAID', 'SETTLED', 'COMPLETED'].includes(body.status);
+    }
+    if (!externalId) return res.status(400).json({ error: 'external_id wajib' });
+    const trx = await db.prepare('SELECT * FROM transaksi WHERE order_id=?').get(externalId);
+    if (!trx) return res.status(404).json({ error: 'Transaksi tidak ditemukan' });
+    let newStatus = trx.status;
+    if (paid) newStatus = 'success';
+    else if (body.status === 'EXPIRED') newStatus = 'expired';
+    else if (body.status === 'FAILED') newStatus = 'failed';
+    if (newStatus !== trx.status) {
+        if (newStatus === 'success') {
+            await transaction(async (tdb) => {
+                await tdb.prepare('UPDATE transaksi SET status=?, raw_response=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?').run(newStatus, JSON.stringify(body), externalId);
+                await aktivasiPaketOtomatis(trx.user_kode, trx.paket_kode, trx.paket_nama, tdb);
+            });
+        } else {
+            await db.prepare('UPDATE transaksi SET status=?, raw_response=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=?').run(newStatus, JSON.stringify(body), externalId);
+        }
+    }
+    res.json({ message: 'OK' });
 }));
 
 // ── Lupa kata sandi via OTP (halaman otp.html) ──
@@ -1416,6 +1684,7 @@ app.use((err, req, res, next) => {
     try {
         await initSchema();
         await seedIfEmpty();
+        await ensureGatewayConfig();
 
         // Server hanya menggunakan app.listen jika dijalankan secara lokal (bukan Vercel)
         if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {

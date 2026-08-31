@@ -270,6 +270,43 @@ CREATE TABLE IF NOT EXISTS password_resets (
 );
 CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);
 
+-- Konfigurasi Payment Gateway ASLI (Midtrans / Xendit) — 1 baris singleton (id=1),
+-- diisi admin lewat panel Keuangan > Payment Gateway. Server Key/Secret Key
+-- disimpan di sini (server-side saja) dan TIDAK PERNAH dikirim mentah ke browser.
+CREATE TABLE IF NOT EXISTS payment_gateway_config (
+    id                     INTEGER PRIMARY KEY DEFAULT 1,
+    active_provider        TEXT DEFAULT 'none',
+    midtrans_server_key    TEXT,
+    midtrans_client_key    TEXT,
+    midtrans_mode          TEXT DEFAULT 'sandbox',
+    xendit_secret_key      TEXT,
+    xendit_callback_token  TEXT,
+    updated_at             TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Transaksi pembayaran REAL yang dibuat lewat Midtrans/Xendit (menggantikan
+-- data demo localStorage). paket_requests (di atas) tetap dipakai untuk alur
+-- konfirmasi MANUAL "Saya Sudah Bayar" saat gateway belum diaktifkan admin.
+CREATE TABLE IF NOT EXISTS transaksi (
+    id            SERIAL PRIMARY KEY,
+    order_id      TEXT UNIQUE NOT NULL,
+    user_kode     TEXT NOT NULL,
+    paket_kode    TEXT,
+    paket_nama    TEXT NOT NULL,
+    gateway       TEXT NOT NULL,
+    metode        TEXT,
+    jumlah        INTEGER NOT NULL DEFAULT 0,
+    status        TEXT DEFAULT 'pending',
+    external_id   TEXT,
+    redirect_url  TEXT,
+    qr_string     TEXT,
+    raw_response  TEXT,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_transaksi_user   ON transaksi(user_kode);
+CREATE INDEX IF NOT EXISTS idx_transaksi_status ON transaksi(status);
+
 -- Index untuk query yang sering dipanggil (sama seperti versi SQLite)
 CREATE INDEX IF NOT EXISTS idx_users_role        ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_email       ON users(email);

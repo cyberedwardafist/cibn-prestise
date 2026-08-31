@@ -341,6 +341,20 @@ const MeAPI = {
     async update(data) { return await apiPut('/me', data); }
 };
 
+// ── PAYMENT GATEWAY API (Midtrans/Xendit asli) ──
+const GatewayAPI = {
+    async get() { return await apiGet('/admin/gateway'); },
+    async save(data) { return await apiPost('/admin/gateway', data); },
+    async getTransaksi() { return await apiGet('/admin/transaksi') || []; }
+};
+
+// ── PEMBAYARAN API (dipakai halaman pembayaran.html / qris.html) ──
+const PembayaranAPI = {
+    async getGatewayStatus() { return await apiGet('/pembayaran/gateway-status').catch(() => ({ active_provider: 'none' })); },
+    async create(paket_kode, metode) { return await apiPost('/pembayaran/create', { paket_kode, metode }); },
+    async getStatus(order_id) { return await apiGet(`/pembayaran/status/${order_id}`); }
+};
+
 // ── REVIEW API ──
 const ReviewAPI = {
     async getUsers() { return await apiGet('/review/users'); },

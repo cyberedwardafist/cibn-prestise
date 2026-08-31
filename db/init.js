@@ -58,4 +58,15 @@ async function sanityCheckEbooks(UPLOAD_EBOOK) {
     }
 }
 
-module.exports = { initSchema, seedIfEmpty, sanityCheckEbooks };
+// Pastikan baris konfigurasi payment gateway (id=1) selalu ada. Dijalankan setiap
+// start (bukan cuma di seedIfEmpty), supaya instalasi LAMA yang sudah punya admin
+// tetap otomatis kebagian baris config ini saat pertama kali update ke versi ini.
+async function ensureGatewayConfig() {
+    const row = await db.prepare('SELECT id FROM payment_gateway_config WHERE id=1').get();
+    if (!row) {
+        await db.prepare("INSERT INTO payment_gateway_config (id,active_provider,midtrans_mode) VALUES (1,'none','sandbox')").run();
+        console.log('✅ Baris konfigurasi payment_gateway_config (id=1) dibuat');
+    }
+}
+
+module.exports = { initSchema, seedIfEmpty, sanityCheckEbooks, ensureGatewayConfig };

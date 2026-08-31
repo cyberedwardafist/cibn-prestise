@@ -435,7 +435,7 @@ input{font-family:inherit}
         </div>
       </form>
 
-      <p class="auth-note">Halaman ini adalah tampilan front-end saja — hubungkan form di atas ke payment gateway (mis. Midtrans/Xendit) agar bisa memproses pembayaran sungguhan.</p>
+      <p class="auth-note" id="payGatewayNote">Memeriksa status payment gateway…</p>
     </div>
 
   </div>
@@ -522,6 +522,59 @@ async function kirimPermintaanPaket(metodeBayar) {
     return { ok: false, error: 'Gagal terhubung ke server. Pastikan server aktif.' };
   }
 }
+
+// ===== Payment gateway ASLI (Midtrans/Xendit) — dicek dari server, tanpa kredensial =====
+let GATEWAY_ACTIVE = 'none';
+(async () => {
+  try {
+    const res = await fetch(PAY_API_BASE + '/pembayaran/gateway-status');
+    const data = await res.json();
+    GATEWAY_ACTIVE = data.active_provider || 'none';
+  } catch (e) { GATEWAY_ACTIVE = 'none'; }
+  const note = document.getElementById('payGatewayNote');
+  if (note) {
+    note.textContent = (GATEWAY_ACTIVE !== 'none' && selectedPaketKode)
+      ? `Pembayaran diproses real-time lewat ${GATEWAY_ACTIVE === 'midtrans' ? 'Midtrans' : 'Xendit'}.`
+      : 'Halaman ini akan mengirim konfirmasi ke admin untuk diverifikasi manual (payment gateway belum aktif untuk paket ini).';
+  }
+})();
+
+// Buat transaksi REAL ke Midtrans/Xendit lewat backend, lalu arahkan ke halaman
+// pembayaran resminya (Snap/Invoice) — dipakai untuk transfer/e-wallet/kartu/VA
+// saat gateway sudah diaktifkan admin (semua channel itu sudah tersedia otomatis
+// di dalam halaman Snap/Invoice yang di-hosting Midtrans/Xendit sendiri).
+async function buatTransaksiGateway(metode) {
+  const token = localStorage.getItem('cbn_token');
+  if (!token) return { ok: false, error: 'Sesi login tidak ditemukan. Silakan masuk kembali.' };
+  try {
+    const res = await fetch(PAY_API_BASE + '/pembayaran/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ paket_kode: selectedPaketKode, metode })
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error || 'Gagal membuat transaksi' };
+    return { ok: true, data };
+  } catch (e) {
+    return { ok: false, error: 'Gagal terhubung ke payment gateway. Pastikan server aktif.' };
+  }
+}
+
+// ===== Notifikasi hasil redirect balik dari Snap/Invoice (Midtrans/Xendit) =====
+(() => {
+  const status = payQs.get('status');
+  if (!status) return;
+  const orderId = payQs.get('order_id');
+  const msg = document.getElementById('payMsg');
+  if (!msg) return;
+  if (status === 'selesai') {
+    msg.classList.add('success');
+    msg.textContent = orderId ? `Pembayaran diterima. Paket akan aktif otomatis begitu gateway mengonfirmasi (order ${orderId}).` : 'Pembayaran diterima.';
+  } else if (status === 'gagal') {
+    msg.classList.add('error');
+    msg.textContent = 'Pembayaran dibatalkan atau gagal. Silakan coba lagi.';
+  }
+})();
 
 // ===== Highlight kartu opsi pembayaran yang dipilih =====
 const payOptionLabels = document.querySelectorAll('.pay-option');
@@ -693,8 +746,23 @@ payForm.addEventListener('submit', async () => {
   const method = selectedMethod.value;
   const methodLabel = selectedMethod.closest('.pay-option').querySelector('.pay-option-label').textContent;
 
-  // ---- Kartu Kredit/Debit: perlu kartu tersimpan, lalu kirim permintaan aktivasi ke admin ----
+  // ---- Kartu Kredit/Debit ----
   if (method === 'kartu') {
+    // Kalau gateway asli aktif & paket punya kode valid -> proses real lewat Snap/Invoice
+    // (channel kartu sudah otomatis tersedia di dalamnya, tidak perlu kartu tersimpan demo).
+    if (GATEWAY_ACTIVE !== 'none' && selectedPaketKode) {
+      paySubmit.disabled = true;
+      paySubmit.textContent = 'Menghubungkan ke gateway…';
+      const result = await buatTransaksiGateway(GATEWAY_ACTIVE === 'midtrans' ? 'snap' : 'invoice');
+      if (!result.ok) {
+        payMsg.classList.add('error');
+        payMsg.textContent = result.error;
+        paySubmit.disabled = false; paySubmit.textContent = 'Bayar';
+        return;
+      }
+      window.location.href = result.data.redirect_url;
+      return;
+    }
     if (!savedCards.length) {
       payMsg.classList.add('error');
       payMsg.textContent = 'Tambahkan kartu terlebih dahulu sebelum membayar.';
@@ -718,7 +786,7 @@ payForm.addEventListener('submit', async () => {
   }
 
   // ---- QRIS: arahkan ke halaman khusus QRIS untuk menampilkan kode QR ----
-  // (permintaan aktivasi paket dikirim di qris.html setelah user klik "Saya sudah bayar")
+  // (qris.html sendiri yang memutuskan real (gateway aktif) vs manual "Saya sudah bayar")
   if (method === 'qris') {
     paySubmit.disabled = true;
     paySubmit.textContent = 'Mengarahkan…';
@@ -726,7 +794,23 @@ payForm.addEventListener('submit', async () => {
     return;
   }
 
-  // ---- Transfer Bank / E-Wallet / Virtual Account: kirim permintaan aktivasi ke admin ----
+  // ---- Transfer Bank / E-Wallet / Virtual Account ----
+  // Kalau gateway asli aktif & paket punya kode valid -> proses real lewat Snap/Invoice
+  // (semua channel: transfer/VA/e-wallet sudah otomatis tersedia di dalamnya).
+  if (GATEWAY_ACTIVE !== 'none' && selectedPaketKode) {
+    paySubmit.disabled = true;
+    paySubmit.textContent = 'Menghubungkan ke gateway…';
+    const result = await buatTransaksiGateway(GATEWAY_ACTIVE === 'midtrans' ? 'snap' : 'invoice');
+    if (!result.ok) {
+      payMsg.classList.add('error');
+      payMsg.textContent = result.error;
+      paySubmit.disabled = false; paySubmit.textContent = 'Konfirmasi Pembayaran';
+      return;
+    }
+    window.location.href = result.data.redirect_url;
+    return;
+  }
+
   paySubmit.disabled = true;
   paySubmit.textContent = 'Memproses…';
   const result = await kirimPermintaanPaket(methodLabel);

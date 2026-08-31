@@ -85,47 +85,92 @@ async function renderPaketGrid() {
 
 // ── Form Tambah/Edit/Hapus Paket: lihat admin/paket-form.js ──
 
-// ── GATEWAY CONFIG ──
-const GW_KEY = 'cbn_gateway_config';
-function loadGatewayConfig() {
+// ── GATEWAY CONFIG (terhubung ke server — bukan lagi localStorage demo) ──
+// Server Key/Secret Key TIDAK PERNAH dikirim balik dalam bentuk asli oleh backend
+// (hanya versi masked), jadi field password di sini SENGAJA dikosongkan saat
+// dimuat — kosong berarti "jangan ganti key yang sudah tersimpan di server".
+async function loadGatewayConfig() {
     try {
-        const cfg = JSON.parse(localStorage.getItem(GW_KEY) || '{}');
-        const msk = document.getElementById('gw-midtrans-sk');
-        const mck = document.getElementById('gw-midtrans-ck');
-        const xsk = document.getElementById('gw-xendit-sk');
-        const xpk = document.getElementById('gw-xendit-pk');
-        if (msk) msk.value = cfg.midtrans_sk || '';
-        if (mck) mck.value = cfg.midtrans_ck || '';
-        if (xsk) xsk.value = cfg.xendit_sk || '';
-        if (xpk) xpk.value = cfg.xendit_pk || '';
-        if (cfg.midtrans_mode) {
-            const radio = document.querySelector(`input[name="midtrans-mode"][value="${cfg.midtrans_mode}"]`);
-            if (radio) radio.checked = true;
+        const cfg = await GatewayAPI.get();
+        const provSel = document.getElementById('gw-active-provider');
+        if (provSel) provSel.value = cfg.active_provider || 'none';
+        const statusEl = document.getElementById('gw-active-status');
+        if (statusEl) statusEl.textContent = cfg.active_provider === 'none'
+            ? 'Transaksi user saat ini memakai konfirmasi manual.'
+            : `Transaksi user saat ini diproses real-time lewat ${cfg.active_provider === 'midtrans' ? 'Midtrans' : 'Xendit'}.`;
+
+        document.getElementById('gw-midtrans-sk').value = '';
+        document.getElementById('gw-midtrans-sk').placeholder = cfg.midtrans?.server_key_masked || 'Kosongkan jika tidak diganti';
+        document.getElementById('gw-midtrans-ck').value = '';
+        document.getElementById('gw-midtrans-ck').placeholder = cfg.midtrans?.client_key_masked || 'Kosongkan jika tidak diganti';
+        const mtMode = document.querySelector(`input[name="midtrans-mode"][value="${cfg.midtrans?.mode || 'sandbox'}"]`);
+        if (mtMode) mtMode.checked = true;
+        document.getElementById('gw-midtrans-webhook').value = cfg.midtrans?.webhook_url || '';
+        const mtBadge = document.getElementById('gw-midtrans-badge');
+        if (mtBadge) {
+            mtBadge.textContent = cfg.midtrans?.configured ? 'Terhubung' : 'Belum diisi';
+            mtBadge.style.background = cfg.midtrans?.configured ? 'rgba(22,163,74,0.12)' : 'rgba(0,0,0,0.05)';
+            mtBadge.style.color = cfg.midtrans?.configured ? '#16a34a' : 'var(--text-sub)';
         }
-    } catch(e) {}
+
+        document.getElementById('gw-xendit-sk').value = '';
+        document.getElementById('gw-xendit-sk').placeholder = cfg.xendit?.secret_key_masked || 'Kosongkan jika tidak diganti';
+        document.getElementById('gw-xendit-token').value = '';
+        document.getElementById('gw-xendit-token').placeholder = cfg.xendit?.callback_token_configured ? '••••••••' : 'Kosongkan jika tidak diganti';
+        document.getElementById('gw-xendit-webhook').value = cfg.xendit?.webhook_url || '';
+        const xdBadge = document.getElementById('gw-xendit-badge');
+        if (xdBadge) {
+            xdBadge.textContent = cfg.xendit?.configured ? 'Terhubung' : 'Belum diisi';
+            xdBadge.style.background = cfg.xendit?.configured ? 'rgba(22,163,74,0.12)' : 'rgba(0,0,0,0.05)';
+            xdBadge.style.color = cfg.xendit?.configured ? '#16a34a' : 'var(--text-sub)';
+        }
+    } catch (e) { showToast(e.message || 'Gagal memuat konfigurasi gateway', 'danger'); }
 }
-function saveGateway(provider) {
+async function saveGateway(provider) {
     try {
-        const cfg = JSON.parse(localStorage.getItem(GW_KEY) || '{}');
+        const payload = {};
         if (provider === 'midtrans') {
-            cfg.midtrans_sk = document.getElementById('gw-midtrans-sk')?.value || '';
-            cfg.midtrans_ck = document.getElementById('gw-midtrans-ck')?.value || '';
-            cfg.midtrans_mode = document.querySelector('input[name="midtrans-mode"]:checked')?.value || 'sandbox';
+            payload.midtrans_server_key = document.getElementById('gw-midtrans-sk')?.value || '';
+            payload.midtrans_client_key = document.getElementById('gw-midtrans-ck')?.value || '';
+            payload.midtrans_mode = document.querySelector('input[name="midtrans-mode"]:checked')?.value || 'sandbox';
         } else if (provider === 'xendit') {
-            cfg.xendit_sk = document.getElementById('gw-xendit-sk')?.value || '';
-            cfg.xendit_pk = document.getElementById('gw-xendit-pk')?.value || '';
+            payload.xendit_secret_key = document.getElementById('gw-xendit-sk')?.value || '';
+            payload.xendit_callback_token = document.getElementById('gw-xendit-token')?.value || '';
         }
-        localStorage.setItem(GW_KEY, JSON.stringify(cfg));
+        await GatewayAPI.save(payload);
         clearDirty();
-        showToast(`Konfigurasi ${provider} disimpan!`, 'success');
-    } catch(e) { showToast('Gagal menyimpan', 'danger'); }
+        showToast(`Konfigurasi ${provider === 'midtrans' ? 'Midtrans' : 'Xendit'} disimpan!`, 'success');
+        await loadGatewayConfig();
+    } catch (e) { showToast(e.message || 'Gagal menyimpan', 'danger'); }
+}
+async function saveActiveGateway() {
+    try {
+        const active_provider = document.getElementById('gw-active-provider')?.value || 'none';
+        await GatewayAPI.save({ active_provider });
+        clearDirty();
+        showToast('Gateway aktif diterapkan!', 'success');
+        await loadGatewayConfig();
+    } catch (e) { showToast(e.message || 'Gagal mengaktifkan gateway', 'danger'); }
+}
+function copyGatewayUrl(inputId) {
+    const el = document.getElementById(inputId);
+    if (!el || !el.value) return;
+    el.select();
+    navigator.clipboard?.writeText(el.value).then(
+        () => showToast('URL disalin', 'success'),
+        () => document.execCommand('copy')
+    );
 }
 
-// ── TRANSAKSI ──
+// ── TRANSAKSI (data ASLI dari tabel transaksi via Midtrans/Xendit — bukan lagi localStorage demo) ──
 let _trxData = [], _trxSearch = '', _trxStatusFilter = '', _trxPage = 1;
-function renderTrxList() {
-    // Contoh data demo — nanti ganti dengan API call
-    _trxData = JSON.parse(localStorage.getItem('cbn_transaksi') || '[]');
+async function renderTrxList() {
+    try {
+        _trxData = await GatewayAPI.getTransaksi();
+    } catch (e) {
+        _trxData = [];
+        showToast(e.message || 'Gagal memuat data transaksi', 'danger');
+    }
     filterTrx();
 }
 function filterTrx() {
@@ -133,8 +178,8 @@ function filterTrx() {
     _trxStatusFilter = document.getElementById('trx-status-filter')?.value || '';
     let data = _trxData;
     if (_trxSearch) data = data.filter(t =>
-        (t.email || '').toLowerCase().includes(_trxSearch) ||
-        (t.paket || '').toLowerCase().includes(_trxSearch));
+        (t.user_email || '').toLowerCase().includes(_trxSearch) ||
+        (t.paket_nama || '').toLowerCase().includes(_trxSearch));
     if (_trxStatusFilter) data = data.filter(t => t.status === _trxStatusFilter);
     const tb = document.getElementById('trx-tbody');
     if (!tb) return;
@@ -148,11 +193,11 @@ function filterTrx() {
     tb.innerHTML = slice.map((t, i) => `
         <tr style="animation:fadeUp 0.2s ${i * 0.03}s both">
             <td>${(_trxPage - 1) * PER + i + 1}</td>
-            <td><strong>${t.nama || '-'}</strong><br><span style="font-size:10px;color:var(--text-sub)">${t.email || ''}</span></td>
-            <td>${t.paket || '-'}</td>
-            <td class="hide-mobile">${t.metode || '-'}</td>
-            <td class="hide-mobile" style="font-size:11px">${formatDate(t.tgl)}</td>
-            <td><strong>Rp ${parseInt(t.total || 0).toLocaleString('id-ID')}</strong></td>
+            <td><strong>${t.user_nama || '-'}</strong><br><span style="font-size:10px;color:var(--text-sub)">${t.user_email || ''}</span></td>
+            <td>${t.paket_nama || '-'}</td>
+            <td class="hide-mobile">${(t.gateway || '-').toUpperCase()} · ${t.metode || '-'}</td>
+            <td class="hide-mobile" style="font-size:11px">${formatDate(t.created_at)}</td>
+            <td><strong>Rp ${parseInt(t.jumlah || 0).toLocaleString('id-ID')}</strong></td>
             <td><span class="badge-${t.status || 'pending'}">${t.status || 'pending'}</span></td>
         </tr>`).join('');
     const pg = document.getElementById('trx-pagination');
