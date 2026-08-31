@@ -515,6 +515,9 @@
     .jdw-day.is-today .jdw-day-num-wrap { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; box-shadow:0 4px 12px rgba(26,90,160,.35); }
     .jdw-day.has-entries .jdw-day-num-wrap::after { content:''; position:absolute; bottom:-6px; left:50%; transform:translateX(-50%); width:4px; height:4px; border-radius:50%; background:var(--accent); }
     .jdw-day.is-today.has-entries .jdw-day-num-wrap::after { background:#fff; }
+    .jdw-day.is-past { opacity:.4; cursor:pointer; }
+    .jdw-day.is-past .jdw-day-num-wrap { background:rgba(19,50,89,.05); }
+    .jdw-day.is-future-locked { opacity:.35; cursor:default; }
     .jdw-week-hint { text-align:center; font-size:11.5px; color:var(--text-sub); margin-top:2px; margin-bottom:4px; }
 
     /* ── JADWAL: toggle Minggu Ini / Riwayat + nav minggu (riwayat) ── */
@@ -561,12 +564,29 @@
     .jdw-status-badge.pending { background:rgba(217,119,6,.12); color:var(--warning); }
     .jdw-status-badge.acc { background:rgba(22,163,74,.12); color:var(--success); }
     .jdw-status-badge.ditolak { background:rgba(220,38,38,.12); color:var(--danger); }
+    .jdw-status-badge.berlangsung { background:rgba(26,90,160,.12); color:var(--accent); }
+    .jdw-status-badge.selesai { background:rgba(90,122,154,.14); color:var(--text-sub); }
 
     /* ── JADWAL: tabel desktop untuk daftar pengajuan ── */
     .jdw-entry-table { width:100%; border-collapse:collapse; font-size:13px; }
     .jdw-entry-table th { text-align:left; padding:9px 12px; font-size:11px; color:var(--text-sub); border-bottom:1.5px solid rgba(19,50,89,.08); }
     .jdw-entry-table td { padding:11px 12px; border-bottom:1px solid rgba(19,50,89,.06); vertical-align:middle; }
     .jdw-entry-table tr:last-child td { border-bottom:none; }
+
+    /* ── JADWAL: halaman "Sesi Berlangsung" (Masuk) & "Feedback Sesi" ── */
+    .jdw-sesi-item { padding:16px; border-radius:14px; background:rgba(255,255,255,.6); border:1.5px solid rgba(19,50,89,.1); margin-bottom:14px; }
+    .jdw-sesi-item-label { font-size:11px; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; }
+    .jdw-sesi-item-row { display:flex; align-items:center; gap:10px; }
+    .jdw-sesi-item-value { flex:1; min-width:0; font-family:var(--font-body); font-size:13.5px; font-weight:700; color:var(--blue); word-break:break-all; }
+    .jdw-sesi-item-value.mono { font-family:monospace; letter-spacing:.1em; }
+    .jdw-sesi-copy-btn { width:38px; height:38px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:11px; border:1.5px solid rgba(19,50,89,.12); background:rgba(19,50,89,.06); color:var(--accent); cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; }
+    .jdw-sesi-copy-btn:hover { background:rgba(26,90,160,.12); }
+    .jdw-sesi-copy-btn svg { width:16px; height:16px; }
+    .jdw-sesi-hint { font-size:12px; color:var(--text-sub); line-height:1.6; text-align:center; margin-top:6px; }
+    .jdw-rating-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+    .jdw-textarea { width:100%; min-height:110px; resize:vertical; background:rgba(255,255,255,.6); border:1.5px solid rgba(19,50,89,.12); border-radius:12px; padding:12px 14px; font-family:var(--font-body); font-size:13.5px; color:var(--blue); outline:none; box-sizing:border-box; transition:border-color .2s, box-shadow .2s; }
+    .jdw-textarea:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(26,90,160,.08); }
+    .jdw-textarea::placeholder { color:rgba(19,50,89,.32); }
 
     /* ── JADWAL: form Ajukan (chip pilih jam & materi) ── */
     .jdw-form-section { margin-bottom:24px; }

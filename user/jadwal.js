@@ -28,7 +28,7 @@ const JDW_MATERI = [
     { id: 'toefl_listening', label: 'TOEFL Listening' },
     { id: 'toefl_reading', label: 'TOEFL Reading' },
 ];
-const JDW_STATUS_LABEL = { pending: 'Menunggu', acc: 'Disetujui', ditolak: 'Ditolak' };
+const JDW_STATUS_LABEL = { pending: 'Menunggu', acc: 'Disetujui', ditolak: 'Ditolak', berlangsung: 'Berlangsung', selesai: 'Selesai' };
 const JDW_DAY_NAMES = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 const JDW_DAY_SHORT = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
 const JDW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
@@ -148,6 +148,38 @@ function _jdwSlotStartDate(tanggal, slotId) {
     d.setHours(hh || 0, mm || 0, 0, 0);
     return d;
 }
+// Sama seperti _jdwSlotStartDate tapi ambil jam SELESAI slot, dari label
+// "07.45 - 09.15" -> 09.15. Dipakai buat nentuin kapan sesi yang "berlangsung"
+// sudah lewat jamnya (tombol "Masuk" -> "Feedback").
+function _jdwSlotEndDate(tanggal, slotId) {
+    const slot = JDW_SLOTS.find(s => s.id === slotId);
+    if (!slot || !tanggal) return null;
+    const parts = slot.label.split('-');
+    const endStr = (parts[1] || '').trim(); // "09.15"
+    const [hh, mm] = endStr.split('.').map(Number);
+    const d = new Date(tanggal + 'T00:00:00');
+    if (isNaN(d.getTime())) return null;
+    d.setHours(hh || 0, mm || 0, 0, 0);
+    return d;
+}
+function _jdwSlotIsOver(e) {
+    const end = _jdwSlotEndDate(e.tanggal, e.slotId);
+    return !!(end && end <= new Date());
+}
+// Ada berapa hari di minggu berjalan (Senin-Minggu) yang tanggalnya sudah
+// lewat dari hari ini -> dipakai buat nentuin apakah "riwayat minggu ini
+// (belum genap)" perlu ditampilkan/dinavigasi (kalender ke-2 + offset 0).
+function _jdwHasPastDaysThisWeek() {
+    const todayIso = _jdwToIso(new Date());
+    return _jdwWeekDates(new Date()).some(d => _jdwToIso(d) < todayIso);
+}
+// Batas paling "baru" (paling dekat ke sekarang) yang boleh dinavigasi di
+// Riwayat: 0 (minggu berjalan, bagian yg sudah lewat) kalau memang ada
+// harinya yang sudah lewat, atau 1 (minggu lalu yang sudah genap) kalau
+// belum ada (mis. hari ini masih Senin).
+function _jdwMinRiwayatOffset() {
+    return _jdwHasPastDaysThisWeek() ? 0 : 1;
+}
 
 /* ══════════════════════════════════════════
    AUTO-TOLAK PENGAJUAN YANG KELEWATAN JAM
@@ -169,6 +201,71 @@ function _jdwAutoExpirePending() {
         }
     });
     return changed;
+}
+
+/* ══════════════════════════════════════════
+   AUTO-MAJU STATUS SESI YANG SUDAH "DISETUJUI"
+   disetujui -> berlangsung : begitu jam mulai slotnya tiba (hari ini).
+   berlangsung -> selesai   : begitu feedback sudah diisi, ATAU tanggalnya
+                               sudah lewat hari (sesi dianggap tuntas / hangus,
+                               apapun keadaannya, sesuai kartu tidak boleh lagi
+                               tampil tombol apapun begitu hari sudah lewat).
+   disetujui -> selesai     : kalau entrinya baru sempat kelihatan setelah
+                               tanggalnya sendiri sudah lewat (mis. app tidak
+                               dibuka sepanjang hari itu) -> langsung selesai,
+                               tidak usah lewat fase berlangsung dulu.
+   ══════════════════════════════════════════ */
+function _jdwAutoAdvanceStatus() {
+    const now = new Date();
+    const todayIso = _jdwToIso(now);
+    let changed = false;
+    JadwalStore.all().forEach(e => {
+        if (e.status === 'acc') {
+            if (e.tanggal < todayIso) {
+                JadwalStore.update(e.id, { status: 'selesai' });
+                changed = true;
+                return;
+            }
+            const start = _jdwSlotStartDate(e.tanggal, e.slotId);
+            if (start && start <= now) {
+                JadwalStore.update(e.id, { status: 'berlangsung' });
+                changed = true;
+            }
+        } else if (e.status === 'berlangsung') {
+            if (e.tanggal < todayIso || e.feedbackDone) {
+                JadwalStore.update(e.id, { status: 'selesai' });
+                changed = true;
+            }
+        }
+    });
+    return changed;
+}
+
+/* ══════════════════════════════════════════
+   DUMMY: LINK GMEET & TOKEN SESI
+   Belum ada backend, jadi link/token dibangkitkan deterministik dari id
+   entri (bukan disimpan) — konsisten tiap dibuka tapi tetap gampang nanti
+   diganti jadi field asli dari server (mis. e.gmeetLink / e.token).
+   ══════════════════════════════════════════ */
+function _jdwPseudoCode(seedStr, pattern) {
+    let hash = 0;
+    for (let i = 0; i < seedStr.length; i++) hash = (hash * 31 + seedStr.charCodeAt(i)) >>> 0;
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    return pattern.replace(/x/g, () => {
+        hash = (Math.imul(hash, 1103515245) + 12345) >>> 0;
+        return chars[hash % chars.length];
+    });
+}
+function _jdwEntryGmeetLink(e) {
+    if (e.gmeetLink) return e.gmeetLink;
+    return `https://meet.google.com/${_jdwPseudoCode(e.id + '-meet', 'xxx-xxxx-xxx').toLowerCase()}`;
+}
+function _jdwEntryToken(e) {
+    if (e.token) return e.token;
+    return _jdwPseudoCode(e.id + '-token', 'xxxxxx');
+}
+function _jdwCopyIconHtml() {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 }
 
 /* ══════════════════════════════════════════
@@ -214,17 +311,21 @@ function _jdwRestoreState() {
 let _jdwAutoExpireTimer = null;
 function loadJadwal() {
     _jdwAutoExpirePending();
+    _jdwAutoAdvanceStatus();
     _jdwRenderWeek();
     _jdwRestoreViewState();
     _jdwRenderStatusList();
     _jdwRestoreState();
 
-    // Cek berkala selama tab Jadwal kebuka, supaya pengajuan yang jam-mulainya
-    // baru lewat SAAT halaman ini sedang dibuka (bukan cuma pas reload/buka
-    // ulang) tetap otomatis pindah ke "ditolak" tanpa perlu refresh manual.
+    // Cek berkala selama tab Jadwal kebuka, supaya pengajuan yang jam-mulai/
+    // jam-selesai slotnya baru lewat SAAT halaman ini sedang dibuka (bukan
+    // cuma pas reload/buka ulang) tetap otomatis pindah status (ditolak /
+    // berlangsung / selesai) tanpa perlu refresh manual.
     if (_jdwAutoExpireTimer) clearInterval(_jdwAutoExpireTimer);
     _jdwAutoExpireTimer = setInterval(() => {
-        if (_jdwAutoExpirePending()) {
+        const expired = _jdwAutoExpirePending();
+        const advanced = _jdwAutoAdvanceStatus();
+        if (expired || advanced) {
             _jdwRenderWeek();
             _jdwRenderStatusList();
         }
@@ -256,7 +357,7 @@ function _jdwRestoreViewState() {
     try { st = JSON.parse(raw); } catch (e) { return; }
     if (!st) return;
     JadwalPage.currentView = st.view === 'riwayat' ? 'riwayat' : 'minggu';
-    JadwalPage.riwayatWeekOffset = (typeof st.riwayatWeekOffset === 'number' && st.riwayatWeekOffset >= 1) ? st.riwayatWeekOffset : 1;
+    JadwalPage.riwayatWeekOffset = (typeof st.riwayatWeekOffset === 'number' && st.riwayatWeekOffset >= 0) ? st.riwayatWeekOffset : 1;
     document.querySelectorAll('#jdw-view-toggle .jdw-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === JadwalPage.currentView));
     const nav = document.getElementById('jdw-riwayat-nav');
     if (nav) nav.style.display = JadwalPage.currentView === 'riwayat' ? 'flex' : 'none';
@@ -280,15 +381,14 @@ function _jdwDayGroupHtml(d, entries, isToday) {
     const rows = entries.map(e => {
         const slot = JDW_SLOTS.find(s => s.id === e.slotId);
         const materi = JDW_MATERI.find(m => m.id === e.materiId);
+        const { left, right } = JadwalPage._entryActions(e);
+        const btnCls = (a) => a.cls === 'act-danger' ? 'jdw-btn-danger' : (a.cls === 'act-primary' ? 'jdw-btn-primary' : 'jdw-btn-secondary');
+        const btns = [...right, ...left].map(a => `<button class="jdw-btn ${btnCls(a)} jdw-btn-sm" onclick="${a.onClick}">${a.label}</button>`).join('');
         return `<tr>
             <td>${slot ? slot.label : '-'}</td>
             <td>${materi ? materi.label : '-'}</td>
             <td><span class="jdw-status-badge ${e.status}">${JDW_STATUS_LABEL[e.status] || e.status}</span></td>
-            <td><div style="display:flex;gap:6px;flex-wrap:wrap">
-                <button class="jdw-btn jdw-btn-danger jdw-btn-sm" onclick="JadwalPage.batalEntry('${e.id}')">Batal</button>
-                ${e.status !== 'acc' ? `<button class="jdw-btn jdw-btn-secondary jdw-btn-sm" onclick="JadwalPage.editEntry('${e.id}')">Edit</button>` : ''}
-                ${e.status === 'acc' ? `<button class="jdw-btn jdw-btn-secondary jdw-btn-sm" onclick="JadwalPage.resejadwalEntry('${e.id}')">Jadwal Ulang</button>` : ''}
-            </div></td>
+            <td><div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div></td>
         </tr>`;
     }).join('');
     const cards = entries.map(e => JadwalPage._entryCardHtml(e)).join('');
@@ -298,31 +398,88 @@ function _jdwDayGroupHtml(d, entries, isToday) {
     </div>`;
 }
 
+function _jdwDayGroupHtmlBelumSampai(d) {
+    // Placeholder buat hari di "Riwayat minggu ini (belum genap)" yang tanggalnya
+    // belum sampai/lewat -> belum ada apa2 buat diriwayatkan, jadi kosong dulu
+    // sampai harinya benar2 lewat (baru dia pindah dari Minggu Ini ke sini).
+    const iso = _jdwToIso(d);
+    const label = _jdwFmtDateLong(iso);
+    return `<div class="jdw-status-day">
+        <div class="jdw-status-day-head">
+            <div class="jdw-status-day-label">${label}</div>
+            <div class="jdw-status-day-count"></div>
+        </div>
+        <div class="jdw-status-day-empty">Belum sampai harinya</div>
+    </div>`;
+}
+
 function _jdwRenderStatusList() {
     const wrap = document.getElementById('jdw-status-list');
     if (!wrap) return;
     const todayIso = _jdwToIso(new Date());
     let weekDates;
     if (JadwalPage.currentView === 'riwayat') {
-        const ref = new Date();
-        ref.setDate(ref.getDate() - (JadwalPage.riwayatWeekOffset * 7));
-        weekDates = _jdwWeekDates(ref);
+        const minOffset = _jdwMinRiwayatOffset();
+        if (JadwalPage.riwayatWeekOffset < minOffset) JadwalPage.riwayatWeekOffset = minOffset;
+        if (JadwalPage.riwayatWeekOffset === 0) {
+            // Offset 0 = "minggu ini, bagian yg sudah lewat" (belum genap 1 minggu).
+            weekDates = _jdwWeekDates(new Date());
+        } else {
+            const ref = new Date();
+            ref.setDate(ref.getDate() - (JadwalPage.riwayatWeekOffset * 7));
+            weekDates = _jdwWeekDates(ref);
+        }
         const cap = document.getElementById('jdw-riwayat-caption');
-        if (cap) cap.textContent = _jdwFmtWeekRange(weekDates);
+        if (cap) cap.textContent = JadwalPage.riwayatWeekOffset === 0 ? `${_jdwFmtWeekRange(weekDates)} · berjalan` : _jdwFmtWeekRange(weekDates);
         const nextBtn = document.getElementById('jdw-riwayat-next-btn');
-        if (nextBtn) nextBtn.disabled = JadwalPage.riwayatWeekOffset <= 1;
+        if (nextBtn) nextBtn.disabled = JadwalPage.riwayatWeekOffset <= minOffset;
     } else {
         weekDates = _jdwWeekDates(new Date());
     }
     wrap.innerHTML = weekDates.map(d => {
         const iso = _jdwToIso(d);
+        // "Minggu Ini" hanya nampilin hari ini & seterusnya — tanggal yang sudah
+        // lewat dihilangkan dari sini, pindah ke Riwayat (offset 0).
+        if (JadwalPage.currentView === 'minggu' && iso < todayIso) return '';
+        // "Riwayat minggu ini (offset 0)" untuk tanggal yang belum sampai harinya
+        // -> belum ada riwayatnya, tampil placeholder kosong dulu.
+        if (JadwalPage.currentView === 'riwayat' && JadwalPage.riwayatWeekOffset === 0 && iso > todayIso) {
+            return _jdwDayGroupHtmlBelumSampai(d);
+        }
         const entries = JadwalStore.byDate(iso)
-            .filter(e => e.status === 'pending' || e.status === 'acc')
+            .filter(e => e.status === 'pending' || e.status === 'acc' || e.status === 'berlangsung' || e.status === 'selesai')
             .sort((a, b) => _jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId));
         return _jdwDayGroupHtml(d, entries, iso === todayIso);
-    }).join('');
+    }).filter(Boolean).join('');
     // Kartu swipe-list yang punya aksi (Edit/Jadwal Ulang/Batal) perlu di-bind gesture-nya.
     wrap.querySelectorAll('.swipe-list').forEach(el => { if (window.SwipeCards) SwipeCards.bindSwipeList(el); });
+    _jdwRenderRiwayatWeekCard();
+}
+
+/* ── Kalender ke-2: "Riwayat minggu ini" — cuma nongol selagi Riwayat lagi di
+   offset 0 (minggu berjalan yang belum genap seminggu). Begitu minggu ini
+   sudah genap (hari Minggu lewat -> masuk minggu baru), offset 0 tidak lagi
+   valid (lihat _jdwMinRiwayatOffset) dan kalender ini otomatis balik sembunyi
+   -> tinggal 1 kalender (yang di atas / "Minggu Ini") seperti semula. ── */
+function _jdwRenderRiwayatWeekCard() {
+    const card = document.getElementById('jdw-riwayat-week-card');
+    const strip = document.getElementById('jdw-riwayat-week-strip');
+    if (!card || !strip) return;
+    const show = JadwalPage.currentView === 'riwayat' && JadwalPage.riwayatWeekOffset === 0;
+    card.style.display = show ? '' : 'none';
+    if (!show) return;
+    const todayIso = _jdwToIso(new Date());
+    const weekDates = _jdwWeekDates(new Date());
+    strip.innerHTML = weekDates.map(d => {
+        const iso = _jdwToIso(d);
+        const isToday = iso === todayIso;
+        const isFuture = iso > todayIso;
+        const hasEntries = !isFuture && JadwalStore.byDate(iso).length > 0;
+        return `<div class="jdw-day${isToday ? ' is-today' : ''}${hasEntries ? ' has-entries' : ''}${isFuture ? ' is-future-locked' : ''}">
+            <div class="jdw-day-name">${JDW_DAY_SHORT[d.getDay()]}</div>
+            <div class="jdw-day-num-wrap"><span>${d.getDate()}</span></div>
+        </div>`;
+    }).join('');
 }
 
 function _jdwRenderWeek() {
@@ -335,8 +492,10 @@ function _jdwRenderWeek() {
     strip.innerHTML = weekDates.map(d => {
         const iso = _jdwToIso(d);
         const isToday = iso === todayIso;
+        const isPast = iso < todayIso;
         const hasEntries = JadwalStore.byDate(iso).length > 0;
-        return `<div class="jdw-day${isToday ? ' is-today' : ''}${hasEntries ? ' has-entries' : ''}" onclick="JadwalPage.openDay('${iso}')">
+        const onclick = isPast ? `JadwalPage.openPastDayInfo('${iso}')` : `JadwalPage.openDay('${iso}')`;
+        return `<div class="jdw-day${isToday ? ' is-today' : ''}${hasEntries ? ' has-entries' : ''}${isPast ? ' is-past' : ''}" onclick="${onclick}">
             <div class="jdw-day-name">${JDW_DAY_SHORT[d.getDay()]}</div>
             <div class="jdw-day-num-wrap"><span>${d.getDate()}</span></div>
         </div>`;
@@ -352,7 +511,7 @@ const JadwalPage = {
     pickedSlot: null,
     pickedMateri: null,
     currentView: 'minggu',   // 'minggu' | 'riwayat' — toggle di atas list status
-    riwayatWeekOffset: 1,    // dipakai saat currentView='riwayat': 1 = minggu lalu, 2 = 2 minggu lalu, dst
+    riwayatWeekOffset: 1,    // dipakai saat currentView='riwayat': 0 = minggu ini (belum genap), 1 = minggu lalu, 2 = 2 minggu lalu, dst
 
     /* ── Toggle Minggu Ini / Riwayat (di bawah kalender) ── */
     setView(view) {
@@ -364,8 +523,9 @@ const JadwalPage = {
         _jdwSaveViewState();
     },
     riwayatNav(dir) {
+        const minOffset = _jdwMinRiwayatOffset();
         if (dir === 'older') this.riwayatWeekOffset = Math.min(260, this.riwayatWeekOffset + 1);
-        else if (dir === 'newer') this.riwayatWeekOffset = Math.max(1, this.riwayatWeekOffset - 1);
+        else if (dir === 'newer') this.riwayatWeekOffset = Math.max(minOffset, this.riwayatWeekOffset - 1);
         _jdwRenderStatusList();
         _jdwSaveViewState();
     },
@@ -377,25 +537,58 @@ const JadwalPage = {
         this.selectedDate = iso;
         this.openAjukanOverlay();
     },
+    /* ── Tap tanggal yang SUDAH LEWAT di kalender -> tidak buka form Ajukan,
+       cuma info kalau tanggal itu tidak bisa dipilih lagi. ── */
+    openPastDayInfo() {
+        document.getElementById('jdw-lewat-overlay').classList.add('open');
+    },
+    /* ── Aksi (Edit/Jadwal Ulang/Batal/Masuk/Feedback) sesuai status sesi saat ini ──
+       pending      -> Edit (kiri) + Batal (kanan)
+       acc          -> Jadwal Ulang (kiri) + Batal (kanan)
+       berlangsung  -> Masuk (kiri) kalau jam sesinya belum lewat, atau
+                       Feedback (kiri) kalau sudah lewat — tanpa Batal sama sekali
+       selesai/lain -> tanpa aksi apa pun (sweep/tombol dihilangkan total) ── */
+    _entryActions(e) {
+        if (e.status === 'pending') {
+            return {
+                left: [{ icon: 'edit', label: 'Edit', cls: 'act-edit', onClick: `JadwalPage.editEntry('${e.id}')` }],
+                right: [{ icon: 'trash', label: 'Batal', cls: 'act-danger', onClick: `JadwalPage.batalEntry('${e.id}')` }],
+            };
+        }
+        if (e.status === 'acc') {
+            return {
+                left: [{ icon: 'refresh', label: 'Jadwal Ulang', cls: 'act-primary', onClick: `JadwalPage.resejadwalEntry('${e.id}')` }],
+                right: [{ icon: 'trash', label: 'Batal', cls: 'act-danger', onClick: `JadwalPage.batalEntry('${e.id}')` }],
+            };
+        }
+        if (e.status === 'berlangsung') {
+            const over = _jdwSlotIsOver(e);
+            return {
+                left: [over
+                    ? { icon: 'doc', label: 'Feedback', cls: 'act-primary', onClick: `JadwalPage.feedbackEntry('${e.id}')` }
+                    : { icon: 'login', label: 'Masuk', cls: 'act-primary', onClick: `JadwalPage.masukEntry('${e.id}')` }],
+                right: [],
+            };
+        }
+        return { left: [], right: [] }; // 'selesai' (atau status lain) -> tanpa tombol
+    },
     _entryCardHtml(e) {
         const slot = JDW_SLOTS.find(s => s.id === e.slotId);
         const materi = JDW_MATERI.find(m => m.id === e.materiId);
-        const leftActions = [];
-        if (e.status !== 'acc') leftActions.push({ icon: 'edit', label: 'Edit', cls: 'act-edit', onClick: `JadwalPage.editEntry('${e.id}')` });
-        else leftActions.push({ icon: 'refresh', label: 'Jadwal Ulang', cls: 'act-primary', onClick: `JadwalPage.resejadwalEntry('${e.id}')` });
-        const rightActions = [{ icon: 'trash', label: 'Batal', cls: 'act-danger', onClick: `JadwalPage.batalEntry('${e.id}')` }];
+        const { left, right } = this._entryActions(e);
         return SwipeCards.buildSwipeCardHtml({
             title: slot ? slot.label : '-',
             sub: materi ? materi.label : '-',
             sideHtml: `<span class="jdw-status-badge ${e.status}">${JDW_STATUS_LABEL[e.status] || e.status}</span>`,
             kode: e.id,
-            leftActions, rightActions,
+            leftActions: left, rightActions: right,
         });
     },
 
     /* ── Halaman ajukan jadwal (pilih jam + materi) ── */
     openAjukanOverlay(entryId) {
         _jdwAutoExpirePending(); // bebasin slot yang barusan auto-tertolak sebelum dihitung "terisi"
+        _jdwAutoAdvanceStatus();
         this.editingId = entryId || null;
         const existing = entryId ? JadwalStore.get(entryId) : null;
         this.pickedSlot = existing ? existing.slotId : null;
@@ -492,5 +685,97 @@ const JadwalPage = {
         showToast('Jadwal dibatalkan');
         _jdwRenderWeek();
         _jdwRenderStatusList();
+    },
+
+    /* ── Halaman SESI: "Masuk" (jam mulai sudah tiba) — tampil Link Gmeet + Token,
+       masing2 dengan tombol salin (svg copy) ── */
+    _sesiEntryId: null,
+    _feedbackRating: { paham: null, kualitas: null },
+    masukEntry(id) {
+        const e = JadwalStore.get(id);
+        if (!e) return;
+        this._sesiEntryId = id;
+        const link = _jdwEntryGmeetLink(e);
+        const token = _jdwEntryToken(e);
+        document.getElementById('jdw-sesi-title').textContent = 'Sesi Berlangsung';
+        document.getElementById('jdw-sesi-body').innerHTML = `
+            <div class="jdw-sesi-item">
+                <div class="jdw-sesi-item-label">Link Google Meet</div>
+                <div class="jdw-sesi-item-row">
+                    <div class="jdw-sesi-item-value">${link}</div>
+                    <button type="button" class="jdw-sesi-copy-btn" onclick="JadwalPage.copySesiValue('${link}','Link Gmeet')" aria-label="Salin link Gmeet">${_jdwCopyIconHtml()}</button>
+                </div>
+            </div>
+            <div class="jdw-sesi-item">
+                <div class="jdw-sesi-item-label">Token Sesi</div>
+                <div class="jdw-sesi-item-row">
+                    <div class="jdw-sesi-item-value mono">${token}</div>
+                    <button type="button" class="jdw-sesi-copy-btn" onclick="JadwalPage.copySesiValue('${token}','Token')" aria-label="Salin token">${_jdwCopyIconHtml()}</button>
+                </div>
+            </div>
+            <div class="jdw-sesi-hint">Salin link Gmeet & token di atas, lalu gunakan untuk masuk ke sesi mentoring sesuai jadwal.</div>`;
+        document.getElementById('jdw-sesi-footer').innerHTML = `<a class="jdw-btn jdw-btn-primary jdw-btn-block" style="text-decoration:none;justify-content:center;text-align:center" href="${link}" target="_blank" rel="noopener">BUKA GOOGLE MEET</a>`;
+        document.getElementById('jdw-sesi-overlay').classList.add('open');
+    },
+    copySesiValue(text, label) {
+        if (!navigator.clipboard || !navigator.clipboard.writeText) return;
+        navigator.clipboard.writeText(text).then(() => showToast(`${label} disalin!`));
+    },
+
+    /* ── Halaman SESI: "Feedback" (jam sesi sudah lewat) — form pertanyaan + Simpan ── */
+    feedbackEntry(id) {
+        const e = JadwalStore.get(id);
+        if (!e) return;
+        this._sesiEntryId = id;
+        this._feedbackRating = { paham: null, kualitas: null };
+        document.getElementById('jdw-sesi-title').textContent = 'Feedback Sesi';
+        document.getElementById('jdw-sesi-body').innerHTML = `
+            <div class="jdw-form-section">
+                <div class="jdw-form-label">Seberapa paham kamu dengan materi sesi ini?</div>
+                <div class="jdw-rating-grid" id="jdw-fb-paham"></div>
+            </div>
+            <div class="jdw-form-section">
+                <div class="jdw-form-label">Bagaimana kualitas mentoring hari ini?</div>
+                <div class="jdw-rating-grid" id="jdw-fb-kualitas"></div>
+            </div>
+            <div class="jdw-form-section">
+                <div class="jdw-form-label">Catatan / masukan (opsional)</div>
+                <textarea class="jdw-textarea" id="jdw-fb-catatan" placeholder="Tulis masukan kamu di sini..."></textarea>
+            </div>`;
+        this._renderFbRating('paham');
+        this._renderFbRating('kualitas');
+        document.getElementById('jdw-sesi-footer').innerHTML = `<button class="jdw-btn jdw-btn-primary jdw-btn-block" id="jdw-fb-submit" onclick="JadwalPage.simpanFeedback()" disabled>SIMPAN</button>`;
+        document.getElementById('jdw-sesi-overlay').classList.add('open');
+    },
+    _renderFbRating(field) {
+        const wrap = document.getElementById(field === 'paham' ? 'jdw-fb-paham' : 'jdw-fb-kualitas');
+        if (!wrap) return;
+        wrap.innerHTML = [1, 2, 3, 4, 5].map(n => {
+            const selected = this._feedbackRating[field] === n;
+            return `<div class="jdw-materi-chip${selected ? ' selected' : ''}" onclick="JadwalPage.pickFbRating('${field}',${n})">${n}</div>`;
+        }).join('');
+    },
+    pickFbRating(field, n) {
+        this._feedbackRating[field] = n;
+        this._renderFbRating(field);
+        const btn = document.getElementById('jdw-fb-submit');
+        if (btn) btn.disabled = !(this._feedbackRating.paham && this._feedbackRating.kualitas);
+    },
+    simpanFeedback() {
+        if (!this._sesiEntryId || !this._feedbackRating.paham || !this._feedbackRating.kualitas) return;
+        const catatanEl = document.getElementById('jdw-fb-catatan');
+        JadwalStore.update(this._sesiEntryId, {
+            feedbackDone: true,
+            feedback: { paham: this._feedbackRating.paham, kualitas: this._feedbackRating.kualitas, catatan: catatanEl ? catatanEl.value : '', filledAt: Date.now() },
+            status: 'selesai',
+        });
+        this.closeSesiOverlay();
+        showToast('✓ Feedback tersimpan');
+        _jdwRenderWeek();
+        _jdwRenderStatusList();
+    },
+    closeSesiOverlay() {
+        document.getElementById('jdw-sesi-overlay').classList.remove('open');
+        this._sesiEntryId = null;
     },
 };

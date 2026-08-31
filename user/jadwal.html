@@ -17,6 +17,13 @@
   <button type="button" class="jdw-view-btn active" data-view="minggu" onclick="JadwalPage.setView('minggu')">Minggu Ini</button>
   <button type="button" class="jdw-view-btn" data-view="riwayat" onclick="JadwalPage.setView('riwayat')">Riwayat</button>
 </div>
+<!-- Kalender ke-2: cuma nongol pas Riwayat lagi nunjukin "minggu ini (belum
+     genap)" — hari yang sudah lewat minggu ini. Begitu minggu ini genap
+     (hari Minggu lewat), kalender ini otomatis hilang lagi (tinggal 1). -->
+<div class="glass jdw-week-card" id="jdw-riwayat-week-card" style="display:none">
+  <div class="jdw-week-caption">Riwayat minggu ini</div>
+  <div class="jdw-week-strip" id="jdw-riwayat-week-strip"></div>
+</div>
 <div class="jdw-riwayat-nav" id="jdw-riwayat-nav" style="display:none">
   <button type="button" class="jdw-icon-btn" onclick="JadwalPage.riwayatNav('older')" aria-label="Minggu sebelumnya">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
@@ -59,6 +66,25 @@
   </div>
 </div>
 
+<!-- ══════ HALAMAN: SESI BERLANGSUNG (Masuk) / FEEDBACK SESI ══════
+     Dipakai gantian sesuai tahap sesi: begitu jam mulai tiba, tombol "Masuk"
+     buka halaman ini isinya Link Gmeet + Token (JadwalPage.masukEntry). Begitu
+     jam selesai lewat, tombol berganti jadi "Feedback" yang buka halaman ini
+     lagi tapi isinya form pertanyaan + tombol Simpan (JadwalPage.feedbackEntry). -->
+<div class="overlay overlay-fullscreen" id="jdw-sesi-overlay">
+  <div class="modal modal-fullscreen">
+    <div class="jdw-modal-header">
+      <button class="jdw-icon-btn" onclick="JadwalPage.closeSesiOverlay()" aria-label="Kembali">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="jdw-modal-title" id="jdw-sesi-title">Sesi</div>
+      <span style="width:32px"></span>
+    </div>
+    <div class="jdw-modal-body" id="jdw-sesi-body"></div>
+    <div class="jdw-modal-footer" id="jdw-sesi-footer"></div>
+  </div>
+</div>
+
 <!-- ══════ KONFIRMASI: BATALKAN JADWAL ══════ -->
 <div class="overlay confirm-overlay" id="jdw-batal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal" style="max-width:300px;text-align:center">
@@ -68,6 +94,18 @@
     <div class="confirm-btns">
       <button class="btn-secondary" onclick="document.getElementById('jdw-batal-overlay').classList.remove('open')" style="flex:1;padding:11px">Tidak</button>
       <button class="btn-primary" onclick="JadwalPage.confirmBatal()" style="flex:1;margin-top:0">Ya, Batalkan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ INFO: TANGGAL SUDAH LEWAT (tidak bisa dipilih di kalender) ══════ -->
+<div class="overlay confirm-overlay" id="jdw-lewat-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:300px;text-align:center">
+    <div class="confirm-icon warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+    <div class="confirm-title">Tidak Bisa Dipilih</div>
+    <div class="confirm-msg">Tidak bisa dipilih karena sudah lewat hari.</div>
+    <div class="confirm-btns">
+      <button class="btn-primary" onclick="document.getElementById('jdw-lewat-overlay').classList.remove('open')" style="flex:1;margin-top:0">Kembali</button>
     </div>
   </div>
 </div>
