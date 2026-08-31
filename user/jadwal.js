@@ -121,6 +121,19 @@ function _jdwFmtDateLong(iso) {
     const d = new Date(iso + 'T00:00:00');
     return `${JDW_DAY_NAMES[d.getDay()]}, ${d.getDate()} ${JDW_MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}`;
 }
+function _jdwFmtWeekRange(weekDates) {
+    const first = weekDates[0], last = weekDates[6];
+    const sameMonth = first.getMonth() === last.getMonth();
+    return sameMonth
+        ? `${first.getDate()} - ${last.getDate()} ${JDW_MONTH_SHORT[first.getMonth()]} ${first.getFullYear()}`
+        : `${first.getDate()} ${JDW_MONTH_SHORT[first.getMonth()]} - ${last.getDate()} ${JDW_MONTH_SHORT[last.getMonth()]} ${last.getFullYear()}`;
+}
+// Urutan slot jam (index di JDW_SLOTS) dipakai buat ngurutin entri dalam 1 hari
+// dari jam paling awal, TERLEPAS dari urutan kapan entrinya diajukan/diinput.
+function _jdwSlotIndex(slotId) {
+    const i = JDW_SLOTS.findIndex(s => s.id === slotId);
+    return i < 0 ? 999 : i;
+}
 
 /* ══════════════════════════════════════════
    STATE PERSISTENCE — supaya posisi (overlay tanggal / form ajukan +
@@ -171,7 +184,101 @@ function _jdwRestoreState() {
    ══════════════════════════════════════════ */
 function loadJadwal() {
     _jdwRenderWeek();
+    _jdwRestoreViewState();
+    _jdwRenderStatusList();
     _jdwRestoreState();
+}
+
+/* ══════════════════════════════════════════
+   LIST PENGAJUAN MENUNGGU/DISETUJUI — DI BAWAH KALENDER
+   Dipisah per hari (ala "Token Terpakai" di admin: tabel di desktop,
+   kartu .swipe-card-body di mobile), diurutkan dari jam paling awal dalam
+   1 hari (bukan urutan input), dan bar tanggal tetap tampil walau kosong.
+   Toggle "Minggu Ini" (minggu berjalan) / "Riwayat" (minggu-minggu
+   sebelumnya, bisa dinavigasi mundur/maju per minggu).
+   ══════════════════════════════════════════ */
+const JDW_VIEW_STATE_KEY = 'cbn_user_jadwal_view_state';
+function _jdwSaveViewState() {
+    try {
+        localStorage.setItem(JDW_VIEW_STATE_KEY, JSON.stringify({
+            view: JadwalPage.currentView,
+            riwayatWeekOffset: JadwalPage.riwayatWeekOffset,
+        }));
+    } catch (e) {}
+}
+function _jdwRestoreViewState() {
+    let raw;
+    try { raw = localStorage.getItem(JDW_VIEW_STATE_KEY); } catch (e) { return; }
+    if (!raw) return;
+    let st;
+    try { st = JSON.parse(raw); } catch (e) { return; }
+    if (!st) return;
+    JadwalPage.currentView = st.view === 'riwayat' ? 'riwayat' : 'minggu';
+    JadwalPage.riwayatWeekOffset = (typeof st.riwayatWeekOffset === 'number' && st.riwayatWeekOffset >= 1) ? st.riwayatWeekOffset : 1;
+    document.querySelectorAll('#jdw-view-toggle .jdw-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === JadwalPage.currentView));
+    const nav = document.getElementById('jdw-riwayat-nav');
+    if (nav) nav.style.display = JadwalPage.currentView === 'riwayat' ? 'flex' : 'none';
+}
+
+function _jdwDayGroupHtml(d, entries, isToday) {
+    const iso = _jdwToIso(d);
+    const label = _jdwFmtDateLong(iso);
+    const head = `<div class="jdw-status-day-head">
+        <div class="jdw-status-day-label">${label}${isToday ? '<span class="jdw-status-day-today">Hari ini</span>' : ''}</div>
+        <div class="jdw-status-day-count">${entries.length ? entries.length + ' pengajuan' : ''}</div>
+    </div>`;
+    if (!entries.length) {
+        return `<div class="jdw-status-day">${head}<div class="jdw-status-day-empty">Belum ada pengajuan</div></div>`;
+    }
+    const rows = entries.map(e => {
+        const slot = JDW_SLOTS.find(s => s.id === e.slotId);
+        const materi = JDW_MATERI.find(m => m.id === e.materiId);
+        return `<tr onclick="JadwalPage.openDay('${iso}')" style="cursor:pointer">
+            <td>${slot ? slot.label : '-'}</td>
+            <td>${materi ? materi.label : '-'}</td>
+            <td><span class="jdw-status-badge ${e.status}">${JDW_STATUS_LABEL[e.status] || e.status}</span></td>
+        </tr>`;
+    }).join('');
+    const cards = entries.map(e => {
+        const slot = JDW_SLOTS.find(s => s.id === e.slotId);
+        const materi = JDW_MATERI.find(m => m.id === e.materiId);
+        return SwipeCards.buildSwipeCardHtml({
+            title: slot ? slot.label : '-',
+            sub: materi ? materi.label : '-',
+            sideHtml: `<span class="jdw-status-badge ${e.status}">${JDW_STATUS_LABEL[e.status] || e.status}</span>`,
+            kode: e.id,
+            onTapAttr: `onclick="JadwalPage.openDay('${iso}')"`,
+        });
+    }).join('');
+    return `<div class="jdw-status-day">${head}
+        <div class="aksi-swipe-wrap"><div class="glass" style="padding:0;overflow:hidden"><table class="jdw-entry-table"><tbody>${rows}</tbody></table></div></div>
+        <div class="swipe-list">${cards}</div>
+    </div>`;
+}
+
+function _jdwRenderStatusList() {
+    const wrap = document.getElementById('jdw-status-list');
+    if (!wrap) return;
+    const todayIso = _jdwToIso(new Date());
+    let weekDates;
+    if (JadwalPage.currentView === 'riwayat') {
+        const ref = new Date();
+        ref.setDate(ref.getDate() - (JadwalPage.riwayatWeekOffset * 7));
+        weekDates = _jdwWeekDates(ref);
+        const cap = document.getElementById('jdw-riwayat-caption');
+        if (cap) cap.textContent = _jdwFmtWeekRange(weekDates);
+        const nextBtn = document.getElementById('jdw-riwayat-next-btn');
+        if (nextBtn) nextBtn.disabled = JadwalPage.riwayatWeekOffset <= 1;
+    } else {
+        weekDates = _jdwWeekDates(new Date());
+    }
+    wrap.innerHTML = weekDates.map(d => {
+        const iso = _jdwToIso(d);
+        const entries = JadwalStore.byDate(iso)
+            .filter(e => e.status === 'pending' || e.status === 'acc')
+            .sort((a, b) => _jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId));
+        return _jdwDayGroupHtml(d, entries, iso === todayIso);
+    }).join('');
 }
 
 function _jdwRenderWeek() {
@@ -180,13 +287,7 @@ function _jdwRenderWeek() {
     if (!strip) return;
     const weekDates = _jdwWeekDates(new Date());
     const todayIso = _jdwToIso(new Date());
-    const first = weekDates[0], last = weekDates[6];
-    if (caption) {
-        const sameMonth = first.getMonth() === last.getMonth();
-        caption.textContent = sameMonth
-            ? `${first.getDate()} - ${last.getDate()} ${JDW_MONTH_SHORT[first.getMonth()]} ${first.getFullYear()}`
-            : `${first.getDate()} ${JDW_MONTH_SHORT[first.getMonth()]} - ${last.getDate()} ${JDW_MONTH_SHORT[last.getMonth()]} ${last.getFullYear()}`;
-    }
+    if (caption) caption.textContent = _jdwFmtWeekRange(weekDates);
     strip.innerHTML = weekDates.map(d => {
         const iso = _jdwToIso(d);
         const isToday = iso === todayIso;
@@ -206,6 +307,24 @@ const JadwalPage = {
     editingId: null,      // id entri yang lagi diedit/dijadwal-ulang (null = pengajuan baru)
     pickedSlot: null,
     pickedMateri: null,
+    currentView: 'minggu',   // 'minggu' | 'riwayat' — toggle di atas list status
+    riwayatWeekOffset: 1,    // dipakai saat currentView='riwayat': 1 = minggu lalu, 2 = 2 minggu lalu, dst
+
+    /* ── Toggle Minggu Ini / Riwayat (di bawah kalender) ── */
+    setView(view) {
+        this.currentView = view === 'riwayat' ? 'riwayat' : 'minggu';
+        document.querySelectorAll('#jdw-view-toggle .jdw-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === this.currentView));
+        const nav = document.getElementById('jdw-riwayat-nav');
+        if (nav) nav.style.display = this.currentView === 'riwayat' ? 'flex' : 'none';
+        _jdwRenderStatusList();
+        _jdwSaveViewState();
+    },
+    riwayatNav(dir) {
+        if (dir === 'older') this.riwayatWeekOffset = Math.min(260, this.riwayatWeekOffset + 1);
+        else if (dir === 'newer') this.riwayatWeekOffset = Math.max(1, this.riwayatWeekOffset - 1);
+        _jdwRenderStatusList();
+        _jdwSaveViewState();
+    },
 
     /* ── Halaman detail tanggal ── */
     openDay(iso) {
@@ -221,6 +340,7 @@ const JadwalPage = {
     closeDayOverlay() {
         document.getElementById('jdw-day-overlay').classList.remove('open');
         _jdwRenderWeek();
+        _jdwRenderStatusList();
         _jdwSaveState();
     },
     _renderDayContent() {
@@ -350,6 +470,8 @@ const JadwalPage = {
         }
         this.closeAjukanOverlay();
         this._renderDayContent();
+        _jdwRenderWeek();
+        _jdwRenderStatusList();
         _jdwSaveState();
     },
 
@@ -368,5 +490,7 @@ const JadwalPage = {
         this._batalTargetId = null;
         showToast('Jadwal dibatalkan');
         this._renderDayContent();
+        _jdwRenderWeek();
+        _jdwRenderStatusList();
     },
 };

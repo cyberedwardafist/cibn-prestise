@@ -12,6 +12,24 @@
 </div>
 <div class="jdw-week-hint">Ketuk salah satu tanggal untuk atur jadwal mentoring kamu</div>
 
+<!-- ══════ TOGGLE: MINGGU INI / RIWAYAT ══════ -->
+<div class="jdw-view-toggle" id="jdw-view-toggle">
+  <button type="button" class="jdw-view-btn active" data-view="minggu" onclick="JadwalPage.setView('minggu')">Minggu Ini</button>
+  <button type="button" class="jdw-view-btn" data-view="riwayat" onclick="JadwalPage.setView('riwayat')">Riwayat</button>
+</div>
+<div class="jdw-riwayat-nav" id="jdw-riwayat-nav" style="display:none">
+  <button type="button" class="jdw-icon-btn" onclick="JadwalPage.riwayatNav('older')" aria-label="Minggu sebelumnya">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+  <div class="jdw-riwayat-caption" id="jdw-riwayat-caption">-</div>
+  <button type="button" class="jdw-icon-btn" id="jdw-riwayat-next-btn" onclick="JadwalPage.riwayatNav('newer')" aria-label="Minggu berikutnya">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
+</div>
+
+<!-- ══════ LIST: PENGAJUAN MENUNGGU/DISETUJUI, DIPISAH PER HARI ══════ -->
+<div class="jdw-status-list" id="jdw-status-list"></div>
+
 <!-- ══════ HALAMAN: DETAIL TANGGAL (list jadwal + tombol Ajukan) ══════ -->
 <div class="overlay overlay-fullscreen" id="jdw-day-overlay">
   <div class="modal modal-fullscreen">
