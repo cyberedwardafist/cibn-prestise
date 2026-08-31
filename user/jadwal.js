@@ -147,13 +147,8 @@ const JDW_STATE_KEY = 'cbn_user_jadwal_state';
 function _jdwSaveState() {
     try {
         const ajukanOv = document.getElementById('jdw-ajukan-overlay');
-        const dayOv = document.getElementById('jdw-day-overlay');
-        let overlay = null;
-        if (ajukanOv && ajukanOv.classList.contains('open')) overlay = 'ajukan';
-        else if (dayOv && dayOv.classList.contains('open')) overlay = 'day';
-        if (!overlay) { localStorage.removeItem(JDW_STATE_KEY); return; }
+        if (!ajukanOv || !ajukanOv.classList.contains('open')) { localStorage.removeItem(JDW_STATE_KEY); return; }
         localStorage.setItem(JDW_STATE_KEY, JSON.stringify({
-            overlay,
             selectedDate: JadwalPage.selectedDate,
             editingId: JadwalPage.editingId,
             pickedSlot: JadwalPage.pickedSlot,
@@ -167,16 +162,14 @@ function _jdwRestoreState() {
     if (!raw) return;
     let st;
     try { st = JSON.parse(raw); } catch (e) { return; }
-    if (!st || !st.overlay || !st.selectedDate) return;
-    JadwalPage.openDay(st.selectedDate);
-    if (st.overlay === 'ajukan') {
-        JadwalPage.openAjukanOverlay(st.editingId || null);
-        // Timpa pilihan default hasil lookup entri (di atas) dengan yang persis
-        // lagi dipilih user sebelum refresh — termasuk pengajuan baru yang belum
-        // official (belum ada editingId) tapi jam/materinya sudah sempat dipilih.
-        if (st.pickedSlot) JadwalPage.pickSlot(st.pickedSlot);
-        if (st.pickedMateri) JadwalPage.pickMateri(st.pickedMateri);
-    }
+    if (!st || !st.selectedDate) return;
+    JadwalPage.selectedDate = st.selectedDate;
+    JadwalPage.openAjukanOverlay(st.editingId || null);
+    // Timpa pilihan default hasil lookup entri (di atas) dengan yang persis
+    // lagi dipilih user sebelum refresh — termasuk pengajuan baru yang belum
+    // official (belum ada editingId) tapi jam/materinya sudah sempat dipilih.
+    if (st.pickedSlot) JadwalPage.pickSlot(st.pickedSlot);
+    if (st.pickedMateri) JadwalPage.pickMateri(st.pickedMateri);
 }
 
 /* ══════════════════════════════════════════
@@ -220,6 +213,11 @@ function _jdwRestoreViewState() {
     if (nav) nav.style.display = JadwalPage.currentView === 'riwayat' ? 'flex' : 'none';
 }
 
+// Konten "detail tanggal" (tabel desktop + kartu .swipe-card-body dengan
+// aksi Edit/Jadwal Ulang/Batal) — dulu cuma kelihatan kalau tanggal di
+// kalender di-tap (overlay id="jdw-day-content"). Sekarang tampil langsung
+// di depan, jadi tap Edit/Jadwal Ulang di sini langsung ke halaman Ajukan
+// Jadwal yang sudah disiapkan (lihat JadwalPage.editEntry/resejadwalEntry).
 function _jdwDayGroupHtml(d, entries, isToday) {
     const iso = _jdwToIso(d);
     const label = _jdwFmtDateLong(iso);
@@ -233,25 +231,20 @@ function _jdwDayGroupHtml(d, entries, isToday) {
     const rows = entries.map(e => {
         const slot = JDW_SLOTS.find(s => s.id === e.slotId);
         const materi = JDW_MATERI.find(m => m.id === e.materiId);
-        return `<tr onclick="JadwalPage.openDay('${iso}')" style="cursor:pointer">
+        return `<tr>
             <td>${slot ? slot.label : '-'}</td>
             <td>${materi ? materi.label : '-'}</td>
             <td><span class="jdw-status-badge ${e.status}">${JDW_STATUS_LABEL[e.status] || e.status}</span></td>
+            <td><div style="display:flex;gap:6px;flex-wrap:wrap">
+                <button class="jdw-btn jdw-btn-danger jdw-btn-sm" onclick="JadwalPage.batalEntry('${e.id}')">Batal</button>
+                ${e.status !== 'acc' ? `<button class="jdw-btn jdw-btn-secondary jdw-btn-sm" onclick="JadwalPage.editEntry('${e.id}')">Edit</button>` : ''}
+                ${e.status === 'acc' ? `<button class="jdw-btn jdw-btn-secondary jdw-btn-sm" onclick="JadwalPage.resejadwalEntry('${e.id}')">Jadwal Ulang</button>` : ''}
+            </div></td>
         </tr>`;
     }).join('');
-    const cards = entries.map(e => {
-        const slot = JDW_SLOTS.find(s => s.id === e.slotId);
-        const materi = JDW_MATERI.find(m => m.id === e.materiId);
-        return SwipeCards.buildSwipeCardHtml({
-            title: slot ? slot.label : '-',
-            sub: materi ? materi.label : '-',
-            sideHtml: `<span class="jdw-status-badge ${e.status}">${JDW_STATUS_LABEL[e.status] || e.status}</span>`,
-            kode: e.id,
-            onTapAttr: `onclick="JadwalPage.openDay('${iso}')"`,
-        });
-    }).join('');
+    const cards = entries.map(e => JadwalPage._entryCardHtml(e)).join('');
     return `<div class="jdw-status-day">${head}
-        <div class="aksi-swipe-wrap"><div class="glass" style="padding:0;overflow:hidden"><table class="jdw-entry-table"><tbody>${rows}</tbody></table></div></div>
+        <div class="aksi-swipe-wrap"><div class="glass" style="padding:0;overflow:hidden"><table class="jdw-entry-table"><thead><tr><th>Jam</th><th>Materi</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table></div></div>
         <div class="swipe-list">${cards}</div>
     </div>`;
 }
@@ -279,6 +272,8 @@ function _jdwRenderStatusList() {
             .sort((a, b) => _jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId));
         return _jdwDayGroupHtml(d, entries, iso === todayIso);
     }).join('');
+    // Kartu swipe-list yang punya aksi (Edit/Jadwal Ulang/Batal) perlu di-bind gesture-nya.
+    wrap.querySelectorAll('.swipe-list').forEach(el => { if (window.SwipeCards) SwipeCards.bindSwipeList(el); });
 }
 
 function _jdwRenderWeek() {
@@ -326,63 +321,12 @@ const JadwalPage = {
         _jdwSaveViewState();
     },
 
-    /* ── Halaman detail tanggal ── */
+    /* ── Tap tanggal di kalender -> langsung ke halaman Ajukan Jadwal.
+       (Daftar jadwal tanggal ini sudah tampil di depan, lihat #jdw-status-list,
+       jadi tidak perlu lagi lewat halaman "detail tanggal" sebelum ajukan.) ── */
     openDay(iso) {
         this.selectedDate = iso;
-        document.getElementById('jdw-day-title').textContent = _jdwFmtDateLong(iso);
-        this._renderDayContent();
-        const overlay = document.getElementById('jdw-day-overlay');
-        overlay.classList.add('open');
-        const body = overlay.querySelector('.jdw-modal-body');
-        if (body) body.scrollTop = 0;
-        _jdwSaveState();
-    },
-    closeDayOverlay() {
-        document.getElementById('jdw-day-overlay').classList.remove('open');
-        _jdwRenderWeek();
-        _jdwRenderStatusList();
-        _jdwSaveState();
-    },
-    _renderDayContent() {
-        const wrap = document.getElementById('jdw-day-content');
-        const cornerBtn = document.getElementById('jdw-ajukan-corner-btn');
-        const entries = JadwalStore.byDate(this.selectedDate);
-        if (!entries.length) {
-            cornerBtn.classList.remove('show');
-            wrap.innerHTML = `<div class="jdw-day-empty-cta">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                <p>Belum ada jadwal di tanggal ini</p>
-                <small>Ajukan jam & materi mentoring yang kamu mau</small>
-                <button class="jdw-btn jdw-btn-primary" onclick="JadwalPage.openAjukanOverlay()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Ajukan Jadwal
-                </button>
-            </div>`;
-            return;
-        }
-        cornerBtn.classList.add('show');
-        const sorted = entries.slice().sort((a, b) => a.slotId.localeCompare(b.slotId));
-        // Tabel (desktop) — dipasangkan dengan swipe-list (mobile), pola sama seperti daftar aksi lain di aplikasi ini.
-        const rows = sorted.map(e => {
-            const slot = JDW_SLOTS.find(s => s.id === e.slotId);
-            const materi = JDW_MATERI.find(m => m.id === e.materiId);
-            return `<tr>
-                <td>${slot ? slot.label : '-'}</td>
-                <td>${materi ? materi.label : '-'}</td>
-                <td><span class="jdw-status-badge ${e.status}">${JDW_STATUS_LABEL[e.status] || e.status}</span></td>
-                <td><div style="display:flex;gap:6px;flex-wrap:wrap">
-                    <button class="jdw-btn jdw-btn-danger jdw-btn-sm" onclick="JadwalPage.batalEntry('${e.id}')">Batal</button>
-                    ${e.status !== 'acc' ? `<button class="jdw-btn jdw-btn-secondary jdw-btn-sm" onclick="JadwalPage.editEntry('${e.id}')">Edit</button>` : ''}
-                    ${e.status === 'acc' ? `<button class="jdw-btn jdw-btn-secondary jdw-btn-sm" onclick="JadwalPage.resejadwalEntry('${e.id}')">Jadwal Ulang</button>` : ''}
-                </div></td>
-            </tr>`;
-        }).join('');
-        const cards = sorted.map(e => this._entryCardHtml(e)).join('');
-        wrap.innerHTML = `
-            <div class="aksi-swipe-wrap"><div class="glass" style="padding:0;overflow:hidden"><table class="jdw-entry-table"><thead><tr><th>Jam</th><th>Materi</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table></div></div>
-            <div class="swipe-list">${cards}</div>`;
-        const swEl = wrap.querySelector('.swipe-list');
-        if (swEl && window.SwipeCards) SwipeCards.bindSwipeList(swEl);
+        this.openAjukanOverlay();
     },
     _entryCardHtml(e) {
         const slot = JDW_SLOTS.find(s => s.id === e.slotId);
@@ -469,7 +413,6 @@ const JadwalPage = {
             showToast('✓ Jadwal berhasil diajukan');
         }
         this.closeAjukanOverlay();
-        this._renderDayContent();
         _jdwRenderWeek();
         _jdwRenderStatusList();
         _jdwSaveState();
@@ -489,7 +432,6 @@ const JadwalPage = {
         JadwalStore.remove(this._batalTargetId);
         this._batalTargetId = null;
         showToast('Jadwal dibatalkan');
-        this._renderDayContent();
         _jdwRenderWeek();
         _jdwRenderStatusList();
     },

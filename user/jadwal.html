@@ -30,26 +30,10 @@
 <!-- ══════ LIST: PENGAJUAN MENUNGGU/DISETUJUI, DIPISAH PER HARI ══════ -->
 <div class="jdw-status-list" id="jdw-status-list"></div>
 
-<!-- ══════ HALAMAN: DETAIL TANGGAL (list jadwal + tombol Ajukan) ══════ -->
-<div class="overlay overlay-fullscreen" id="jdw-day-overlay">
-  <div class="modal modal-fullscreen">
-    <div class="jdw-modal-header">
-      <button class="jdw-icon-btn" onclick="JadwalPage.closeDayOverlay()" aria-label="Kembali">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <div class="jdw-modal-title" id="jdw-day-title">Jadwal</div>
-      <button class="jdw-btn jdw-btn-primary jdw-btn-sm jdw-ajukan-corner-btn" id="jdw-ajukan-corner-btn" onclick="JadwalPage.openAjukanOverlay()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Ajukan
-      </button>
-    </div>
-    <div class="jdw-modal-body">
-      <div id="jdw-day-content"></div>
-    </div>
-  </div>
-</div>
-
-<!-- ══════ HALAMAN: AJUKAN JADWAL (pilih jam + materi) ══════ -->
+<!-- ══════ HALAMAN: AJUKAN JADWAL (pilih jam + materi) ══════
+     Sekarang ini yang langsung kebuka begitu tanggal di kalender di-tap.
+     Isi "lihat jadwal tanggal ini" (dulu di overlay detail-tanggal terpisah)
+     sudah dipindah ke depan -> ke id="jdw-status-list" di bawah kalender. -->
 <div class="overlay overlay-fullscreen" id="jdw-ajukan-overlay">
   <div class="modal modal-fullscreen">
     <div class="jdw-modal-header">
