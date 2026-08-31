@@ -134,6 +134,42 @@ function _jdwSlotIndex(slotId) {
     const i = JDW_SLOTS.findIndex(s => s.id === slotId);
     return i < 0 ? 999 : i;
 }
+// Ambil Date() persis jam MULAI suatu slot di suatu tanggal, dari label
+// "07.45 - 09.15" -> 07:45. Dipakai buat (1) ngunci slot yang jamnya udah
+// lewat hari ini di form Ajukan, dan (2) auto-tolak pengajuan yang masih
+// "menunggu" pas jam mulainya udah kelewatan.
+function _jdwSlotStartDate(tanggal, slotId) {
+    const slot = JDW_SLOTS.find(s => s.id === slotId);
+    if (!slot || !tanggal) return null;
+    const startStr = slot.label.split('-')[0].trim(); // "07.45"
+    const [hh, mm] = startStr.split('.').map(Number);
+    const d = new Date(tanggal + 'T00:00:00');
+    if (isNaN(d.getTime())) return null;
+    d.setHours(hh || 0, mm || 0, 0, 0);
+    return d;
+}
+
+/* ══════════════════════════════════════════
+   AUTO-TOLAK PENGAJUAN YANG KELEWATAN JAM
+   Pengajuan berstatus "menunggu" yang jam-mulai slotnya sudah lewat dari
+   sekarang (baik karena harinya sudah lewat, ATAUPUN masih hari yang sama
+   tapi jamnya sudah kelewatan) otomatis diubah jadi "ditolak" — karena
+   sudah tidak mungkin lagi dijalani. Entri yang sudah "acc"/"ditolak" tidak
+   disentuh.
+   ══════════════════════════════════════════ */
+function _jdwAutoExpirePending() {
+    const now = new Date();
+    let changed = false;
+    JadwalStore.all().forEach(e => {
+        if (e.status !== 'pending') return;
+        const start = _jdwSlotStartDate(e.tanggal, e.slotId);
+        if (start && start <= now) {
+            JadwalStore.update(e.id, { status: 'ditolak' });
+            changed = true;
+        }
+    });
+    return changed;
+}
 
 /* ══════════════════════════════════════════
    STATE PERSISTENCE — supaya posisi (overlay tanggal / form ajukan +
@@ -175,11 +211,24 @@ function _jdwRestoreState() {
 /* ══════════════════════════════════════════
    PAGE UTAMA — KALENDER 1 MINGGU (ala kalender iPhone)
    ══════════════════════════════════════════ */
+let _jdwAutoExpireTimer = null;
 function loadJadwal() {
+    _jdwAutoExpirePending();
     _jdwRenderWeek();
     _jdwRestoreViewState();
     _jdwRenderStatusList();
     _jdwRestoreState();
+
+    // Cek berkala selama tab Jadwal kebuka, supaya pengajuan yang jam-mulainya
+    // baru lewat SAAT halaman ini sedang dibuka (bukan cuma pas reload/buka
+    // ulang) tetap otomatis pindah ke "ditolak" tanpa perlu refresh manual.
+    if (_jdwAutoExpireTimer) clearInterval(_jdwAutoExpireTimer);
+    _jdwAutoExpireTimer = setInterval(() => {
+        if (_jdwAutoExpirePending()) {
+            _jdwRenderWeek();
+            _jdwRenderStatusList();
+        }
+    }, 30000);
 }
 
 /* ══════════════════════════════════════════
@@ -346,6 +395,7 @@ const JadwalPage = {
 
     /* ── Halaman ajukan jadwal (pilih jam + materi) ── */
     openAjukanOverlay(entryId) {
+        _jdwAutoExpirePending(); // bebasin slot yang barusan auto-tertolak sebelum dihitung "terisi"
         this.editingId = entryId || null;
         const existing = entryId ? JadwalStore.get(entryId) : null;
         this.pickedSlot = existing ? existing.slotId : null;
@@ -360,11 +410,19 @@ const JadwalPage = {
                 .filter(e => e.id !== this.editingId && e.status !== 'ditolak')
                 .map(e => e.slotId)
         );
+        // Kalau tanggal yang dipilih adalah HARI INI, jam yang jam-mulainya sudah
+        // lewat dari sekarang ikut dikunci — nggak masuk akal ngajuin jam yang
+        // udah kelewatan.
+        const isToday = this.selectedDate === _jdwToIso(new Date());
+        const now = new Date();
         document.getElementById('jdw-slot-grid').innerHTML = JDW_SLOTS.map(s => {
-            const disabled = takenSlotIds.has(s.id);
+            const taken = takenSlotIds.has(s.id);
+            const past = isToday && (() => { const start = _jdwSlotStartDate(this.selectedDate, s.id); return start && start <= now; })();
+            const disabled = taken || past;
             const selected = this.pickedSlot === s.id;
+            const tag = taken ? ' <small>(terisi)</small>' : (past ? ' <small>(sudah lewat)</small>' : '');
             return `<div class="jdw-chip${selected ? ' selected' : ''}${disabled ? ' disabled' : ''}" ${disabled ? '' : `onclick="JadwalPage.pickSlot('${s.id}')"`}>
-                <span>${s.label}${disabled ? ' <small>(terisi)</small>' : ''}</span>
+                <span>${s.label}${tag}</span>
                 <span class="jdw-chip-check"></span>
             </div>`;
         }).join('');
