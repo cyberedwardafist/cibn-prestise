@@ -942,7 +942,16 @@ const JadwalPage = {
                     Saya menyetujui dan yakin ingin membatalkan jadwal mentoring ini.
                 </label>
             </div>`;
-        document.getElementById('jdw-sesi-footer').innerHTML = `<button class="jdw-btn jdw-btn-danger jdw-btn-block" id="jdw-batalulang-submit" onclick="JadwalPage.submitBatalPengajuan()" disabled>AJUKAN PEMBATALAN</button>`;
+        // Tombol AJUKAN PEMBATALAN ikut ditaruh DI DALAM area scroll (bukan
+        // footer sticky lagi) — sama kayak tombol AJUKAN di halaman Ajukan
+        // Jadwal, biar ikut kescroll dan berhenti di atas dock utama.
+        document.getElementById('jdw-sesi-body').insertAdjacentHTML('beforeend', `
+            <div class="jdw-form-section jdw-ajukan-submit-section" style="margin-bottom:0">
+                <button class="jdw-btn jdw-btn-danger jdw-btn-block" id="jdw-batalulang-submit" onclick="JadwalPage.submitBatalPengajuan()" disabled>AJUKAN PEMBATALAN</button>
+            </div>`);
+        const sesiFooter = document.getElementById('jdw-sesi-footer');
+        if (sesiFooter) { sesiFooter.innerHTML = ''; sesiFooter.style.display = 'none'; }
+        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(100px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
     },
     _refreshBatalUlangBtn() {
@@ -998,8 +1007,13 @@ const JadwalPage = {
                     <button type="button" class="jdw-sesi-copy-btn" onclick="JadwalPage.copySesiValue('${token}','Token')" aria-label="Salin token">${_jdwCopyIconHtml()}</button>
                 </div>
             </div>
-            <div class="jdw-sesi-hint">Salin link Gmeet & token di atas, lalu gunakan untuk masuk ke sesi mentoring sesuai jadwal.</div>`;
-        document.getElementById('jdw-sesi-footer').innerHTML = `<a class="jdw-btn jdw-btn-primary jdw-btn-block" style="text-decoration:none;justify-content:center;text-align:center" href="${link}" target="_blank" rel="noopener">BUKA GOOGLE MEET</a>`;
+            <div class="jdw-sesi-hint">Salin link Gmeet & token di atas, lalu gunakan untuk masuk ke sesi mentoring sesuai jadwal.</div>
+            <div class="jdw-form-section jdw-ajukan-submit-section" style="margin-bottom:0">
+                <a class="jdw-btn jdw-btn-primary jdw-btn-block" style="text-decoration:none;justify-content:center;text-align:center" href="${link}" target="_blank" rel="noopener">BUKA GOOGLE MEET</a>
+            </div>`;
+        const sesiFooter1 = document.getElementById('jdw-sesi-footer');
+        if (sesiFooter1) { sesiFooter1.innerHTML = ''; sesiFooter1.style.display = 'none'; }
+        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(100px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
     },
     copySesiValue(text, label) {
@@ -1026,10 +1040,15 @@ const JadwalPage = {
             <div class="jdw-form-section">
                 <div class="jdw-form-label">Catatan / masukan (opsional)</div>
                 <textarea class="jdw-textarea" id="jdw-fb-catatan" placeholder="Tulis masukan kamu di sini..."></textarea>
+            </div>
+            <div class="jdw-form-section jdw-ajukan-submit-section" style="margin-bottom:0">
+                <button class="jdw-btn jdw-btn-primary jdw-btn-block" id="jdw-fb-submit" onclick="JadwalPage.simpanFeedback()" disabled>SIMPAN</button>
             </div>`;
         this._renderFbRating('paham');
         this._renderFbRating('kualitas');
-        document.getElementById('jdw-sesi-footer').innerHTML = `<button class="jdw-btn jdw-btn-primary jdw-btn-block" id="jdw-fb-submit" onclick="JadwalPage.simpanFeedback()" disabled>SIMPAN</button>`;
+        const sesiFooter2 = document.getElementById('jdw-sesi-footer');
+        if (sesiFooter2) { sesiFooter2.innerHTML = ''; sesiFooter2.style.display = 'none'; }
+        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(100px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
     },
     _renderFbRating(field) {

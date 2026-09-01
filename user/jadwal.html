@@ -83,13 +83,17 @@
         <div class="jdw-materi-grid" id="jdw-materi-grid"></div>
       </div>
       <!-- Cuma nongol pas mode JADWAL ULANG — wajib diisi sebelum bisa ajukan. -->
-      <div class="jdw-form-section" id="jdw-reschedule-alasan-section" style="display:none;margin-bottom:0">
+      <div class="jdw-form-section" id="jdw-reschedule-alasan-section" style="display:none">
         <div class="jdw-form-label">Alasan Pengajuan</div>
         <textarea class="jdw-textarea" id="jdw-reschedule-alasan" placeholder="Tulis alasan kamu mengajukan jadwal ulang..." oninput="JadwalPage._refreshSubmitBtn()"></textarea>
       </div>
-    </div>
-    <div class="jdw-modal-footer">
-      <button class="jdw-btn jdw-btn-primary jdw-btn-block" id="jdw-submit-btn" onclick="JadwalPage.submitAjukan()" disabled>AJUKAN</button>
+      <!-- Tombol ajukan ikut ada DI DALAM area scroll (bukan footer sticky lagi) —
+           jadi tombol ini ikut ke-scroll bareng form di atasnya, dan posisi
+           akhirnya ada di paling bawah konten, di atas dock utama (jarak bawah
+           diatur lewat padding-bottom #jdw-ajukan-overlay .jdw-modal-body). -->
+      <div class="jdw-form-section jdw-ajukan-submit-section" style="margin-bottom:0">
+        <button class="jdw-btn jdw-btn-primary jdw-btn-block" id="jdw-submit-btn" onclick="JadwalPage.submitAjukan()" disabled>AJUKAN</button>
+      </div>
     </div>
   </div>
 </div>
