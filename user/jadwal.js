@@ -249,14 +249,23 @@ function _jdwSlotEndDate(tanggal, slotId) {
 // (bukan asal unlock di tiap close, soalnya Pilih Tentor bisa numpuk KE ATAS
 // overlay Ajukan yang masih terbuka di belakangnya).
 const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 'jdw-sesi-overlay'];
+// jdw-batal-overlay & jdw-lewat-overlay ikut dikunci juga (backdrop-nya blur
+// transparan, bukan solid, jadi tidak menghasilkan tampilan 2 scrollbar
+// bertumpuk yang sama parahnya kayak overlay fullscreen di atas) TAPI
+// #page-jadwal di baliknya tetap ikut dikunci scroll-nya biar konsisten -
+// tidak masuk akal halaman di belakang masih bisa discroll pas ada dialog
+// konfirmasi kecil nongol di tengah layar.
+const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-lewat-overlay'];
 function _jdwSyncPageScrollLock() {
-    const anyOpen = JDW_FULLSCREEN_OVERLAY_IDS.some(id => document.getElementById(id)?.classList.contains('open'));
     const pageEl = document.getElementById('page-jadwal');
-    if (pageEl) pageEl.style.overflow = anyOpen ? 'hidden' : '';
-    // Naikkan dock utama di atas overlay-overlay ini (lihat body.jdw-fullscreen-open
-    // di index_user.html) supaya dock TETAP kelihatan/bisa dipakai selagi halaman
-    // Ajukan/Pilih Tentor/Sesi terbuka, bukan ketutup rapat oleh overlay solidnya.
-    document.body.classList.toggle('jdw-fullscreen-open', anyOpen);
+    const anyLockOpen = JDW_SCROLL_LOCK_OVERLAY_IDS.some(id => document.getElementById(id)?.classList.contains('open'));
+    if (pageEl) pageEl.style.overflow = anyLockOpen ? 'hidden' : '';
+    // Dock cuma dinaikkan di atas overlay yang BENERAN fullscreen (halaman
+    // penuh) — dialog konfirmasi kecil (batal/lewat) sengaja TIDAK ikutan,
+    // dock redup di baliknya itu wajar sama kayak dialog konfirmasi lain di
+    // seluruh app, bukan bug yang perlu ditambal.
+    const anyFullscreenOpen = JDW_FULLSCREEN_OVERLAY_IDS.some(id => document.getElementById(id)?.classList.contains('open'));
+    document.body.classList.toggle('jdw-fullscreen-open', anyFullscreenOpen);
 }
 function _jdwSlotIsOver(e) {
     const end = _jdwSlotEndDate(e.tanggal, e.slotId);
@@ -644,6 +653,7 @@ const JadwalPage = {
        cuma info kalau tanggal itu tidak bisa dipilih lagi. ── */
     openPastDayInfo() {
         document.getElementById('jdw-lewat-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
     },
     /* ── Aksi (Edit/Jadwal Ulang/Batal/Masuk/Feedback) sesuai status sesi saat ini ──
        pending      -> Edit (kiri) + Batal (kanan)
@@ -1010,9 +1020,11 @@ const JadwalPage = {
         if (e && e.status === 'acc') { this.openBatalPengajuan(id); return; }
         this._batalTargetId = id;
         document.getElementById('jdw-batal-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
     },
     confirmBatal() {
         document.getElementById('jdw-batal-overlay').classList.remove('open');
+        _jdwSyncPageScrollLock();
         if (!this._batalTargetId) return;
         JadwalStore.remove(this._batalTargetId);
         this._batalTargetId = null;
@@ -1064,7 +1076,7 @@ const JadwalPage = {
             </div>`);
         const sesiFooter = document.getElementById('jdw-sesi-footer');
         if (sesiFooter) { sesiFooter.innerHTML = ''; sesiFooter.style.display = 'none'; }
-        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(140px + env(safe-area-inset-bottom))';
+        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(180px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
         _jdwSyncPageScrollLock();
     },
@@ -1127,7 +1139,7 @@ const JadwalPage = {
             </div>`;
         const sesiFooter1 = document.getElementById('jdw-sesi-footer');
         if (sesiFooter1) { sesiFooter1.innerHTML = ''; sesiFooter1.style.display = 'none'; }
-        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(140px + env(safe-area-inset-bottom))';
+        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(180px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
         _jdwSyncPageScrollLock();
     },
@@ -1163,7 +1175,7 @@ const JadwalPage = {
         this._renderFbRating('kualitas');
         const sesiFooter2 = document.getElementById('jdw-sesi-footer');
         if (sesiFooter2) { sesiFooter2.innerHTML = ''; sesiFooter2.style.display = 'none'; }
-        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(140px + env(safe-area-inset-bottom))';
+        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(180px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
         _jdwSyncPageScrollLock();
     },
