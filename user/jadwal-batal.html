@@ -40,3 +40,18 @@
     </div>
   </div>
 </div>
+
+<!-- ══════ JADWAL ULANG DARI TENTOR (status "resejuel") — bandingkan jadwal
+     lama vs baru, lalu Setuju/Tolak. Dipicu dari tombol "Buka" di kartu
+     sweep pada banner khusus di atas #jdw-status-list. ══════ -->
+<div class="overlay confirm-overlay" id="jdw-resejuel-overlay" onclick="if(event.target===this){JadwalPage.closeResejuelOverlay();}">
+  <div class="modal" style="max-width:340px">
+    <div class="confirm-title" style="margin-bottom:2px">Jadwal Ulang dari Tentor</div>
+    <div class="confirm-msg" style="margin-bottom:0">Tentor mengajukan perubahan jadwal mentoring kamu. Tinjau lalu pilih salah satu di bawah.</div>
+    <div class="jdw-resejuel-compare" id="jdw-resejuel-compare"></div>
+    <div class="confirm-btns">
+      <button class="btn-secondary" onclick="JadwalPage.tolakResejuel()" style="flex:1;padding:11px">Tolak</button>
+      <button class="btn-primary" onclick="JadwalPage.setujuResejuel()" style="flex:1;margin-top:0">Setuju</button>
+    </div>
+  </div>
+</div>

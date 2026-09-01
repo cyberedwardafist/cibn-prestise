@@ -57,4 +57,11 @@
      di-geser) TIDAK ketutupan dock mengambang diatur lewat padding-bottom
      #page-jadwal (lihat blok <style> index_user.html, sama pola kayak
      #page-profil yang juga ngitung env(safe-area-inset-bottom)). -->
+<!-- ══════ BANNER: PENGAJUAN JADWAL ULANG DARI TENTOR (status "resejuel") ══════
+     Sengaja dipisah dari list per-tanggal di bawah & selalu nongol paling
+     atas "Minggu Ini" (home), terlepas posisi/tanggal jadwal aslinya — lihat
+     _jdwRenderResejuelBanner() di user/jadwal.js. Kosong/hidden kalau tidak
+     ada pengajuan yang menunggu. -->
+<div class="jdw-resejuel-banner" id="jdw-resejuel-banner" style="display:none"></div>
+
 <div class="jdw-status-list" id="jdw-status-list"></div>
