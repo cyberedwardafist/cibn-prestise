@@ -576,6 +576,7 @@
     .jdw-status-badge.ditolak { background:rgba(220,38,38,.12); color:var(--danger); }
     .jdw-status-badge.berlangsung { background:rgba(26,90,160,.12); color:var(--accent); }
     .jdw-status-badge.selesai { background:rgba(90,122,154,.14); color:var(--text-sub); }
+    .jdw-status-badge.pengajuan_pembatalan { background:rgba(220,38,38,.10); color:var(--danger); }
 
     /* ── JADWAL: tabel desktop untuk daftar pengajuan ── */
     .jdw-entry-table { width:100%; border-collapse:collapse; font-size:13px; }
@@ -614,6 +615,32 @@
     .jdw-materi-chip { padding:14px 10px; border-radius:12px; border:1.5px solid rgba(19,50,89,.12); background:rgba(255,255,255,.6); cursor:pointer; font-size:12.5px; font-weight:700; color:var(--blue); text-align:center; transition:all .2s; }
     .jdw-materi-chip:hover { background:rgba(255,255,255,.9); }
     .jdw-materi-chip.selected { border-color:var(--accent); background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; box-shadow:0 4px 12px rgba(26,90,160,.3); }
+    .jdw-materi-chip.disabled { opacity:.4; cursor:not-allowed; background:rgba(19,50,89,.04); }
+    /* ── Pilih Tentor: box picker di halaman Ajukan Jadwal + halaman list tentor ── */
+    .jdw-tentor-picker-empty { display:flex; align-items:center; justify-content:center; gap:6px; padding:14px 16px; border-radius:12px; border:1.5px dashed rgba(19,50,89,.25); background:rgba(19,50,89,.03); color:var(--accent); font-family:var(--font-body); font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; }
+    .jdw-tentor-picker-empty:hover { background:rgba(26,90,160,.06); }
+    .jdw-tentor-picker-selected { display:flex; align-items:center; gap:12px; padding:11px 14px; border-radius:12px; border:1.5px solid rgba(19,50,89,.12); background:rgba(255,255,255,.6); cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; }
+    .jdw-tentor-picker-selected:hover { background:rgba(255,255,255,.9); }
+    .jdw-tentor-avatar { width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; display:flex; align-items:center; justify-content:center; font-family:var(--font-head); font-weight:700; font-size:14px; flex-shrink:0; }
+    .jdw-tentor-picker-info { flex:1; min-width:0; }
+    .jdw-tentor-picker-name { font-family:var(--font-head); font-size:13.5px; font-weight:700; color:var(--blue); }
+    .jdw-tentor-picker-sub { font-size:11px; color:var(--text-sub); margin-top:2px; letter-spacing:.01em; }
+    .jdw-tentor-search-wrap { position:relative; margin-bottom:14px; }
+    .jdw-tentor-search-wrap svg { position:absolute; left:14px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:var(--text-sub); pointer-events:none; }
+    .jdw-tentor-search-input { width:100%; padding:12px 14px 12px 40px; border-radius:12px; border:1.5px solid rgba(19,50,89,.12); background:rgba(255,255,255,.6); font-family:var(--font-body); font-size:13.5px; color:var(--blue); outline:none; box-sizing:border-box; transition:border-color .2s, box-shadow .2s; }
+    .jdw-tentor-search-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(26,90,160,.08); }
+    .jdw-tentor-search-input::placeholder { color:rgba(19,50,89,.32); }
+    .jdw-tentor-list { display:flex; flex-direction:column; gap:8px; }
+    .jdw-tentor-item { display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:12px; border:1.5px solid rgba(19,50,89,.1); background:rgba(255,255,255,.55); cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; }
+    .jdw-tentor-item:hover { background:rgba(255,255,255,.9); }
+    .jdw-tentor-item.selected { border-color:var(--accent); background:rgba(26,90,160,.08); }
+    .jdw-tentor-item-info { flex:1; min-width:0; }
+    .jdw-tentor-item-name { font-family:var(--font-head); font-size:13.5px; font-weight:700; color:var(--blue); }
+    .jdw-tentor-item-sub { font-size:11px; color:var(--text-sub); margin-top:3px; letter-spacing:.01em; }
+    .jdw-tentor-item-check { width:18px; height:18px; border-radius:50%; border:1.5px solid rgba(19,50,89,.2); flex-shrink:0; position:relative; }
+    .jdw-tentor-item.selected .jdw-tentor-item-check { border-color:var(--accent); background:var(--accent); }
+    .jdw-tentor-item.selected .jdw-tentor-item-check::after { content:''; position:absolute; top:4px; left:4px; width:8px; height:8px; border-radius:50%; background:#fff; }
+    .jdw-tentor-empty { text-align:center; font-size:12.5px; color:var(--text-sub); padding:34px 10px; }
 
     /* ═══ SWIPE-CARD LIST — alternatif <table> di mobile (dipakai oleh js/swipe.js) ═══
        Di layar ≤768px, tabel .aksi-swipe-wrap disembunyikan & diganti .swipe-list
@@ -1336,7 +1363,7 @@ async function loadHomeJadwalNext() {
         if (typeof _jdwAutoExpirePending === 'function') _jdwAutoExpirePending();
         if (typeof _jdwAutoAdvanceStatus === 'function') _jdwAutoAdvanceStatus();
         const upcoming = JadwalStore.all()
-            .filter(e => e.status === 'acc' || e.status === 'berlangsung')
+            .filter(e => e.status === 'acc' || e.status === 'berlangsung' || e.status === 'pengajuan_pembatalan')
             .sort((a, b) => (a.tanggal !== b.tanggal) ? (a.tanggal < b.tanggal ? -1 : 1) : (_jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId)))[0];
         if (!upcoming) { card.style.display = 'none'; return; }
         const slot = JDW_SLOTS.find(s => s.id === upcoming.slotId);

@@ -53,6 +53,27 @@
       <span style="width:32px"></span>
     </div>
     <div class="jdw-modal-body">
+      <!-- Cuma nongol pas mode JADWAL ULANG (status entri "acc") — pilih tanggal
+           baru dulu sebelum pilih jam, biar bisa dipindah ke hari lain. -->
+      <div class="jdw-form-section" id="jdw-reschedule-date-section" style="display:none">
+        <div class="jdw-form-label">Pilih Tanggal</div>
+        <div class="glass jdw-week-card" style="padding:14px 10px 10px;margin-bottom:0">
+          <div class="jdw-riwayat-nav" style="margin-bottom:10px">
+            <button type="button" class="jdw-icon-btn" onclick="JadwalPage.rescheduleWeekNav('older')" aria-label="Minggu sebelumnya">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <div class="jdw-riwayat-caption" id="jdw-reschedule-caption">-</div>
+            <button type="button" class="jdw-icon-btn" onclick="JadwalPage.rescheduleWeekNav('newer')" aria-label="Minggu berikutnya">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+          <div class="jdw-week-strip" id="jdw-reschedule-strip"></div>
+        </div>
+      </div>
+      <div class="jdw-form-section">
+        <div class="jdw-form-label">Pilih Tentor</div>
+        <div class="jdw-tentor-picker" id="jdw-tentor-picker"></div>
+      </div>
       <div class="jdw-form-section">
         <div class="jdw-form-label">Pilih Jam</div>
         <div class="jdw-chip-grid" id="jdw-slot-grid"></div>
@@ -61,9 +82,39 @@
         <div class="jdw-form-label">Pilih Materi</div>
         <div class="jdw-materi-grid" id="jdw-materi-grid"></div>
       </div>
+      <!-- Cuma nongol pas mode JADWAL ULANG — wajib diisi sebelum bisa ajukan. -->
+      <div class="jdw-form-section" id="jdw-reschedule-alasan-section" style="display:none;margin-bottom:0">
+        <div class="jdw-form-label">Alasan Pengajuan</div>
+        <textarea class="jdw-textarea" id="jdw-reschedule-alasan" placeholder="Tulis alasan kamu mengajukan jadwal ulang..." oninput="JadwalPage._refreshSubmitBtn()"></textarea>
+      </div>
     </div>
     <div class="jdw-modal-footer">
       <button class="jdw-btn jdw-btn-primary jdw-btn-block" id="jdw-submit-btn" onclick="JadwalPage.submitAjukan()" disabled>AJUKAN</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ HALAMAN: PILIH TENTOR ══════
+     Dibuka dari box "+ Pilih Tentor" (atau box tentor yang sudah kepilih) di
+     dalam halaman Ajukan Jadwal. Isinya search bar + list nama tentor beserta
+     materi yang mereka ajar. Milih salah satu -> balik lagi ke halaman Ajukan
+     Jadwal dengan tentor itu kepilih, dan materi yang bukan diajar tentor itu
+     otomatis di-nonaktifkan (abu-abu) di bagian Pilih Materi. -->
+<div class="overlay overlay-fullscreen" id="jdw-tentor-overlay">
+  <div class="modal modal-fullscreen">
+    <div class="jdw-modal-header">
+      <button class="jdw-icon-btn" onclick="JadwalPage.closeTentorOverlay()" aria-label="Kembali">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="jdw-modal-title">Pilih Tentor</div>
+      <span style="width:32px"></span>
+    </div>
+    <div class="jdw-modal-body">
+      <div class="jdw-tentor-search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="jdw-tentor-search-input" id="jdw-tentor-search" placeholder="Cari nama tentor..." oninput="JadwalPage.filterTentor(this.value)">
+      </div>
+      <div class="jdw-tentor-list" id="jdw-tentor-list"></div>
     </div>
   </div>
 </div>
