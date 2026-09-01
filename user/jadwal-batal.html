@@ -7,11 +7,24 @@
 <div class="overlay confirm-overlay" id="jdw-batal-overlay" onclick="if(event.target===this){this.classList.remove('open');_jdwSyncPageScrollLock();}">
   <div class="modal" style="max-width:300px;text-align:center">
     <div class="confirm-icon danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
-    <div class="confirm-title">Batalkan Jadwal?</div>
-    <div class="confirm-msg">Jadwal yang dibatalkan tidak bisa dikembalikan.</div>
+    <div class="confirm-title" id="jdw-batal-title">Batalkan Jadwal?</div>
+    <div class="confirm-msg" id="jdw-batal-msg">Jadwal yang dibatalkan tidak bisa dikembalikan.</div>
     <div class="confirm-btns">
       <button class="btn-secondary" onclick="document.getElementById('jdw-batal-overlay').classList.remove('open');_jdwSyncPageScrollLock()" style="flex:1;padding:11px">Tidak</button>
-      <button class="btn-primary" onclick="JadwalPage.confirmBatal()" style="flex:1;margin-top:0">Ya, Batalkan</button>
+      <button class="btn-primary" onclick="JadwalPage.confirmBatal()" style="flex:1;margin-top:0" id="jdw-batal-confirm-btn">Ya, Batalkan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ KONFIRMASI: TARIK PEMBATALAN (entri berstatus "pengajuan_pembatalan") ══════ -->
+<div class="overlay confirm-overlay" id="jdw-tarikbatal-overlay" onclick="if(event.target===this){this.classList.remove('open');_jdwSyncPageScrollLock();}">
+  <div class="modal" style="max-width:300px;text-align:center">
+    <div class="confirm-icon warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div>
+    <div class="confirm-title">Tarik Pembatalan?</div>
+    <div class="confirm-msg">Pengajuan pembatalan ini akan ditarik dan jadwal kembali berstatus disetujui.</div>
+    <div class="confirm-btns">
+      <button class="btn-secondary" onclick="document.getElementById('jdw-tarikbatal-overlay').classList.remove('open');_jdwSyncPageScrollLock()" style="flex:1;padding:11px">Tidak</button>
+      <button class="btn-primary" onclick="JadwalPage.confirmTarikBatal()" style="flex:1;margin-top:0">Ya, Tarik</button>
     </div>
   </div>
 </div>

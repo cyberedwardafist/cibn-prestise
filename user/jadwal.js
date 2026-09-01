@@ -66,25 +66,47 @@ const JadwalStore = (function () {
         return _toIso(d);
     }
     function _seed() {
-        // Contoh data awal biar SEMUA status (menunggu/disetujui/ditolak/berlangsung/
-        // selesai/pengajuan pembatalan) kelihatan sekaligus di demo pertama kali —
-        // sekali dibuat, tidak akan ditimpa lagi. Tanggal sengaja diatur relatif ke
-        // hari ini (bukan hardcode) supaya _jdwAutoExpirePending()/_jdwAutoAdvanceStatus()
-        // tidak langsung mengubah status pending->ditolak atau acc->berlangsung/selesai
+        // Contoh data awal biar SEMUA status & SEMUA variasi tombol aksi
+        // (menunggu/disetujui/ditolak/berlangsung-Masuk/berlangsung-Feedback/
+        // selesai/pengajuan-pembatalan) kelihatan sekaligus di demo pertama
+        // kali — sekali dibuat, tidak akan ditimpa lagi. Tanggal sengaja
+        // diatur relatif ke hari ini (bukan hardcode) supaya
+        // _jdwAutoExpirePending()/_jdwAutoAdvanceStatus() tidak langsung
+        // mengubah status pending->ditolak atau acc->berlangsung/selesai
         // saat pertama kali dibuka (lihat catatan status per-entry di bawah).
+        // Cek juga _entryActions() buat lihat tombol persis apa yang muncul
+        // di tiap status.
         const arr = [
-            // berlangsung: tanggal HARI INI, feedback belum diisi -> tetap "berlangsung"
-            { id: 'seed_berlangsung', tanggal: _todayIso(0), slotId: 'slot2', materiId: 'twk', tentorId: 'raffi', status: 'berlangsung', createdAt: Date.now() - 90000000 },
-            // ditolak: status tetap (tidak disentuh auto-expire/auto-advance)
-            { id: 'seed_ditolak', tanggal: _todayIso(0), slotId: 'slot7', materiId: 'twk', tentorId: 'angga', status: 'ditolak', createdAt: Date.now() - 80000000 },
-            // selesai: tanggal kemarin
-            { id: 'seed_selesai', tanggal: _todayIso(-1), slotId: 'slot3', materiId: 'toefl_reading', tentorId: 'pram', status: 'selesai', createdAt: Date.now() - 70000000 },
-            // pending (menunggu): tanggal besok -> jam slot belum lewat, tetap "pending"
-            { id: 'seed_pending', tanggal: _todayIso(1), slotId: 'slot1', materiId: 'tiu', tentorId: 'angga', status: 'pending', createdAt: Date.now() - 60000000 },
-            // acc (disetujui): tanggal besok -> belum masuk jam mulai, tetap "acc"
-            { id: 'seed_acc', tanggal: _todayIso(1), slotId: 'slot6', materiId: 'tkp', tentorId: 'raffi', status: 'acc', createdAt: Date.now() - 50000000 },
-            // pengajuan_pembatalan: tanggal besok -> belum lewat, tetap menunggu keputusan batal
-            { id: 'seed_batal', tanggal: _todayIso(1), slotId: 'slot4', materiId: 'toefl_listening', tentorId: 'chika', status: 'pengajuan_pembatalan', alasanBatal: 'Ada jadwal ujian sekolah yang bentrok', createdAt: Date.now() - 40000000 },
+            // pending (menunggu) -> tombol Edit + Batal. 2 entri di HARI YANG SAMA
+            // (besok) buat sekalian tes tampilan 2 kartu numpuk di satu tanggal.
+            { id: 'seed_pending1', tanggal: _todayIso(1), slotId: 'slot1', materiId: 'tiu', tentorId: 'angga', status: 'pending', createdAt: Date.now() - 110000000 },
+            { id: 'seed_pending2', tanggal: _todayIso(1), slotId: 'slot3', materiId: 'twk', tentorId: 'albert', status: 'pending', createdAt: Date.now() - 100000000 },
+            // acc (disetujui) -> tombol Jadwal Ulang + Batal (Batal disini buka
+            // overlay Ajukan Pembatalan, BUKAN dialog konfirmasi kecil). Dua
+            // tanggal beda minggu buat sekalian tes nav minggu di kalender.
+            { id: 'seed_acc1', tanggal: _todayIso(1), slotId: 'slot6', materiId: 'tkp', tentorId: 'raffi', status: 'acc', createdAt: Date.now() - 90000000 },
+            { id: 'seed_acc2', tanggal: _todayIso(8), slotId: 'slot4', materiId: 'toefl_struktur', tentorId: 'chika', status: 'acc', createdAt: Date.now() - 85000000 },
+            // berlangsung, jam BELUM lewat -> tombol "Masuk" (slot malam, jadi
+            // biasanya masih kelihatan "Masuk" kecuali kamu tes di atas jam
+            // 20.15). Kalau pas dites udah lewat jam segitu, otomatis kegantian jadi
+            // tombol "Feedback" sendiri — itu bukan bug, hitungannya emang
+            // berdasar jam saat ini, bukan status tersimpan.
+            { id: 'seed_berlangsung_masuk', tanggal: _todayIso(0), slotId: 'slot7', materiId: 'tiu', tentorId: 'angga', status: 'berlangsung', createdAt: Date.now() - 80000000 },
+            // berlangsung, jam SUDAH lewat -> tombol "Feedback" (slot pagi, jadi
+            // biasanya udah lewat kecuali kamu tes sebelum jam 09.15).
+            { id: 'seed_berlangsung_feedback', tanggal: _todayIso(0), slotId: 'slot1', materiId: 'twk', tentorId: 'raffi', status: 'berlangsung', createdAt: Date.now() - 75000000 },
+            // ditolak -> tanpa tombol aksi sama sekali. Satu hari ini, satu di
+            // riwayat (buat tes toggle Minggu Ini/Riwayat).
+            { id: 'seed_ditolak1', tanggal: _todayIso(0), slotId: 'slot2', materiId: 'tkp', tentorId: 'angga', status: 'ditolak', createdAt: Date.now() - 70000000 },
+            { id: 'seed_ditolak2', tanggal: _todayIso(-2), slotId: 'slot2', materiId: 'tiu', tentorId: 'raffi', status: 'ditolak', createdAt: Date.now() - 65000000 },
+            // pengajuan_pembatalan -> tombol "Tarik Pembatalan" (balik ke acc).
+            { id: 'seed_batal', tanggal: _todayIso(1), slotId: 'slot4', materiId: 'toefl_listening', tentorId: 'chika', status: 'pengajuan_pembatalan', alasanBatal: 'Ada jadwal ujian sekolah yang bentrok', createdAt: Date.now() - 60000000 },
+            // selesai -> tanpa tombol aksi sama sekali, terlepas feedbackDone
+            // sudah diisi atau belum (beda dari "berlangsung" yang jam sudah
+            // lewat, itu MASIH ada tombol Feedback). Dua entri riwayat, beda
+            // status feedbackDone, buat tes tampilan kartu selesai.
+            { id: 'seed_selesai1', tanggal: _todayIso(-1), slotId: 'slot3', materiId: 'toefl_reading', tentorId: 'pram', status: 'selesai', feedbackDone: true, feedback: { paham: 4, kualitas: 5, catatan: 'Penjelasannya jelas & mudah diikuti', filledAt: Date.now() - 50000000 }, createdAt: Date.now() - 55000000 },
+            { id: 'seed_selesai2', tanggal: _todayIso(-3), slotId: 'slot5', materiId: 'twk', tentorId: 'albert', status: 'selesai', feedbackDone: false, createdAt: Date.now() - 40000000 },
         ];
         localStorage.setItem(KEY, JSON.stringify(arr));
         return arr;
@@ -255,7 +277,7 @@ const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 
 // #page-jadwal di baliknya tetap ikut dikunci scroll-nya biar konsisten -
 // tidak masuk akal halaman di belakang masih bisa discroll pas ada dialog
 // konfirmasi kecil nongol di tengah layar.
-const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-lewat-overlay'];
+const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-lewat-overlay'];
 function _jdwSyncPageScrollLock() {
     const pageEl = document.getElementById('page-jadwal');
     const anyLockOpen = JDW_SCROLL_LOCK_OVERLAY_IDS.some(id => document.getElementById(id)?.classList.contains('open'));
@@ -1019,6 +1041,16 @@ const JadwalPage = {
         // harus lewat halaman pengajuan pembatalan (rekap + alasan + persetujuan).
         if (e && e.status === 'acc') { this.openBatalPengajuan(id); return; }
         this._batalTargetId = id;
+        // Entri "pending" bisa berarti dua hal: pengajuan jadwal baru yang
+        // belum pernah disetujui, ATAU jadwal-ULANG dari entri yang tadinya
+        // sudah "acc" (ditandai field alasanReschedule) yang lagi menunggu
+        // persetujuan. Teksnya dibedain biar user ngerti konsekuensinya:
+        // batalin jadwal-ulang yang masih pending = "tidak jadi jadwal ulang".
+        const isRescheduling = !!(e && e.alasanReschedule);
+        document.getElementById('jdw-batal-title').textContent = isRescheduling ? 'Batalkan Jadwal Ulang?' : 'Batalkan Jadwal?';
+        document.getElementById('jdw-batal-msg').textContent = isRescheduling
+            ? 'Yakin tidak jadi jadwal ulang? Pengajuan jadwal ulang yang masih menunggu persetujuan ini akan dibatalkan.'
+            : 'Jadwal yang dibatalkan tidak bisa dikembalikan.';
         document.getElementById('jdw-batal-overlay').classList.add('open');
         _jdwSyncPageScrollLock();
     },
@@ -1099,9 +1131,21 @@ const JadwalPage = {
         _jdwRenderWeek();
         _jdwRenderStatusList();
     },
-    /* ── "Tarik Pembatalan" — batal-membatalkan, jadwal balik jadi acc lagi. ── */
+    /* ── "Tarik Pembatalan" — batal-membatalkan, jadwal balik jadi acc lagi.
+       Dikonfirmasi dulu lewat dialog kecil (jdw-tarikbatal-overlay) sebelum
+       benar-benar dieksekusi, sama polanya kayak konfirmasi Batal biasa. ── */
+    _tarikBatalTargetId: null,
     tarikBatal(id) {
-        JadwalStore.update(id, { status: 'acc', alasanBatal: null });
+        this._tarikBatalTargetId = id;
+        document.getElementById('jdw-tarikbatal-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
+    },
+    confirmTarikBatal() {
+        document.getElementById('jdw-tarikbatal-overlay').classList.remove('open');
+        _jdwSyncPageScrollLock();
+        if (!this._tarikBatalTargetId) return;
+        JadwalStore.update(this._tarikBatalTargetId, { status: 'acc', alasanBatal: null });
+        this._tarikBatalTargetId = null;
         showToast('Pembatalan ditarik, jadwal kembali disetujui');
         _jdwRenderWeek();
         _jdwRenderStatusList();
