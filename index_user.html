@@ -491,6 +491,16 @@
     .home-stat-card { padding:14px; text-align:center; }
     .home-stat-val { font-family:var(--font-head); font-size:26px; font-weight:800; color:var(--blue); }
     .home-stat-lbl { font-size:10px; color:var(--text-sub); font-weight:600; margin-top:2px; }
+    /* Widget "Sesi Mentoring Terdekat" — cuma 1 jadwal (yang paling awal &
+       sudah disetujui/sedang berlangsung) sampai sesi itu selesai, baru
+       digantikan jadwal selanjutnya. Lihat loadHomeJadwalNext(). */
+    .home-jadwal-next-card { padding:16px 18px; margin-bottom:18px; cursor:pointer; transition:transform .2s, box-shadow .2s; }
+    .home-jadwal-next-card:hover { transform:translateY(-2px); box-shadow:0 10px 30px rgba(19,50,89,.13); }
+    .home-jadwal-next-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+    .home-jadwal-next-label { font-size:12px; font-weight:700; color:var(--text-sub); letter-spacing:.04em; text-transform:uppercase; }
+    .home-jadwal-next-date { font-family:var(--font-head); font-size:16px; font-weight:700; color:var(--blue); margin-bottom:4px; }
+    .home-jadwal-next-row { font-size:13px; color:var(--text-sub); display:flex; align-items:center; gap:8px; }
+    .home-jadwal-next-dot { opacity:.5; }
 
     /* ─── PAGE: JADWAL ─── */
     #page-jadwal { align-items:stretch; padding-top:24px; }
@@ -710,7 +720,7 @@
 <div class="page-container">
 
 <!-- ══════════ PAGE: HOME ══════════ -->
-<div class="page" id="page-home">
+<div class="page active" id="page-home">
   <div class="home-greeting-row">
     <div class="home-greeting">Selamat Datang 👋<span id="home-user-name">-</span></div>
     <div class="home-date-chip" id="home-date-chip">-</div>
@@ -733,6 +743,22 @@
     <div class="glass home-stat-card"><div class="home-stat-val" id="home-stat-total">-</div><div class="home-stat-lbl">Total Ujian</div></div>
     <div class="glass home-stat-card"><div class="home-stat-val" id="home-stat-lulus">-</div><div class="home-stat-lbl">Lulus</div></div>
     <div class="glass home-stat-card"><div class="home-stat-val" id="home-stat-avg">-</div><div class="home-stat-lbl">Rata-rata</div></div>
+  </div>
+  <!-- Cuma nampilin 1 jadwal mentoring: yang tanggal/jamnya paling awal DAN
+       statusnya sudah disetujui (acc) atau sedang berlangsung. Begitu sesi
+       itu berstatus selesai, widget ini otomatis gantiin dengan jadwal
+       berikutnya yang paling awal (lihat loadHomeJadwalNext() di bawah). -->
+  <div class="glass home-jadwal-next-card" id="home-jadwal-next-card" style="display:none" onclick="goPage('jadwal')">
+    <div class="home-jadwal-next-head">
+      <div class="home-jadwal-next-label">Sesi Mentoring Terdekat</div>
+      <span class="jdw-status-badge" id="home-jadwal-next-status">-</span>
+    </div>
+    <div class="home-jadwal-next-date" id="home-jadwal-next-date">-</div>
+    <div class="home-jadwal-next-row">
+      <span id="home-jadwal-next-slot">-</span>
+      <span class="home-jadwal-next-dot">•</span>
+      <span id="home-jadwal-next-materi">-</span>
+    </div>
   </div>
   <div class="home-quick-title">Akses Cepat</div>
   <div class="home-quick-grid">
@@ -795,7 +821,7 @@
 </div>
 
 <!-- ══════════ PAGE: TOKEN ══════════ -->
-<div class="page active" id="page-token">
+<div class="page" id="page-token">
   <div class="page-logo"><img src="logo/logo-full.png" alt="CIBN PRESTISE"></div>
   <div class="token-header">Mulai Ujian</div>
   <div class="token-sub">Masukkan kode token untuk memulai ujian</div>
@@ -873,7 +899,7 @@
 <!-- DOCK -->
 <div class="dock-wrap">
   <div class="dock" id="main-dock">
-    <button class="dock-item" data-page="home" onclick="goPage('home')">
+    <button class="dock-item active-tab" data-page="home" onclick="goPage('home')">
       <div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
       <span class="dock-label">HOME</span>
     </button>
@@ -881,7 +907,7 @@
       <div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
       <span class="dock-label">JADWAL</span>
     </button>
-    <button class="dock-item active-tab" data-page="token" onclick="goPage('token')">
+    <button class="dock-item" data-page="token" onclick="goPage('token')">
       <div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
       <span class="dock-label">UJIAN</span>
     </button>
@@ -1288,6 +1314,43 @@ async function loadHome() {
     }
     // Cek notif paket hampir expired
     checkNotifExpired();
+    // Widget "Sesi Mentoring Terdekat"
+    loadHomeJadwalNext();
+}
+
+/* ─── WIDGET HOME: SESI MENTORING TERDEKAT ───
+   Ambil modul Jadwal (lazy-load, JS-only — tanpa fragmen HTML) supaya
+   JadwalStore & helper2 jadwal.js (_jdw*, JDW_*) tersedia walau user belum
+   pernah buka tab Jadwal. Jalankan dulu auto-expire/auto-advance-nya biar
+   status tiap entri sudah paling update (mis. entri "acc" yang tanggalnya
+   sudah lewat otomatis jadi "selesai") sebelum dicari yang paling awal.
+   Cuma tampilkan 1 entri: yang tanggal+jamnya PALING AWAL di antara status
+   "acc"/"berlangsung" (sudah disetujui). Begitu entri itu jadi "selesai",
+   dia otomatis tidak lolos filter lagi & entri berikutnya yang paling awal
+   yang tampil menggantikannya. ─── */
+async function loadHomeJadwalNext() {
+    const card = document.getElementById('home-jadwal-next-card');
+    if (!card) return;
+    try {
+        await LazyLoader.load('/user', 'jadwal', null, { html: false });
+        if (typeof _jdwAutoExpirePending === 'function') _jdwAutoExpirePending();
+        if (typeof _jdwAutoAdvanceStatus === 'function') _jdwAutoAdvanceStatus();
+        const upcoming = JadwalStore.all()
+            .filter(e => e.status === 'acc' || e.status === 'berlangsung')
+            .sort((a, b) => (a.tanggal !== b.tanggal) ? (a.tanggal < b.tanggal ? -1 : 1) : (_jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId)))[0];
+        if (!upcoming) { card.style.display = 'none'; return; }
+        const slot = JDW_SLOTS.find(s => s.id === upcoming.slotId);
+        const materi = JDW_MATERI.find(m => m.id === upcoming.materiId);
+        document.getElementById('home-jadwal-next-date').textContent = _jdwFmtDateLong(upcoming.tanggal);
+        document.getElementById('home-jadwal-next-slot').textContent = slot ? slot.label : '-';
+        document.getElementById('home-jadwal-next-materi').textContent = materi ? materi.label : '-';
+        const statusEl = document.getElementById('home-jadwal-next-status');
+        statusEl.className = 'jdw-status-badge ' + upcoming.status;
+        statusEl.textContent = JDW_STATUS_LABEL[upcoming.status] || upcoming.status;
+        card.style.display = '';
+    } catch (e) {
+        card.style.display = 'none';
+    }
 }
 
 /* ─── NOTIF PAKET HAMPIR EXPIRED ─── */

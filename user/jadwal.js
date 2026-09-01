@@ -403,21 +403,6 @@ function _jdwDayGroupHtml(d, entries, isToday) {
     </div>`;
 }
 
-function _jdwDayGroupHtmlBelumSampai(d) {
-    // Placeholder buat hari di "Riwayat minggu ini (belum genap)" yang tanggalnya
-    // belum sampai/lewat -> belum ada apa2 buat diriwayatkan, jadi kosong dulu
-    // sampai harinya benar2 lewat (baru dia pindah dari Minggu Ini ke sini).
-    const iso = _jdwToIso(d);
-    const label = _jdwFmtDateLong(iso);
-    return `<div class="jdw-status-day">
-        <div class="jdw-status-day-head">
-            <div class="jdw-status-day-label">${label}</div>
-            <div class="jdw-status-day-count"></div>
-        </div>
-        <div class="jdw-status-day-empty">Belum sampai harinya</div>
-    </div>`;
-}
-
 function _jdwRenderStatusList() {
     const wrap = document.getElementById('jdw-status-list');
     if (!wrap) return;
@@ -446,11 +431,10 @@ function _jdwRenderStatusList() {
         // "Minggu Ini" hanya nampilin hari ini & seterusnya — tanggal yang sudah
         // lewat dihilangkan dari sini, pindah ke Riwayat (offset 0).
         if (JadwalPage.currentView === 'minggu' && iso < todayIso) return '';
-        // "Riwayat minggu ini (offset 0)" untuk tanggal yang belum sampai harinya
-        // -> belum ada riwayatnya, tampil placeholder kosong dulu.
-        if (JadwalPage.currentView === 'riwayat' && JadwalPage.riwayatWeekOffset === 0 && iso > todayIso) {
-            return _jdwDayGroupHtmlBelumSampai(d);
-        }
+        // Riwayat cuma boleh isi hari yang SUDAH LEWAT — hari ini (masih berjalan)
+        // dan hari yang belum sampai tidak dimasukkan sama sekali (bukan cuma
+        // ditampilkan kosong, tapi memang tidak dirender ke listnya).
+        if (JadwalPage.currentView === 'riwayat' && iso >= todayIso) return '';
         const entries = JadwalStore.byDate(iso)
             .filter(e => e.status === 'pending' || e.status === 'acc' || e.status === 'berlangsung' || e.status === 'selesai')
             .sort((a, b) => _jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId));
