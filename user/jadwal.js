@@ -1076,7 +1076,7 @@ const JadwalPage = {
             </div>`);
         const sesiFooter = document.getElementById('jdw-sesi-footer');
         if (sesiFooter) { sesiFooter.innerHTML = ''; sesiFooter.style.display = 'none'; }
-        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(180px + env(safe-area-inset-bottom))';
+        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(200px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
         _jdwSyncPageScrollLock();
     },
@@ -1139,7 +1139,7 @@ const JadwalPage = {
             </div>`;
         const sesiFooter1 = document.getElementById('jdw-sesi-footer');
         if (sesiFooter1) { sesiFooter1.innerHTML = ''; sesiFooter1.style.display = 'none'; }
-        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(180px + env(safe-area-inset-bottom))';
+        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(200px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
         _jdwSyncPageScrollLock();
     },
@@ -1175,7 +1175,7 @@ const JadwalPage = {
         this._renderFbRating('kualitas');
         const sesiFooter2 = document.getElementById('jdw-sesi-footer');
         if (sesiFooter2) { sesiFooter2.innerHTML = ''; sesiFooter2.style.display = 'none'; }
-        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(180px + env(safe-area-inset-bottom))';
+        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(200px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
         _jdwSyncPageScrollLock();
     },
