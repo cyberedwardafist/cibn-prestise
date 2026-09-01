@@ -1,3 +1,17 @@
+<!-- ══════════════════════════════════════════════════════════════════════
+     user/jadwal.html — SHELL utama tab Jadwal.
+     Cuma isi tampilan LIST (header, 2 kalender minggu, toggle Minggu Ini/
+     Riwayat, daftar status). Semua overlay/halaman aksi (Ajukan Jadwal /
+     Jadwal Ulang / Edit, Pilih Tentor, Sesi Masuk-Feedback, Batalkan Jadwal)
+     SUDAH DIPISAH ke file terpisah, lihat:
+       - user/jadwal-ajukan.html  (overlay Ajukan Jadwal / Jadwal Ulang / Edit)
+       - user/jadwal-tentor.html  (overlay Pilih Tentor)
+       - user/jadwal-sesi.html    (overlay Sesi Berlangsung / Feedback)
+       - user/jadwal-batal.html   (konfirmasi Batalkan Jadwal + info tanggal lewat)
+     Kelimanya di-fetch bareng (lihat USER_PAGE_MODULES.jadwal di index_user.html)
+     lalu di-gabung jadi satu container #page-jadwal — file ini dimuat DULUAN
+     (isi utuh container), baru overlay-overlay di atas di-APPEND sesudahnya,
+     supaya nggak saling timpa. ══════════════════════════════════════════ -->
 <div class="jadwal-header-row">
   <div class="jadwal-title">Jadwal Mentoring</div>
   <button class="jadwal-refresh-btn" onclick="loadJadwal()">
@@ -36,133 +50,11 @@
   </button>
 </div>
 
-<!-- ══════ LIST: PENGAJUAN MENUNGGU/DISETUJUI, DIPISAH PER HARI ══════ -->
+<!-- ══════ LIST: PENGAJUAN MENUNGGU/DISETUJUI, DIPISAH PER HARI ══════
+     Kartu di sini pakai swipe-card (lihat js/swipe.js): geser kartu buat
+     nongolin tombol aksi (Edit/Jadwal Ulang di kiri, Batal di kanan). Jarak
+     aman di bawah supaya tombol-tombol itu (termasuk pas kartu paling bawah
+     di-geser) TIDAK ketutupan dock mengambang diatur lewat padding-bottom
+     #page-jadwal (lihat blok <style> index_user.html, sama pola kayak
+     #page-profil yang juga ngitung env(safe-area-inset-bottom)). -->
 <div class="jdw-status-list" id="jdw-status-list"></div>
-
-<!-- ══════ HALAMAN: AJUKAN JADWAL (pilih jam + materi) ══════
-     Sekarang ini yang langsung kebuka begitu tanggal di kalender di-tap.
-     Isi "lihat jadwal tanggal ini" (dulu di overlay detail-tanggal terpisah)
-     sudah dipindah ke depan -> ke id="jdw-status-list" di bawah kalender. -->
-<div class="overlay overlay-fullscreen" id="jdw-ajukan-overlay">
-  <div class="modal modal-fullscreen">
-    <div class="jdw-modal-header">
-      <button class="jdw-icon-btn" onclick="JadwalPage.closeAjukanOverlay()" aria-label="Kembali">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <div class="jdw-modal-title" id="jdw-ajukan-title">Ajukan Jadwal</div>
-      <span style="width:32px"></span>
-    </div>
-    <div class="jdw-modal-body">
-      <!-- Cuma nongol pas mode JADWAL ULANG (status entri "acc") — pilih tanggal
-           baru dulu sebelum pilih jam, biar bisa dipindah ke hari lain. -->
-      <div class="jdw-form-section" id="jdw-reschedule-date-section" style="display:none">
-        <div class="jdw-form-label">Pilih Tanggal</div>
-        <div class="glass jdw-week-card" style="padding:14px 10px 10px;margin-bottom:0">
-          <div class="jdw-riwayat-nav" style="margin-bottom:10px">
-            <button type="button" class="jdw-icon-btn" onclick="JadwalPage.rescheduleWeekNav('older')" aria-label="Minggu sebelumnya">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <div class="jdw-riwayat-caption" id="jdw-reschedule-caption">-</div>
-            <button type="button" class="jdw-icon-btn" onclick="JadwalPage.rescheduleWeekNav('newer')" aria-label="Minggu berikutnya">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
-          </div>
-          <div class="jdw-week-strip" id="jdw-reschedule-strip"></div>
-        </div>
-      </div>
-      <div class="jdw-form-section">
-        <div class="jdw-form-label">Pilih Tentor</div>
-        <div class="jdw-tentor-picker" id="jdw-tentor-picker"></div>
-      </div>
-      <div class="jdw-form-section">
-        <div class="jdw-form-label">Pilih Jam</div>
-        <div class="jdw-chip-grid" id="jdw-slot-grid"></div>
-      </div>
-      <div class="jdw-form-section">
-        <div class="jdw-form-label">Pilih Materi</div>
-        <div class="jdw-materi-grid" id="jdw-materi-grid"></div>
-      </div>
-      <!-- Cuma nongol pas mode JADWAL ULANG — wajib diisi sebelum bisa ajukan. -->
-      <div class="jdw-form-section" id="jdw-reschedule-alasan-section" style="display:none">
-        <div class="jdw-form-label">Alasan Pengajuan</div>
-        <textarea class="jdw-textarea" id="jdw-reschedule-alasan" placeholder="Tulis alasan kamu mengajukan jadwal ulang..." oninput="JadwalPage._refreshSubmitBtn()"></textarea>
-      </div>
-      <!-- Tombol ajukan ikut ada DI DALAM area scroll (bukan footer sticky lagi) —
-           jadi tombol ini ikut ke-scroll bareng form di atasnya, dan posisi
-           akhirnya ada di paling bawah konten, di atas dock utama (jarak bawah
-           diatur lewat padding-bottom #jdw-ajukan-overlay .jdw-modal-body). -->
-      <div class="jdw-form-section jdw-ajukan-submit-section" style="margin-bottom:0">
-        <button class="jdw-btn jdw-btn-primary jdw-btn-block" id="jdw-submit-btn" onclick="JadwalPage.submitAjukan()" disabled>AJUKAN</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ══════ HALAMAN: PILIH TENTOR ══════
-     Dibuka dari box "+ Pilih Tentor" (atau box tentor yang sudah kepilih) di
-     dalam halaman Ajukan Jadwal. Isinya search bar + list nama tentor beserta
-     materi yang mereka ajar. Milih salah satu -> balik lagi ke halaman Ajukan
-     Jadwal dengan tentor itu kepilih, dan materi yang bukan diajar tentor itu
-     otomatis di-nonaktifkan (abu-abu) di bagian Pilih Materi. -->
-<div class="overlay overlay-fullscreen" id="jdw-tentor-overlay">
-  <div class="modal modal-fullscreen">
-    <div class="jdw-modal-header">
-      <button class="jdw-icon-btn" onclick="JadwalPage.closeTentorOverlay()" aria-label="Kembali">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <div class="jdw-modal-title">Pilih Tentor</div>
-      <span style="width:32px"></span>
-    </div>
-    <div class="jdw-modal-body">
-      <div class="jdw-tentor-search-wrap">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" class="jdw-tentor-search-input" id="jdw-tentor-search" placeholder="Cari nama atau materi (TWK, TOEFL, dst)..." oninput="JadwalPage.filterTentor(this.value)">
-      </div>
-      <div class="jdw-tentor-list" id="jdw-tentor-list"></div>
-    </div>
-  </div>
-</div>
-
-<!-- ══════ HALAMAN: SESI BERLANGSUNG (Masuk) / FEEDBACK SESI ══════
-     Dipakai gantian sesuai tahap sesi: begitu jam mulai tiba, tombol "Masuk"
-     buka halaman ini isinya Link Gmeet + Token (JadwalPage.masukEntry). Begitu
-     jam selesai lewat, tombol berganti jadi "Feedback" yang buka halaman ini
-     lagi tapi isinya form pertanyaan + tombol Simpan (JadwalPage.feedbackEntry). -->
-<div class="overlay overlay-fullscreen" id="jdw-sesi-overlay">
-  <div class="modal modal-fullscreen">
-    <div class="jdw-modal-header">
-      <button class="jdw-icon-btn" onclick="JadwalPage.closeSesiOverlay()" aria-label="Kembali">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <div class="jdw-modal-title" id="jdw-sesi-title">Sesi</div>
-      <span style="width:32px"></span>
-    </div>
-    <div class="jdw-modal-body" id="jdw-sesi-body"></div>
-    <div class="jdw-modal-footer" id="jdw-sesi-footer"></div>
-  </div>
-</div>
-
-<!-- ══════ KONFIRMASI: BATALKAN JADWAL ══════ -->
-<div class="overlay confirm-overlay" id="jdw-batal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="modal" style="max-width:300px;text-align:center">
-    <div class="confirm-icon danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
-    <div class="confirm-title">Batalkan Jadwal?</div>
-    <div class="confirm-msg">Jadwal yang dibatalkan tidak bisa dikembalikan.</div>
-    <div class="confirm-btns">
-      <button class="btn-secondary" onclick="document.getElementById('jdw-batal-overlay').classList.remove('open')" style="flex:1;padding:11px">Tidak</button>
-      <button class="btn-primary" onclick="JadwalPage.confirmBatal()" style="flex:1;margin-top:0">Ya, Batalkan</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══════ INFO: TANGGAL SUDAH LEWAT (tidak bisa dipilih di kalender) ══════ -->
-<div class="overlay confirm-overlay" id="jdw-lewat-overlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="modal" style="max-width:300px;text-align:center">
-    <div class="confirm-icon warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
-    <div class="confirm-title">Tidak Bisa Dipilih</div>
-    <div class="confirm-msg">Tidak bisa dipilih karena sudah lewat hari.</div>
-    <div class="confirm-btns">
-      <button class="btn-primary" onclick="document.getElementById('jdw-lewat-overlay').classList.remove('open')" style="flex:1;margin-top:0">Kembali</button>
-    </div>
-  </div>
-</div>
