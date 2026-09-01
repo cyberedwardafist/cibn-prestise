@@ -12,17 +12,19 @@
 </div>
 <div class="jdw-week-hint">Ketuk salah satu tanggal untuk atur jadwal mentoring kamu</div>
 
+<!-- Kalender ke-2: khusus buat ajukan jadwal MINGGU DEPAN, cuma nongol pas
+     hari ini adalah hari Minggu. Begitu hari Minggu ini lewat (masuk hari
+     Senin), kalender ini otomatis hilang lagi (tinggal 1 kalender di atas). -->
+<div class="glass jdw-week-card" id="jdw-nextweek-card" style="display:none">
+  <div class="jdw-week-caption">Ajukan minggu depan</div>
+  <div class="jdw-week-strip" id="jdw-nextweek-strip"></div>
+</div>
+<div class="jdw-week-hint" id="jdw-nextweek-hint" style="display:none">Ketuk salah satu tanggal minggu depan untuk ajukan lebih awal</div>
+
 <!-- ══════ TOGGLE: MINGGU INI / RIWAYAT ══════ -->
 <div class="jdw-view-toggle" id="jdw-view-toggle">
   <button type="button" class="jdw-view-btn active" data-view="minggu" onclick="JadwalPage.setView('minggu')">Minggu Ini</button>
   <button type="button" class="jdw-view-btn" data-view="riwayat" onclick="JadwalPage.setView('riwayat')">Riwayat</button>
-</div>
-<!-- Kalender ke-2: cuma nongol pas Riwayat lagi nunjukin "minggu ini (belum
-     genap)" — hari yang sudah lewat minggu ini. Begitu minggu ini genap
-     (hari Minggu lewat), kalender ini otomatis hilang lagi (tinggal 1). -->
-<div class="glass jdw-week-card" id="jdw-riwayat-week-card" style="display:none">
-  <div class="jdw-week-caption">Riwayat minggu ini</div>
-  <div class="jdw-week-strip" id="jdw-riwayat-week-strip"></div>
 </div>
 <div class="jdw-riwayat-nav" id="jdw-riwayat-nav" style="display:none">
   <button type="button" class="jdw-icon-btn" onclick="JadwalPage.riwayatNav('older')" aria-label="Minggu sebelumnya">

@@ -313,6 +313,7 @@ function loadJadwal() {
     _jdwAutoExpirePending();
     _jdwAutoAdvanceStatus();
     _jdwRenderWeek();
+    _jdwRenderNextWeekCard();
     _jdwRestoreViewState();
     _jdwRenderStatusList();
     _jdwRestoreState();
@@ -325,6 +326,10 @@ function loadJadwal() {
     _jdwAutoExpireTimer = setInterval(() => {
         const expired = _jdwAutoExpirePending();
         const advanced = _jdwAutoAdvanceStatus();
+        // Kalender "Ajukan minggu depan" dicek tiap tick juga (bukan cuma pas
+        // ada expired/advanced) supaya pas jam 00:00 Minggu->Senin lewat SAAT
+        // tab ini kebuka, kalendernya otomatis hilang tanpa perlu refresh.
+        _jdwRenderNextWeekCard();
         if (expired || advanced) {
             _jdwRenderWeek();
             _jdwRenderStatusList();
@@ -453,29 +458,29 @@ function _jdwRenderStatusList() {
     }).filter(Boolean).join('');
     // Kartu swipe-list yang punya aksi (Edit/Jadwal Ulang/Batal) perlu di-bind gesture-nya.
     wrap.querySelectorAll('.swipe-list').forEach(el => { if (window.SwipeCards) SwipeCards.bindSwipeList(el); });
-    _jdwRenderRiwayatWeekCard();
 }
 
-/* ── Kalender ke-2: "Riwayat minggu ini" — cuma nongol selagi Riwayat lagi di
-   offset 0 (minggu berjalan yang belum genap seminggu). Begitu minggu ini
-   sudah genap (hari Minggu lewat -> masuk minggu baru), offset 0 tidak lagi
-   valid (lihat _jdwMinRiwayatOffset) dan kalender ini otomatis balik sembunyi
-   -> tinggal 1 kalender (yang di atas / "Minggu Ini") seperti semula. ── */
-function _jdwRenderRiwayatWeekCard() {
-    const card = document.getElementById('jdw-riwayat-week-card');
-    const strip = document.getElementById('jdw-riwayat-week-strip');
+/* ── Kalender ke-2: "Ajukan minggu depan" — cuma nongol kalau HARI INI hari
+   Minggu, isinya tanggal Senin-Minggu minggu depan, tiap tanggal bisa di-tap
+   langsung buka form Ajukan (persis kayak tap tanggal di kalender utama).
+   Begitu hari Minggu ini lewat (sudah masuk Senin), kalender ini otomatis
+   balik hilang -> tinggal 1 kalender (yang di atas / "Minggu Ini"). ── */
+function _jdwRenderNextWeekCard() {
+    const card = document.getElementById('jdw-nextweek-card');
+    const strip = document.getElementById('jdw-nextweek-strip');
+    const hint = document.getElementById('jdw-nextweek-hint');
     if (!card || !strip) return;
-    const show = JadwalPage.currentView === 'riwayat' && JadwalPage.riwayatWeekOffset === 0;
-    card.style.display = show ? '' : 'none';
-    if (!show) return;
-    const todayIso = _jdwToIso(new Date());
-    const weekDates = _jdwWeekDates(new Date());
+    const isSunday = new Date().getDay() === 0;
+    card.style.display = isSunday ? '' : 'none';
+    if (hint) hint.style.display = isSunday ? '' : 'none';
+    if (!isSunday) return;
+    const nextWeekRef = new Date();
+    nextWeekRef.setDate(nextWeekRef.getDate() + 7);
+    const weekDates = _jdwWeekDates(nextWeekRef);
     strip.innerHTML = weekDates.map(d => {
         const iso = _jdwToIso(d);
-        const isToday = iso === todayIso;
-        const isFuture = iso > todayIso;
-        const hasEntries = !isFuture && JadwalStore.byDate(iso).length > 0;
-        return `<div class="jdw-day${isToday ? ' is-today' : ''}${hasEntries ? ' has-entries' : ''}${isFuture ? ' is-future-locked' : ''}">
+        const hasEntries = JadwalStore.byDate(iso).length > 0;
+        return `<div class="jdw-day${hasEntries ? ' has-entries' : ''}" onclick="JadwalPage.openDay('${iso}')">
             <div class="jdw-day-name">${JDW_DAY_SHORT[d.getDay()]}</div>
             <div class="jdw-day-num-wrap"><span>${d.getDate()}</span></div>
         </div>`;
@@ -665,6 +670,7 @@ const JadwalPage = {
         }
         this.closeAjukanOverlay();
         _jdwRenderWeek();
+        _jdwRenderNextWeekCard();
         _jdwRenderStatusList();
         _jdwSaveState();
     },
@@ -684,6 +690,7 @@ const JadwalPage = {
         this._batalTargetId = null;
         showToast('Jadwal dibatalkan');
         _jdwRenderWeek();
+        _jdwRenderNextWeekCard();
         _jdwRenderStatusList();
     },
 
