@@ -828,6 +828,7 @@ const JadwalPage = {
         this.rescheduleWeekRef = isReschedule ? new Date(existing.tanggal + 'T00:00:00') : null;
         document.getElementById('jdw-ajukan-title').textContent = existing ? (isReschedule ? 'Jadwal Ulang' : 'Ubah Pengajuan') : 'Ajukan Jadwal';
         document.getElementById('jdw-submit-btn').textContent = existing ? (isReschedule ? 'AJUKAN ULANG' : 'EDIT PENGAJUAN') : 'AJUKAN';
+        this._updateAjukanDateLabel();
 
         // Kalender pilih-tanggal & bagian alasan cuma nongol pas mode Jadwal Ulang.
         const dateSection = document.getElementById('jdw-reschedule-date-section');
@@ -857,6 +858,15 @@ const JadwalPage = {
     /* ── Tanggal aktif yang jadi acuan grid jam: tanggal baru hasil pilih di
        kalender mini (mode Jadwal Ulang), atau tanggal biasa (ajukan baru/edit). ── */
     _activeDate() { return this._isReschedule ? this.rescheduleDate : this.selectedDate; },
+    // Label tanggal-bulan-tahun yang nongol di bawah judul overlay ajukan —
+    // ngikutin tanggal yang lagi aktif (selectedDate biasa, atau rescheduleDate
+    // begitu user pilih tanggal baru di kalender mini mode Jadwal Ulang).
+    _updateAjukanDateLabel() {
+        const el = document.getElementById('jdw-ajukan-date');
+        if (!el) return;
+        const iso = this._activeDate();
+        el.textContent = iso ? _jdwFmtDateLong(iso) : '';
+    },
     _renderSlotGrid() {
         const activeDate = this._activeDate();
         // Jam yang sudah dipakai entri lain (selain yang sedang diedit) di tanggal ini -> dikunci, tidak boleh dobel.
@@ -999,6 +1009,7 @@ const JadwalPage = {
         if (this.pickedSlot && takenSlotIds.has(this.pickedSlot)) this.pickedSlot = null;
         this._renderRescheduleCalendar();
         this._renderSlotGrid();
+        this._updateAjukanDateLabel();
         this._refreshSubmitBtn();
         _jdwSaveState();
     },
