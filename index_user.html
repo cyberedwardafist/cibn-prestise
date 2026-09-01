@@ -112,6 +112,14 @@
        (lihat js EbookReader.open/close) — supaya dock tidak mengambang/tembus
        di atas reader di hp/tablet/desktop. */
     body.ebook-reader-active .dock-wrap { display:none !important; }
+    /* Overlay fullscreen jadwal (Ajukan/Jadwal Ulang/Edit, Pilih Tentor, Sesi)
+       punya z-index 200/201 di atas dock (100) -> dock ketutup/hilang selama
+       overlay itu terbuka. Body class ini (di-toggle dari _jdwSyncPageScrollLock,
+       lihat user/jadwal.js) naikkan dock di atas overlay-overlay itu SAJA, biar
+       tetap kelihatan & bisa dipakai gonta-ganti tab walau lagi ada di halaman
+       Ajukan/Pilih Tentor/Sesi. Scope-nya cuma dock jadwal, tidak menyentuh
+       overlay lain di luar jadwal. */
+    body.jdw-fullscreen-open .dock-wrap { z-index:500; }
     .dock { display:flex; align-items:center; gap:4px; padding:8px 12px; background:linear-gradient(160deg,rgba(255,255,255,.72) 0%,rgba(255,255,255,.38) 40%,rgba(180,210,240,.30) 70%,rgba(255,255,255,.55) 100%); backdrop-filter:blur(40px) saturate(2.2); -webkit-backdrop-filter:blur(40px) saturate(2.2); border:1px solid rgba(255,255,255,.9); border-radius:30px; box-shadow:0 2px 0 rgba(255,255,255,.95) inset, 0 16px 48px rgba(19,50,89,.22), 0 4px 12px rgba(19,50,89,.12); position:relative; isolation:isolate; }
     .dock::before { content:''; position:absolute; top:0; left:12px; right:12px; height:50%; border-radius:30px 30px 60% 60% / 30px 30px 40% 40%; background:linear-gradient(180deg,rgba(255,255,255,.65) 0%,rgba(255,255,255,0) 100%); pointer-events:none; z-index:1; }
     .dock-item { display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:7px 14px; border-radius:18px; transition:transform .25s cubic-bezier(.34,1.56,.64,1), background .2s; position:relative; border:none; background:transparent; -webkit-tap-highlight-color:transparent; z-index:2; }
@@ -578,7 +586,12 @@
        footer sticky lagi) — kasih padding-bottom ekstra biar begitu discroll
        sampai habis, tombolnya berhenti di posisi nyaman di atas dock utama
        (sama kayak jarak aman 100px yang dipakai .page buat konten lain). */
-    #jdw-ajukan-overlay .jdw-modal-body { padding-bottom:calc(100px + env(safe-area-inset-bottom)); }
+    /* 140px = sama kayak jarak aman dock yang dipakai #page-jadwal (bukan 100px
+       generik punya .page lain) -- sekarang dock kelihatan/dipakai lagi di atas
+       overlay ini (lihat body.jdw-fullscreen-open di atas), jadi tombol AJUKAN di
+       ujung scroll harus berhenti di atas dock, bukan ketutup olehnya. */
+    #jdw-ajukan-overlay .jdw-modal-body { padding-bottom:calc(140px + env(safe-area-inset-bottom)); }
+    #jdw-tentor-overlay .jdw-modal-body { padding-bottom:calc(140px + env(safe-area-inset-bottom)); }
     .jdw-ajukan-submit-section { margin-top:4px; }
     /* Overlay Ajukan Jadwal (#jdw-ajukan-overlay) & Pilih Tentor (#jdw-tentor-overlay)
        bisa "open" BARENGAN (buka Pilih Tentor tidak menutup Ajukan Jadwal

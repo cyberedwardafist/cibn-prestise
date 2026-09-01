@@ -250,10 +250,13 @@ function _jdwSlotEndDate(tanggal, slotId) {
 // overlay Ajukan yang masih terbuka di belakangnya).
 const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 'jdw-sesi-overlay'];
 function _jdwSyncPageScrollLock() {
-    const pageEl = document.getElementById('page-jadwal');
-    if (!pageEl) return;
     const anyOpen = JDW_FULLSCREEN_OVERLAY_IDS.some(id => document.getElementById(id)?.classList.contains('open'));
-    pageEl.style.overflow = anyOpen ? 'hidden' : '';
+    const pageEl = document.getElementById('page-jadwal');
+    if (pageEl) pageEl.style.overflow = anyOpen ? 'hidden' : '';
+    // Naikkan dock utama di atas overlay-overlay ini (lihat body.jdw-fullscreen-open
+    // di index_user.html) supaya dock TETAP kelihatan/bisa dipakai selagi halaman
+    // Ajukan/Pilih Tentor/Sesi terbuka, bukan ketutup rapat oleh overlay solidnya.
+    document.body.classList.toggle('jdw-fullscreen-open', anyOpen);
 }
 function _jdwSlotIsOver(e) {
     const end = _jdwSlotEndDate(e.tanggal, e.slotId);
@@ -1061,7 +1064,7 @@ const JadwalPage = {
             </div>`);
         const sesiFooter = document.getElementById('jdw-sesi-footer');
         if (sesiFooter) { sesiFooter.innerHTML = ''; sesiFooter.style.display = 'none'; }
-        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(100px + env(safe-area-inset-bottom))';
+        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(140px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
         _jdwSyncPageScrollLock();
     },
@@ -1124,7 +1127,7 @@ const JadwalPage = {
             </div>`;
         const sesiFooter1 = document.getElementById('jdw-sesi-footer');
         if (sesiFooter1) { sesiFooter1.innerHTML = ''; sesiFooter1.style.display = 'none'; }
-        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(100px + env(safe-area-inset-bottom))';
+        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(140px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
         _jdwSyncPageScrollLock();
     },
@@ -1160,7 +1163,7 @@ const JadwalPage = {
         this._renderFbRating('kualitas');
         const sesiFooter2 = document.getElementById('jdw-sesi-footer');
         if (sesiFooter2) { sesiFooter2.innerHTML = ''; sesiFooter2.style.display = 'none'; }
-        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(100px + env(safe-area-inset-bottom))';
+        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(140px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
         _jdwSyncPageScrollLock();
     },
