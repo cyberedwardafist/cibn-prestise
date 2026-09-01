@@ -371,6 +371,7 @@ function _jdwSaveState() {
             editingId: JadwalPage.editingId,
             pickedSlot: JadwalPage.pickedSlot,
             pickedMateri: JadwalPage.pickedMateri,
+            pickedTentor: JadwalPage.pickedTentor,
             rescheduleDate: JadwalPage.rescheduleDate,
         }));
     } catch (e) {}
@@ -386,8 +387,13 @@ function _jdwRestoreState() {
     JadwalPage.openAjukanOverlay(st.editingId || null);
     // Timpa pilihan default hasil lookup entri (di atas) dengan yang persis
     // lagi dipilih user sebelum refresh — termasuk pengajuan baru yang belum
-    // official (belum ada editingId) tapi jam/materinya sudah sempat dipilih.
+    // official (belum ada editingId) tapi jam/materi/tentor-nya sudah sempat
+    // dipilih. Urutan penting: TENTOR dipulihkan duluan sebelum SLOT/MATERI,
+    // karena pickTentor() otomatis nge-reset slot/materi yang ternyata bukan
+    // diajar/available buat tentor itu — kalau dipulihkan belakangan, pilihan
+    // slot/materi yang sudah benar bisa ketiban reset percuma.
     if (JadwalPage._isReschedule && st.rescheduleDate) JadwalPage.pickRescheduleDate(st.rescheduleDate);
+    if (st.pickedTentor) JadwalPage.pickTentor(st.pickedTentor);
     if (st.pickedSlot) JadwalPage.pickSlot(st.pickedSlot);
     if (st.pickedMateri) JadwalPage.pickMateri(st.pickedMateri);
 }
@@ -903,23 +909,66 @@ const JadwalPage = {
     },
     submitAjukan() {
         if (!this.pickedTentor || !this.pickedSlot || !this.pickedMateri) return;
+        // Simulasi race-condition ala server: cek ULANG persis saat mau submit (bukan
+        // cuma pas grid dirender tadi) apakah jam+tanggal ini KEBURU diambil pengajuan
+        // lain (mis. dari tab/device lain yang submit lebih dulu, sekarang statusnya
+        // sudah bukan "ditolak" lagi di JadwalStore).
+        const targetDate = this._activeDate();
+        const raceLost = JadwalStore.byDate(targetDate).some(e =>
+            e.id !== this.editingId && e.slotId === this.pickedSlot && e.status !== 'ditolak'
+        );
         if (this.editingId) {
             const existing = JadwalStore.get(this.editingId);
             const wasAcc = existing && existing.status === 'acc';
-            const patch = { slotId: this.pickedSlot, materiId: this.pickedMateri, tentorId: this.pickedTentor, status: 'pending' };
             if (this._isReschedule) {
                 if (!this.rescheduleDate) return;
                 const alasanEl = document.getElementById('jdw-reschedule-alasan');
                 const alasan = alasanEl ? alasanEl.value.trim() : '';
                 if (!alasan) return;
-                patch.tanggal = this.rescheduleDate; // pindah ke tanggal baru hasil pilih di kalender mini
-                patch.alasanReschedule = alasan;
+                if (raceLost) {
+                    // PENTING: jam tujuan jadwal-ulang keburu diambil pengajuan lain ->
+                    // jadwal LAMA (entri asli, masih "acc") TIDAK BOLEH ikut ditimpa/
+                    // hilang. JadwalStore.update ke editingId SENGAJA tidak dipanggil
+                    // sama sekali di sini — entri asli tetap utuh persis seperti semula
+                    // (tanggal lama, jam lama, status tetap "acc"). Percobaan jadwal-
+                    // ulang yang gagal ini dicatat sebagai entri BARU terpisah berstatus
+                    // "ditolak", biar tetap ada jejaknya di JadwalStore.
+                    JadwalStore.add({
+                        tanggal: this.rescheduleDate, slotId: this.pickedSlot, materiId: this.pickedMateri,
+                        tentorId: this.pickedTentor, status: 'ditolak',
+                        alasanReschedule: alasan, rescheduleOf: this.editingId,
+                    });
+                    showToast('✗ Jam tujuan baru saja diambil pengajuan lain — jadwal lama kamu tetap seperti semula');
+                } else {
+                    JadwalStore.update(this.editingId, {
+                        slotId: this.pickedSlot, materiId: this.pickedMateri, tentorId: this.pickedTentor,
+                        status: 'pending', tanggal: this.rescheduleDate, alasanReschedule: alasan,
+                    });
+                    showToast('✓ Jadwal ulang diajukan, menunggu persetujuan');
+                }
+            } else {
+                // Sama seperti Jadwal Ulang di atas: entri ASLI (masih "pending", jam/
+                // materi/tentor SEBELUM diedit) TIDAK ikut ditimpa/hilang kalau jam BARU
+                // hasil edit ternyata keburu diambil pengajuan lain. Entri asli tetap
+                // utuh persis seperti semula (kembali seperti sebelum diedit), percobaan
+                // edit yang gagal dicatat sebagai entri baru terpisah berstatus "ditolak".
+                if (raceLost) {
+                    JadwalStore.add({
+                        tanggal: this.selectedDate, slotId: this.pickedSlot, materiId: this.pickedMateri,
+                        tentorId: this.pickedTentor, status: 'ditolak', editOf: this.editingId,
+                    });
+                    showToast('✗ Jam ini baru saja terisi pengajuan lain — pengajuan lama kamu tetap seperti semula');
+                } else {
+                    JadwalStore.update(this.editingId, {
+                        slotId: this.pickedSlot, materiId: this.pickedMateri, tentorId: this.pickedTentor,
+                        status: 'pending',
+                    });
+                    showToast('✓ Pengajuan jadwal diperbarui');
+                }
             }
-            JadwalStore.update(this.editingId, patch);
-            showToast(wasAcc ? '✓ Jadwal ulang diajukan, menunggu persetujuan' : '✓ Pengajuan jadwal diperbarui');
         } else {
-            JadwalStore.add({ tanggal: this.selectedDate, slotId: this.pickedSlot, materiId: this.pickedMateri, tentorId: this.pickedTentor });
-            showToast('✓ Jadwal berhasil diajukan');
+            JadwalStore.add({ tanggal: this.selectedDate, slotId: this.pickedSlot, materiId: this.pickedMateri, tentorId: this.pickedTentor, status: raceLost ? 'ditolak' : 'pending' });
+            showToast(raceLost ? '✗ Jam ini baru saja diambil orang lain, pengajuan otomatis ditolak' : '✓ Jadwal berhasil diajukan');
         }
         this.closeAjukanOverlay();
         _jdwRenderWeek();
