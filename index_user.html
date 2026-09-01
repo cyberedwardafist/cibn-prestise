@@ -961,6 +961,16 @@
 
 </div><!-- /page-container -->
 
+<!-- Overlay Jadwal (Ajukan/Tentor/Sesi/Batal) SENGAJA ditaruh DI SINI, di
+     luar #page-jadwal — karena #page-jadwal pakai class .page yang punya
+     `transform` (buat animasi pindah tab). Kalau overlay position:fixed
+     ditaruh JADI ANAK elemen yang ber-transform, browser nganggap dia fixed
+     relatif ke kotak elemen itu, BUKAN ke layar sungguhan -> ikut ke-scroll
+     bareng #page-jadwal, muncul scrollbar dobel, tombol salah posisi.
+     Ditaruh di sini (sejajar overlay lain seperti logout/paket di bawah,
+     yang sama sekali bukan anak .page manapun) -> beneran fixed ke layar. -->
+<div id="jdw-overlays-root"></div>
+
 
 <!-- DOCK -->
 <div class="dock-wrap">
@@ -1285,6 +1295,10 @@ function goPage(pageId) {
 const USER_PAGE_MODULES = {
     // jadwal: shell (jadwal.html) + tiap overlay/aksi dipecah jadi file sendiri
     // (htmlAppend) — lihat catatan di user/jadwal.html buat daftar lengkapnya.
+    // htmlAppendTarget diarahkan ke #jdw-overlays-root (di LUAR #page-jadwal)
+    // supaya overlay-overlay fullscreen ini beneran position:fixed ke layar,
+    // bukan ke-jebak jadi anak elemen ber-transform (.page) — lihat catatan
+    // panjang di sebelah #jdw-overlays-root di HTML.
     jadwal: {
         html: 'user/jadwal.html',
         htmlAppend: [
@@ -1293,6 +1307,7 @@ const USER_PAGE_MODULES = {
             'user/jadwal-sesi.html',   // Sesi Berlangsung (Masuk) / Feedback
             'user/jadwal-batal.html',  // Konfirmasi Batalkan Jadwal + info tanggal lewat
         ],
+        htmlAppendTarget: 'jdw-overlays-root',
         js: ['user/jadwal.js'],
     },
     riwayat: { html: 'user/riwayat.html', js: ['user/riwayat.js'] },
@@ -1320,9 +1335,12 @@ function ensureUserPageModule(pageId) {
         // di atas malah ketutup di bawah (persis bug "klik Pilih Tentor
         // kayak nggak ngapa-ngapain"). Sequential await di sini menjamin
         // urutannya SELALU sama persis kayak urutan aslinya waktu masih 1 file.
-        if (container && spec.htmlAppend) {
-            for (const url of spec.htmlAppend) {
-                await LazyLoader.loadMany([{ url: '/' + url, container, append: true }]);
+        if (spec.htmlAppend) {
+            const appendTarget = spec.htmlAppendTarget ? document.getElementById(spec.htmlAppendTarget) : container;
+            if (appendTarget) {
+                for (const url of spec.htmlAppend) {
+                    await LazyLoader.loadMany([{ url: '/' + url, container: appendTarget, append: true }]);
+                }
             }
         }
         return LazyLoader.loadMany(spec.js.map(url => ({ url: '/' + url })));
