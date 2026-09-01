@@ -66,11 +66,25 @@ const JadwalStore = (function () {
         return _toIso(d);
     }
     function _seed() {
-        // Contoh data awal biar semua status (menunggu/disetujui/ditolak) kelihatan
-        // di demo pertama kali — sekali dibuat, tidak akan ditimpa lagi.
+        // Contoh data awal biar SEMUA status (menunggu/disetujui/ditolak/berlangsung/
+        // selesai/pengajuan pembatalan) kelihatan sekaligus di demo pertama kali —
+        // sekali dibuat, tidak akan ditimpa lagi. Tanggal sengaja diatur relatif ke
+        // hari ini (bukan hardcode) supaya _jdwAutoExpirePending()/_jdwAutoAdvanceStatus()
+        // tidak langsung mengubah status pending->ditolak atau acc->berlangsung/selesai
+        // saat pertama kali dibuka (lihat catatan status per-entry di bawah).
         const arr = [
-            { id: 'seed1', tanggal: _todayIso(0), slotId: 'slot2', materiId: 'twk', tentorId: 'raffi', status: 'acc', createdAt: Date.now() - 86400000 },
-            { id: 'seed2', tanggal: _todayIso(1), slotId: 'slot4', materiId: 'toefl_listening', tentorId: 'chika', status: 'pending', createdAt: Date.now() - 40000000 },
+            // berlangsung: tanggal HARI INI, feedback belum diisi -> tetap "berlangsung"
+            { id: 'seed_berlangsung', tanggal: _todayIso(0), slotId: 'slot2', materiId: 'twk', tentorId: 'raffi', status: 'berlangsung', createdAt: Date.now() - 90000000 },
+            // ditolak: status tetap (tidak disentuh auto-expire/auto-advance)
+            { id: 'seed_ditolak', tanggal: _todayIso(0), slotId: 'slot7', materiId: 'twk', tentorId: 'angga', status: 'ditolak', createdAt: Date.now() - 80000000 },
+            // selesai: tanggal kemarin
+            { id: 'seed_selesai', tanggal: _todayIso(-1), slotId: 'slot3', materiId: 'toefl_reading', tentorId: 'pram', status: 'selesai', createdAt: Date.now() - 70000000 },
+            // pending (menunggu): tanggal besok -> jam slot belum lewat, tetap "pending"
+            { id: 'seed_pending', tanggal: _todayIso(1), slotId: 'slot1', materiId: 'tiu', tentorId: 'angga', status: 'pending', createdAt: Date.now() - 60000000 },
+            // acc (disetujui): tanggal besok -> belum masuk jam mulai, tetap "acc"
+            { id: 'seed_acc', tanggal: _todayIso(1), slotId: 'slot6', materiId: 'tkp', tentorId: 'raffi', status: 'acc', createdAt: Date.now() - 50000000 },
+            // pengajuan_pembatalan: tanggal besok -> belum lewat, tetap menunggu keputusan batal
+            { id: 'seed_batal', tanggal: _todayIso(1), slotId: 'slot4', materiId: 'toefl_listening', tentorId: 'chika', status: 'pengajuan_pembatalan', alasanBatal: 'Ada jadwal ujian sekolah yang bentrok', createdAt: Date.now() - 40000000 },
         ];
         localStorage.setItem(KEY, JSON.stringify(arr));
         return arr;
@@ -148,6 +162,25 @@ function _jdwTentorMateriLabel(t) {
     if (!t) return '-';
     if (t.materi === 'ALL') return 'SEMUA';
     return t.materi.map(id => { const m = JDW_MATERI.find(x => x.id === id); return m ? m.label.toUpperCase() : id; }).join(' | ');
+}
+// Cek apakah tentor cocok sama kata kunci pencarian — nama ATAU materi yang
+// diajar. Tentor yang materi:'ALL' (ngajar SEMUA, misal ANGGA) dianggap
+// otomatis cocok buat pencarian materi apa pun (misal dicari "twk" -> ANGGA
+// tetap ikut muncul walau sub-labelnya cuma nulis "SEMUA", karena dia emang
+// ngajar semua materi termasuk TWK).
+function _jdwTentorMatchesQuery(t, query) {
+    if (!query) return true;
+    if (t.name.toLowerCase().includes(query)) return true;
+    if (t.materi === 'ALL') {
+        // Tentor "SEMUA" otomatis cocok kalau kata kuncinya memang nyambung ke
+        // pencarian materi (nama materi apa pun, atau kata "semua" itu sendiri)
+        // -- bukan buat kata kunci ngasal yang nggak nyambung ke materi/nama.
+        return 'semua'.includes(query) || JDW_MATERI.some(m => m.label.toLowerCase().includes(query));
+    }
+    return t.materi.some(id => {
+        const m = JDW_MATERI.find(x => x.id === id);
+        return m && m.label.toLowerCase().includes(query);
+    });
 }
 // Cek apakah tentor tertentu ngajar materi tertentu -> dipakai buat nge-abu-
 // abukan chip materi yang bukan diajar tentor yang lagi kepilih. Belum pilih
@@ -752,7 +785,7 @@ const JadwalPage = {
         const wrap = document.getElementById('jdw-tentor-list');
         if (!wrap) return;
         const query = (q || '').trim().toLowerCase();
-        const list = JDW_TENTOR.filter(t => !query || t.name.toLowerCase().includes(query));
+        const list = JDW_TENTOR.filter(t => _jdwTentorMatchesQuery(t, query));
         if (!list.length) {
             wrap.innerHTML = `<div class="jdw-tentor-empty">Tentor "${q}" tidak ditemukan</div>`;
             return;
