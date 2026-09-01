@@ -580,6 +580,13 @@
        (sama kayak jarak aman 100px yang dipakai .page buat konten lain). */
     #jdw-ajukan-overlay .jdw-modal-body { padding-bottom:calc(100px + env(safe-area-inset-bottom)); }
     .jdw-ajukan-submit-section { margin-top:4px; }
+    /* Overlay Ajukan Jadwal (#jdw-ajukan-overlay) & Pilih Tentor (#jdw-tentor-overlay)
+       bisa "open" BARENGAN (buka Pilih Tentor tidak menutup Ajukan Jadwal
+       dulu) — pin z-index eksplisit di sini biar Pilih Tentor SELALU tampil
+       di atas Ajukan Jadwal, TIDAK bergantung urutan DOM/urutan fetch sama
+       sekali (jaga-jaga tambahan di luar urutan loading yang sudah dipastikan
+       sequential di ensureUserPageModule). */
+    #jdw-tentor-overlay { z-index:201; }
     .jdw-modal-footer { flex-shrink:0; padding:14px 16px; background:var(--bg); position:sticky; bottom:0; z-index:2; }
 
     /* ── JADWAL: tombol & badge status generik (self-contained, tidak bergantung css/base.css) ── */
@@ -1302,13 +1309,23 @@ function ensureUserPageModule(pageId) {
     const mainLoad = container
         ? LazyLoader.loadMany([{ url: '/' + spec.html, container }])
         : Promise.resolve();
-    return mainLoad.then(() => {
-        const assets = [];
+    return mainLoad.then(async () => {
+        // PENTING: fragmen overlay (htmlAppend) di-append SATU-SATU SESUAI
+        // URUTAN array-nya (await berurutan, BUKAN Promise.all/bareng) —
+        // overlay yang bisa "open" BARENGAN (mis. Ajukan Jadwal + Pilih
+        // Tentor: buka Pilih Tentor TIDAK menutup Ajukan Jadwal) punya
+        // z-index sama, jadi siapa nempel duluan ke DOM itu yang jadi
+        // acuan siapa kelihatan di atas. Kalau di-fetch bareng, urutan
+        // nempelnya jadi acak ikut timing network -> overlay yang harusnya
+        // di atas malah ketutup di bawah (persis bug "klik Pilih Tentor
+        // kayak nggak ngapa-ngapain"). Sequential await di sini menjamin
+        // urutannya SELALU sama persis kayak urutan aslinya waktu masih 1 file.
         if (container && spec.htmlAppend) {
-            spec.htmlAppend.forEach(url => assets.push({ url: '/' + url, container, append: true }));
+            for (const url of spec.htmlAppend) {
+                await LazyLoader.loadMany([{ url: '/' + url, container, append: true }]);
+            }
         }
-        spec.js.forEach(url => assets.push({ url: '/' + url }));
-        return LazyLoader.loadMany(assets);
+        return LazyLoader.loadMany(spec.js.map(url => ({ url: '/' + url })));
     });
 }
 
