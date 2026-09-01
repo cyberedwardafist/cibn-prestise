@@ -647,6 +647,12 @@
     .jdw-tentor-item.selected .jdw-tentor-item-check { border-color:var(--accent); background:var(--accent); }
     .jdw-tentor-item.selected .jdw-tentor-item-check::after { content:''; position:absolute; top:4px; left:4px; width:8px; height:8px; border-radius:50%; background:#fff; }
     .jdw-tentor-empty { text-align:center; font-size:12.5px; color:var(--text-sub); padding:34px 10px; }
+    /* Tentor tanpa jam available sama sekali (slots:[]) -> diabu-abukan & tidak bisa dipilih */
+    .jdw-tentor-item.disabled { opacity:.45; cursor:not-allowed; background:rgba(19,50,89,.04); }
+    .jdw-tentor-item.disabled:hover { background:rgba(19,50,89,.04); }
+    .jdw-tentor-item.disabled .jdw-tentor-avatar { background:rgba(19,50,89,.25); filter:grayscale(1); }
+    .jdw-tentor-item.disabled .jdw-tentor-item-sub { color:#c0392b; font-weight:600; }
+    .jdw-tentor-item.disabled .jdw-tentor-item-check { display:none; }
 
     /* ═══ SWIPE-CARD LIST — alternatif <table> di mobile (dipakai oleh js/swipe.js) ═══
        Di layar ≤768px, tabel .aksi-swipe-wrap disembunyikan & diganti .swipe-list

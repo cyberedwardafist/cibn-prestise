@@ -201,6 +201,11 @@ function _jdwTentorAllowsSlot(tentorId, slotId) {
     if (t.slots === 'ALL') return true;
     return Array.isArray(t.slots) && t.slots.includes(slotId);
 }
+// Cek apakah tentor ini SAMA SEKALI tidak punya jam available (slots:[] kosong)
+// -> dipakai buat nge-abu-abukan & nge-nonaktifin item-nya di list "Pilih Tentor".
+function _jdwTentorHasNoSlots(t) {
+    return Array.isArray(t.slots) && t.slots.length === 0;
+}
 // Urutan slot jam (index di JDW_SLOTS) dipakai buat ngurutin entri dalam 1 hari
 // dari jam paling awal, TERLEPAS dari urutan kapan entrinya diajukan/diinput.
 function _jdwSlotIndex(slotId) {
@@ -792,11 +797,13 @@ const JadwalPage = {
         }
         wrap.innerHTML = list.map(t => {
             const selected = this.pickedTentor === t.id;
-            return `<div class="jdw-tentor-item${selected ? ' selected' : ''}" onclick="JadwalPage.pickTentor('${t.id}')">
+            const noSlots = _jdwTentorHasNoSlots(t);
+            const sub = noSlots ? 'Tidak ada jadwal tersedia' : _jdwTentorMateriLabel(t);
+            return `<div class="jdw-tentor-item${selected ? ' selected' : ''}${noSlots ? ' disabled' : ''}" onclick="${noSlots ? '' : `JadwalPage.pickTentor('${t.id}')`}">
                 <div class="jdw-tentor-avatar">${t.name.charAt(0)}</div>
                 <div class="jdw-tentor-item-info">
                     <div class="jdw-tentor-item-name">${t.name}</div>
-                    <div class="jdw-tentor-item-sub">${_jdwTentorMateriLabel(t)}</div>
+                    <div class="jdw-tentor-item-sub">${sub}</div>
                 </div>
                 <span class="jdw-tentor-item-check"></span>
             </div>`;
@@ -806,6 +813,8 @@ const JadwalPage = {
        diajar tentor baru ini, lepas pilihan materi itu -> user wajib pilih
        ulang materi yang memang diajar tentor ini. ── */
     pickTentor(id) {
+        const t = JDW_TENTOR.find(x => x.id === id);
+        if (t && _jdwTentorHasNoSlots(t)) return; // jaga-jaga, harusnya sudah tidak punya onclick
         this.pickedTentor = id;
         if (this.pickedMateri && !_jdwTentorAllowsMateri(id, this.pickedMateri)) this.pickedMateri = null;
         if (this.pickedSlot && !_jdwTentorAllowsSlot(id, this.pickedSlot)) this.pickedSlot = null;
