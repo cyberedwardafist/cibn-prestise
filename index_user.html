@@ -629,6 +629,7 @@
     .jdw-status-badge.pengajuan_pembatalan { background:rgba(220,38,38,.10); color:var(--danger); }
     .jdw-status-badge.resejuel { background:rgba(124,58,237,.12); color:#7c3aed; }
     .jdw-status-badge.batal { background:rgba(90,122,154,.14); color:var(--text-sub); }
+    .jdw-status-badge.feedback { background:rgba(217,119,6,.12); color:var(--warning); }
 
     /* ── JADWAL: banner "Jadwal Ulang dari Tentor" (resejuel), pinned di atas list per-tanggal ── */
     .jdw-resejuel-banner { margin-bottom:16px; }
@@ -845,22 +846,6 @@
     <div class="glass home-stat-card"><div class="home-stat-val" id="home-stat-lulus">-</div><div class="home-stat-lbl">Lulus</div></div>
     <div class="glass home-stat-card"><div class="home-stat-val" id="home-stat-avg">-</div><div class="home-stat-lbl">Rata-rata</div></div>
   </div>
-  <!-- Cuma nampilin 1 jadwal mentoring: yang tanggal/jamnya paling awal DAN
-       statusnya sudah disetujui (acc) atau sedang berlangsung. Begitu sesi
-       itu berstatus selesai, widget ini otomatis gantiin dengan jadwal
-       berikutnya yang paling awal (lihat loadHomeJadwalNext() di bawah). -->
-  <div class="glass home-jadwal-next-card" id="home-jadwal-next-card" style="display:none" onclick="goPage('jadwal')">
-    <div class="home-jadwal-next-head">
-      <div class="home-jadwal-next-label">Sesi Mentoring Terdekat</div>
-      <span class="jdw-status-badge" id="home-jadwal-next-status">-</span>
-    </div>
-    <div class="home-jadwal-next-date" id="home-jadwal-next-date">-</div>
-    <div class="home-jadwal-next-row">
-      <span id="home-jadwal-next-slot">-</span>
-      <span class="home-jadwal-next-dot">•</span>
-      <span id="home-jadwal-next-materi">-</span>
-    </div>
-  </div>
   <div class="home-quick-title">Akses Cepat</div>
   <div class="home-quick-grid">
     <div class="glass home-quick-card" onclick="goPage('token')">
@@ -878,6 +863,26 @@
     <div class="glass home-quick-card" onclick="goPage('profil')">
       <div class="home-quick-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
       <div><div class="home-quick-label">Profil</div><div class="home-quick-desc">Pengaturan akun</div></div>
+    </div>
+  </div>
+  <!-- Cuma nampilin 1 jadwal mentoring: yang tanggal/jamnya paling awal DAN
+       statusnya sudah disetujui (acc) atau sedang berlangsung — KECUALI ada
+       pengajuan "Jadwal Ulang dari Tentor" (status resejuel) yang selalu
+       diprioritaskan tampil duluan karena butuh keputusan user. Begitu sesi
+       itu berstatus selesai / resejuel-nya sudah diputuskan, widget ini
+       otomatis gantiin dengan jadwal berikutnya yang paling awal (lihat
+       loadHomeJadwalNext() di atas). Posisi kartu ini sengaja diletakkan DI
+       BAWAH "Akses Cepat" (bukan di atasnya). -->
+  <div class="glass home-jadwal-next-card" id="home-jadwal-next-card" style="display:none" onclick="goPage('jadwal')">
+    <div class="home-jadwal-next-head">
+      <div class="home-jadwal-next-label">Sesi Mentoring Terdekat</div>
+      <span class="jdw-status-badge" id="home-jadwal-next-status">-</span>
+    </div>
+    <div class="home-jadwal-next-date" id="home-jadwal-next-date">-</div>
+    <div class="home-jadwal-next-row">
+      <span id="home-jadwal-next-slot">-</span>
+      <span class="home-jadwal-next-dot">•</span>
+      <span id="home-jadwal-next-materi">-</span>
     </div>
   </div>
 </div>
@@ -1486,8 +1491,17 @@ async function loadHomeJadwalNext() {
         await LazyLoader.load('/user', 'jadwal', null, { html: false });
         if (typeof _jdwAutoExpirePending === 'function') _jdwAutoExpirePending();
         if (typeof _jdwAutoAdvanceStatus === 'function') _jdwAutoAdvanceStatus();
-        const upcoming = JadwalStore.all()
-            .filter(e => e.status === 'acc' || e.status === 'berlangsung' || e.status === 'pengajuan_pembatalan' || e.status === 'resejuel')
+        const all = JadwalStore.all();
+        // Pengajuan "Jadwal Ulang dari Tentor" (status "resejuel") butuh
+        // keputusan user (terima/tolak) -> selalu diprioritaskan tampil di
+        // sini duluan, terlepas tanggal aslinya lebih jauh atau tidak
+        // dibanding sesi acc/berlangsung lain (sama kayak prioritas banner
+        // resejuel di halaman Jadwal, lihat _jdwRenderResejuelBanner).
+        const resejuelList = all
+            .filter(e => e.status === 'resejuel')
+            .sort((a, b) => (a.tanggal !== b.tanggal) ? (a.tanggal < b.tanggal ? -1 : 1) : (_jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId)));
+        const upcoming = resejuelList[0] || all
+            .filter(e => e.status === 'acc' || e.status === 'berlangsung' || e.status === 'pengajuan_pembatalan')
             .sort((a, b) => (a.tanggal !== b.tanggal) ? (a.tanggal < b.tanggal ? -1 : 1) : (_jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId)))[0];
         if (!upcoming) { card.style.display = 'none'; return; }
         const slot = JDW_SLOTS.find(s => s.id === upcoming.slotId);
@@ -1496,8 +1510,15 @@ async function loadHomeJadwalNext() {
         document.getElementById('home-jadwal-next-slot').textContent = slot ? slot.label : '-';
         document.getElementById('home-jadwal-next-materi').textContent = materi ? materi.label : '-';
         const statusEl = document.getElementById('home-jadwal-next-status');
-        statusEl.className = 'jdw-status-badge ' + upcoming.status;
-        statusEl.textContent = JDW_STATUS_LABEL[upcoming.status] || upcoming.status;
+        // "Berlangsung" tapi jam sesinya sudah lewat -> sama kayak kartu di
+        // halaman Jadwal, tombol aksinya udah ganti jadi "Feedback" (bukan
+        // "Masuk" lagi), jadi badge status di sini ikut disesuaikan biar
+        // tidak menyesatkan (masih kebaca "Berlangsung" padahal harusnya
+        // udah isi feedback).
+        const isFeedbackDue = upcoming.status === 'berlangsung' && _jdwSlotIsOver(upcoming);
+        const displayStatus = isFeedbackDue ? 'feedback' : upcoming.status;
+        statusEl.className = 'jdw-status-badge ' + displayStatus;
+        statusEl.textContent = isFeedbackDue ? 'Feedback' : (JDW_STATUS_LABEL[upcoming.status] || upcoming.status);
         card.style.display = '';
     } catch (e) {
         card.style.display = 'none';
