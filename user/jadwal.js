@@ -240,6 +240,21 @@ function _jdwSlotEndDate(tanggal, slotId) {
     d.setHours(hh || 0, mm || 0, 0, 0);
     return d;
 }
+// Halaman #page-jadwal di belakang ikut punya scrollbar sendiri (overflow-y:auto
+// dari .page). Begitu salah satu overlay fullscreen jadwal (Ajukan/Jadwal
+// Ulang/Edit, Pilih Tentor, Sesi/Masuk/Feedback/Ajukan Pembatalan) kebuka di
+// atasnya, scrollbar halaman itu masih aktif walau ketutup rapat -> muncul 2
+// scrollbar bertumpuk. Kunci overflow #page-jadwal selama salah satu dari
+// overlay-overlay itu masih "open", baru dilepas begitu semuanya ketutup
+// (bukan asal unlock di tiap close, soalnya Pilih Tentor bisa numpuk KE ATAS
+// overlay Ajukan yang masih terbuka di belakangnya).
+const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 'jdw-sesi-overlay'];
+function _jdwSyncPageScrollLock() {
+    const pageEl = document.getElementById('page-jadwal');
+    if (!pageEl) return;
+    const anyOpen = JDW_FULLSCREEN_OVERLAY_IDS.some(id => document.getElementById(id)?.classList.contains('open'));
+    pageEl.style.overflow = anyOpen ? 'hidden' : '';
+}
 function _jdwSlotIsOver(e) {
     const end = _jdwSlotEndDate(e.tanggal, e.slotId);
     return !!(end && end <= new Date());
@@ -718,12 +733,14 @@ const JadwalPage = {
         this._refreshSubmitBtn();
         const overlay = document.getElementById('jdw-ajukan-overlay');
         overlay.classList.add('open');
+        _jdwSyncPageScrollLock();
         const body = overlay.querySelector('.jdw-modal-body');
         if (body) body.scrollTop = 0;
         _jdwSaveState();
     },
     closeAjukanOverlay() {
         document.getElementById('jdw-ajukan-overlay').classList.remove('open');
+        _jdwSyncPageScrollLock();
         _jdwSaveState();
     },
     /* ── Tanggal aktif yang jadi acuan grid jam: tanggal baru hasil pilih di
@@ -786,10 +803,12 @@ const JadwalPage = {
         if (search) search.value = '';
         this._renderTentorList('');
         document.getElementById('jdw-tentor-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
         if (search) search.focus();
     },
     closeTentorOverlay() {
         document.getElementById('jdw-tentor-overlay').classList.remove('open');
+        _jdwSyncPageScrollLock();
     },
     filterTentor(q) { this._renderTentorList(q); },
     _renderTentorList(q) {
@@ -1044,6 +1063,7 @@ const JadwalPage = {
         if (sesiFooter) { sesiFooter.innerHTML = ''; sesiFooter.style.display = 'none'; }
         document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(100px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
     },
     _refreshBatalUlangBtn() {
         const btn = document.getElementById('jdw-batalulang-submit');
@@ -1106,6 +1126,7 @@ const JadwalPage = {
         if (sesiFooter1) { sesiFooter1.innerHTML = ''; sesiFooter1.style.display = 'none'; }
         document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(100px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
     },
     copySesiValue(text, label) {
         if (!navigator.clipboard || !navigator.clipboard.writeText) return;
@@ -1141,6 +1162,7 @@ const JadwalPage = {
         if (sesiFooter2) { sesiFooter2.innerHTML = ''; sesiFooter2.style.display = 'none'; }
         document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(100px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
     },
     _renderFbRating(field) {
         const wrap = document.getElementById(field === 'paham' ? 'jdw-fb-paham' : 'jdw-fb-kualitas');
@@ -1171,6 +1193,7 @@ const JadwalPage = {
     },
     closeSesiOverlay() {
         document.getElementById('jdw-sesi-overlay').classList.remove('open');
+        _jdwSyncPageScrollLock();
         this._sesiEntryId = null;
     },
 };
