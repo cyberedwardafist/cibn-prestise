@@ -710,6 +710,11 @@
     .jdw-tentor-picker-empty:hover { background:rgba(26,90,160,.06); }
     .jdw-tentor-picker-selected { display:flex; align-items:center; gap:12px; padding:11px 14px; border-radius:12px; border:1.5px solid rgba(19,50,89,.12); background:rgba(255,255,255,.6); cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; }
     .jdw-tentor-picker-selected:hover { background:rgba(255,255,255,.9); }
+    /* Terkunci (habis tolak jadwal ulang dari tentor -> lanjut ajukan versi
+       sendiri, tentor WAJIB tetap sama) — tidak bisa diklik/diganti sama
+       sekali, tampilan digelapkan biar kelihatan nonaktif. */
+    .jdw-tentor-picker-selected.locked { cursor:default; opacity:.7; background:rgba(19,50,89,.04); }
+    .jdw-tentor-picker-selected.locked:hover { background:rgba(19,50,89,.04); }
     .jdw-tentor-avatar { width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; display:flex; align-items:center; justify-content:center; font-family:var(--font-head); font-weight:700; font-size:14px; flex-shrink:0; }
     .jdw-tentor-picker-info { flex:1; min-width:0; }
     .jdw-tentor-picker-name { font-family:var(--font-head); font-size:13.5px; font-weight:700; color:var(--blue); }

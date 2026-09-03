@@ -295,7 +295,7 @@ const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 
 // #page-jadwal di baliknya tetap ikut dikunci scroll-nya biar konsisten -
 // tidak masuk akal halaman di belakang masih bisa discroll pas ada dialog
 // konfirmasi kecil nongol di tengah layar.
-const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-lewat-overlay'];
+const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-lewat-overlay', 'jdw-tolak-ajukan-overlay'];
 function _jdwSyncPageScrollLock() {
     const pageEl = document.getElementById('page-jadwal');
     const anyLockOpen = JDW_SCROLL_LOCK_OVERLAY_IDS.some(id => document.getElementById(id)?.classList.contains('open'));
@@ -787,10 +787,11 @@ const JadwalPage = {
     _isReschedule: false,   // true kalau overlay ini lagi mode "Jadwal Ulang" (entri berstatus acc)
     rescheduleDate: null,   // tanggal BARU yang dipilih lewat kalender mini di overlay (mode Jadwal Ulang saja)
     rescheduleWeekRef: null,// tanggal acuan minggu yang lagi ditampilkan di kalender mini itu
-    openAjukanOverlay(entryId) {
+    openAjukanOverlay(entryId, lockTentor) {
         _jdwAutoExpirePending(); // bebasin slot yang barusan auto-tertolak sebelum dihitung "terisi"
         _jdwAutoAdvanceStatus();
         this.editingId = entryId || null;
+        this._tentorLocked = !!lockTentor;
         const existing = entryId ? JadwalStore.get(entryId) : null;
         // Selalu selaraskan selectedDate dengan tanggal entri yang diedit (kalau ada) —
         // ini yang jadi acuan tanggal buat cek jam terisi/lewat, bukan cuma tanggal
@@ -873,30 +874,43 @@ const JadwalPage = {
     /* ── Box "Pilih Tentor" di halaman Ajukan Jadwal — nampilin placeholder
        "+ Pilih Tentor" kalau belum kepilih, atau kartu nama tentor + materi
        yang diajar kalau sudah. Box ini sendiri yang jadi tombol buka/ganti
-       tentor (tap kapan aja, baik masih kosong atau sudah kepilih). ── */
+       tentor (tap kapan aja, baik masih kosong atau sudah kepilih) —
+       KECUALI kalau this._tentorLocked true (dibuka lewat
+       JadwalPage.confirmAjukanSetelahTolak(), habis Tolak jadwal ulang dari
+       tentor) — dalam kondisi itu tentor WAJIB tetap sama kayak jadwal yang
+       barusan ditolak reschedule-nya, jadi onclick-nya dilepas total & boxnya
+       digelapkan (lihat CSS .jdw-tentor-picker-selected.locked). ── */
+    _tentorLocked: false,
     _renderTentorPicker() {
         const wrap = document.getElementById('jdw-tentor-picker');
         if (!wrap) return;
         const t = JDW_TENTOR.find(x => x.id === this.pickedTentor);
+        const locked = this._tentorLocked;
         if (!t) {
-            wrap.innerHTML = `<div class="jdw-tentor-picker-empty" onclick="JadwalPage.openTentorOverlay()">
+            wrap.innerHTML = `<div class="jdw-tentor-picker-empty"${locked ? '' : ' onclick="JadwalPage.openTentorOverlay()"'}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Pilih Tentor
             </div>`;
             return;
         }
-        wrap.innerHTML = `<div class="jdw-tentor-picker-selected" onclick="JadwalPage.openTentorOverlay()">
+        wrap.innerHTML = `<div class="jdw-tentor-picker-selected${locked ? ' locked' : ''}"${locked ? '' : ' onclick="JadwalPage.openTentorOverlay()"'}>
             <div class="jdw-tentor-avatar">${t.name.charAt(0)}</div>
             <div class="jdw-tentor-picker-info">
                 <div class="jdw-tentor-picker-name">${t.name}</div>
-                <div class="jdw-tentor-picker-sub">${_jdwTentorMateriLabel(t)}</div>
+                <div class="jdw-tentor-picker-sub">${locked ? 'Tentor tidak bisa diganti' : _jdwTentorMateriLabel(t)}</div>
             </div>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="15" height="15" style="flex-shrink:0;color:var(--text-sub)"><polyline points="9 18 15 12 9 6"/></svg>
+            ${locked
+                ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14" style="flex-shrink:0;color:var(--text-sub)"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>`
+                : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="15" height="15" style="flex-shrink:0;color:var(--text-sub)"><polyline points="9 18 15 12 9 6"/></svg>`}
         </div>`;
     },
     /* ── Halaman "Pilih Tentor" (search + list nama tentor) — dibuka dari box
-       di atas. Milih salah satu langsung balik ke halaman Ajukan Jadwal. ── */
+       di atas. Milih salah satu langsung balik ke halaman Ajukan Jadwal.
+       Guard this._tentorLocked di sini juga (bukan cuma lepas onclick di
+       box-nya) — jaga-jaga kalau ada jalan lain buat manggil fungsi ini
+       selagi tentor lagi dikunci. ── */
     openTentorOverlay() {
+        if (this._tentorLocked) return;
         const search = document.getElementById('jdw-tentor-search');
         if (search) search.value = '';
         this._renderTentorList('');
@@ -1142,14 +1156,30 @@ const JadwalPage = {
         this._resejuelTargetId = null;
     },
     // Tolak -> jadwal LAMA tidak berubah sama sekali, cuma lepas status
-    // "resejuel" & buang pengajuan jadwal barunya, balik jadi "acc" seperti semula.
+    // "resejuel" & buang pengajuan jadwal barunya, balik jadi "acc" seperti
+    // semula. Setelah itu tawarkan dialog "Ajukan Jadwal Lain?" — kalau user
+    // pilih "Ya, Ajukan", lanjut buka halaman Ajukan Jadwal mode Jadwal Ulang
+    // buat entri yang sama TAPI dengan tentor DIKUNCI (lihat
+    // confirmAjukanSetelahTolak & openAjukanOverlay(entryId, true)).
+    _tolakAjukanEntryId: null,
     tolakResejuel() {
         if (!this._resejuelTargetId) return;
         JadwalStore.update(this._resejuelTargetId, { status: 'acc', reschedule: null });
+        this._tolakAjukanEntryId = this._resejuelTargetId;
         this.closeResejuelOverlay();
         showToast('Jadwal ulang dari tentor ditolak, jadwal lama tetap berlaku');
         _jdwRenderWeek();
         _jdwRenderStatusList();
+        const ov = document.getElementById('jdw-tolak-ajukan-overlay');
+        if (ov) { ov.classList.add('open'); _jdwSyncPageScrollLock(); }
+    },
+    confirmAjukanSetelahTolak() {
+        const ov = document.getElementById('jdw-tolak-ajukan-overlay');
+        if (ov) { ov.classList.remove('open'); _jdwSyncPageScrollLock(); }
+        const id = this._tolakAjukanEntryId;
+        this._tolakAjukanEntryId = null;
+        if (!id) return;
+        this.openAjukanOverlay(id, true);
     },
     // Setuju -> jadwal ikut yang BARU (diajukan tentor). Bentrok dengan jadwal
     // lain di akun user SENGAJA tidak dicek di sini — itu urusan akun guru/
