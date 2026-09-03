@@ -727,14 +727,20 @@ const JadwalPage = {
        acc          -> Jadwal Ulang (kiri) + Batal (kanan)
        berlangsung  -> Masuk (kiri) kalau jam sesinya belum lewat, atau
                        Feedback (kiri) kalau sudah lewat — tanpa Batal sama sekali
-       resejuel     -> Cek (kanan) — buka halaman fullscreen bandingkan jadwal
-                       lama vs jadwal baru dari tentor, lihat JadwalPage.bukaResejuel
+       resejuel     -> Cek (KANAN, makanya didaftarkan lewat key `left` — lihat
+                       catatan di swipe.js: actions yang didaftarkan lewat
+                       leftActions dirender pakai class sw-left {right:0},
+                       jadi VISUALNYA malah nongol di kanan, bukan kiri;
+                       key `right`/rightActions {left:0} justru nongol di
+                       kiri. Sempat kebalik & ketauan dari screenshot user.)
+                       — buka halaman fullscreen bandingkan jadwal lama vs
+                       jadwal baru dari tentor, lihat JadwalPage.bukaResejuel
        selesai/batal/lain -> tanpa aksi apa pun (sweep/tombol dihilangkan total) ── */
     _entryActions(e) {
         if (e.status === 'resejuel') {
             return {
-                left: [],
-                right: [{ icon: 'check', label: 'Cek', cls: 'act-primary', onClick: `JadwalPage.bukaResejuel('${e.id}')` }],
+                left: [{ icon: 'check', label: 'Cek', cls: 'act-primary', onClick: `JadwalPage.bukaResejuel('${e.id}')` }],
+                right: [],
             };
         }
         if (e.status === 'pending') {
