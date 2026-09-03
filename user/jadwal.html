@@ -56,12 +56,10 @@
      aman di bawah supaya tombol-tombol itu (termasuk pas kartu paling bawah
      di-geser) TIDAK ketutupan dock mengambang diatur lewat padding-bottom
      #page-jadwal (lihat blok <style> index_user.html, sama pola kayak
-     #page-profil yang juga ngitung env(safe-area-inset-bottom)). -->
-<!-- ══════ BANNER: PENGAJUAN JADWAL ULANG DARI TENTOR (status "resejuel") ══════
-     Sengaja dipisah dari list per-tanggal di bawah & selalu nongol paling
-     atas "Minggu Ini" (home), terlepas posisi/tanggal jadwal aslinya — lihat
-     _jdwRenderResejuelBanner() di user/jadwal.js. Kosong/hidden kalau tidak
-     ada pengajuan yang menunggu. -->
-<div class="jdw-resejuel-banner" id="jdw-resejuel-banner" style="display:none"></div>
-
+     #page-profil yang juga ngitung env(safe-area-inset-bottom)).
+     Entri berstatus "resejuel" (jadwal ulang dari tentor) TIDAK punya
+     banner terpisah lagi — tampil normal di list tanggal jadwal lama-nya
+     kayak status lain, tombol aksinya "Cek" buka halaman fullscreen
+     bandingkan jadwal lama vs baru (lihat #jdw-resejuel-overlay di
+     user/jadwal-batal.html & JadwalPage.bukaResejuel di user/jadwal.js). -->
 <div class="jdw-status-list" id="jdw-status-list"></div>

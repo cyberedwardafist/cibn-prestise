@@ -596,6 +596,7 @@
        ujung scroll harus berhenti di atas dock, bukan ketutup olehnya. */
     #jdw-ajukan-overlay .jdw-modal-body { padding-bottom:calc(200px + env(safe-area-inset-bottom)); }
     #jdw-tentor-overlay .jdw-modal-body { padding-bottom:calc(200px + env(safe-area-inset-bottom)); }
+    #jdw-resejuel-overlay .jdw-modal-body { padding-bottom:calc(200px + env(safe-area-inset-bottom)); }
     .jdw-ajukan-submit-section { margin-top:4px; }
     /* Overlay Ajukan Jadwal (#jdw-ajukan-overlay) & Pilih Tentor (#jdw-tentor-overlay)
        bisa "open" BARENGAN (buka Pilih Tentor tidak menutup Ajukan Jadwal
@@ -631,21 +632,40 @@
     .jdw-status-badge.batal { background:rgba(90,122,154,.14); color:var(--text-sub); }
     .jdw-status-badge.feedback { background:rgba(217,119,6,.12); color:var(--warning); }
 
-    /* ── JADWAL: banner "Jadwal Ulang dari Tentor" (resejuel), pinned di atas list per-tanggal ── */
-    .jdw-resejuel-banner { margin-bottom:16px; }
-    .jdw-resejuel-banner-title { font-family:var(--font-head); font-size:12.5px; font-weight:700; color:#7c3aed; margin-bottom:8px; padding:0 2px; display:flex; align-items:center; gap:6px; }
-    .jdw-resejuel-banner-title::before { content:''; width:7px; height:7px; border-radius:50%; background:#7c3aed; flex-shrink:0; }
-    /* ── JADWAL: overlay bandingkan jadwal lama vs baru (resejuel) ── */
-    .jdw-resejuel-compare { display:flex; flex-direction:column; align-items:stretch; gap:2px; margin:14px 0 18px; }
-    .jdw-resejuel-item { padding:12px 14px; border-radius:14px; background:rgba(19,50,89,.04); border:1.5px solid rgba(19,50,89,.1); }
+    /* ── JADWAL: halaman fullscreen bandingkan jadwal lama vs baru (resejuel) —
+       resume LAMA (diajukan user) di atas, resume BARU (diajukan tentor,
+       termasuk alasan tentor) di bawah, tiap resume nampilin nama tentornya
+       juga. Susunan vertikal ini KHUSUS mobile — di desktop disusun
+       berdampingan, lihat @media (min-width:769px) di bawah. ── */
+    .jdw-resejuel-compare { display:flex; flex-direction:column; align-items:stretch; gap:2px; margin:2px 0 18px; }
+    .jdw-resejuel-item { padding:14px 16px; border-radius:14px; background:rgba(19,50,89,.04); border:1.5px solid rgba(19,50,89,.1); }
     .jdw-resejuel-item.new { background:rgba(124,58,237,.06); border-color:rgba(124,58,237,.25); }
     .jdw-resejuel-item-label { font-size:10.5px; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:.02em; margin-bottom:5px; }
     .jdw-resejuel-item.new .jdw-resejuel-item-label { color:#7c3aed; }
     .jdw-resejuel-item-date { font-family:var(--font-head); font-size:13.5px; font-weight:700; color:var(--blue); margin-bottom:3px; }
-    .jdw-resejuel-item-row { font-size:12px; color:var(--text-sub); font-weight:600; display:flex; align-items:center; gap:6px; }
+    .jdw-resejuel-item-row { font-size:12px; color:var(--text-sub); font-weight:600; display:flex; align-items:center; gap:6px; margin-bottom:6px; }
     .jdw-resejuel-item-dot { opacity:.5; }
+    .jdw-resejuel-item-tentor { font-size:12px; color:var(--blue); font-weight:700; }
+    .jdw-resejuel-item-alasan { margin-top:10px; padding-top:10px; border-top:1px dashed rgba(19,50,89,.14); font-size:12px; color:var(--text-sub); font-weight:600; line-height:1.5; }
+    .jdw-resejuel-item.new .jdw-resejuel-item-alasan { border-top-color:rgba(124,58,237,.2); }
+    .jdw-resejuel-item-alasan-label { display:block; font-size:10.5px; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:.02em; margin-bottom:4px; }
     .jdw-resejuel-arrow { display:flex; justify-content:center; color:#7c3aed; margin:2px 0; }
     .jdw-resejuel-arrow svg { width:18px; height:18px; }
+    /* Tombol Tolak/Setuju berdampingan, ditaruh di ujung bawah body (bukan
+       footer sticky) — sama pola kayak tombol AJUKAN di halaman Ajukan
+       Jadwal, biar ikut kescroll & berhenti di atas dock utama. */
+    .jdw-resejuel-actions { display:flex; gap:10px; margin-top:4px; }
+    .jdw-resejuel-actions .jdw-btn { flex:1; justify-content:center; }
+    /* ── JADWAL: layar desktop (lebih luas) — resume lama & baru disusun
+       BERDAMPINGAN (lama di kiri, baru di kanan) alih-alih ditumpuk vertikal,
+       panahnya diputar jadi horizontal, tetap di antara keduanya, tetap
+       mengarah dari jadwal lama ke jadwal baru. ── */
+    @media (min-width:769px) {
+        .jdw-resejuel-compare { flex-direction:row; align-items:stretch; gap:16px; }
+        .jdw-resejuel-item { flex:1; }
+        .jdw-resejuel-arrow { align-self:center; margin:0; flex-shrink:0; }
+        .jdw-resejuel-arrow svg { transform:rotate(-90deg); }
+    }
 
     /* ── JADWAL: tabel desktop untuk daftar pengajuan ── */
     .jdw-entry-table { width:100%; border-collapse:collapse; font-size:13px; }
@@ -1495,8 +1515,9 @@ async function loadHomeJadwalNext() {
         // Pengajuan "Jadwal Ulang dari Tentor" (status "resejuel") butuh
         // keputusan user (terima/tolak) -> selalu diprioritaskan tampil di
         // sini duluan, terlepas tanggal aslinya lebih jauh atau tidak
-        // dibanding sesi acc/berlangsung lain (sama kayak prioritas banner
-        // resejuel di halaman Jadwal, lihat _jdwRenderResejuelBanner).
+        // dibanding sesi acc/berlangsung lain (di halaman Jadwal sendiri,
+        // entri ini tampil normal di list tanggalnya dengan tombol "Cek" —
+        // lihat JadwalPage.bukaResejuel di user/jadwal.js).
         const resejuelList = all
             .filter(e => e.status === 'resejuel')
             .sort((a, b) => (a.tanggal !== b.tanggal) ? (a.tanggal < b.tanggal ? -1 : 1) : (_jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId)));

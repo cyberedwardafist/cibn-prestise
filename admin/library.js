@@ -9,9 +9,6 @@
 // identifier-nya belum exist sama sekali -> ReferenceError)
 let _libData=[],_libSearch='',_libType='all',_libKelompokFilter='all';
 const _libSelected=new Set();
-// Cache tinggi ASLI (hasil ukur DOM) tiap grup kelompok — dipakai VirtualList
-// biar estimasi tinggi makin lama makin akurat (lihat catatan di _renderLibList)
-let _libGroupHeightCache={};
 
 async function renderLibrary(){
     [_libData]=await Promise.all([SoalAPI.getAll().catch(()=>[]), _loadSoalKelompokList()]);
@@ -46,13 +43,9 @@ function _libSwipeCardHtml(s){const kode=s.kode||s.id;const sel=_libSelected.has
 function _libGroupHtml(group){
     const cardsHtml=group.items.map(_libCardHtml).join('');
     const swipeHtml=group.items.map(_libSwipeCardHtml).join('');
-    // data-gkey dipakai buat ukur tinggi ASLI grup ini setelah dirender (lihat onRendered
-    // di _renderLibList) — jangan dihapus, itu yang benerin bug hilang-muncul pas scroll.
-    return `<div class="lib-group" data-gkey="${String(group.key).replace(/"/g,'&quot;')}">
-    <div class="section-sub" style="font-weight:700;color:var(--blue);text-transform:none;margin:18px 0 8px">${group.label} <span style="font-weight:500;color:var(--text-sub);font-size:11px">(${group.items.length} soal)</span></div>
+    return `<div class="section-sub" style="font-weight:700;color:var(--blue);text-transform:none;margin:18px 0 8px">${group.label} <span style="font-weight:500;color:var(--text-sub);font-size:11px">(${group.items.length} soal)</span></div>
     <div class="aksi-swipe-wrap">${cardsHtml}</div>
-    <div class="swipe-list">${swipeHtml}</div>
-    </div>`;
+    <div class="swipe-list">${swipeHtml}</div>`;
 }
 function _renderLibList(){
     let data=_libData;
@@ -69,32 +62,10 @@ function _renderLibList(){
     const groupList=orderedKeys.map(k=>({key:k,label:k==='__none__'?'Tanpa Kelompok':_soalKelompokNama(k),items:groups[k]}));
     VirtualList.renderGroups(el,{
         items:groupList,
-        // Estimasi 40+items*96 cuma tebakan awal (asumsi 1 kartu soal = 96px persis).
-        // Aslinya tinggi kartu beda-beda (ada yang punya nama_internal jadi 2 baris,
-        // badge kelompok yang wrap ke baris baru di layar sempit, dst), jadi makin
-        // panjang sebuah kelompok, makin besar selisih estimasi vs tinggi asli di DOM.
-        // Efeknya: VirtualList salah hitung baris mana yang lagi kelihatan di layar ->
-        // pas scroll di kelompok yang panjang, kelompok itu keburu "dianggap" udah
-        // lewat (padahal masih di layar) -> hilang, lalu kelompok bawahnya nongol lebih awal.
-        // Fix: pakai tinggi HASIL UKUR DOM asli (_libGroupHeightCache, diisi di onRendered
-        // di bawah) begitu tersedia, cuma pakai tebakan kasar utk grup yg belum pernah dirender.
-        estimateHeight:(g)=>_libGroupHeightCache[g.key]||(40+g.items.length*96),
+        estimateHeight:(g)=>40+g.items.length*96,
         renderItem:_libGroupHtml,
         emptyHtml:'<div class="empty-state"><p>Belum ada soal di library</p></div>',
-        onRendered:()=>{
-            if(window.SwipeCards)el.querySelectorAll('.swipe-list').forEach(sw=>SwipeCards.bindSwipeList(sw,_libSelectOpts()));
-            // Ukur tinggi asli tiap grup yang baru saja dirender, simpan ke cache.
-            // Kalau ada yang berubah dari perkiraan sebelumnya, langsung minta
-            // VirtualList hitung ulang window-nya (biar spacer-nya pas seketika,
-            // ga nunggu event scroll berikutnya baru kebenaran).
-            let changed=false;
-            el.querySelectorAll(':scope > .lib-group[data-gkey]').forEach(gEl=>{
-                const key=gEl.dataset.gkey;
-                const h=gEl.offsetHeight;
-                if(h>0&&Math.abs((_libGroupHeightCache[key]||0)-h)>2){_libGroupHeightCache[key]=h;changed=true;}
-            });
-            if(changed&&el.__vlistUpdate)el.__vlistUpdate();
-        }
+        onRendered:()=>{ if(window.SwipeCards)el.querySelectorAll('.swipe-list').forEach(sw=>SwipeCards.bindSwipeList(sw,_libSelectOpts())); }
     });
     _updateLibBulkBar();
 }

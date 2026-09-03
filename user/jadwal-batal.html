@@ -41,17 +41,38 @@
   </div>
 </div>
 
-<!-- ══════ JADWAL ULANG DARI TENTOR (status "resejuel") — bandingkan jadwal
-     lama vs baru, lalu Setuju/Tolak. Dipicu dari tombol "Buka" di kartu
-     sweep pada banner khusus di atas #jdw-status-list. ══════ -->
-<div class="overlay confirm-overlay" id="jdw-resejuel-overlay" onclick="if(event.target===this){JadwalPage.closeResejuelOverlay();}">
-  <div class="modal" style="max-width:340px">
-    <div class="confirm-title" style="margin-bottom:2px">Jadwal Ulang dari Tentor</div>
-    <div class="confirm-msg" style="margin-bottom:0">Tentor mengajukan perubahan jadwal mentoring kamu. Tinjau lalu pilih salah satu di bawah.</div>
-    <div class="jdw-resejuel-compare" id="jdw-resejuel-compare"></div>
-    <div class="confirm-btns">
-      <button class="btn-secondary" onclick="JadwalPage.tolakResejuel()" style="flex:1;padding:11px">Tolak</button>
-      <button class="btn-primary" onclick="JadwalPage.setujuResejuel()" style="flex:1;margin-top:0">Setuju</button>
+<!-- ══════════════════════════════════════════════════════════════════════
+     JADWAL ULANG DARI TENTOR (status "resejuel") — halaman FULLSCREEN
+     (sama pola dengan user/jadwal-ajukan.html: header sticky + body scroll),
+     isinya bandingkan resume jadwal LAMA (diajukan user) vs resume jadwal
+     BARU (diajukan tentor, lengkap dengan alasan tentor mengajukan jadwal
+     ulang) — tiap resume nampilin nama tentornya juga. Lalu tombol
+     Tolak/Setuju berdampingan di ujung bawah body (di atas dock utama,
+     lihat padding-bottom #jdw-resejuel-overlay .jdw-modal-body). Dipicu
+     dari tombol "Cek" di kartu sweep status "resejuel" — kartu itu sendiri
+     tampil normal di list tanggal (user/jadwal.html), sama seperti status
+     lain, TIDAK ada banner terpisah lagi. Di desktop, resume lama & baru
+     disusun berdampingan (lihat CSS .jdw-resejuel-compare
+     @media min-width:769px, index_user.html), panahnya tetap di antara
+     keduanya mengarah dari jadwal lama ke jadwal baru. ══════════════════ -->
+<div class="overlay overlay-fullscreen" id="jdw-resejuel-overlay">
+  <div class="modal modal-fullscreen">
+    <div class="jdw-modal-header">
+      <button class="jdw-icon-btn" onclick="JadwalPage.closeResejuelOverlay()" aria-label="Kembali">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="jdw-modal-title-wrap">
+        <div class="jdw-modal-title">Jadwal Ulang dari Tentor</div>
+        <div class="jdw-modal-subtitle">Tinjau lalu pilih salah satu</div>
+      </div>
+      <span style="width:32px"></span>
+    </div>
+    <div class="jdw-modal-body">
+      <div class="jdw-resejuel-compare" id="jdw-resejuel-compare"></div>
+      <div class="jdw-form-section jdw-resejuel-actions" style="margin-bottom:0">
+        <button class="jdw-btn jdw-btn-secondary jdw-btn-block" onclick="JadwalPage.tolakResejuel()">TOLAK</button>
+        <button class="jdw-btn jdw-btn-primary jdw-btn-block" onclick="JadwalPage.setujuResejuel()">SETUJU</button>
+      </div>
     </div>
   </div>
 </div>

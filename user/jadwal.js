@@ -108,13 +108,14 @@ const JadwalStore = (function () {
             { id: 'seed_selesai1', tanggal: _todayIso(-1), slotId: 'slot3', materiId: 'toefl_reading', tentorId: 'pram', status: 'selesai', feedbackDone: true, feedback: { paham: 4, kualitas: 5, catatan: 'Penjelasannya jelas & mudah diikuti', filledAt: Date.now() - 50000000 }, createdAt: Date.now() - 55000000 },
             { id: 'seed_selesai2', tanggal: _todayIso(-3), slotId: 'slot5', materiId: 'twk', tentorId: 'albert', status: 'selesai', feedbackDone: false, createdAt: Date.now() - 40000000 },
             // resejuel (jadwal ulang DARI TENTOR, beda dari "Jadwal Ulang" biasa
-            // yang diajukan user) -> kartunya nongol di banner khusus paling atas
-            // "Minggu Ini" (lihat _jdwRenderResejuelBanner), tombolnya cuma "Buka"
-            // yang membuka overlay bandingkan jadwal lama vs baru. Field
-            // tanggal/slotId/materiId di entri ini TETAP jadwal LAMA (yang
+            // yang diajukan user) -> kartunya tampil normal di list tanggal
+            // jadwal LAMA-nya (sama seperti status lain), tombolnya cuma "Cek"
+            // yang membuka halaman fullscreen bandingkan jadwal lama vs baru.
+            // Field tanggal/slotId/materiId di entri ini TETAP jadwal LAMA (yang
             // diajukan user) — jadwal BARU dari tentor disimpan terpisah di
-            // field `reschedule`, biar gampang balik ke lama kalau ditolak.
-            { id: 'seed_resejuel', tanggal: _todayIso(2), slotId: 'slot2', materiId: 'tiu', tentorId: 'raffi', status: 'resejuel', reschedule: { tanggal: _todayIso(4), slotId: 'slot5', materiId: 'tiu' }, createdAt: Date.now() - 30000000 },
+            // field `reschedule` (termasuk alasan tentor mengajukan jadwal
+            // ulang), biar gampang balik ke lama kalau ditolak.
+            { id: 'seed_resejuel', tanggal: _todayIso(2), slotId: 'slot2', materiId: 'tiu', tentorId: 'raffi', status: 'resejuel', reschedule: { tanggal: _todayIso(4), slotId: 'slot5', materiId: 'tiu', alasan: 'Tentor ada keperluan mendadak di jam yang sama' }, createdAt: Date.now() - 30000000 },
             // batal, DIBATALKAN OLEH TENTOR (field batalOleh:'tentor') -> tanpa
             // tombol aksi (kayak "selesai"), TAPI beda dari entri lampau biasa:
             // sengaja TETAP nongol di "Minggu Ini" (home) pada tanggal aslinya
@@ -287,14 +288,14 @@ function _jdwSlotEndDate(tanggal, slotId) {
 // overlay-overlay itu masih "open", baru dilepas begitu semuanya ketutup
 // (bukan asal unlock di tiap close, soalnya Pilih Tentor bisa numpuk KE ATAS
 // overlay Ajukan yang masih terbuka di belakangnya).
-const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 'jdw-sesi-overlay'];
+const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 'jdw-sesi-overlay', 'jdw-resejuel-overlay'];
 // jdw-batal-overlay & jdw-lewat-overlay ikut dikunci juga (backdrop-nya blur
 // transparan, bukan solid, jadi tidak menghasilkan tampilan 2 scrollbar
 // bertumpuk yang sama parahnya kayak overlay fullscreen di atas) TAPI
 // #page-jadwal di baliknya tetap ikut dikunci scroll-nya biar konsisten -
 // tidak masuk akal halaman di belakang masih bisa discroll pas ada dialog
 // konfirmasi kecil nongol di tengah layar.
-const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-lewat-overlay', 'jdw-resejuel-overlay'];
+const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-lewat-overlay'];
 function _jdwSyncPageScrollLock() {
     const pageEl = document.getElementById('page-jadwal');
     const anyLockOpen = JDW_SCROLL_LOCK_OVERLAY_IDS.some(id => document.getElementById(id)?.classList.contains('open'));
@@ -572,50 +573,26 @@ function _jdwDayGroupHtml(d, entries, isToday) {
 //   - dibatalkan USER (batalOleh:'user') -> kebalikannya, cuma boleh nongol
 //     di tab "Riwayat", TIDAK PERNAH di "Minggu Ini", terlepas tanggalnya
 //     sudah lewat atau belum.
-// Status "resejuel" (jadwal ulang dari tentor) SENGAJA tidak pernah masuk
-// sini — kartunya sudah tampil terpisah di banner khusus paling atas "Minggu
-// Ini", lihat _jdwRenderResejuelBanner().
+// Status "resejuel" (jadwal ulang dari tentor) ikut tampil normal di sini,
+// sama seperti status lain (pending/acc/dst) — kartunya nongol di tanggal
+// jadwal LAMA-nya (field tanggal/slotId/materiId entri ini sendiri, BUKAN
+// tanggal jadwal baru usulan tentor yang tersimpan di field `reschedule`),
+// cuma aksinya beda: tombol "Cek" yang buka halaman bandingkan jadwal lama
+// vs baru, lihat JadwalPage.bukaResejuel().
 function _jdwStatusListEntriesForDate(iso) {
     const isRiwayat = JadwalPage.currentView === 'riwayat';
     return JadwalStore.byDate(iso)
         .filter(e => {
-            if (e.status === 'pending' || e.status === 'acc' || e.status === 'berlangsung' || e.status === 'selesai' || e.status === 'pengajuan_pembatalan') return true;
+            if (e.status === 'pending' || e.status === 'acc' || e.status === 'berlangsung' || e.status === 'selesai' || e.status === 'pengajuan_pembatalan' || e.status === 'resejuel') return true;
             if (e.status === 'batal') return isRiwayat ? e.batalOleh === 'user' : e.batalOleh === 'tentor';
             return false;
         })
         .sort((a, b) => _jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId));
 }
 
-/* ══════════════════════════════════════════
-   BANNER: PENGAJUAN JADWAL ULANG DARI TENTOR (status "resejuel")
-   Sengaja dipisah dari list per-tanggal (_jdwDayGroupHtml) & selalu nongol
-   PALING ATAS "Minggu Ini" (home) — terlepas posisi/tanggal jadwal aslinya —
-   supaya tidak ketimbun/gampang kelewat. Cuma nongol di tab "Minggu Ini",
-   hilang total di tab "Riwayat" (ini pengajuan yang MASIH aktif, bukan
-   riwayat). Begitu disetujui/ditolak (lihat JadwalPage.setujuResejuel/
-   tolakResejuel), status entri balik jadi "acc" -> otomatis lolos dari
-   filter ini, kartunya hilang dari sini & nongol lagi seperti kartu "acc"
-   biasa di tanggalnya masing-masing.
-   ══════════════════════════════════════════ */
-function _jdwRenderResejuelBanner() {
-    const wrap = document.getElementById('jdw-resejuel-banner');
-    if (!wrap) return;
-    if (JadwalPage.currentView !== 'minggu') { wrap.innerHTML = ''; wrap.style.display = 'none'; return; }
-    const list = JadwalStore.all()
-        .filter(e => e.status === 'resejuel')
-        .sort((a, b) => (a.tanggal !== b.tanggal) ? (a.tanggal < b.tanggal ? -1 : 1) : _jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId));
-    if (!list.length) { wrap.innerHTML = ''; wrap.style.display = 'none'; return; }
-    wrap.style.display = '';
-    wrap.innerHTML = `<div class="jdw-resejuel-banner-title">Pengajuan Jadwal Ulang dari Tentor</div>
-        <div class="swipe-list">${list.map(e => JadwalPage._entryCardHtml(e)).join('')}</div>`;
-    const listEl = wrap.querySelector('.swipe-list');
-    if (listEl && window.SwipeCards) SwipeCards.bindSwipeList(listEl);
-}
-
 function _jdwRenderStatusList() {
     const wrap = document.getElementById('jdw-status-list');
     if (!wrap) return;
-    _jdwRenderResejuelBanner();
     const todayIso = _jdwToIso(new Date());
     let weekDates;
     if (JadwalPage.currentView === 'riwayat') {
@@ -750,14 +727,14 @@ const JadwalPage = {
        acc          -> Jadwal Ulang (kiri) + Batal (kanan)
        berlangsung  -> Masuk (kiri) kalau jam sesinya belum lewat, atau
                        Feedback (kiri) kalau sudah lewat — tanpa Batal sama sekali
-       resejuel     -> Buka (kanan) — buka overlay bandingkan jadwal lama vs
-                       jadwal baru dari tentor, lihat JadwalPage.bukaResejuel
+       resejuel     -> Cek (kanan) — buka halaman fullscreen bandingkan jadwal
+                       lama vs jadwal baru dari tentor, lihat JadwalPage.bukaResejuel
        selesai/batal/lain -> tanpa aksi apa pun (sweep/tombol dihilangkan total) ── */
     _entryActions(e) {
         if (e.status === 'resejuel') {
             return {
                 left: [],
-                right: [{ icon: 'eye', label: 'Buka', cls: 'act-primary', onClick: `JadwalPage.bukaResejuel('${e.id}')` }],
+                right: [{ icon: 'check', label: 'Cek', cls: 'act-primary', onClick: `JadwalPage.bukaResejuel('${e.id}')` }],
             };
         }
         if (e.status === 'pending') {
@@ -1122,30 +1099,42 @@ const JadwalPage = {
     editEntry(id) { this.openAjukanOverlay(id); },
     resejadwalEntry(id) { this.openAjukanOverlay(id); },
 
-    /* ── Overlay "Jadwal Ulang dari Tentor" (status "resejuel") — bandingkan
-       jadwal LAMA (diajukan user, disimpan di tanggal/slotId/materiId entri
-       ini sendiri) vs jadwal BARU (diajukan tentor, disimpan terpisah di
-       field `reschedule`), lalu Setuju/Tolak. ── */
+    /* ── Halaman fullscreen "Jadwal Ulang dari Tentor" (status "resejuel") —
+       sama pola dengan halaman Ajukan Jadwal (jdw-ajukan-overlay): header
+       sticky + body scroll + tombol aksi di ujung bawah body (di atas dock
+       utama). Isinya bandingkan resume jadwal LAMA (diajukan user, disimpan
+       di tanggal/slotId/materiId entri ini sendiri) di atas, lalu resume
+       jadwal BARU (diajukan tentor, disimpan terpisah di field `reschedule`,
+       termasuk alasan tentor mengajukan jadwal ulang) di bawah — tiap resume
+       ikut nampilin nama tentornya. Di layar desktop (lihat CSS
+       .jdw-resejuel-compare @media min-width:769px) keduanya disusun
+       berdampingan (lama di kiri, baru di kanan) dengan panah horizontal di
+       antaranya, bukan ditumpuk vertikal kayak mobile. Lalu Setuju/Tolak. ── */
     _resejuelTargetId: null,
     bukaResejuel(id) {
         const e = JadwalStore.get(id);
         if (!e || !e.reschedule) return;
         this._resejuelTargetId = id;
-        const itemHtml = (tanggal, slotId, materiId, label, cls) => {
+        const itemHtml = (tanggal, slotId, materiId, tentorId, label, cls, alasan) => {
             const slot = JDW_SLOTS.find(s => s.id === slotId);
             const materi = JDW_MATERI.find(m => m.id === materiId);
+            const tentor = JDW_TENTOR.find(t => t.id === tentorId);
             return `<div class="jdw-resejuel-item ${cls}">
                 <div class="jdw-resejuel-item-label">${label}</div>
                 <div class="jdw-resejuel-item-date">${_jdwFmtDateLong(tanggal)}</div>
                 <div class="jdw-resejuel-item-row"><span>${slot ? slot.label : '-'}</span><span class="jdw-resejuel-item-dot">•</span><span>${materi ? materi.label : '-'}</span></div>
+                <div class="jdw-resejuel-item-tentor">${tentor ? tentor.name : '-'}</div>
+                ${alasan ? `<div class="jdw-resejuel-item-alasan"><span class="jdw-resejuel-item-alasan-label">Alasan tentor mengajukan jadwal ulang</span>${alasan}</div>` : ''}
             </div>`;
         };
         document.getElementById('jdw-resejuel-compare').innerHTML = `
-            ${itemHtml(e.tanggal, e.slotId, e.materiId, 'Jadwal Lama (diajukan kamu)', 'old')}
+            ${itemHtml(e.tanggal, e.slotId, e.materiId, e.tentorId, 'Jadwal Lama (diajukan kamu)', 'old')}
             <div class="jdw-resejuel-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="4" x2="12" y2="20"/><polyline points="6 14 12 20 18 14"/></svg></div>
-            ${itemHtml(e.reschedule.tanggal, e.reschedule.slotId, e.reschedule.materiId, 'Jadwal Baru (diajukan tentor)', 'new')}`;
+            ${itemHtml(e.reschedule.tanggal, e.reschedule.slotId, e.reschedule.materiId, e.reschedule.tentorId || e.tentorId, 'Jadwal Baru (diajukan tentor)', 'new', e.reschedule.alasan)}`;
         document.getElementById('jdw-resejuel-overlay').classList.add('open');
         _jdwSyncPageScrollLock();
+        const body = document.querySelector('#jdw-resejuel-overlay .jdw-modal-body');
+        if (body) body.scrollTop = 0;
     },
     closeResejuelOverlay() {
         document.getElementById('jdw-resejuel-overlay').classList.remove('open');
