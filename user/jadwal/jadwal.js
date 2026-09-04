@@ -524,7 +524,7 @@ const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 
 // #page-jadwal di baliknya tetap ikut dikunci scroll-nya biar konsisten -
 // tidak masuk akal halaman di belakang masih bisa discroll pas ada dialog
 // konfirmasi kecil nongol di tengah layar.
-const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-lewat-overlay', 'jdw-tolak-ajukan-overlay', 'jdw-keluar-ajukan-overlay', 'jdw-batal-pilihan-overlay', 'jdw-reschedule-harih-overlay'];
+const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-lewat-overlay', 'jdw-tolak-ajukan-overlay', 'jdw-keluar-ajukan-overlay', 'jdw-batal-pilihan-overlay', 'jdw-reschedule-harih-overlay', 'jdw-batal-kuota-habis-overlay', 'jdw-tentor-ganti-confirm-overlay', 'jdw-tentor-ganti-terpakai-overlay'];
 function _jdwSyncPageScrollLock() {
     const pageEl = document.getElementById('page-jadwal');
     const anyLockOpen = JDW_SCROLL_LOCK_OVERLAY_IDS.some(id => document.getElementById(id)?.classList.contains('open'));
@@ -701,7 +701,19 @@ function _jdwRestoreState() {
     // diajar/available buat tentor itu — kalau dipulihkan belakangan, pilihan
     // slot/materi yang sudah benar bisa ketiban reset percuma.
     if (JadwalPage._isReschedule && st.rescheduleDate) JadwalPage.pickRescheduleDate(st.rescheduleDate);
-    if (st.pickedTentor) JadwalPage.pickTentor(st.pickedTentor);
+    // Restore tentor pakai _applyPickTentor LANGSUNG (bukan pickTentor()) —
+    // ini cuma memulihkan pilihan yang SUDAH sempat dipilih sebelum refresh,
+    // BUKAN usaha ganti tentor baru, jadi tidak boleh memicu popup konfirmasi
+    // "Ganti Tentor?" lagi. Kalau tentor yang dipulihkan ini ternyata beda
+    // dari tentor asli (berarti sebelum refresh user memang SUDAH konfirmasi
+    // ganti), _rescheduleTentorAlreadyChanged ikut disetel true supaya
+    // batasan 1x-ganti-tentor tetap konsisten kalau dia coba ganti lagi.
+    if (st.pickedTentor) {
+        if (JadwalPage._isReschedule && st.pickedTentor !== JadwalPage._rescheduleOriginalTentor) {
+            JadwalPage._rescheduleTentorAlreadyChanged = true;
+        }
+        JadwalPage._applyPickTentor(st.pickedTentor);
+    }
     if (st.pickedSlot) JadwalPage.pickSlot(st.pickedSlot);
     if (st.pickedMateri) JadwalPage.pickMateri(st.pickedMateri);
 }
@@ -1106,6 +1118,15 @@ const JadwalPage = {
     rescheduleWeekRef: null,// tanggal acuan minggu yang lagi ditampilkan di kalender mini itu
     rescheduleExpanded: false, // sama kayak calendarExpanded tapi buat kalender mini form Jadwal Ulang
     rescheduleMonthRef: null,  // tanggal acuan bulan yang lagi ditampilkan pas grid sebulan kalender mini kebuka
+    // ── Batas GANTI TENTOR pas mode Jadwal Ulang (beda dari kuota
+    // pengajuan/pembatalan di atas — ini bukan soal kuota sama sekali,
+    // reschedule TIDAK PERNAH motong kuota pengajuan, mau ganti tentor
+    // ataupun tetap tentor yang sama, karena masih pakai "tiket" yang sama
+    // dari pengajuan awal). Batasnya murni: tentor cuma boleh diganti
+    // MAKSIMAL 1 KALI per sesi/jadwal (per entri), lihat JadwalPage.pickTentor.
+    _rescheduleOriginalTentor: null, // tentorId SEBELUM form Jadwal Ulang ini dibuka — jadi acuan "ganti" atau "tetap sama"
+    _rescheduleTentorAlreadyChanged: false, // true kalau tentor SUDAH pernah diganti (baik sesi sebelumnya yang tersimpan di entri, ATAU baru saja dikonfirmasi di sesi form ini)
+    _pendingTentorChangeId: null, // tentorId yang lagi nunggu konfirmasi popup "Yakin Ganti Tentor?"
     openAjukanOverlay(entryId, lockTentor) {
         _jdwAutoExpirePending(); // bebasin slot yang barusan auto-tertolak sebelum dihitung "terisi"
         _jdwAutoAdvanceStatus();
@@ -1119,6 +1140,14 @@ const JadwalPage = {
         this.pickedSlot = existing ? existing.slotId : null;
         this.pickedMateri = existing ? existing.materiId : null;
         this.pickedTentor = existing ? (existing.tentorId || null) : null;
+        // Reset acuan ganti-tentor tiap form ini dibuka ulang — acuan "tentor
+        // asli" (buat nentuin "tetap sama" vs "ganti") & apakah tentor SUDAH
+        // pernah diganti sebelumnya (dibaca dari field persisten
+        // tentorPernahDiganti di entri, kalau ada — biar tetap "ingat" walau
+        // form ditutup-buka lagi lewat tombol "Cek" tanpa sempat submit).
+        this._rescheduleOriginalTentor = existing ? (existing.tentorId || null) : null;
+        this._rescheduleTentorAlreadyChanged = !!(existing && existing.tentorPernahDiganti);
+        this._pendingTentorChangeId = null;
         // "butuh_persetujuan" ikut dianggap mode Jadwal Ulang (bukan cuma
         // "acc") — ini kejadian pas user balik lagi lewat tombol "Cek" buat
         // NERUSIN pengajuan jadwal-ulang yang sempat ditinggal keluar
@@ -1354,8 +1383,33 @@ const JadwalPage = {
     },
     /* ── Milih tentor: kalau materi yang sebelumnya kepilih ternyata bukan
        diajar tentor baru ini, lepas pilihan materi itu -> user wajib pilih
-       ulang materi yang memang diajar tentor ini. ── */
+       ulang materi yang memang diajar tentor ini.
+       KHUSUS mode Jadwal Ulang (this._isReschedule, tentor TIDAK dikunci) —
+       milih tentor yang BEDA dari tentor asli (this._rescheduleOriginalTentor)
+       dianggap "GANTI tentor" dan dibatasi maksimal 1x per sesi/jadwal:
+         - Belum pernah ganti (_rescheduleTentorAlreadyChanged false) -> buka
+           dulu popup konfirmasi "Yakin Ganti Tentor?" (openTentorGantiConfirm),
+           BELUM langsung diterapkan sampai user pilih "Ya" (confirmTentorGanti).
+         - Sudah pernah ganti sekali -> popup info "tidak bisa ganti lagi"
+           (openTentorGantiTerpakai), TIDAK diterapkan sama sekali.
+       Milih tentor yang SAMA dengan tentor asli (balik ke tentor semula,
+       atau memang belum diganti) TIDAK dianggap "ganti" -> langsung
+       diterapkan seperti biasa, tanpa popup apa pun. Mode BUKAN Jadwal
+       Ulang (Ajukan Jadwal baru / Edit pengajuan pending) juga tidak kena
+       batasan ini sama sekali -- milih tentor apa pun bebas seperti biasa. ── */
     pickTentor(id) {
+        if (this._isReschedule && !this._tentorLocked && id !== this.pickedTentor && id !== this._rescheduleOriginalTentor) {
+            if (this._rescheduleTentorAlreadyChanged) {
+                this.openTentorGantiTerpakai();
+                return;
+            }
+            this._pendingTentorChangeId = id;
+            this.openTentorGantiConfirm();
+            return;
+        }
+        this._applyPickTentor(id);
+    },
+    _applyPickTentor(id) {
         const t = JDW_TENTOR.find(x => x.id === id);
         if (t && _jdwTentorHasNoSlots(t)) return; // jaga-jaga, harusnya sudah tidak punya onclick
         this.pickedTentor = id;
@@ -1367,6 +1421,43 @@ const JadwalPage = {
         this._refreshSubmitBtn();
         this.closeTentorOverlay();
         _jdwSaveState();
+    },
+    /* ── Popup konfirmasi "Yakin Ganti Tentor?" — dipicu dari pickTentor() di
+       atas SEBELUM tentor beneran diganti. "Ya" -> tentor diganti (lewat
+       _applyPickTentor) & _rescheduleTentorAlreadyChanged dikunci true (jatah
+       ganti tentor buat sesi ini abis dipakai). "Tidak"/tap backdrop -> popup
+       ditutup doang, tentor TIDAK jadi diganti, tetap di halaman/list tentor
+       yang sama seperti sebelum popup ini muncul (tidak ada perubahan
+       tampilan lain). ── */
+    openTentorGantiConfirm() {
+        document.getElementById('jdw-tentor-ganti-confirm-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
+    },
+    closeTentorGantiConfirm() {
+        document.getElementById('jdw-tentor-ganti-confirm-overlay').classList.remove('open');
+        this._pendingTentorChangeId = null;
+        _jdwSyncPageScrollLock();
+    },
+    confirmTentorGanti() {
+        document.getElementById('jdw-tentor-ganti-confirm-overlay').classList.remove('open');
+        _jdwSyncPageScrollLock();
+        const id = this._pendingTentorChangeId;
+        this._pendingTentorChangeId = null;
+        if (!id) return;
+        this._rescheduleTentorAlreadyChanged = true;
+        this._applyPickTentor(id);
+    },
+    /* ── Popup info "Tidak Bisa Ganti Tentor Lagi" — muncul kalau user coba
+       pilih tentor lain (beda dari tentor yang lagi aktif) padahal jatah
+       ganti tentor (1x per sesi/jadwal) sudah kepakai. Cuma 1 tombol
+       "Mengerti", tentor TIDAK berubah sama sekali. ── */
+    openTentorGantiTerpakai() {
+        document.getElementById('jdw-tentor-ganti-terpakai-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
+    },
+    closeTentorGantiTerpakai() {
+        document.getElementById('jdw-tentor-ganti-terpakai-overlay').classList.remove('open');
+        _jdwSyncPageScrollLock();
     },
     /* ── Kalender mini di dalam overlay Jadwal Ulang — pilih tanggal baru.
        Sama kayak kalender utama, dua mode: strip 1 minggu (default) atau
@@ -1530,10 +1621,18 @@ const JadwalPage = {
                     // ulang VERSI USER SENDIRI (bukan dari tentor), jadi "maaf
                     // pembatalan gratis" dari resejuel tentor sebelumnya (kalau
                     // ada) tidak ikut kebawa lagi ke pengajuan baru ini.
+                    // tentorPernahDiganti: begitu this._rescheduleTentorAlreadyChanged
+                    // true (tentor SUDAH dikonfirmasi ganti di form ini, lewat
+                    // JadwalPage.confirmTentorGanti), baru di sini dipatenkan
+                    // ke entrinya SECARA PERMANEN — jatah ganti tentor (1x per
+                    // sesi/jadwal) resmi kepakai & tidak reset lagi walau nanti
+                    // entri ini dibuka ulang buat jadwal-ulang berikutnya (lihat
+                    // openAjukanOverlay & JadwalPage.pickTentor).
                     JadwalStore.update(this.editingId, {
                         slotId: this.pickedSlot, materiId: this.pickedMateri, tentorId: this.pickedTentor,
                         status: 'pending', tanggal: this.rescheduleDate, alasanReschedule: alasan,
                         freeCancelEligible: false,
+                        tentorPernahDiganti: existing.tentorPernahDiganti || this._rescheduleTentorAlreadyChanged,
                     });
                     showToast('✓ Jadwal ulang diajukan, menunggu persetujuan');
                 }
@@ -1550,6 +1649,14 @@ const JadwalPage = {
                     });
                     showToast('✗ Jam ini baru saja terisi pengajuan lain — pengajuan lama kamu tetap seperti semula');
                 } else {
+                    // Kuota TIDAK dipotong di sini — sama seperti mode Jadwal
+                    // Ulang di atas, edit ini nge-update ENTRI YANG SAMA
+                    // (this.editingId, masih "tiket" pengajuan yang sudah
+                    // terlanjur kepakai/terhitung dari awal), bukan bikin
+                    // entri baru. _jdwKuotaTerpakai() cuma ngitung JUMLAH
+                    // entri aktif, bukan berapa kali entrinya diedit — jadi
+                    // status tetap "pending" & id-nya tetap sama, otomatis
+                    // tidak nambah hitungan kuota terpakai sama sekali.
                     JadwalStore.update(this.editingId, {
                         slotId: this.pickedSlot, materiId: this.pickedMateri, tentorId: this.pickedTentor,
                         status: 'pending',
