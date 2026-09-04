@@ -162,12 +162,25 @@ const VirtualList = (function () {
   // (grup hari sepi cuma 2 token, grup hari ramai bisa 100 token). Windowing-nya
   // dihitung per-GRUP pakai estimasi tinggi tiap grup (bukan per-baris kayak render()),
   // jadi tetap "1 layar disiapkan di depan/belakang" walau isi tiap grup gak seragam.
+  //
+  // KOREKSI TINGGI (measure & correct): estimateHeight cuma tebakan kasar
+  // (mis. "60 + jumlahItem*56"). Tinggi ASLI di layar bisa jauh beda karena teks
+  // yang wrap 2 baris, dst — kalau dibiarkan cuma pakai tebakan, spacer kosong
+  // yang mewakili grup-grup yang belum pernah dirender jadi salah ukuran, dan
+  // pas discroll lewat situ tampilannya jadi ada jarak kosong jauh (isi seakan
+  // hilang). Makanya di sini, tiap grup yang BENAR-BENAR dirender ke DOM, tinggi
+  // aslinya diukur lalu disimpan ke cache per key-grup (nempel di elemen
+  // container, jadi tahan lintas render() ulang selama key grupnya sama). Cache
+  // ini dipakai gantiin tebakan begitu sebuah grup pernah kelihatan. Kalau hasil
+  // ukur ternyata beda jauh dari tebakan yang baru dipakai menghitung spacer,
+  // langsung render ulang SEKALI lagi seketika (bukan nunggu scroll berikutnya)
+  // supaya jarak kosongnya lenyap instan.
   function renderGroups(container, opts) {
     if (!container) return;
     const state = {
       items: opts.items || [], // array of group object, urutan sesuai tampilan
       renderItem: opts.renderItem, // (group, idx) => html lengkap 1 grup (header+tabel+swipe-list)
-      estimateHeight: opts.estimateHeight || (() => 120), // (group, idx) => estimasi px tinggi grup
+      estimateHeight: opts.estimateHeight || (() => 120), // (group, idx) => estimasi px tinggi grup (dipakai sebelum grup pernah diukur)
       emptyHtml: opts.emptyHtml || '',
       buffer: opts.buffer != null ? opts.buffer : 1,
       onRendered: opts.onRendered || null,
@@ -175,9 +188,26 @@ const VirtualList = (function () {
     };
     container.__vlistState = state;
 
+    // key grup -> {h: tinggi asli px hasil ukur, n: jumlah item saat diukur}.
+    // Disimpan per-container (bukan per-state) supaya bertahan lintas
+    // render()/renderGroups() ulang (search/filter/refresh data).
+    if (!container.__vgHeightCache) container.__vgHeightCache = new Map();
+    const heightCache = container.__vgHeightCache;
+
+    function groupKey(g, i) { return (g && g.key != null) ? String(g.key) : ('idx:' + i); }
+    function groupCount(g) { return (g && g.items && g.items.length) || 0; }
+    function heightOf(g, i) {
+      const cached = heightCache.get(groupKey(g, i));
+      // Cache cuma valid kalau jumlah item grupnya sama seperti saat diukur —
+      // kalau berubah (token/soal baru ditambah/dihapus), pakai tebakan dulu
+      // sampai grup itu kerender & keukur ulang.
+      if (cached && cached.n === groupCount(g)) return cached.h;
+      return state.estimateHeight(g, i);
+    }
+
     let updateFn = container.__vlistUpdate;
     if (!updateFn) {
-      updateFn = function () {
+      updateFn = function (skipReflow) {
         const st = container.__vlistState;
         if (!st) return;
         if (container.offsetParent === null && st.scrollEl !== window) return;
@@ -185,7 +215,7 @@ const VirtualList = (function () {
         const list = st.items;
         if (!list.length) { container.innerHTML = st.emptyHtml; return; }
 
-        const heights = list.map((it, i) => st.estimateHeight(it, i));
+        const heights = list.map((it, i) => heightOf(it, i));
         const prefix = [0];
         for (let i = 0; i < heights.length; i++) prefix.push(prefix[i] + heights[i]);
         const totalHeight = prefix[prefix.length - 1];
@@ -211,11 +241,34 @@ const VirtualList = (function () {
         const bottomSpacerH = totalHeight - prefix[endIndex];
 
         let html = topSpacerH > 0 ? `<div class="vlist-spacer" style="height:${topSpacerH}px"></div>` : '';
-        for (let i = startIndex; i < endIndex; i++) html += st.renderItem(list[i], i);
+        for (let i = startIndex; i < endIndex; i++) {
+          const g = list[i];
+          html += `<div class="vlist-gmark" data-vg-key="${groupKey(g, i)}" data-vg-n="${groupCount(g)}">${st.renderItem(g, i)}</div>`;
+        }
         html += bottomSpacerH > 0 ? `<div class="vlist-spacer" style="height:${bottomSpacerH}px"></div>` : '';
 
         container.innerHTML = html;
+
+        // Ukur tinggi asli grup yang baru dirender & update cache.
+        let changed = false;
+        container.querySelectorAll(':scope > .vlist-gmark').forEach((el) => {
+          const key = el.dataset.vgKey;
+          const n = parseInt(el.dataset.vgN, 10) || 0;
+          const measured = el.offsetHeight;
+          const prev = heightCache.get(key);
+          if (!prev || prev.n !== n || Math.abs(prev.h - measured) > 1) {
+            heightCache.set(key, { h: measured, n });
+            changed = true;
+          }
+        });
+
         if (st.onRendered) st.onRendered(startIndex, endIndex);
+
+        // Kalau tebakan yang dipakai barusan ternyata meleset, langsung render
+        // ulang sekali (pakai angka yang udah keukur) biar spacer-nya lurus
+        // seketika. Di-guard skipReflow supaya cuma 1x re-render korektif per
+        // update (ga infinite loop).
+        if (changed && !skipReflow) updateFn(true);
       };
       updateFn.__container = container;
       container.__vlistUpdate = updateFn;
