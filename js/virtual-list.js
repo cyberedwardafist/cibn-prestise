@@ -205,6 +205,56 @@ const VirtualList = (function () {
       return state.estimateHeight(g, i);
     }
 
+    // UKUR-DULUAN (pre-measure): estimateHeight cuma tebakan kasar, dan kalau
+    // tebakannya jauh meleset, spacer yang dihitung dari tebakan itu bikin
+    // "gap" kosong gede pas discroll (isi keliatan hilang sebentar) sebelum
+    // akhirnya dikoreksi. Daripada nunggu tiap grup kerender-lewat-scroll dulu
+    // baru keukur satu-satu, di sini SEMUA grup yang belum (atau sudah gak
+    // valid) ada di cache langsung dirender sekali ke elemen "probe" yang
+    // disembunyikan di luar layar (visibility:hidden, bukan display:none —
+    // biar tetap ke-layout & bisa diukur), diukur tinggi aslinya, baru
+    // dibuang dari DOM. Jadi total tinggi (dan posisi tiap grup) udah akurat
+    // SEBELUM windowing pertama dihitung — ga ada lagi gap dari tebakan yang
+    // meleset. Grup yang sudah pernah keukur & jumlah itemnya belum berubah
+    // di-skip (biar tetap murah dipanggil ulang tiap search/filter).
+    function _premeasureMissing(list) {
+      const probeWidth = container.clientWidth || container.getBoundingClientRect().width || 800;
+      // Kalau lebar container berubah (resize, rotate, zoom, sidebar buka/tutup),
+      // tinggi yang udah ke-cache di lebar LAMA bisa salah (teks yang tadinya
+      // muat 1 baris jadi wrap 2 baris, dst) — cache-nya cuma dikunci dari
+      // jumlah item, bukan lebar, jadi kalau dibiarkan gap yang sama bisa
+      // muncul lagi abis resize. Makanya kalau lebar berubah, buang semua
+      // cache sekali biar semua grup keukur ulang dari nol di lebar baru.
+      if (container.__vgCacheWidth !== probeWidth) {
+        heightCache.clear();
+        container.__vgCacheWidth = probeWidth;
+      }
+
+      const missing = [];
+      list.forEach((g, i) => {
+        const key = groupKey(g, i);
+        const cached = heightCache.get(key);
+        if (!cached || cached.n !== groupCount(g)) missing.push({ g, i, key });
+      });
+      if (!missing.length) return false;
+
+      const probe = document.createElement('div');
+      probe.style.cssText = 'position:absolute;top:0;left:-99999px;visibility:hidden;pointer-events:none;width:' + probeWidth + 'px;';
+      let html = '';
+      missing.forEach(({ g, i, key }) => {
+        html += `<div class="vlist-gmark" data-vg-key="${key}">${state.renderItem(g, i)}</div>`;
+      });
+      probe.innerHTML = html;
+      document.body.appendChild(probe);
+      probe.querySelectorAll(':scope > .vlist-gmark').forEach((el) => {
+        const key = el.dataset.vgKey;
+        const found = missing.find((m) => m.key === key);
+        heightCache.set(key, { h: el.offsetHeight, n: groupCount(found.g) });
+      });
+      document.body.removeChild(probe);
+      return true;
+    }
+
     let updateFn = container.__vlistUpdate;
     if (!updateFn) {
       updateFn = function (skipReflow) {
@@ -214,6 +264,8 @@ const VirtualList = (function () {
 
         const list = st.items;
         if (!list.length) { container.innerHTML = st.emptyHtml; return; }
+
+        _premeasureMissing(list);
 
         const heights = list.map((it, i) => heightOf(it, i));
         const prefix = [0];
