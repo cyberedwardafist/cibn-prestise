@@ -644,7 +644,7 @@
        ujung scroll harus berhenti di atas dock, bukan ketutup olehnya. */
     #jdw-ajukan-overlay .jdw-modal-body { padding-bottom:calc(200px + env(safe-area-inset-bottom)); }
     #jdw-tentor-overlay .jdw-modal-body { padding-bottom:calc(200px + env(safe-area-inset-bottom)); }
-    #jdw-resejuel-overlay .jdw-modal-body { padding-bottom:calc(200px + env(safe-area-inset-bottom)); }
+    #jdw-resejuel-overlay .jdw-modal-body, #jdw-batal-tentor-overlay .jdw-modal-body { padding-bottom:calc(200px + env(safe-area-inset-bottom)); }
     .jdw-ajukan-submit-section { margin-top:4px; }
     /* Overlay Ajukan Jadwal (#jdw-ajukan-overlay) & Pilih Tentor (#jdw-tentor-overlay)
        bisa "open" BARENGAN (buka Pilih Tentor tidak menutup Ajukan Jadwal
@@ -679,6 +679,7 @@
     .jdw-status-badge.resejuel { background:rgba(124,58,237,.12); color:#7c3aed; }
     .jdw-status-badge.batal { background:rgba(90,122,154,.14); color:var(--text-sub); }
     .jdw-status-badge.butuh_persetujuan { background:rgba(220,38,38,.10); color:var(--danger); }
+    .jdw-status-badge.pengajuan_batal_tentor { background:rgba(124,58,237,.12); color:#7c3aed; }
     .jdw-status-badge.feedback { background:rgba(217,119,6,.12); color:var(--warning); }
 
     /* ── JADWAL: halaman fullscreen bandingkan jadwal lama vs baru (resejuel) —
