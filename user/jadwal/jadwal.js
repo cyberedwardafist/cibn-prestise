@@ -909,7 +909,15 @@ function _jdwStatusListEntriesForDate(iso) {
     const dateEntries = JadwalStore.byDate(iso);
     return dateEntries
         .filter(e => {
+<<<<<<< HEAD
             if (e.status === 'pending' || e.status === 'acc' || e.status === 'berlangsung' || e.status === 'pengajuan_pembatalan' || e.status === 'resejuel' || e.status === 'butuh_persetujuan' || e.status === 'pengajuan_batal_tentor') {
+=======
+<<<<<<< HEAD
+            if (e.status === 'pending' || e.status === 'acc' || e.status === 'berlangsung' || e.status === 'pengajuan_pembatalan' || e.status === 'resejuel' || e.status === 'butuh_persetujuan' || e.status === 'pengajuan_batal_tentor') {
+=======
+            if (e.status === 'pending' || e.status === 'acc' || e.status === 'berlangsung' || e.status === 'pengajuan_pembatalan' || e.status === 'resejuel' || e.status === 'butuh_persetujuan') {
+>>>>>>> db6e752de70e654736e34a2f106405f459afb719
+>>>>>>> c8a9c6ef7d023154f5b36467b2906eac80180bd9
                 return !isRiwayat;
             }
             if (e.status === 'selesai' || e.status === 'batal') {
