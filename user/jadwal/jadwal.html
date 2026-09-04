@@ -1,6 +1,6 @@
 <!-- ══════════════════════════════════════════════════════════════════════
      user/jadwal.html — SHELL utama tab Jadwal.
-     Cuma isi tampilan LIST (header, 2 kalender minggu, toggle Minggu Ini/
+     Cuma isi tampilan LIST (header, kalender, toggle Minggu Ini/
      Riwayat, daftar status). Semua overlay/halaman aksi (Ajukan Jadwal /
      Jadwal Ulang / Edit, Pilih Tentor, Sesi Masuk-Feedback, Batalkan Jadwal)
      SUDAH DIPISAH ke file terpisah, lihat:
@@ -26,20 +26,33 @@
   </div>
 </div>
 
+<!-- Kalender bisa dibuka jadi tampilan SEBULAN lewat tombol "1 Bulan" di
+     pojok kanan (JadwalPage.toggleCalendarExpand) — begitu kebuka, caption
+     minggu diganti nav bulan (id=jdw-cal-nav) + grid 6x7 (id=jdw-month-grid),
+     strip minggu di-hide. Tanggal "numpang lewat" dari bulan lain & tanggal
+     yang sudah lewat SAMA-SAMA tidak bisa diklik (lihat _jdwMonthGridHtml
+     di jadwal.js). Tombol bisa ditutup lagi buat balik ke strip minggu biasa. -->
 <div class="glass jdw-week-card">
-  <div class="jdw-week-caption" id="jdw-week-caption">Minggu ini</div>
+  <div class="jdw-week-caption-row">
+    <div class="jdw-week-caption" id="jdw-week-caption">Minggu ini</div>
+    <button type="button" class="jdw-cal-toggle-btn" id="jdw-cal-toggle-btn" onclick="JadwalPage.toggleCalendarExpand()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>
+      <span id="jdw-cal-toggle-label">1 Bulan</span>
+    </button>
+  </div>
+  <div class="jdw-riwayat-nav" id="jdw-cal-nav" style="display:none">
+    <button type="button" class="jdw-icon-btn" id="jdw-cal-prev-btn" onclick="JadwalPage.calendarMonthNav('older')" aria-label="Bulan sebelumnya">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="jdw-riwayat-caption" id="jdw-cal-month-caption">-</div>
+    <button type="button" class="jdw-icon-btn" onclick="JadwalPage.calendarMonthNav('newer')" aria-label="Bulan berikutnya">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
   <div class="jdw-week-strip" id="jdw-week-strip"></div>
+  <div class="jdw-month-grid" id="jdw-month-grid" style="display:none"></div>
 </div>
 <div class="jdw-week-hint">Ketuk salah satu tanggal untuk atur jadwal mentoring kamu</div>
-
-<!-- Kalender ke-2: khusus buat ajukan jadwal MINGGU DEPAN, cuma nongol pas
-     hari ini adalah hari Minggu. Begitu hari Minggu ini lewat (masuk hari
-     Senin), kalender ini otomatis hilang lagi (tinggal 1 kalender di atas). -->
-<div class="glass jdw-week-card" id="jdw-nextweek-card" style="display:none">
-  <div class="jdw-week-caption">Ajukan minggu depan</div>
-  <div class="jdw-week-strip" id="jdw-nextweek-strip"></div>
-</div>
-<div class="jdw-week-hint" id="jdw-nextweek-hint" style="display:none">Ketuk salah satu tanggal minggu depan untuk ajukan lebih awal</div>
 
 <!-- ══════ TOGGLE: MINGGU INI / RIWAYAT ══════ -->
 <div class="jdw-view-toggle" id="jdw-view-toggle">

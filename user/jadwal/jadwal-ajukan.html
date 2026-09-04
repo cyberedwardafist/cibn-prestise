@@ -25,19 +25,30 @@
     <div class="jdw-modal-body">
       <!-- Cuma nongol pas mode JADWAL ULANG (status entri "acc") — pilih tanggal
            baru dulu sebelum pilih jam, biar bisa dipindah ke hari lain. -->
+      <!-- Sama kayak kalender utama (lihat catatan di user/jadwal.html) — bisa
+           dibuka jadi tampilan sebulan lewat tombol "1 Bulan", nav di atas
+           strip otomatis ikut ganti fungsi (minggu <-> bulan) tergantung mode
+           lagi aktif yang mana, lihat JadwalPage._renderRescheduleCalendar. -->
       <div class="jdw-form-section" id="jdw-reschedule-date-section" style="display:none">
-        <div class="jdw-form-label">Pilih Tanggal</div>
+        <div class="jdw-form-label-row">
+          <div class="jdw-form-label">Pilih Tanggal</div>
+          <button type="button" class="jdw-cal-toggle-btn" id="jdw-reschedule-toggle-btn" onclick="JadwalPage.toggleRescheduleExpand()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>
+            <span id="jdw-reschedule-toggle-label">1 Bulan</span>
+          </button>
+        </div>
         <div class="glass jdw-week-card" style="padding:14px 10px 10px;margin-bottom:0">
           <div class="jdw-riwayat-nav" style="margin-bottom:10px">
-            <button type="button" class="jdw-icon-btn" onclick="JadwalPage.rescheduleWeekNav('older')" aria-label="Minggu sebelumnya">
+            <button type="button" class="jdw-icon-btn" id="jdw-reschedule-prev-btn" onclick="JadwalPage.rescheduleNav('older')" aria-label="Sebelumnya">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
             <div class="jdw-riwayat-caption" id="jdw-reschedule-caption">-</div>
-            <button type="button" class="jdw-icon-btn" onclick="JadwalPage.rescheduleWeekNav('newer')" aria-label="Minggu berikutnya">
+            <button type="button" class="jdw-icon-btn" onclick="JadwalPage.rescheduleNav('newer')" aria-label="Berikutnya">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
           </div>
           <div class="jdw-week-strip" id="jdw-reschedule-strip"></div>
+          <div class="jdw-month-grid" id="jdw-reschedule-month-grid" style="display:none"></div>
         </div>
       </div>
       <div class="jdw-form-section">

@@ -46,6 +46,7 @@ const JDW_STATUS_LABEL = { pending: 'Menunggu', acc: 'Disetujui', ditolak: 'Dito
 const JDW_DAY_NAMES = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 const JDW_DAY_SHORT = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
 const JDW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const JDW_MONTH_NAMES = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 
 /* ══════════════════════════════════════════
    DATA LAYER DUMMY (localStorage) — ganti isi fungsi2 ini kalau sudah ada backend
@@ -201,6 +202,86 @@ function _jdwFmtWeekRange(weekDates) {
     return sameMonth
         ? `${first.getDate()} - ${last.getDate()} ${JDW_MONTH_SHORT[first.getMonth()]} ${first.getFullYear()}`
         : `${first.getDate()} ${JDW_MONTH_SHORT[first.getMonth()]} - ${last.getDate()} ${JDW_MONTH_SHORT[last.getMonth()]} ${last.getFullYear()}`;
+}
+// Grid tanggal tampilan SEBULAN — selalu 42 sel (6 baris x 7 kolom, Senin
+// paling kiri) biar tinggi kartunya konsisten tiap bulan (ada bulan yang
+// kalau apa adanya cuma butuh 4-5 baris). Sel yang bukan bagian bulan `ref`
+// (numpang dari bulan sebelum/sesudah, buat rapiin grid) ditandai lewat
+// perbandingan getMonth() di _jdwMonthGridHtml, BUKAN di sini.
+function _jdwMonthGridDates(ref) {
+    const r = new Date(ref || new Date());
+    const firstOfMonth = new Date(r.getFullYear(), r.getMonth(), 1);
+    const day = firstOfMonth.getDay(); // 0=Min ... 6=Sab
+    const diffToMonday = (day === 0 ? -6 : 1 - day);
+    const gridStart = new Date(firstOfMonth);
+    gridStart.setDate(firstOfMonth.getDate() + diffToMonday);
+    const days = [];
+    for (let i = 0; i < 42; i++) { const d = new Date(gridStart); d.setDate(gridStart.getDate() + i); days.push(d); }
+    return days;
+}
+// Bulan depan sudah bisa "numpang" diklik dari grid bulan berjalan mulai
+// minggu ke-4 (H>=22) tiap akhir bulan — ini yang gantiin kalender ke-2
+// "Ajukan minggu depan" yang dulu cuma nongol tiap hari Minggu (sudah
+// dihapus, lihat catatan lama di histori file ini). Cuma berlaku kalau
+// grid yang lagi ditampilkan (`ref`) memang bulan berjalan SEKARANG —
+// kalau user udah maju ke bulan depan/lebih (lewat tombol navigasi), sel
+// "numpang" di situ tetap terkunci seperti biasa (tidak ada gunanya buka
+// H+2 bulan sekaligus).
+function _jdwNextMonthUnlockedFor(ref) {
+    const now = new Date();
+    return now.getFullYear() === ref.getFullYear() && now.getMonth() === ref.getMonth() && now.getDate() >= 22;
+}
+// Render HTML grid kalender sebulan (header nama hari + 42 sel tanggal),
+// dipakai bareng buat kalender utama (#jdw-month-grid) & kalender mini di
+// form Jadwal Ulang (#jdw-reschedule-month-grid) — bedanya cuma lewat `opts`:
+//   opts.selectedIso   : tanggal yang lagi kepilih (kasih class is-selected), boleh kosong
+//   opts.hasEntriesFn(iso) : buat titik penanda "ada jadwal" di bawah angka
+//   opts.onClickFn(iso)    : onclick buat tanggal bulan `ref` yang BELUM lewat
+//   opts.pastClickFn(iso)  : onclick buat tanggal bulan `ref` yang SUDAH lewat
+// Tanggal "numpang lewat" dari bulan SEBELUMNYA (.is-outside) & yang sudah
+// lewat (.is-past) sengaja TIDAK dikasih atribut onclick sama sekali (kecuali
+// pastClickFn disediakan) — sama-sama tidak bisa diklik selayaknya kalender
+// biasa. Tanggal numpang dari bulan SESUDAHNYA beda cerita: begitu masuk
+// minggu ke-4 bulan berjalan (lihat _jdwNextMonthUnlockedFor), sel-sel itu
+// otomatis kebuka (.is-outside-unlocked, tetap bisa diklik lewat onClickFn)
+// biar user bisa langsung ajukan jadwal bulan depan dari grid yang sama.
+function _jdwMonthGridHtml(ref, opts) {
+    opts = opts || {};
+    const todayIso = _jdwToIso(new Date());
+    const days = _jdwMonthGridDates(ref);
+    const lastOfMonth = new Date(ref.getFullYear(), ref.getMonth() + 1, 0);
+    const nextMonthUnlocked = _jdwNextMonthUnlockedFor(ref);
+    const weekdayRow = JDW_DAY_SHORT.slice(1).concat(JDW_DAY_SHORT[0]).map(n => `<span>${n}</span>`).join('');
+    const cells = days.map(d => {
+        const iso = _jdwToIso(d);
+        const isOutside = d.getMonth() !== ref.getMonth();
+        const isTrailingNextMonth = isOutside && d > lastOfMonth; // numpang dari bulan SESUDAHNYA (bukan sebelumnya)
+        const isUnlockedNextMonth = isTrailingNextMonth && nextMonthUnlocked;
+        const isToday = iso === todayIso;
+        const isPast = iso < todayIso;
+        const isSelected = !!opts.selectedIso && iso === opts.selectedIso;
+        const hasEntries = (!isOutside || isUnlockedNextMonth) && opts.hasEntriesFn ? !!opts.hasEntriesFn(iso) : false;
+        let cls = 'jdw-mcell';
+        if (isToday) cls += ' is-today';
+        if (isSelected) cls += ' is-selected';
+        if (hasEntries) cls += ' has-entries';
+        let onclick = '';
+        if (isOutside) {
+            if (isUnlockedNextMonth) {
+                cls += ' is-outside-unlocked';
+                onclick = opts.onClickFn ? opts.onClickFn(iso) : '';
+            } else {
+                cls += ' is-outside';
+            }
+        } else if (isPast) {
+            cls += ' is-past';
+            onclick = opts.pastClickFn ? opts.pastClickFn(iso) : '';
+        } else {
+            onclick = opts.onClickFn ? opts.onClickFn(iso) : '';
+        }
+        return `<div class="${cls}"${onclick ? ` onclick="${onclick}"` : ''}><span class="jdw-mcell-num">${d.getDate()}</span></div>`;
+    }).join('');
+    return `<div class="jdw-month-weekdays">${weekdayRow}</div><div class="jdw-month-cells">${cells}</div>`;
 }
 // Batas maksimal pengajuan Jadwal Ulang: H-1 (selama tanggal sesi masih
 // SETELAH hari ini, boleh, terlepas jam berapa pun saat ini di H-1 —
@@ -499,7 +580,6 @@ function loadJadwal() {
     _jdwAutoExpirePending();
     _jdwAutoAdvanceStatus();
     _jdwRenderWeek();
-    _jdwRenderNextWeekCard();
     _jdwRestoreViewState();
     _jdwRenderStatusList();
     _jdwRestoreState();
@@ -507,15 +587,14 @@ function loadJadwal() {
     // Cek berkala selama tab Jadwal kebuka, supaya pengajuan yang jam-mulai/
     // jam-selesai slotnya baru lewat SAAT halaman ini sedang dibuka (bukan
     // cuma pas reload/buka ulang) tetap otomatis pindah status (ditolak /
-    // berlangsung / selesai) tanpa perlu refresh manual.
+    // berlangsung / selesai) tanpa perlu refresh manual. Ikut dicek juga
+    // buat kalender bulan (kalau lagi kebuka) supaya begitu lewat tengah
+    // malam tanggal "bulan depan yang sudah kebuka" (lihat _jdwNextMonthUnlockedFor)
+    // otomatis nge-refresh sendiri tanpa perlu reload manual.
     if (_jdwAutoExpireTimer) clearInterval(_jdwAutoExpireTimer);
     _jdwAutoExpireTimer = setInterval(() => {
         const expired = _jdwAutoExpirePending();
         const advanced = _jdwAutoAdvanceStatus();
-        // Kalender "Ajukan minggu depan" dicek tiap tick juga (bukan cuma pas
-        // ada expired/advanced) supaya pas jam 00:00 Minggu->Senin lewat SAAT
-        // tab ini kebuka, kalendernya otomatis hilang tanpa perlu refresh.
-        _jdwRenderNextWeekCard();
         if (expired || advanced) {
             _jdwRenderWeek();
             _jdwRenderStatusList();
@@ -642,6 +721,10 @@ function _jdwRenderStatusList() {
     wrap.innerHTML = weekDates.map(d => {
         const iso = _jdwToIso(d);
         const entries = _jdwStatusListEntriesForDate(iso);
+        // Tanggal yang sama sekali tidak punya jadwal/pengajuan/status TIDAK
+        // perlu ditampilkan di list ini (dulu masih nongol dengan placeholder
+        // "Belum ada pengajuan") — langsung skip di sini sebelum cek lainnya.
+        if (!entries.length) return '';
         // "Minggu Ini" hanya nampilin hari ini & seterusnya — tanggal yang sudah
         // lewat dihilangkan dari sini, pindah ke Riwayat (offset 0). KECUALI ada
         // entri "batal" dibatalkan TENTOR di tanggal itu — sengaja tetap nongol
@@ -659,39 +742,51 @@ function _jdwRenderStatusList() {
     wrap.querySelectorAll('.swipe-list').forEach(el => { if (window.SwipeCards) SwipeCards.bindSwipeList(el); });
 }
 
-/* ── Kalender ke-2: "Ajukan minggu depan" — cuma nongol kalau HARI INI hari
-   Minggu, isinya tanggal Senin-Minggu minggu depan, tiap tanggal bisa di-tap
-   langsung buka form Ajukan (persis kayak tap tanggal di kalender utama).
-   Begitu hari Minggu ini lewat (sudah masuk Senin), kalender ini otomatis
-   balik hilang -> tinggal 1 kalender (yang di atas / "Minggu Ini"). ── */
-function _jdwRenderNextWeekCard() {
-    const card = document.getElementById('jdw-nextweek-card');
-    const strip = document.getElementById('jdw-nextweek-strip');
-    const hint = document.getElementById('jdw-nextweek-hint');
-    if (!card || !strip) return;
-    const isSunday = new Date().getDay() === 0;
-    card.style.display = isSunday ? '' : 'none';
-    if (hint) hint.style.display = isSunday ? '' : 'none';
-    if (!isSunday) return;
-    const nextWeekRef = new Date();
-    nextWeekRef.setDate(nextWeekRef.getDate() + 7);
-    const weekDates = _jdwWeekDates(nextWeekRef);
-    strip.innerHTML = weekDates.map(d => {
-        const iso = _jdwToIso(d);
-        const hasEntries = JadwalStore.byDate(iso).length > 0;
-        return `<div class="jdw-day${hasEntries ? ' has-entries' : ''}" onclick="JadwalPage.openDay('${iso}')">
-            <div class="jdw-day-name">${JDW_DAY_SHORT[d.getDay()]}</div>
-            <div class="jdw-day-num-wrap"><span>${d.getDate()}</span></div>
-        </div>`;
-    }).join('');
-}
-
+// Kalender utama ("Minggu Ini") — dua mode: strip 1 minggu (default) atau
+// grid sebulan (JadwalPage.calendarExpanded, dibuka lewat tombol "1 Bulan").
+// Fungsi ini yang jadi satu-satunya titik render dipanggil dari mana-mana
+// tiap ada perubahan data (lihat semua pemanggil _jdwRenderWeek() di file
+// ini) — jadi cukup ubah JadwalPage.calendarExpanded lalu panggil ini lagi,
+// TIDAK perlu ubah tiap pemanggil satu-satu.
 function _jdwRenderWeek() {
     const strip = document.getElementById('jdw-week-strip');
+    const monthGrid = document.getElementById('jdw-month-grid');
     const caption = document.getElementById('jdw-week-caption');
+    const navWrap = document.getElementById('jdw-cal-nav');
+    const monthCaption = document.getElementById('jdw-cal-month-caption');
+    const toggleLabel = document.getElementById('jdw-cal-toggle-label');
+    const toggleBtn = document.getElementById('jdw-cal-toggle-btn');
     if (!strip) return;
-    const weekDates = _jdwWeekDates(new Date());
     const todayIso = _jdwToIso(new Date());
+    if (JadwalPage.calendarExpanded) {
+        if (!JadwalPage.calendarMonthRef) JadwalPage.calendarMonthRef = new Date();
+        const ref = JadwalPage.calendarMonthRef;
+        strip.style.display = 'none';
+        if (monthGrid) monthGrid.style.display = '';
+        if (navWrap) navWrap.style.display = 'flex';
+        if (caption) caption.style.display = 'none';
+        if (monthCaption) monthCaption.textContent = `${JDW_MONTH_NAMES[ref.getMonth()]} ${ref.getFullYear()}`;
+        const now = new Date();
+        const prevBtn = document.getElementById('jdw-cal-prev-btn');
+        // Nggak bisa mundur ke bulan sebelum bulan berjalan — tanggal2nya
+        // toh semua sudah lewat & memang tidak bisa diklik.
+        if (prevBtn) prevBtn.disabled = ref.getFullYear() === now.getFullYear() && ref.getMonth() === now.getMonth();
+        if (toggleLabel) toggleLabel.textContent = '1 Minggu';
+        if (toggleBtn) toggleBtn.classList.add('active');
+        if (monthGrid) monthGrid.innerHTML = _jdwMonthGridHtml(ref, {
+            hasEntriesFn: iso => JadwalStore.byDate(iso).length > 0,
+            onClickFn: iso => `JadwalPage.openDay('${iso}')`,
+            pastClickFn: iso => `JadwalPage.openPastDayInfo('${iso}')`,
+        });
+        return;
+    }
+    if (monthGrid) monthGrid.style.display = 'none';
+    if (navWrap) navWrap.style.display = 'none';
+    if (caption) caption.style.display = '';
+    if (toggleLabel) toggleLabel.textContent = '1 Bulan';
+    if (toggleBtn) toggleBtn.classList.remove('active');
+    strip.style.display = '';
+    const weekDates = _jdwWeekDates(new Date());
     if (caption) caption.textContent = _jdwFmtWeekRange(weekDates);
     strip.innerHTML = weekDates.map(d => {
         const iso = _jdwToIso(d);
@@ -717,6 +812,26 @@ const JadwalPage = {
     pickedTentor: null,
     currentView: 'minggu',   // 'minggu' | 'riwayat' — toggle di atas list status
     riwayatWeekOffset: 1,    // dipakai saat currentView='riwayat': 0 = minggu ini (belum genap), 1 = minggu lalu, 2 = 2 minggu lalu, dst
+
+    /* ── Kalender utama: toggle strip 1 minggu <-> grid 1 bulan ── */
+    calendarExpanded: false, // true = lagi nampilin grid sebulan (bukan strip minggu)
+    calendarMonthRef: null,  // tanggal acuan bulan yang lagi ditampilkan pas grid sebulan kebuka
+    toggleCalendarExpand() {
+        this.calendarExpanded = !this.calendarExpanded;
+        if (this.calendarExpanded && !this.calendarMonthRef) this.calendarMonthRef = new Date();
+        _jdwRenderWeek();
+    },
+    calendarMonthNav(dir) {
+        const ref = new Date(this.calendarMonthRef || new Date());
+        ref.setMonth(ref.getMonth() + (dir === 'older' ? -1 : 1));
+        const now = new Date();
+        // Nggak boleh mundur ke bulan sebelum bulan berjalan (lihat catatan
+        // di _jdwRenderWeek soal prevBtn.disabled — ini jaga-jaga di sisi
+        // logic-nya juga, bukan cuma ngandelin tombolnya kedisable).
+        if (ref.getFullYear() < now.getFullYear() || (ref.getFullYear() === now.getFullYear() && ref.getMonth() < now.getMonth())) return;
+        this.calendarMonthRef = ref;
+        _jdwRenderWeek();
+    },
 
     /* ── Toggle Minggu Ini / Riwayat (di bawah kalender) ── */
     setView(view) {
@@ -834,6 +949,8 @@ const JadwalPage = {
     _isReschedule: false,   // true kalau overlay ini lagi mode "Jadwal Ulang" (entri berstatus acc)
     rescheduleDate: null,   // tanggal BARU yang dipilih lewat kalender mini di overlay (mode Jadwal Ulang saja)
     rescheduleWeekRef: null,// tanggal acuan minggu yang lagi ditampilkan di kalender mini itu
+    rescheduleExpanded: false, // sama kayak calendarExpanded tapi buat kalender mini form Jadwal Ulang
+    rescheduleMonthRef: null,  // tanggal acuan bulan yang lagi ditampilkan pas grid sebulan kalender mini kebuka
     openAjukanOverlay(entryId, lockTentor) {
         _jdwAutoExpirePending(); // bebasin slot yang barusan auto-tertolak sebelum dihitung "terisi"
         _jdwAutoAdvanceStatus();
@@ -855,6 +972,10 @@ const JadwalPage = {
         this._isReschedule = isReschedule;
         this.rescheduleDate = isReschedule ? existing.tanggal : null;
         this.rescheduleWeekRef = isReschedule ? new Date(existing.tanggal + 'T00:00:00') : null;
+        // Selalu balik ke tampilan strip minggu tiap form ini dibuka ulang
+        // (bukan nerusin grid sebulan dari sesi sebelumnya).
+        this.rescheduleExpanded = false;
+        this.rescheduleMonthRef = null;
         document.getElementById('jdw-ajukan-title').textContent = existing ? (isReschedule ? 'Jadwal Ulang' : 'Ubah Pengajuan') : 'Ajukan Jadwal';
         document.getElementById('jdw-submit-btn').textContent = existing ? (isReschedule ? 'AJUKAN ULANG' : 'EDIT PENGAJUAN') : 'AJUKAN';
         this._updateAjukanDateLabel();
@@ -1087,30 +1208,77 @@ const JadwalPage = {
         this.closeTentorOverlay();
         _jdwSaveState();
     },
-    /* ── Kalender mini di dalam overlay Jadwal Ulang — pilih tanggal baru. ── */
+    /* ── Kalender mini di dalam overlay Jadwal Ulang — pilih tanggal baru.
+       Sama kayak kalender utama, dua mode: strip 1 minggu (default) atau
+       grid sebulan (this.rescheduleExpanded, dibuka lewat tombol "1 Bulan"
+       di jdw-reschedule-toggle-btn). Satu-satunya titik render dipanggil
+       tiap ada perubahan (buka overlay/pilih tanggal/nav), lihat pemanggilnya
+       di openAjukanOverlay, pickRescheduleDate, & rescheduleNav di bawah. ── */
     _renderRescheduleCalendar() {
         const strip = document.getElementById('jdw-reschedule-strip');
+        const monthGrid = document.getElementById('jdw-reschedule-month-grid');
         const caption = document.getElementById('jdw-reschedule-caption');
+        const toggleLabel = document.getElementById('jdw-reschedule-toggle-label');
+        const toggleBtn = document.getElementById('jdw-reschedule-toggle-btn');
+        const prevBtn = document.getElementById('jdw-reschedule-prev-btn');
         if (!strip) return;
-        const weekDates = _jdwWeekDates(this.rescheduleWeekRef || new Date());
         const todayIso = _jdwToIso(new Date());
+        if (this.rescheduleExpanded) {
+            if (!this.rescheduleMonthRef) this.rescheduleMonthRef = new Date(this.rescheduleDate ? this.rescheduleDate + 'T00:00:00' : new Date());
+            const ref = this.rescheduleMonthRef;
+            strip.style.display = 'none';
+            if (monthGrid) monthGrid.style.display = '';
+            if (caption) caption.textContent = `${JDW_MONTH_NAMES[ref.getMonth()]} ${ref.getFullYear()}`;
+            const now = new Date();
+            if (prevBtn) prevBtn.disabled = ref.getFullYear() === now.getFullYear() && ref.getMonth() === now.getMonth();
+            if (toggleLabel) toggleLabel.textContent = '1 Minggu';
+            if (toggleBtn) toggleBtn.classList.add('active');
+            if (monthGrid) monthGrid.innerHTML = _jdwMonthGridHtml(ref, {
+                selectedIso: this.rescheduleDate,
+                hasEntriesFn: iso => JadwalStore.byDate(iso).filter(e => e.id !== this.editingId).length > 0,
+                onClickFn: iso => `JadwalPage.pickRescheduleDate('${iso}')`,
+                pastClickFn: iso => `JadwalPage.openPastDayInfo('${iso}')`,
+            });
+            return;
+        }
+        if (monthGrid) monthGrid.style.display = 'none';
+        if (prevBtn) prevBtn.disabled = false;
+        if (toggleLabel) toggleLabel.textContent = '1 Bulan';
+        if (toggleBtn) toggleBtn.classList.remove('active');
+        strip.style.display = '';
+        const weekDates = _jdwWeekDates(this.rescheduleWeekRef || new Date());
         if (caption) caption.textContent = _jdwFmtWeekRange(weekDates);
         strip.innerHTML = weekDates.map(d => {
             const iso = _jdwToIso(d);
             const isSelected = iso === this.rescheduleDate;
             const isPast = iso < todayIso;
             const hasEntries = JadwalStore.byDate(iso).filter(e => e.id !== this.editingId).length > 0;
-            const onclick = isPast ? `JadwalPage.openPastDayInfo()` : `JadwalPage.pickRescheduleDate('${iso}')`;
+            const onclick = isPast ? `JadwalPage.openPastDayInfo('${iso}')` : `JadwalPage.pickRescheduleDate('${iso}')`;
             return `<div class="jdw-day${isSelected ? ' is-today' : ''}${hasEntries ? ' has-entries' : ''}${isPast ? ' is-past' : ''}" onclick="${onclick}">
                 <div class="jdw-day-name">${JDW_DAY_SHORT[d.getDay()]}</div>
                 <div class="jdw-day-num-wrap"><span>${d.getDate()}</span></div>
             </div>`;
         }).join('');
     },
-    rescheduleWeekNav(dir) {
-        const ref = new Date(this.rescheduleWeekRef || new Date());
-        ref.setDate(ref.getDate() + (dir === 'older' ? -7 : 7));
-        this.rescheduleWeekRef = ref;
+    toggleRescheduleExpand() {
+        this.rescheduleExpanded = !this.rescheduleExpanded;
+        if (this.rescheduleExpanded && !this.rescheduleMonthRef) {
+            this.rescheduleMonthRef = new Date(this.rescheduleDate ? this.rescheduleDate + 'T00:00:00' : new Date());
+        }
+        this._renderRescheduleCalendar();
+    },
+    rescheduleNav(dir) {
+        if (this.rescheduleExpanded) {
+            const ref = new Date(this.rescheduleMonthRef || new Date());
+            ref.setMonth(ref.getMonth() + (dir === 'older' ? -1 : 1));
+            const now = new Date();
+            if (ref.getFullYear() < now.getFullYear() || (ref.getFullYear() === now.getFullYear() && ref.getMonth() < now.getMonth())) return;
+            this.rescheduleMonthRef = ref;
+        } else {
+            const ref = new Date(this.rescheduleWeekRef || new Date());
+            ref.setDate(ref.getDate() + (dir === 'older' ? -7 : 7));
+            this.rescheduleWeekRef = ref;
+        }
         this._renderRescheduleCalendar();
     },
     pickRescheduleDate(iso) {
@@ -1229,7 +1397,6 @@ const JadwalPage = {
         }
         this.closeAjukanOverlay();
         _jdwRenderWeek();
-        _jdwRenderNextWeekCard();
         _jdwRenderStatusList();
         _jdwSaveState();
     },
@@ -1406,7 +1573,6 @@ const JadwalPage = {
         this._batalTargetId = null;
         showToast('Jadwal dibatalkan');
         _jdwRenderWeek();
-        _jdwRenderNextWeekCard();
         _jdwRenderStatusList();
     },
 

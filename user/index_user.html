@@ -545,6 +545,37 @@
     .jdw-day.is-future-locked { opacity:.35; cursor:default; }
     .jdw-week-hint { text-align:center; font-size:11.5px; color:var(--text-sub); margin-top:2px; margin-bottom:4px; }
 
+    /* ── JADWAL: tombol buka tampilan sebulan (di kalender utama & kalender
+       mini Jadwal Ulang) + grid kalender sebulan (6 baris x 7 kolom, ala
+       kalender biasa). Tanggal "numpang lewat" dari bulan sebelum/sesudah
+       (.is-outside) TIDAK BISA diklik — cuma buat rapiin grid jadi 6 baris —
+       sama seperti tanggal yang sudah lewat (.is-past), keduanya sengaja
+       tanpa atribut onclick sama sekali (bukan cuma didisable lewat CSS). ── */
+    .jdw-week-caption-row { position:relative; display:flex; align-items:center; justify-content:center; margin-bottom:12px; }
+    .jdw-week-caption-row .jdw-week-caption { margin-bottom:0; }
+    .jdw-cal-toggle-btn { position:absolute; right:0; top:50%; transform:translateY(-50%); display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:20px; border:1.5px solid rgba(19,50,89,.12); background:rgba(255,255,255,.55); color:var(--accent); font-family:var(--font-body); font-size:10.5px; font-weight:700; cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; white-space:nowrap; }
+    .jdw-cal-toggle-btn:hover { background:rgba(255,255,255,.9); }
+    .jdw-cal-toggle-btn.active { border-color:var(--accent); background:rgba(26,90,160,.1); }
+    .jdw-cal-toggle-btn svg { width:13px; height:13px; flex-shrink:0; }
+    .jdw-form-label-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+    .jdw-form-label-row .jdw-form-label { margin-bottom:0; }
+    .jdw-month-grid { margin-top:2px; }
+    .jdw-month-weekdays { display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:6px; }
+    .jdw-month-weekdays span { text-align:center; font-size:10px; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:.02em; }
+    .jdw-month-cells { display:grid; grid-template-columns:repeat(7,1fr); row-gap:4px; }
+    .jdw-mcell { display:flex; align-items:center; justify-content:center; padding:2px 0; -webkit-tap-highlight-color:transparent; }
+    .jdw-mcell-num { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--font-head); font-size:12.5px; font-weight:700; color:var(--blue); position:relative; transition:all .2s; }
+    .jdw-mcell[onclick] { cursor:pointer; }
+    .jdw-mcell[onclick]:hover .jdw-mcell-num { background:rgba(19,50,89,.05); }
+    .jdw-mcell.is-today .jdw-mcell-num { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; box-shadow:0 4px 12px rgba(26,90,160,.35); }
+    .jdw-mcell.is-selected .jdw-mcell-num { box-shadow:inset 0 0 0 2px var(--accent); }
+    .jdw-mcell.has-entries .jdw-mcell-num::after { content:''; position:absolute; bottom:-4px; left:50%; transform:translateX(-50%); width:4px; height:4px; border-radius:50%; background:var(--accent); }
+    .jdw-mcell.is-today.has-entries .jdw-mcell-num::after { background:#fff; }
+    .jdw-mcell.is-past .jdw-mcell-num { opacity:.35; }
+    .jdw-mcell.is-outside { cursor:default; }
+    .jdw-mcell.is-outside .jdw-mcell-num { opacity:.18; }
+    .jdw-mcell.is-outside-unlocked .jdw-mcell-num { opacity:.55; }
+
     /* ── JADWAL: toggle Minggu Ini / Riwayat + nav minggu (riwayat) ── */
     .jdw-view-toggle { display:flex; gap:8px; margin:14px 0 12px; }
     .jdw-view-btn { flex:1; padding:10px 12px; border-radius:12px; border:1.5px solid rgba(19,50,89,.12); background:rgba(255,255,255,.55); color:var(--blue); font-family:var(--font-body); font-size:12.5px; font-weight:700; cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; }
