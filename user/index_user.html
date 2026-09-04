@@ -1592,10 +1592,9 @@ async function loadHomeJadwalNext() {
         // "Masuk" lagi), jadi badge status di sini ikut disesuaikan biar
         // tidak menyesatkan (masih kebaca "Berlangsung" padahal harusnya
         // udah isi feedback).
-        const isFeedbackDue = upcoming.status === 'berlangsung' && _jdwSlotIsOver(upcoming);
-        const displayStatus = isFeedbackDue ? 'feedback' : upcoming.status;
+        const displayStatus = typeof _jdwBadgeStatus === 'function' ? _jdwBadgeStatus(upcoming) : upcoming.status;
         statusEl.className = 'jdw-status-badge ' + displayStatus;
-        statusEl.textContent = isFeedbackDue ? 'Feedback' : (JDW_STATUS_LABEL[upcoming.status] || upcoming.status);
+        statusEl.textContent = JDW_STATUS_LABEL[displayStatus] || upcoming.status;
         card.style.display = '';
     } catch (e) {
         card.style.display = 'none';

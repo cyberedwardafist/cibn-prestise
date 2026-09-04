@@ -154,6 +154,38 @@ efek samping ke ratusan tempat lain karena memang cuma di situ path-nya
 disebut. Dicek juga: tidak ada file JS admin/user/review yang fetch()
 sendiri pakai path hardcoded selain lewat 3 peta ini.
 
+## Update: bersihin file "kembar" yang ketinggalan dari tahap sebelumnya
+Pas rapi-rapi "per fungsi dock" di atas dijalankan, file lama di lokasi
+FLAT (mis. `admin/akun.html`, `user/jadwal.js`, `review/riwayat.html`)
+ternyata tidak ikut dihapus setelah isinya dipindah ke folder per-tab
+(`admin/akun/akun.html`, `user/jadwal/jadwal.js`,
+`review/riwayat/riwayat.html`) — jadi tiap file punya 2 salinan: yang
+lama (nganggur, tidak dipanggil siapa-siapa) dan yang baru (yang beneran
+dipakai lazy-loader lewat `ADMIN_PAGE_MODULES`/`USER_PAGE_MODULES`/
+`REVIEW_PAGE_MODULES`).
+
+Sebelum hapus, tiap file lama dicek dulu satu-satu ke SELURUH project
+(HTML, JS, `server.js`, `vercel.json`) — dipastikan tidak ada satupun
+`src=`, `href=`, `fetch()`, `LazyLoader`, atau `res.sendFile`/`app.get()`
+yang masih menunjuk ke path lama itu (yang ada cuma komentar historis
+yang nyebut nama file lama sebagai catatan, itu dibiarkan apa adanya,
+cuma filenya yang dihapus). **54 file kembar** dihapus dari
+`admin/`, `user/`, `review/` (shell `index_admin.html`/`index_user.html`/
+`index_review.html` tetap di tempatnya, itu memang punya tempat di root
+folder masing-masing).
+
+Ditemukan juga **5 file lagi** di `js/` root (`js/akun.js`, `js/ebook.js`,
+`js/editor.js`, `js/soal.js`, `js/token.js`) — ini bahkan generasi yang
+LEBIH LAMA (arsitektur monolitik satu-file-per-fitur sebelum folder
+`admin/` per-tab ada sama sekali), juga sudah nganggur total, ikut
+dihapus dengan pengecekan yang sama.
+
+**Tidak ada satupun logic, tampilan, atau path yang aktif dipakai yang
+disentuh** — murni buang salinan lama yang sudah tidak direferensikan
+di manapun. `node -c` dijalankan ulang ke `server.js` dan semua file JS
+inti (`js/app.js`, `js/pages.js`, `js/lazy-loader.js`) untuk pastikan
+tidak ada yang rusak sintaksnya.
+
 ## Yang TIDAK diubah (sengaja)
 - Tidak ada logic auth/JWT, kalkulasi nilai ujian, alur pembayaran, atau
   query database yang disentuh.

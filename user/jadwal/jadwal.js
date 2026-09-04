@@ -42,7 +42,7 @@ const JDW_TENTOR = [
     { id: 'angga', name: 'ANGGA', materi: 'ALL', slots: ['slot1', 'slot6', 'slot7'] },
     { id: 'raffi', name: 'RAFFI', materi: ['twk', 'tiu', 'tkp'], slots: ['slot2', 'slot6'] },
 ];
-const JDW_STATUS_LABEL = { pending: 'Menunggu', acc: 'Disetujui', ditolak: 'Ditolak', berlangsung: 'Berlangsung', selesai: 'Selesai', pengajuan_pembatalan: 'Pengajuan Pembatalan', resejuel: 'Jadwal Ulang dari Tentor', batal: 'Dibatalkan', butuh_persetujuan: 'Butuh Persetujuan' };
+const JDW_STATUS_LABEL = { pending: 'Menunggu', acc: 'Disetujui', ditolak: 'Ditolak', berlangsung: 'Berlangsung', feedback: 'Feedback', selesai: 'Selesai', pengajuan_pembatalan: 'Pengajuan Pembatalan', resejuel: 'Jadwal Ulang dari Tentor', batal: 'Dibatalkan', butuh_persetujuan: 'Butuh Persetujuan' };
 // Kuota pengajuan jadwal per user (dummy — nanti gampang disambung ke angka
 // beneran dari backend/paket bimbingan user, tinggal ganti sumber angka
 // TOTAL-nya, logika hitungnya di bawah (_jdwKuotaTerpakai/_jdwKuotaSisa)
@@ -525,6 +525,21 @@ const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 
 // tidak masuk akal halaman di belakang masih bisa discroll pas ada dialog
 // konfirmasi kecil nongol di tengah layar.
 const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-lewat-overlay', 'jdw-tolak-ajukan-overlay', 'jdw-keluar-ajukan-overlay', 'jdw-batal-pilihan-overlay', 'jdw-reschedule-harih-overlay', 'jdw-batal-kuota-habis-overlay', 'jdw-tentor-ganti-confirm-overlay', 'jdw-tentor-ganti-terpakai-overlay'];
+// Ada popup/overlay APAPUN di halaman Jadwal yang lagi kebuka (dialog kecil
+// maupun fullscreen, semuanya sudah kedaftar di JDW_SCROLL_LOCK_OVERLAY_IDS
+// di atas) -> dipakai buat nahan render kalender/list minggu di BELAKANG
+// popup selama popup itu masih kebuka, lihat _jdwPendingBgRender di bawah.
+function _jdwAnyOverlayOpen() {
+    return JDW_SCROLL_LOCK_OVERLAY_IDS.some(id => document.getElementById(id)?.classList.contains('open'));
+}
+// Kalau ada perubahan status (auto-expire/auto-advance) kejadian SELAGI ada
+// popup kebuka, render-nya jangan langsung dieksekusi (supaya tampilan di
+// belakang popup diem, tidak ikut "kelap-kelip"/loncat begitu popup masih
+// dibaca user) -> ditahan dulu lewat flag ini, baru benar-benar dirender
+// begitu popup terakhir ketutup (lihat pengecekannya di
+// _jdwSyncPageScrollLock, yang memang sudah kepanggil di SETIAP buka/tutup
+// overlay jadwal).
+let _jdwPendingBgRender = false;
 function _jdwSyncPageScrollLock() {
     const pageEl = document.getElementById('page-jadwal');
     const anyLockOpen = JDW_SCROLL_LOCK_OVERLAY_IDS.some(id => document.getElementById(id)?.classList.contains('open'));
@@ -535,10 +550,29 @@ function _jdwSyncPageScrollLock() {
     // seluruh app, bukan bug yang perlu ditambal.
     const anyFullscreenOpen = JDW_FULLSCREEN_OVERLAY_IDS.some(id => document.getElementById(id)?.classList.contains('open'));
     document.body.classList.toggle('jdw-fullscreen-open', anyFullscreenOpen);
+    // Popup terakhir baru saja ketutup (tidak ada lagi yang "open") DAN ada
+    // render yang sempat ditahan selama popup itu kebuka -> baru sekarang
+    // kalender/list minggu di belakang boleh di-refresh.
+    if (!anyLockOpen && _jdwPendingBgRender) {
+        _jdwPendingBgRender = false;
+        _jdwRenderWeek();
+        _jdwRenderStatusList();
+    }
 }
 function _jdwSlotIsOver(e) {
     const end = _jdwSlotEndDate(e.tanggal, e.slotId);
     return !!(end && end <= new Date());
+}
+// Status yang dipakai buat BADGE (bukan status data sebenarnya di
+// JadwalStore). Entri "berlangsung" yang jam sesinya sudah lewat -> sama
+// kayak tombol aksinya yang udah ganti jadi "Feedback" (bukan "Masuk"
+// lagi, lihat JadwalPage._entryActions), badge status ikut disesuaikan
+// jadi "Feedback" biar tidak menyesatkan (masih kebaca "Berlangsung"
+// padahal harusnya udah isi feedback). Status data ASLI-nya (e.status)
+// tetap "berlangsung" sampai feedback beneran diisi / harinya lewat
+// (lihat _jdwAutoAdvanceStatus) — cuma tampilannya saja yang beda.
+function _jdwBadgeStatus(e) {
+    return (e.status === 'berlangsung' && _jdwSlotIsOver(e)) ? 'feedback' : e.status;
 }
 // Ada berapa hari di minggu berjalan (Senin-Minggu) yang tanggalnya sudah
 // lewat dari hari ini -> dipakai buat nentuin apakah "riwayat minggu ini
@@ -742,8 +776,17 @@ function loadJadwal() {
         const expired = _jdwAutoExpirePending();
         const advanced = _jdwAutoAdvanceStatus();
         if (expired || advanced) {
-            _jdwRenderWeek();
-            _jdwRenderStatusList();
+            // Kalau lagi ada popup/overlay kebuka (mis. user lagi ngisi form
+            // Ajukan Jadwal / Feedback), JANGAN langsung render kalender/list
+            // di belakangnya sekarang — bisa bikin tampilan di baliknya
+            // berubah/loncat pas lagi dibaca user. Tahan dulu, baru dirender
+            // begitu popup-nya ketutup (lihat _jdwSyncPageScrollLock).
+            if (_jdwAnyOverlayOpen()) {
+                _jdwPendingBgRender = true;
+            } else {
+                _jdwRenderWeek();
+                _jdwRenderStatusList();
+            }
         }
     }, 30000);
 }
@@ -805,7 +848,7 @@ function _jdwDayGroupHtml(d, entries, isToday) {
             <td>${slot ? slot.label : '-'}</td>
             <td>${tentor ? tentor.name : '-'}</td>
             <td>${materi ? materi.label : '-'}</td>
-            <td><span class="jdw-status-badge ${e.status}">${JDW_STATUS_LABEL[e.status] || e.status}</span></td>
+            <td><span class="jdw-status-badge ${_jdwBadgeStatus(e)}">${JDW_STATUS_LABEL[_jdwBadgeStatus(e)] || e.status}</span></td>
             <td><div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div></td>
         </tr>`;
     }).join('');
@@ -1106,7 +1149,7 @@ const JadwalPage = {
         return SwipeCards.buildSwipeCardHtml({
             title: slot ? slot.label : '-',
             sub: subParts.join(' · '),
-            sideHtml: `<span class="jdw-status-badge ${e.status}">${JDW_STATUS_LABEL[e.status] || e.status}</span>`,
+            sideHtml: `<span class="jdw-status-badge ${_jdwBadgeStatus(e)}">${JDW_STATUS_LABEL[_jdwBadgeStatus(e)] || e.status}</span>`,
             kode: e.id,
             leftActions: left, rightActions: right,
         });
