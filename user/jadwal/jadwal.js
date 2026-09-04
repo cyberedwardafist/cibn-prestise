@@ -239,6 +239,14 @@ const JadwalStore = (function () {
             // ANGGA sendiri) -> jadi tetap "menunggu" tanpa tentor (tentorId
             // null) sampai ada tentor yang cocok nanti.
             { id: 'seed_batal_tentor2', tanggal: _todayIso(6), slotId: 'slot3', materiId: 'twk', tentorId: 'angga', status: 'pengajuan_batal_tentor', alasanBatalTentor: 'Tentor sedang sakit', createdAt: Date.now() - 3000000 },
+            // butuh_persetujuan -> jadwal LAMA (acc) yang masih berlaku, tapi
+            // user sempat mulai ajukan jadwal ulang lalu KELUAR sebelum
+            // selesai (lihat JadwalPage.confirmKeluarAjukan). Tombol "Cek"
+            // balikin ke form Jadwal Ulang yang sama buat nerusin
+            // (JadwalPage.cekButuhPersetujuan), "Batal" buka pilihan
+            // batalkan-jadwal-ulang-saja atau batalkan-jadwalnya-sekalian
+            // (JadwalPage.openBatalPilihan).
+            { id: 'seed_butuh_persetujuan', tanggal: _todayIso(2), slotId: 'slot5', materiId: 'tiu', tentorId: 'pram', status: 'butuh_persetujuan', createdAt: Date.now() - 2000000 },
         ];
         localStorage.setItem(KEY, JSON.stringify(arr));
         return arr;
@@ -287,6 +295,15 @@ function _jdwToIso(d) {
     const x = new Date(d);
     x.setMinutes(x.getMinutes() - x.getTimezoneOffset());
     return x.toISOString().slice(0, 10);
+}
+// Kumpulin SEMUA tanggal unik yang punya minimal 1 entri di JadwalStore
+// (bukan cuma 7 hari minggu berjalan) -> dipakai #jdw-status-list view
+// "minggu" biar seluruh data (termasuk seed dummy semua status) langsung
+// kelihatan tanpa perlu geser minggu. Diurutkan lama -> baru (ASC), sama
+// seperti urutan _jdwWeekDates biasa.
+function _jdwAllEntryDates() {
+    const isoSet = new Set(JadwalStore.all().map(e => e.tanggal));
+    return Array.from(isoSet).sort().map(iso => new Date(iso + 'T00:00:00'));
 }
 function _jdwWeekDates(ref) {
     const d = new Date(ref || new Date());
@@ -947,7 +964,15 @@ function _jdwRenderStatusList() {
         const nextBtn = document.getElementById('jdw-riwayat-next-btn');
         if (nextBtn) nextBtn.disabled = JadwalPage.riwayatWeekOffset <= minOffset;
     } else {
-        weekDates = _jdwWeekDates(new Date());
+        // Dulu cuma nampilin 7 hari minggu berjalan (_jdwWeekDates), jadi
+        // entri di luar rentang itu (misal seed dummy yang tanggalnya
+        // beberapa hari ke depan/lampau) tidak kelihatan sama sekali di
+        // #jdw-status-list. Sekarang tampilkan SEMUA tanggal yang punya
+        // entri apa pun di JadwalStore, diurutkan tanggal terlama -> baru,
+        // biar seluruh list (semua status) selalu kelihatan tanpa perlu
+        // navigasi minggu. Filter status aktif/riwayat per-entri tetap
+        // ditangani _jdwStatusListEntriesForDate seperti biasa.
+        weekDates = _jdwAllEntryDates();
     }
     wrap.innerHTML = weekDates.map(d => {
         const iso = _jdwToIso(d);
