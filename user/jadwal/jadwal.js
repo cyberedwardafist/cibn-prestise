@@ -201,15 +201,24 @@ const JadwalStore = (function () {
             // ulang), biar gampang balik ke lama kalau ditolak.
             { id: 'seed_resejuel', tanggal: _todayIso(2), slotId: 'slot2', materiId: 'tiu', tentorId: 'raffi', status: 'resejuel', reschedule: { tanggal: _todayIso(4), slotId: 'slot5', materiId: 'tiu', alasan: 'Tentor ada keperluan mendadak di jam yang sama' }, createdAt: Date.now() - 30000000 },
             // batal, DIBATALKAN OLEH TENTOR (field batalOleh:'tentor') -> tanpa
-            // tombol aksi (kayak "selesai"), TAPI beda dari entri lampau biasa:
-            // sengaja TETAP nongol di "Minggu Ini" (home) pada tanggal aslinya
-            // walau tanggalnya sudah lewat, TIDAK otomatis pindah ke Riwayat.
+            // tombol aksi (kayak "selesai"). Tanggalnya KEMARIN (sudah lewat) ->
+            // sekarang ikut aturan tanggal biasa, jadi sudah pindah ke Riwayat,
+            // TIDAK nongol lagi di "Minggu Ini" (beda dari perilaku lama).
             { id: 'seed_batal_tentor', tanggal: _todayIso(-1), slotId: 'slot3', materiId: 'tkp', tentorId: 'albert', status: 'batal', batalOleh: 'tentor', alasanBatal: 'Tentor berhalangan hadir', createdAt: Date.now() - 20000000 },
-            // batal, DIBATALKAN OLEH USER (field batalOleh:'user') -> kebalikannya:
-            // walau tanggalnya masih di depan (belum lewat), langsung kepindah ke
-            // Riwayat & sama sekali tidak nongol lagi di "Minggu Ini".
+            // batal, DIBATALKAN OLEH USER (field batalOleh:'user'), tanggalnya
+            // masih DI DEPAN (belum lewat) & slotnya belum ditimpa pengajuan baru
+            // -> sekarang TETAP nongol di "Minggu Ini" (murni ikut tanggal, tidak
+            // lagi otomatis lompat ke Riwayat cuma karena dibatalkan user).
             // pembatalanDihitung:true -> pembatalan normal, ikut motong kuota.
             { id: 'seed_batal_user', tanggal: _todayIso(3), slotId: 'slot6', materiId: 'twk', tentorId: 'angga', status: 'batal', batalOleh: 'user', alasanBatal: 'Berhalangan hadir', pembatalanDihitung: true, createdAt: Date.now() - 10000000 },
+            // batal, DIBATALKAN OLEH USER hari ini, TAPI slotnya sudah "ditimpa"
+            // pengajuan baru (seed_batal_ditimpa_baru di jam & tanggal yang
+            // sama persis) -> ini langsung dianggap Riwayat SAAT INI JUGA walau
+            // tanggalnya belum lewat, karena user sudah mengajukan ulang di jam
+            // itu. Pasangan seed di bawah adalah pengajuan barunya (status acc,
+            // tanggal & slotId sama).
+            { id: 'seed_batal_ditimpa', tanggal: _todayIso(0), slotId: 'slot4', materiId: 'tiu', tentorId: 'pram', status: 'batal', batalOleh: 'user', alasanBatal: 'Salah pilih jam, ajukan ulang', pembatalanDihitung: false, createdAt: Date.now() - 9000000 },
+            { id: 'seed_batal_ditimpa_baru', tanggal: _todayIso(0), slotId: 'slot4', materiId: 'tiu', tentorId: 'pram', status: 'acc', createdAt: Date.now() - 8000000 },
             // acc, BEKAS RESEJUEL YANG DISETUJUI (freeCancelEligible:true) ->
             // contoh siap-pakai buat tes pembatalan GRATIS: tekan "Batal" pada
             // kartu ini harus langsung masuk halaman Ajukan Pembatalan dengan
@@ -860,25 +869,44 @@ function _jdwDayGroupHtml(d, entries, isToday) {
 }
 
 // Entri utk 1 tanggal di list per-hari — SENGAJA dipisah dari filter status
-// inline lama supaya bisa nangani status "batal" secara khusus:
-//   - dibatalkan TENTOR (batalOleh:'tentor') -> cuma boleh nongol di tab
-//     "Minggu Ini" (home), TIDAK PERNAH di tab "Riwayat", terlepas tanggalnya
-//     sudah lewat atau belum.
-//   - dibatalkan USER (batalOleh:'user') -> kebalikannya, cuma boleh nongol
-//     di tab "Riwayat", TIDAK PERNAH di "Minggu Ini", terlepas tanggalnya
-//     sudah lewat atau belum.
-// Status "resejuel" (jadwal ulang dari tentor) ikut tampil normal di sini,
-// sama seperti status lain (pending/acc/dst) — kartunya nongol di tanggal
-// jadwal LAMA-nya (field tanggal/slotId/materiId entri ini sendiri, BUKAN
-// tanggal jadwal baru usulan tentor yang tersimpan di field `reschedule`),
-// cuma aksinya beda: tombol "Cek" yang buka halaman bandingkan jadwal lama
-// vs baru, lihat JadwalPage.bukaResejuel().
+// inline lama. Aturan Minggu Ini vs Riwayat MURNI berdasar TANGGAL (bukan
+// siapa yang membatalkan lagi):
+//   - Status yang masih AKTIF/belum final (pending/acc/berlangsung/
+//     pengajuan_pembatalan/resejuel/butuh_persetujuan) -> selalu di "Minggu
+//     Ini", tidak pernah di "Riwayat" (kalau tanggalnya sudah lewat tapi
+//     statusnya masih salah satu ini, harusnya sudah dikonversi otomatis
+//     oleh _jdwAutoAdvanceStatus — lihat fungsi itu).
+//   - Status FINAL ("selesai" & "batal", baik dibatalkan user maupun
+//     tentor) -> ikut tanggal: masih di "Minggu Ini" selama tanggalnya
+//     belum lewat, pindah ke "Riwayat" begitu tanggalnya sudah lewat hari
+//     ini. Khusus "batal": kalau di tanggal & jam (slotId) yang sama sudah
+//     ada pengajuan AKTIF baru (misal user batal lalu ajukan ulang di jam
+//     yang sama persis), entri batal yang lama itu langsung dianggap
+//     riwayat SAAT ITU JUGA, walau tanggalnya sendiri belum lewat — karena
+//     sudah "ketimpa" pengajuan baru.
+// Status "resejuel" (jadwal ulang dari tentor) tetap tampil normal di sini
+// (kartunya nongol di tanggal jadwal LAMA-nya, field tanggal/slotId/
+// materiId milik entri ini sendiri, BUKAN tanggal jadwal baru usulan tentor
+// yang tersimpan di field `reschedule`), cuma aksinya beda: tombol "Cek"
+// yang buka halaman bandingkan jadwal lama vs baru, lihat
+// JadwalPage.bukaResejuel().
 function _jdwStatusListEntriesForDate(iso) {
     const isRiwayat = JadwalPage.currentView === 'riwayat';
-    return JadwalStore.byDate(iso)
+    const todayIso = _jdwToIso(new Date());
+    const dateEntries = JadwalStore.byDate(iso);
+    return dateEntries
         .filter(e => {
-            if (e.status === 'pending' || e.status === 'acc' || e.status === 'berlangsung' || e.status === 'selesai' || e.status === 'pengajuan_pembatalan' || e.status === 'resejuel' || e.status === 'butuh_persetujuan') return true;
-            if (e.status === 'batal') return isRiwayat ? e.batalOleh === 'user' : e.batalOleh === 'tentor';
+            if (e.status === 'pending' || e.status === 'acc' || e.status === 'berlangsung' || e.status === 'pengajuan_pembatalan' || e.status === 'resejuel' || e.status === 'butuh_persetujuan') {
+                return !isRiwayat;
+            }
+            if (e.status === 'selesai' || e.status === 'batal') {
+                let sudahLewat = iso < todayIso;
+                if (e.status === 'batal' && !sudahLewat) {
+                    // Ditimpa pengajuan aktif baru di jam yang sama -> langsung riwayat.
+                    sudahLewat = dateEntries.some(o => o.id !== e.id && o.slotId === e.slotId && o.status !== 'batal' && o.status !== 'ditolak');
+                }
+                return isRiwayat ? sudahLewat : !sudahLewat;
+            }
             return false;
         })
         .sort((a, b) => _jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId));
@@ -915,17 +943,12 @@ function _jdwRenderStatusList() {
         // perlu ditampilkan di list ini (dulu masih nongol dengan placeholder
         // "Belum ada pengajuan") — langsung skip di sini sebelum cek lainnya.
         if (!entries.length) return '';
-        // "Minggu Ini" hanya nampilin hari ini & seterusnya — tanggal yang sudah
-        // lewat dihilangkan dari sini, pindah ke Riwayat (offset 0). KECUALI ada
-        // entri "batal" dibatalkan TENTOR di tanggal itu — sengaja tetap nongol
-        // walau tanggalnya sudah lewat (lihat _jdwStatusListEntriesForDate).
-        if (JadwalPage.currentView === 'minggu' && iso < todayIso && !entries.some(e => e.status === 'batal')) return '';
-        // Riwayat cuma boleh isi hari yang SUDAH LEWAT — hari ini (masih berjalan)
-        // dan hari yang belum sampai tidak dimasukkan sama sekali (bukan cuma
-        // ditampilkan kosong, tapi memang tidak dirender ke listnya). KECUALI ada
-        // entri "batal" dibatalkan USER di tanggal itu — sengaja langsung nongol
-        // di Riwayat walau tanggalnya belum lewat.
-        if (JadwalPage.currentView === 'riwayat' && iso >= todayIso && !entries.some(e => e.status === 'batal')) return '';
+        // Catatan: filter mana yang boleh nongol di "Minggu Ini" vs "Riwayat"
+        // (termasuk tanggal yang sudah lewat, dan entri "batal" yang ketimpa
+        // pengajuan baru di jam yang sama) sudah sepenuhnya ditangani per-entri
+        // di dalam _jdwStatusListEntriesForDate. Kalau `entries` di tanggal ini
+        // sudah kosong untuk view sekarang, langsung ke-skip lewat pengecekan
+        // `!entries.length` di atas — tidak perlu pengecekan tanggal lagi di sini.
         return _jdwDayGroupHtml(d, entries, iso === todayIso);
     }).filter(Boolean).join('');
     // Kartu swipe-list yang punya aksi (Edit/Jadwal Ulang/Batal) perlu di-bind gesture-nya.
