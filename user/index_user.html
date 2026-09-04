@@ -1343,7 +1343,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('display-name').textContent = _userInfo.nama;
         document.getElementById('display-email').textContent = _userInfo.email;
         document.getElementById('display-group').textContent = _userInfo.grub_nama || 'User';
-        document.getElementById('display-grup').textContent = _userInfo.grub_nama ? '📁 Grup: ' + _userInfo.grub_nama : '';
+        document.getElementById('display-grup').textContent = _userInfo.grub_nama ? 'Grup: ' + _userInfo.grub_nama : '';
         document.getElementById('home-user-name').textContent = _userInfo.nama;
         // Load paket status untuk tombol profil
         loadMyPaketsStatus();
