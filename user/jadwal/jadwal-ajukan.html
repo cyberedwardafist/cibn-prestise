@@ -26,9 +26,14 @@
       <!-- Cuma nongol pas mode JADWAL ULANG (status entri "acc") — pilih tanggal
            baru dulu sebelum pilih jam, biar bisa dipindah ke hari lain. -->
       <!-- Sama kayak kalender utama (lihat catatan di user/jadwal.html) — bisa
-           dibuka jadi tampilan sebulan lewat tombol "1 Bulan", nav di atas
-           strip otomatis ikut ganti fungsi (minggu <-> bulan) tergantung mode
-           lagi aktif yang mana, lihat JadwalPage._renderRescheduleCalendar. -->
+           dibuka jadi tampilan sebulan lewat tombol "1 Bulan". Nav kiri/kanan
+           (id=jdw-reschedule-cal-nav) SENGAJA disembunyikan default (persis
+           kayak jdw-cal-nav di kalender utama) — di mode strip 1 minggu TIDAK
+           ada cara pindah minggu sama sekali (cuma nampilin minggu tetap,
+           lihat JadwalPage._renderRescheduleCalendar), nav ini baru kelihatan
+           & aktif begitu masuk mode grid sebulan (yang tanggalnya sudah
+           dijamin terkunci lewat _jdwMonthGridHtml kalau kebablasan ke bulan
+           yang belum boleh). -->
       <div class="jdw-form-section" id="jdw-reschedule-date-section" style="display:none">
         <!-- Caption "Pilih Tanggal" + tombol toggle "1 Bulan"/"1 Minggu" DIPINDAH
              ke DALAM kartu kalender (.glass.jdw-week-card), pakai struktur PERSIS
@@ -43,7 +48,7 @@
               <span id="jdw-reschedule-toggle-label">1 Bulan</span>
             </button>
           </div>
-          <div class="jdw-riwayat-nav" style="margin-bottom:10px">
+          <div class="jdw-riwayat-nav" id="jdw-reschedule-cal-nav" style="margin-bottom:10px;display:none">
             <button type="button" class="jdw-icon-btn" id="jdw-reschedule-prev-btn" onclick="JadwalPage.rescheduleNav('older')" aria-label="Sebelumnya">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
             </button>

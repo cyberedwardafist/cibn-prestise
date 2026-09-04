@@ -1158,7 +1158,10 @@ const JadwalPage = {
     /* ── Halaman ajukan jadwal (pilih jam + materi) ── */
     _isReschedule: false,   // true kalau overlay ini lagi mode "Jadwal Ulang" (entri berstatus acc)
     rescheduleDate: null,   // tanggal BARU yang dipilih lewat kalender mini di overlay (mode Jadwal Ulang saja)
-    rescheduleWeekRef: null,// tanggal acuan minggu yang lagi ditampilkan di kalender mini itu
+    rescheduleWeekRef: null,// tanggal acuan minggu yang ditampilkan di strip kalender mini —
+                             // TETAP (tidak bisa dinavigasi kiri/kanan lagi, lihat rescheduleNav),
+                             // cuma dipakai sebagai titik awal: minggu yang berisi tanggal sesi
+                             // yang lagi di-jadwal-ulang (diisi di openAjukanOverlay).
     rescheduleExpanded: false, // sama kayak calendarExpanded tapi buat kalender mini form Jadwal Ulang
     rescheduleMonthRef: null,  // tanggal acuan bulan yang lagi ditampilkan pas grid sebulan kalender mini kebuka
     // ── Batas GANTI TENTOR pas mode Jadwal Ulang (beda dari kuota
@@ -1515,6 +1518,14 @@ const JadwalPage = {
         const toggleLabel = document.getElementById('jdw-reschedule-toggle-label');
         const toggleBtn = document.getElementById('jdw-reschedule-toggle-btn');
         const prevBtn = document.getElementById('jdw-reschedule-prev-btn');
+        // Nav kiri/kanan (id=jdw-reschedule-cal-nav) — SAMA PERSIS kayak
+        // jdw-cal-nav di kalender utama (lihat _jdwRenderWeek): cuma nongol
+        // & aktif pas mode grid sebulan. Di mode strip 1 minggu, wrapper ini
+        // disembunyikan total (bukan cuma disabled) supaya benar-benar tidak
+        // bisa diklik kiri/kanan — sebelumnya tombol ini selalu kelihatan
+        // walau lagi mode minggu, jadi bisa dipakai "loncat" minggu demi
+        // minggu tembus ke bulan depan yang seharusnya belum boleh diakses.
+        const navWrap = document.getElementById('jdw-reschedule-cal-nav');
         if (!strip) return;
         const todayIso = _jdwToIso(new Date());
         if (this.rescheduleExpanded) {
@@ -1522,6 +1533,7 @@ const JadwalPage = {
             const ref = this.rescheduleMonthRef;
             strip.style.display = 'none';
             if (monthGrid) monthGrid.style.display = '';
+            if (navWrap) navWrap.style.display = 'flex';
             if (caption) caption.textContent = `${JDW_MONTH_NAMES[ref.getMonth()]} ${ref.getFullYear()}`;
             const now = new Date();
             if (prevBtn) prevBtn.disabled = ref.getFullYear() === now.getFullYear() && ref.getMonth() === now.getMonth();
@@ -1537,7 +1549,7 @@ const JadwalPage = {
             return;
         }
         if (monthGrid) monthGrid.style.display = 'none';
-        if (prevBtn) prevBtn.disabled = false;
+        if (navWrap) navWrap.style.display = 'none';
         if (toggleLabel) toggleLabel.textContent = '1 Bulan';
         if (toggleBtn) toggleBtn.classList.remove('active');
         strip.style.display = '';
@@ -1562,18 +1574,21 @@ const JadwalPage = {
         }
         this._renderRescheduleCalendar();
     },
+    // Kiri/kanan cuma berfungsi pas mode grid sebulan (this.rescheduleExpanded)
+    // — SAMA PERSIS kayak JadwalPage.calendarMonthNav di kalender utama,
+    // termasuk batas tidak boleh mundur ke bulan sebelum bulan berjalan.
+    // Mode strip 1 minggu SENGAJA tidak punya navigasi apapun (lihat
+    // navWrap.style.display di _renderRescheduleCalendar, tombolnya
+    // disembunyikan total di mode ini) — dijaga di sisi logic juga lewat
+    // guard clause di bawah, bukan cuma ngandelin tombolnya kesembunyi,
+    // supaya tidak ada jalan pintas ke bulan yang belum boleh diakses.
     rescheduleNav(dir) {
-        if (this.rescheduleExpanded) {
-            const ref = new Date(this.rescheduleMonthRef || new Date());
-            ref.setMonth(ref.getMonth() + (dir === 'older' ? -1 : 1));
-            const now = new Date();
-            if (ref.getFullYear() < now.getFullYear() || (ref.getFullYear() === now.getFullYear() && ref.getMonth() < now.getMonth())) return;
-            this.rescheduleMonthRef = ref;
-        } else {
-            const ref = new Date(this.rescheduleWeekRef || new Date());
-            ref.setDate(ref.getDate() + (dir === 'older' ? -7 : 7));
-            this.rescheduleWeekRef = ref;
-        }
+        if (!this.rescheduleExpanded) return;
+        const ref = new Date(this.rescheduleMonthRef || new Date());
+        ref.setMonth(ref.getMonth() + (dir === 'older' ? -1 : 1));
+        const now = new Date();
+        if (ref.getFullYear() < now.getFullYear() || (ref.getFullYear() === now.getFullYear() && ref.getMonth() < now.getMonth())) return;
+        this.rescheduleMonthRef = ref;
         this._renderRescheduleCalendar();
     },
     pickRescheduleDate(iso) {
