@@ -64,16 +64,57 @@ function _jdwKuotaTerpakai() {
 function _jdwKuotaSisa() {
     return Math.max(0, JDW_KUOTA_TOTAL - _jdwKuotaTerpakai());
 }
-// Render badge kuota di header (id=jdw-kuota-value) — dipanggil dari dalam
-// _jdwRenderStatusList() (satu-satunya titik render yang SUDAH dipanggil di
-// SEMUA tempat sesudah status pengajuan berubah, lihat semua pemanggil
-// _jdwRenderStatusList() di file ini) supaya badge ini otomatis ikut
-// ter-update tiap ada perubahan, TIDAK perlu ditambah manual di tiap
-// pemanggil satu-satu.
+// Kuota PEMBATALAN (beda dari kuota pengajuan di atas) — jatah user
+// membatalkan jadwal yang SUDAH disetujui (acc), maksimal 3x total selama
+// user aktif (dummy — nanti gampang disambung ke angka beneran dari
+// backend, tinggal ganti sumber angka TOTAL-nya di bawah, logika hitungnya
+// TIDAK perlu diubah). Pembatalan pada jadwal yang BELUM di-acc (masih
+// "pending"/menunggu) TIDAK menyentuh kuota ini sama sekali — begitu
+// dibatalkan entrinya langsung dihapus (JadwalStore.remove, lihat
+// JadwalPage.confirmBatal) dan otomatis balik jadi slot kosong di kuota
+// PENGAJUAN di atas, bukan di kuota pembatalan ini.
+//
+// Kuota TERPAKAI dihitung dari entri yang statusnya lagi
+// "pengajuan_pembatalan" (masih menunggu keputusan) ATAU sudah "batal" oleh
+// user (batalOleh:'user'), DAN field pembatalanDihitung-nya true. Field
+// pembatalanDihitung ini yang nentuin APAKAH pembatalan itu ikut motong
+// kuota atau tidak — diisi sekali pas user submit pengajuan pembatalan
+// (lihat JadwalPage.submitBatalPengajuan), berdasar flag freeCancelEligible
+// entri itu SAAT DIBATALKAN:
+//   - freeCancelEligible FALSE (kasus normal) -> pembatalanDihitung TRUE,
+//     IKUT motong kuota ini.
+//   - freeCancelEligible TRUE -> pembatalanDihitung FALSE, TIDAK motong
+//     kuota (gratis). Ini kejadian kalau posisi user membatalkan jadwal
+//     PERSIS setelah ada pengajuan jadwal ulang dari TENTOR (status
+//     "resejuel") yang baru saja diputuskan (disetujui ATAU ditolak
+//     sekalipun) — jadwal jadi berantakan gara-gara tentor, bukan salah
+//     user, jadi user "dimaafkan" sekali buat pembatalan berikutnya. Flag
+//     freeCancelEligible ini yang di-set di JadwalPage.setujuResejuel &
+//     JadwalPage.tolakResejuel.
+// "Tarik Pembatalan" (JadwalPage.confirmTarikBatal) otomatis ngebalikin
+// kuota juga — statusnya balik jadi "acc" jadi otomatis nggak lolos filter
+// status di bawah lagi, TIDAK perlu kode tambahan buat nambah manual.
+const JDW_KUOTA_BATAL_TOTAL = 3;
+function _jdwKuotaBatalTerpakai() {
+    return JadwalStore.all().filter(e =>
+        e.pembatalanDihitung === true &&
+        (e.status === 'pengajuan_pembatalan' || (e.status === 'batal' && e.batalOleh === 'user'))
+    ).length;
+}
+function _jdwKuotaBatalSisa() {
+    return Math.max(0, JDW_KUOTA_BATAL_TOTAL - _jdwKuotaBatalTerpakai());
+}
+// Render KEDUA badge kuota di header (id=jdw-kuota-value & id=jdw-kuota-batal-value)
+// — dipanggil dari dalam _jdwRenderStatusList() (satu-satunya titik render
+// yang SUDAH dipanggil di SEMUA tempat sesudah status pengajuan/pembatalan
+// berubah, lihat semua pemanggil _jdwRenderStatusList() di file ini) supaya
+// kedua badge ini otomatis ikut ter-update tiap ada perubahan, TIDAK perlu
+// ditambah manual di tiap pemanggil satu-satu.
 function _jdwRenderKuota() {
     const el = document.getElementById('jdw-kuota-value');
-    if (!el) return;
-    el.textContent = `${_jdwKuotaSisa()}/${JDW_KUOTA_TOTAL}`;
+    if (el) el.textContent = `${_jdwKuotaSisa()}/${JDW_KUOTA_TOTAL}`;
+    const elBatal = document.getElementById('jdw-kuota-batal-value');
+    if (elBatal) elBatal.textContent = `${_jdwKuotaBatalSisa()}/${JDW_KUOTA_BATAL_TOTAL}`;
 }
 const JDW_DAY_NAMES = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 const JDW_DAY_SHORT = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
@@ -139,7 +180,11 @@ const JadwalStore = (function () {
             { id: 'seed_ditolak1', tanggal: _todayIso(0), slotId: 'slot2', materiId: 'tkp', tentorId: 'angga', status: 'ditolak', createdAt: Date.now() - 70000000 },
             { id: 'seed_ditolak2', tanggal: _todayIso(-2), slotId: 'slot2', materiId: 'tiu', tentorId: 'raffi', status: 'ditolak', createdAt: Date.now() - 65000000 },
             // pengajuan_pembatalan -> tombol "Tarik Pembatalan" (balik ke acc).
-            { id: 'seed_batal', tanggal: _todayIso(1), slotId: 'slot4', materiId: 'toefl_listening', tentorId: 'chika', status: 'pengajuan_pembatalan', alasanBatal: 'Ada jadwal ujian sekolah yang bentrok', createdAt: Date.now() - 60000000 },
+            // pembatalanDihitung:true -> ini pembatalan NORMAL (bukan gratis),
+            // ikut motong kuota pembatalan (lihat JDW_KUOTA_BATAL_TOTAL &
+            // _jdwKuotaBatalTerpakai) — sekalian jadi contoh badge "Batal: 2/3"
+            // begitu digabung sama seed_batal_user di bawah.
+            { id: 'seed_batal', tanggal: _todayIso(1), slotId: 'slot4', materiId: 'toefl_listening', tentorId: 'chika', status: 'pengajuan_pembatalan', alasanBatal: 'Ada jadwal ujian sekolah yang bentrok', pembatalanDihitung: true, createdAt: Date.now() - 60000000 },
             // selesai -> tanpa tombol aksi sama sekali, terlepas feedbackDone
             // sudah diisi atau belum (beda dari "berlangsung" yang jam sudah
             // lewat, itu MASIH ada tombol Feedback). Dua entri riwayat, beda
@@ -163,7 +208,15 @@ const JadwalStore = (function () {
             // batal, DIBATALKAN OLEH USER (field batalOleh:'user') -> kebalikannya:
             // walau tanggalnya masih di depan (belum lewat), langsung kepindah ke
             // Riwayat & sama sekali tidak nongol lagi di "Minggu Ini".
-            { id: 'seed_batal_user', tanggal: _todayIso(3), slotId: 'slot6', materiId: 'twk', tentorId: 'angga', status: 'batal', batalOleh: 'user', alasanBatal: 'Berhalangan hadir', createdAt: Date.now() - 10000000 },
+            // pembatalanDihitung:true -> pembatalan normal, ikut motong kuota.
+            { id: 'seed_batal_user', tanggal: _todayIso(3), slotId: 'slot6', materiId: 'twk', tentorId: 'angga', status: 'batal', batalOleh: 'user', alasanBatal: 'Berhalangan hadir', pembatalanDihitung: true, createdAt: Date.now() - 10000000 },
+            // acc, BEKAS RESEJUEL YANG DISETUJUI (freeCancelEligible:true) ->
+            // contoh siap-pakai buat tes pembatalan GRATIS: tekan "Batal" pada
+            // kartu ini harus langsung masuk halaman Ajukan Pembatalan dengan
+            // catatan biru "tidak akan mengurangi kuota", TANPA kena cek kuota
+            // habis sama sekali walau kuota di atas sudah kepakai 2/3. Lihat
+            // JadwalPage.batalEntry & openBatalPengajuan.
+            { id: 'seed_acc_bekas_resejuel', tanggal: _todayIso(5), slotId: 'slot2', materiId: 'tkp', tentorId: 'raffi', status: 'acc', freeCancelEligible: true, createdAt: Date.now() - 5000000 },
         ];
         localStorage.setItem(KEY, JSON.stringify(arr));
         return arr;
@@ -1179,6 +1232,11 @@ const JadwalPage = {
         const id = this._batalPilihanTargetId;
         this.closeBatalPilihan();
         if (!id) return;
+        // Sama seperti batalEntry() buat entri "acc" biasa — cek dulu kuota
+        // pembatalan (maksimal 3x) sebelum buka halaman pengajuan pembatalan,
+        // kecuali entrinya "gratis" (freeCancelEligible).
+        const e = JadwalStore.get(id);
+        if (e && !e.freeCancelEligible && _jdwKuotaBatalSisa() <= 0) { this.openBatalKuotaHabis(); return; }
         this.openBatalPengajuan(id);
     },
     /* ── Tanggal aktif yang jadi acuan grid jam: tanggal baru hasil pilih di
@@ -1468,9 +1526,14 @@ const JadwalPage = {
                     });
                     showToast('✗ Jam tujuan baru saja diambil pengajuan lain — jadwal lama kamu tetap seperti semula');
                 } else {
+                    // freeCancelEligible di-reset ke false: ini pengajuan jadwal
+                    // ulang VERSI USER SENDIRI (bukan dari tentor), jadi "maaf
+                    // pembatalan gratis" dari resejuel tentor sebelumnya (kalau
+                    // ada) tidak ikut kebawa lagi ke pengajuan baru ini.
                     JadwalStore.update(this.editingId, {
                         slotId: this.pickedSlot, materiId: this.pickedMateri, tentorId: this.pickedTentor,
                         status: 'pending', tanggal: this.rescheduleDate, alasanReschedule: alasan,
+                        freeCancelEligible: false,
                     });
                     showToast('✓ Jadwal ulang diajukan, menunggu persetujuan');
                 }
@@ -1596,7 +1659,13 @@ const JadwalPage = {
     _tolakAjukanEntryId: null,
     tolakResejuel() {
         if (!this._resejuelTargetId) return;
-        JadwalStore.update(this._resejuelTargetId, { status: 'acc', reschedule: null });
+        // freeCancelEligible: true -> jadwal ini baru saja "diutak-atik" tentor
+        // (diajukan jadwal ulang lalu DITOLAK user, balik ke jadwal lama).
+        // Kalau abis ini user memilih membatalkan jadwal (bukan tentornya lagi
+        // yang salah, tapi tetap gara-gara ulahnya tentor duluan), pembatalan
+        // berikutnya TIDAK memotong kuota pembatalan (lihat
+        // JadwalPage.submitBatalPengajuan & _jdwKuotaBatalTerpakai).
+        JadwalStore.update(this._resejuelTargetId, { status: 'acc', reschedule: null, freeCancelEligible: true });
         this._tolakAjukanEntryId = this._resejuelTargetId;
         // Toast SENGAJA belum ditampilkan di sini — popup fullscreen "Ajukan
         // Jadwal Lain?" langsung terbuka di atasnya di baris bawah ini, jadi
@@ -1641,7 +1710,13 @@ const JadwalPage = {
         if (!this._resejuelTargetId) return;
         const e = JadwalStore.get(this._resejuelTargetId);
         if (!e || !e.reschedule) return;
-        JadwalStore.update(this._resejuelTargetId, { tanggal: e.reschedule.tanggal, slotId: e.reschedule.slotId, materiId: e.reschedule.materiId, status: 'acc', reschedule: null });
+        // freeCancelEligible: true -> sama seperti di tolakResejuel(), jadwal
+        // ini baru saja diajukan jadwal ulang oleh tentor (di sini malah
+        // DISETUJUI, jadwal barunya langsung dipakai). Kalau abis ini user
+        // memilih membatalkan jadwal (jam/tanggal baru dari tentor ternyata
+        // tetap tidak cocok buat user), pembatalan berikutnya TIDAK memotong
+        // kuota pembatalan — lihat JadwalPage.submitBatalPengajuan.
+        JadwalStore.update(this._resejuelTargetId, { tanggal: e.reschedule.tanggal, slotId: e.reschedule.slotId, materiId: e.reschedule.materiId, status: 'acc', reschedule: null, freeCancelEligible: true });
         this.closeResejuelOverlay();
         showToast('✓ Jadwal ulang disetujui, jadwal baru sudah aktif');
         _jdwRenderWeek();
@@ -1653,7 +1728,16 @@ const JadwalPage = {
         const e = JadwalStore.get(id);
         // Jadwal yang sudah DISETUJUI tidak langsung dibatalkan begitu saja —
         // harus lewat halaman pengajuan pembatalan (rekap + alasan + persetujuan).
-        if (e && e.status === 'acc') { this.openBatalPengajuan(id); return; }
+        // TAPI dicek dulu kuota pembatalannya (maksimal 3x) — kecuali kalau
+        // entri ini "gratis" (freeCancelEligible, baru saja kena pengajuan
+        // jadwal ulang dari tentor), popup kuota habis TIDAK berlaku buat dia
+        // sama sekali, langsung lanjut ke halaman pengajuan pembatalan seperti
+        // biasa (lihat _jdwKuotaBatalSisa & JadwalPage.openBatalKuotaHabis).
+        if (e && e.status === 'acc') {
+            if (!e.freeCancelEligible && _jdwKuotaBatalSisa() <= 0) { this.openBatalKuotaHabis(); return; }
+            this.openBatalPengajuan(id);
+            return;
+        }
         this._batalTargetId = id;
         // Entri "pending" bisa berarti dua hal: pengajuan jadwal baru yang
         // belum pernah disetujui, ATAU jadwal-ULANG dari entri yang tadinya
@@ -1679,6 +1763,23 @@ const JadwalPage = {
         _jdwRenderStatusList();
     },
 
+    /* ── Popup: KUOTA PEMBATALAN SUDAH HABIS — muncul kalau tombol "Batal"
+       ditekan pada jadwal berstatus "acc" (atau "Batalkan Jadwal" dari
+       pilihan di status "butuh_persetujuan") padahal jatah membatalkan (3x)
+       sudah terpakai semua, DAN entrinya bukan pembatalan gratis
+       (freeCancelEligible). Cuma 1 tombol "Mengerti", sama pola kayak
+       jdw-lewat-overlay/jdw-reschedule-harih-overlay. Halaman pengajuan
+       pembatalan (jdw-sesi-overlay) TIDAK dibuka sama sekali kalau ini
+       muncul — lihat JadwalPage.batalEntry & batalPilihanJadwal. ── */
+    openBatalKuotaHabis() {
+        document.getElementById('jdw-batal-kuota-habis-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
+    },
+    closeBatalKuotaHabis() {
+        document.getElementById('jdw-batal-kuota-habis-overlay').classList.remove('open');
+        _jdwSyncPageScrollLock();
+    },
+
     /* ── Halaman PENGAJUAN PEMBATALAN (khusus jadwal berstatus "acc") — pakai
        overlay generik jdw-sesi-overlay yang sama dengan Masuk/Feedback, isinya
        diganti: rekap (tanggal/jam/materi) + alasan + centang persetujuan. ── */
@@ -1689,6 +1790,16 @@ const JadwalPage = {
         const slot = JDW_SLOTS.find(s => s.id === e.slotId);
         const materi = JDW_MATERI.find(m => m.id === e.materiId);
         const tentor = JDW_TENTOR.find(t => t.id === e.tentorId);
+        // Catatan kuota pembatalan — beda isi tergantung entrinya "gratis"
+        // (freeCancelEligible, abis kena pengajuan jadwal ulang dari tentor)
+        // atau pembatalan normal biasa yang ikut motong kuota 3x.
+        const kuotaNoteHtml = e.freeCancelEligible
+            ? `<div class="jdw-form-section">
+                 <div class="jdw-sesi-hint" style="color:var(--accent);font-weight:600">Pembatalan ini <u>tidak akan mengurangi</u> kuota pembatalan kamu, karena jadwal ini baru saja mengalami pengajuan jadwal ulang dari tentor.</div>
+               </div>`
+            : `<div class="jdw-form-section">
+                 <div class="jdw-sesi-hint">Sisa jatah membatalkan jadwal kamu: <strong>${_jdwKuotaBatalSisa()}/${JDW_KUOTA_BATAL_TOTAL}</strong>. Pembatalan ini akan memotong 1 jatah.</div>
+               </div>`;
         document.getElementById('jdw-sesi-title').textContent = 'Ajukan Pembatalan';
         document.getElementById('jdw-sesi-body').innerHTML = `
             <div class="jdw-form-section">
@@ -1702,6 +1813,7 @@ const JadwalPage = {
                     </div>
                 </div>
             </div>
+            ${kuotaNoteHtml}
             <div class="jdw-form-section">
                 <div class="jdw-form-label">Alasan Pembatalan</div>
                 <textarea class="jdw-textarea" id="jdw-batalulang-alasan" placeholder="Tulis alasan kamu mengajukan pembatalan..." oninput="JadwalPage._refreshBatalUlangBtn()"></textarea>
@@ -1738,9 +1850,18 @@ const JadwalPage = {
         const setujuEl = document.getElementById('jdw-batalulang-setuju');
         const alasan = alasanEl ? alasanEl.value.trim() : '';
         if (!alasan || !setujuEl || !setujuEl.checked) return;
-        JadwalStore.update(this._sesiEntryId, { status: 'pengajuan_pembatalan', alasanBatal: alasan });
+        const e = JadwalStore.get(this._sesiEntryId);
+        // isFreeCancel: entri ini baru saja kena pengajuan jadwal ulang dari
+        // tentor (freeCancelEligible) -> pembatalanDihitung disimpan FALSE
+        // biar _jdwKuotaBatalTerpakai() TIDAK ikut menghitungnya (gratis,
+        // tidak memotong jatah 3x). Kalau bukan, pembatalanDihitung TRUE ->
+        // ikut motong kuota seperti biasa.
+        const isFreeCancel = !!(e && e.freeCancelEligible);
+        JadwalStore.update(this._sesiEntryId, { status: 'pengajuan_pembatalan', alasanBatal: alasan, pembatalanDihitung: !isFreeCancel });
         this.closeSesiOverlay();
-        showToast('✓ Pengajuan pembatalan dikirim, menunggu persetujuan');
+        showToast(isFreeCancel
+            ? '✓ Pengajuan pembatalan dikirim (tidak mengurangi kuota pembatalan)'
+            : '✓ Pengajuan pembatalan dikirim, menunggu persetujuan');
         _jdwRenderWeek();
         _jdwRenderStatusList();
     },
@@ -1757,7 +1878,12 @@ const JadwalPage = {
         document.getElementById('jdw-tarikbatal-overlay').classList.remove('open');
         _jdwSyncPageScrollLock();
         if (!this._tarikBatalTargetId) return;
-        JadwalStore.update(this._tarikBatalTargetId, { status: 'acc', alasanBatal: null });
+        // pembatalanDihitung direset ke false juga — pengajuan pembatalannya
+        // ditarik (dianggap tidak pernah kejadian), jadi jatah kuota
+        // pembatalan yang sempat "kepotong" kembali utuh (status sudah balik
+        // "acc" jadi otomatis lolos dari filter _jdwKuotaBatalTerpakai(), ini
+        // cuma buat jaga-jaga kalau field ini kebaca ulang lain kali).
+        JadwalStore.update(this._tarikBatalTargetId, { status: 'acc', alasanBatal: null, pembatalanDihitung: false });
         this._tarikBatalTargetId = null;
         showToast('Pembatalan ditarik, jadwal kembali disetujui');
         _jdwRenderWeek();

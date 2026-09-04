@@ -533,6 +533,12 @@
     .jadwal-kuota-badge { display:flex; align-items:center; gap:6px; padding:7px 12px; border-radius:20px; border:1.5px solid rgba(26,90,160,.18); background:rgba(26,90,160,.08); color:var(--accent); font-family:var(--font-body); font-size:11.5px; font-weight:600; white-space:nowrap; }
     .jadwal-kuota-badge svg { width:14px; height:14px; flex-shrink:0; }
     .jadwal-kuota-badge strong { font-family:var(--font-head); font-weight:700; color:var(--blue); }
+    /* Grup dua badge (kuota pengajuan + kuota pembatalan) ditumpuk vertikal
+       di pojok kanan header — lihat user/jadwal.html & _jdwRenderKuota di
+       user/jadwal.js (satu fungsi yang sama update dua-duanya sekaligus). */
+    .jadwal-kuota-group { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+    .jadwal-kuota-badge.batal { border-color:rgba(220,38,38,.2); background:rgba(220,38,38,.08); color:var(--danger); }
+    .jadwal-kuota-badge.batal strong { color:var(--danger); }
 
     /* ── JADWAL: kalender 1 minggu ala iPhone ── */
     .jdw-week-card { padding:18px 10px 14px; margin-bottom:12px; }

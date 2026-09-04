@@ -20,9 +20,24 @@
        di user/jadwal.js). Angka otomatis update tiap ada perubahan status
        pengajuan (disetujui/menunggu = ngurangin, dibatalkan/ditolak/selesai =
        balik nambah), tanpa perlu refresh manual. -->
-  <div class="jadwal-kuota-badge" title="Sisa kuota pengajuan jadwal yang masih bisa kamu ajukan">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-    <span>Kuota: <strong id="jdw-kuota-value">-/-</strong></span>
+  <!-- Badge kedua KUOTA PEMBATALAN — jatah membatalkan jadwal yang sudah
+       disetujui (acc), maksimal 3x (lihat JDW_KUOTA_BATAL_TOTAL/
+       _jdwKuotaBatalSisa/_jdwRenderKuota di user/jadwal.js). Pembatalan pada
+       jadwal yang statusnya BELUM di-acc (masih menunggu) TIDAK memotong
+       kuota ini sama sekali — cuma jadwal yang sudah disetujui yang
+       dihitung. Pembatalan langsung setelah tentor mengajukan jadwal ulang
+       (disetujui ATAU ditolak sekalipun) juga dikecualikan (gratis, tidak
+       memotong kuota ini) — lihat catatan freeCancelEligible di
+       JadwalPage.tolakResejuel/setujuResejuel & JadwalPage.submitBatalPengajuan. -->
+  <div class="jadwal-kuota-group">
+    <div class="jadwal-kuota-badge" title="Sisa kuota pengajuan jadwal yang masih bisa kamu ajukan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <span>Kuota: <strong id="jdw-kuota-value">-/-</strong></span>
+    </div>
+    <div class="jadwal-kuota-badge batal" title="Sisa jatah membatalkan jadwal yang sudah disetujui (maksimal 3x)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      <span>Batal: <strong id="jdw-kuota-batal-value">-/-</strong></span>
+    </div>
   </div>
 </div>
 

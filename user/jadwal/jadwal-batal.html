@@ -16,6 +16,27 @@
   </div>
 </div>
 
+<!-- ══════ INFO: KUOTA PEMBATALAN SUDAH HABIS ══════
+     Muncul kalau tombol "Batal" (atau "Batalkan Jadwal" dari pilihan status
+     "butuh_persetujuan") ditekan pada jadwal yang sudah disetujui (acc),
+     padahal jatah membatalkan jadwal (maksimal 3x, lihat JDW_KUOTA_BATAL_TOTAL
+     di user/jadwal.js) sudah terpakai semua — halaman pengajuan pembatalan
+     TIDAK dibuka sama sekali, cuma popup info ini yang tampil. Kalau
+     jadwalnya baru saja kena pengajuan jadwal ulang dari tentor
+     (freeCancelEligible), popup ini TIDAK PERNAH muncul buat jadwal itu,
+     langsung lanjut ke halaman pengajuan pembatalan seperti biasa (gratis,
+     tidak potong kuota) — lihat JadwalPage.batalEntry & batalPilihanJadwal. ══════ -->
+<div class="overlay confirm-overlay" id="jdw-batal-kuota-habis-overlay" onclick="if(event.target===this){JadwalPage.closeBatalKuotaHabis();}">
+  <div class="modal" style="max-width:300px;text-align:center">
+    <div class="confirm-icon danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+    <div class="confirm-title">Tidak Bisa Membatalkan Jadwal</div>
+    <div class="confirm-msg">Kamu sudah tidak bisa lagi membatalkan jadwal karena kuota pembatalanmu sudah habis (maksimal 3x).</div>
+    <div class="confirm-btns">
+      <button class="btn-primary" onclick="JadwalPage.closeBatalKuotaHabis()" style="flex:1;margin-top:0">Mengerti</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══════ KONFIRMASI: TARIK PEMBATALAN (entri berstatus "pengajuan_pembatalan") ══════ -->
 <div class="overlay confirm-overlay" id="jdw-tarikbatal-overlay" onclick="if(event.target===this){this.classList.remove('open');_jdwSyncPageScrollLock();}">
   <div class="modal" style="max-width:300px;text-align:center">
