@@ -479,7 +479,7 @@
     .home-greeting { font-family:var(--font-head); font-size:22px; font-weight:700; color:var(--blue); }
     .home-greeting span { display:block; font-size:13px; font-weight:400; color:var(--text-sub); margin-top:2px; font-family:var(--font-body); }
     .home-date-chip { font-size:11px; font-weight:600; color:var(--text-sub); background:rgba(255,255,255,.55); border:1px solid rgba(19,50,89,.1); padding:5px 12px; border-radius:20px; }
-    .home-banner { width:100%; padding:22px 24px; margin-bottom:18px; background:linear-gradient(145deg,var(--blue) 0%,#1c4a7a 60%,#0d2a4e 100%); border-radius:20px; box-shadow:0 8px 28px rgba(19,50,89,.22); position:relative; overflow:hidden; }
+    .home-banner { width:100%; min-height:86px; padding:22px 24px; margin-bottom:18px; background:linear-gradient(145deg,var(--blue) 0%,#1c4a7a 60%,#0d2a4e 100%); border-radius:20px; box-shadow:0 8px 28px rgba(19,50,89,.22); position:relative; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center; }
     .home-banner::before { content:''; position:absolute; top:-30px; right:-30px; width:150px; height:150px; border-radius:50%; background:rgba(255,255,255,.06); }
     .home-banner::after { content:''; position:absolute; bottom:-20px; left:20px; width:100px; height:100px; border-radius:50%; background:rgba(255,255,255,.04); }
     .home-banner-title { font-family:var(--font-head); font-size:16px; font-weight:700; color:#fff; margin-bottom:4px; position:relative; z-index:1; padding-right:78px; }
@@ -1343,7 +1343,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('display-name').textContent = _userInfo.nama;
         document.getElementById('display-email').textContent = _userInfo.email;
         document.getElementById('display-group').textContent = _userInfo.grub_nama || 'User';
-        document.getElementById('display-grup').textContent = _userInfo.grub_nama ? 'Grup: ' + _userInfo.grub_nama : '';
+        document.getElementById('display-grup').textContent = _userInfo.grub_nama ? '📁 Grup: ' + _userInfo.grub_nama : '';
         document.getElementById('home-user-name').textContent = _userInfo.nama;
         // Load paket status untuk tombol profil
         loadMyPaketsStatus();
