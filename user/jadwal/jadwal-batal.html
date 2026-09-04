@@ -184,3 +184,60 @@
     </div>
   </div>
 </div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     PENGAJUAN PEMBATALAN DARI TENTOR (status "pengajuan_batal_tentor") —
+     halaman FULLSCREEN, pola SAMA PERSIS dengan #jdw-resejuel-overlay di
+     atas, BEDANYA cuma satu resume (jadwal yang mau dibatalkan tentor,
+     TANPA jadwal pengganti — tentor cuma minta izin batal, bukan
+     menawarkan jadwal baru) + alasan tentor mengajukan pembatalan. Dipicu
+     dari tombol "Cek" di kartu status "pengajuan_batal_tentor" (lihat
+     JadwalPage.bukaBatalTentor & _entryActions di user/jadwal.js). Tombol
+     Tolak (jadwal lama TETAP berlaku, tapi otomatis diajukan ulang ke
+     tentor lain di jam & materi yang sama — lihat JadwalPage.tolakBatalTentor)
+     / Setuju (jadwal langsung dibatalkan, kuota TIDAK terpotong, lanjut ke
+     popup pilihan #jdw-batal-tentor-setuju-overlay di bawah — lihat
+     JadwalPage.setujuBatalTentor). ══════════════════════════════════════ -->
+<div class="overlay overlay-fullscreen" id="jdw-batal-tentor-overlay">
+  <div class="modal modal-fullscreen">
+    <div class="jdw-modal-header">
+      <button class="jdw-icon-btn" onclick="JadwalPage.closeBatalTentorOverlay()" aria-label="Kembali">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="jdw-modal-title-wrap">
+        <div class="jdw-modal-title">Pengajuan Pembatalan dari Tentor</div>
+        <div class="jdw-modal-subtitle">Tinjau lalu pilih salah satu</div>
+      </div>
+      <span style="width:32px"></span>
+    </div>
+    <div class="jdw-modal-body">
+      <div class="jdw-resejuel-compare" id="jdw-batal-tentor-compare"></div>
+      <div class="jdw-form-section jdw-resejuel-actions" style="margin-bottom:0">
+        <button class="jdw-btn jdw-btn-secondary jdw-btn-block" onclick="JadwalPage.tolakBatalTentor()">TOLAK</button>
+        <button class="jdw-btn jdw-btn-primary jdw-btn-block" onclick="JadwalPage.setujuBatalTentor()">SETUJU</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ POPUP PILIHAN SETELAH SETUJU PEMBATALAN DARI TENTOR ══════
+     Muncul otomatis begitu JadwalPage.setujuBatalTentor() selesai (jadwal
+     sudah berstatus "batal", kuota sudah dikembalikan/tidak terpotong).
+     "Ganti ke Jadwal Lain" -> langsung buka form Ajukan Jadwal baru,
+     pre-filled tanggal/jam/materi yang barusan dibatalkan (tentor
+     dikosongkan & tentor yang barusan batal dikecualikan dari pilihan) —
+     lihat JadwalPage.gantiJadwalSetelahBatalTentor &
+     openAjukanGantiSetelahBatalTentor. "Selesai" -> tutup popup & overlay
+     resume-nya sekaligus, balik bersih ke halaman Jadwal — lihat
+     JadwalPage.selesaiBatalTentor. ══════ -->
+<div class="overlay confirm-overlay" id="jdw-batal-tentor-setuju-overlay" onclick="if(event.target===this){JadwalPage.selesaiBatalTentor();}">
+  <div class="modal" style="max-width:300px;text-align:center">
+    <div class="confirm-icon warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg></div>
+    <div class="confirm-title">Jadwal Dibatalkan</div>
+    <div class="confirm-msg">Pembatalan dari tentor sudah disetujui, kuota pembatalanmu tidak terpotong. Mau langsung ajukan jadwal pengganti?</div>
+    <div class="confirm-btns stack">
+      <button class="btn-primary" onclick="JadwalPage.gantiJadwalSetelahBatalTentor()" style="width:100%;margin-top:0">Ganti ke Jadwal Lain</button>
+      <button class="btn-secondary" onclick="JadwalPage.selesaiBatalTentor()" style="width:100%;padding:11px">Selesai</button>
+    </div>
+  </div>
+</div>

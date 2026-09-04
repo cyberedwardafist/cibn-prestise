@@ -42,7 +42,7 @@ const JDW_TENTOR = [
     { id: 'angga', name: 'ANGGA', materi: 'ALL', slots: ['slot1', 'slot6', 'slot7'] },
     { id: 'raffi', name: 'RAFFI', materi: ['twk', 'tiu', 'tkp'], slots: ['slot2', 'slot6'] },
 ];
-const JDW_STATUS_LABEL = { pending: 'Menunggu', acc: 'Disetujui', ditolak: 'Ditolak', berlangsung: 'Berlangsung', feedback: 'Feedback', selesai: 'Selesai', pengajuan_pembatalan: 'Pengajuan Pembatalan', resejuel: 'Jadwal Ulang dari Tentor', batal: 'Dibatalkan', butuh_persetujuan: 'Butuh Persetujuan' };
+const JDW_STATUS_LABEL = { pending: 'Menunggu', acc: 'Disetujui', ditolak: 'Ditolak', berlangsung: 'Berlangsung', feedback: 'Feedback', selesai: 'Selesai', pengajuan_pembatalan: 'Pengajuan Pembatalan', resejuel: 'Jadwal Ulang dari Tentor', batal: 'Dibatalkan', butuh_persetujuan: 'Butuh Persetujuan', pengajuan_batal_tentor: 'Pengajuan Batal dari Tentor' };
 // Kuota pengajuan jadwal per user (dummy — nanti gampang disambung ke angka
 // beneran dari backend/paket bimbingan user, tinggal ganti sumber angka
 // TOTAL-nya, logika hitungnya di bawah (_jdwKuotaTerpakai/_jdwKuotaSisa)
@@ -53,7 +53,9 @@ const JDW_STATUS_LABEL = { pending: 'Menunggu', acc: 'Disetujui', ditolak: 'Dito
 //   - MENGURANGI kuota (masih dianggap "aktif", 1 slot lagi kepakai): pending
 //     (menunggu), acc (disetujui), berlangsung, pengajuan_pembatalan (masih
 //     nunggu keputusan batal/tidak), butuh_persetujuan, resejuel (jadwal
-//     ulang dari tentor, masih berbasis entri "acc" yang sama).
+//     ulang dari tentor, masih berbasis entri "acc" yang sama),
+//     pengajuan_batal_tentor (pengajuan pembatalan dari tentor, masih
+//     berbasis entri "acc" yang sama, belum diputuskan Setuju/Tolak).
 //   - TIDAK/SUDAH TIDAK LAGI mengurangi kuota (otomatis balik nambah kuota
 //     begitu status masuk salah satu ini): ditolak (pengajuan ditolak),
 //     batal (dibatalkan), selesai (sesi sudah tuntas).
@@ -201,15 +203,24 @@ const JadwalStore = (function () {
             // ulang), biar gampang balik ke lama kalau ditolak.
             { id: 'seed_resejuel', tanggal: _todayIso(2), slotId: 'slot2', materiId: 'tiu', tentorId: 'raffi', status: 'resejuel', reschedule: { tanggal: _todayIso(4), slotId: 'slot5', materiId: 'tiu', alasan: 'Tentor ada keperluan mendadak di jam yang sama' }, createdAt: Date.now() - 30000000 },
             // batal, DIBATALKAN OLEH TENTOR (field batalOleh:'tentor') -> tanpa
-            // tombol aksi (kayak "selesai"), TAPI beda dari entri lampau biasa:
-            // sengaja TETAP nongol di "Minggu Ini" (home) pada tanggal aslinya
-            // walau tanggalnya sudah lewat, TIDAK otomatis pindah ke Riwayat.
+            // tombol aksi (kayak "selesai"). Tanggalnya KEMARIN (sudah lewat) ->
+            // sekarang ikut aturan tanggal biasa, jadi sudah pindah ke Riwayat,
+            // TIDAK nongol lagi di "Minggu Ini" (beda dari perilaku lama).
             { id: 'seed_batal_tentor', tanggal: _todayIso(-1), slotId: 'slot3', materiId: 'tkp', tentorId: 'albert', status: 'batal', batalOleh: 'tentor', alasanBatal: 'Tentor berhalangan hadir', createdAt: Date.now() - 20000000 },
-            // batal, DIBATALKAN OLEH USER (field batalOleh:'user') -> kebalikannya:
-            // walau tanggalnya masih di depan (belum lewat), langsung kepindah ke
-            // Riwayat & sama sekali tidak nongol lagi di "Minggu Ini".
+            // batal, DIBATALKAN OLEH USER (field batalOleh:'user'), tanggalnya
+            // masih DI DEPAN (belum lewat) & slotnya belum ditimpa pengajuan baru
+            // -> sekarang TETAP nongol di "Minggu Ini" (murni ikut tanggal, tidak
+            // lagi otomatis lompat ke Riwayat cuma karena dibatalkan user).
             // pembatalanDihitung:true -> pembatalan normal, ikut motong kuota.
             { id: 'seed_batal_user', tanggal: _todayIso(3), slotId: 'slot6', materiId: 'twk', tentorId: 'angga', status: 'batal', batalOleh: 'user', alasanBatal: 'Berhalangan hadir', pembatalanDihitung: true, createdAt: Date.now() - 10000000 },
+            // batal, DIBATALKAN OLEH USER hari ini, TAPI slotnya sudah "ditimpa"
+            // pengajuan baru (seed_batal_ditimpa_baru di jam & tanggal yang
+            // sama persis) -> ini langsung dianggap Riwayat SAAT INI JUGA walau
+            // tanggalnya belum lewat, karena user sudah mengajukan ulang di jam
+            // itu. Pasangan seed di bawah adalah pengajuan barunya (status acc,
+            // tanggal & slotId sama).
+            { id: 'seed_batal_ditimpa', tanggal: _todayIso(0), slotId: 'slot4', materiId: 'tiu', tentorId: 'pram', status: 'batal', batalOleh: 'user', alasanBatal: 'Salah pilih jam, ajukan ulang', pembatalanDihitung: false, createdAt: Date.now() - 9000000 },
+            { id: 'seed_batal_ditimpa_baru', tanggal: _todayIso(0), slotId: 'slot4', materiId: 'tiu', tentorId: 'pram', status: 'acc', createdAt: Date.now() - 8000000 },
             // acc, BEKAS RESEJUEL YANG DISETUJUI (freeCancelEligible:true) ->
             // contoh siap-pakai buat tes pembatalan GRATIS: tekan "Batal" pada
             // kartu ini harus langsung masuk halaman Ajukan Pembatalan dengan
@@ -217,6 +228,17 @@ const JadwalStore = (function () {
             // habis sama sekali walau kuota di atas sudah kepakai 2/3. Lihat
             // JadwalPage.batalEntry & openBatalPengajuan.
             { id: 'seed_acc_bekas_resejuel', tanggal: _todayIso(5), slotId: 'slot2', materiId: 'tkp', tentorId: 'raffi', status: 'acc', freeCancelEligible: true, createdAt: Date.now() - 5000000 },
+            // pengajuan_batal_tentor -> tombol "Cek" (buka halaman fullscreen
+            // resume + alasan tentor, lihat JadwalPage.bukaBatalTentor), lalu
+            // Setuju/Tolak. Contoh 1: TOLAK di kartu ini akan menemukan tentor
+            // pengganti yang cocok (ANGGA: materi ALL & punya slot6), jadi
+            // otomatis diajukan ulang ke ANGGA, bukan menunggu tanpa tentor.
+            { id: 'seed_batal_tentor1', tanggal: _todayIso(1), slotId: 'slot6', materiId: 'tkp', tentorId: 'raffi', status: 'pengajuan_batal_tentor', alasanBatalTentor: 'Tentor ada acara keluarga mendadak', createdAt: Date.now() - 4000000 },
+            // Contoh 2: TOLAK di kartu ini TIDAK akan menemukan tentor pengganti
+            // (kombinasi materi TWK & slot3 tidak dicover tentor mana pun selain
+            // ANGGA sendiri) -> jadi tetap "menunggu" tanpa tentor (tentorId
+            // null) sampai ada tentor yang cocok nanti.
+            { id: 'seed_batal_tentor2', tanggal: _todayIso(6), slotId: 'slot3', materiId: 'twk', tentorId: 'angga', status: 'pengajuan_batal_tentor', alasanBatalTentor: 'Tentor sedang sakit', createdAt: Date.now() - 3000000 },
         ];
         localStorage.setItem(KEY, JSON.stringify(arr));
         return arr;
@@ -517,14 +539,14 @@ function _jdwSlotEndDate(tanggal, slotId) {
 // overlay-overlay itu masih "open", baru dilepas begitu semuanya ketutup
 // (bukan asal unlock di tiap close, soalnya Pilih Tentor bisa numpuk KE ATAS
 // overlay Ajukan yang masih terbuka di belakangnya).
-const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 'jdw-sesi-overlay', 'jdw-resejuel-overlay'];
+const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 'jdw-sesi-overlay', 'jdw-resejuel-overlay', 'jdw-batal-tentor-overlay'];
 // jdw-batal-overlay & jdw-lewat-overlay ikut dikunci juga (backdrop-nya blur
 // transparan, bukan solid, jadi tidak menghasilkan tampilan 2 scrollbar
 // bertumpuk yang sama parahnya kayak overlay fullscreen di atas) TAPI
 // #page-jadwal di baliknya tetap ikut dikunci scroll-nya biar konsisten -
 // tidak masuk akal halaman di belakang masih bisa discroll pas ada dialog
 // konfirmasi kecil nongol di tengah layar.
-const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-lewat-overlay', 'jdw-tolak-ajukan-overlay', 'jdw-keluar-ajukan-overlay', 'jdw-batal-pilihan-overlay', 'jdw-reschedule-harih-overlay', 'jdw-batal-kuota-habis-overlay', 'jdw-tentor-ganti-confirm-overlay', 'jdw-tentor-ganti-terpakai-overlay'];
+const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-lewat-overlay', 'jdw-tolak-ajukan-overlay', 'jdw-keluar-ajukan-overlay', 'jdw-batal-pilihan-overlay', 'jdw-reschedule-harih-overlay', 'jdw-batal-kuota-habis-overlay', 'jdw-tentor-ganti-confirm-overlay', 'jdw-tentor-ganti-terpakai-overlay', 'jdw-batal-tentor-setuju-overlay'];
 // Ada popup/overlay APAPUN di halaman Jadwal yang lagi kebuka (dialog kecil
 // maupun fullscreen, semuanya sudah kedaftar di JDW_SCROLL_LOCK_OVERLAY_IDS
 // di atas) -> dipakai buat nahan render kalender/list minggu di BELAKANG
@@ -860,25 +882,44 @@ function _jdwDayGroupHtml(d, entries, isToday) {
 }
 
 // Entri utk 1 tanggal di list per-hari — SENGAJA dipisah dari filter status
-// inline lama supaya bisa nangani status "batal" secara khusus:
-//   - dibatalkan TENTOR (batalOleh:'tentor') -> cuma boleh nongol di tab
-//     "Minggu Ini" (home), TIDAK PERNAH di tab "Riwayat", terlepas tanggalnya
-//     sudah lewat atau belum.
-//   - dibatalkan USER (batalOleh:'user') -> kebalikannya, cuma boleh nongol
-//     di tab "Riwayat", TIDAK PERNAH di "Minggu Ini", terlepas tanggalnya
-//     sudah lewat atau belum.
-// Status "resejuel" (jadwal ulang dari tentor) ikut tampil normal di sini,
-// sama seperti status lain (pending/acc/dst) — kartunya nongol di tanggal
-// jadwal LAMA-nya (field tanggal/slotId/materiId entri ini sendiri, BUKAN
-// tanggal jadwal baru usulan tentor yang tersimpan di field `reschedule`),
-// cuma aksinya beda: tombol "Cek" yang buka halaman bandingkan jadwal lama
-// vs baru, lihat JadwalPage.bukaResejuel().
+// inline lama. Aturan Minggu Ini vs Riwayat MURNI berdasar TANGGAL (bukan
+// siapa yang membatalkan lagi):
+//   - Status yang masih AKTIF/belum final (pending/acc/berlangsung/
+//     pengajuan_pembatalan/resejuel/butuh_persetujuan) -> selalu di "Minggu
+//     Ini", tidak pernah di "Riwayat" (kalau tanggalnya sudah lewat tapi
+//     statusnya masih salah satu ini, harusnya sudah dikonversi otomatis
+//     oleh _jdwAutoAdvanceStatus — lihat fungsi itu).
+//   - Status FINAL ("selesai" & "batal", baik dibatalkan user maupun
+//     tentor) -> ikut tanggal: masih di "Minggu Ini" selama tanggalnya
+//     belum lewat, pindah ke "Riwayat" begitu tanggalnya sudah lewat hari
+//     ini. Khusus "batal": kalau di tanggal & jam (slotId) yang sama sudah
+//     ada pengajuan AKTIF baru (misal user batal lalu ajukan ulang di jam
+//     yang sama persis), entri batal yang lama itu langsung dianggap
+//     riwayat SAAT ITU JUGA, walau tanggalnya sendiri belum lewat — karena
+//     sudah "ketimpa" pengajuan baru.
+// Status "resejuel" (jadwal ulang dari tentor) tetap tampil normal di sini
+// (kartunya nongol di tanggal jadwal LAMA-nya, field tanggal/slotId/
+// materiId milik entri ini sendiri, BUKAN tanggal jadwal baru usulan tentor
+// yang tersimpan di field `reschedule`), cuma aksinya beda: tombol "Cek"
+// yang buka halaman bandingkan jadwal lama vs baru, lihat
+// JadwalPage.bukaResejuel().
 function _jdwStatusListEntriesForDate(iso) {
     const isRiwayat = JadwalPage.currentView === 'riwayat';
-    return JadwalStore.byDate(iso)
+    const todayIso = _jdwToIso(new Date());
+    const dateEntries = JadwalStore.byDate(iso);
+    return dateEntries
         .filter(e => {
-            if (e.status === 'pending' || e.status === 'acc' || e.status === 'berlangsung' || e.status === 'selesai' || e.status === 'pengajuan_pembatalan' || e.status === 'resejuel' || e.status === 'butuh_persetujuan') return true;
-            if (e.status === 'batal') return isRiwayat ? e.batalOleh === 'user' : e.batalOleh === 'tentor';
+            if (e.status === 'pending' || e.status === 'acc' || e.status === 'berlangsung' || e.status === 'pengajuan_pembatalan' || e.status === 'resejuel' || e.status === 'butuh_persetujuan' || e.status === 'pengajuan_batal_tentor') {
+                return !isRiwayat;
+            }
+            if (e.status === 'selesai' || e.status === 'batal') {
+                let sudahLewat = iso < todayIso;
+                if (e.status === 'batal' && !sudahLewat) {
+                    // Ditimpa pengajuan aktif baru di jam yang sama -> langsung riwayat.
+                    sudahLewat = dateEntries.some(o => o.id !== e.id && o.slotId === e.slotId && o.status !== 'batal' && o.status !== 'ditolak');
+                }
+                return isRiwayat ? sudahLewat : !sudahLewat;
+            }
             return false;
         })
         .sort((a, b) => _jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId));
@@ -915,17 +956,12 @@ function _jdwRenderStatusList() {
         // perlu ditampilkan di list ini (dulu masih nongol dengan placeholder
         // "Belum ada pengajuan") — langsung skip di sini sebelum cek lainnya.
         if (!entries.length) return '';
-        // "Minggu Ini" hanya nampilin hari ini & seterusnya — tanggal yang sudah
-        // lewat dihilangkan dari sini, pindah ke Riwayat (offset 0). KECUALI ada
-        // entri "batal" dibatalkan TENTOR di tanggal itu — sengaja tetap nongol
-        // walau tanggalnya sudah lewat (lihat _jdwStatusListEntriesForDate).
-        if (JadwalPage.currentView === 'minggu' && iso < todayIso && !entries.some(e => e.status === 'batal')) return '';
-        // Riwayat cuma boleh isi hari yang SUDAH LEWAT — hari ini (masih berjalan)
-        // dan hari yang belum sampai tidak dimasukkan sama sekali (bukan cuma
-        // ditampilkan kosong, tapi memang tidak dirender ke listnya). KECUALI ada
-        // entri "batal" dibatalkan USER di tanggal itu — sengaja langsung nongol
-        // di Riwayat walau tanggalnya belum lewat.
-        if (JadwalPage.currentView === 'riwayat' && iso >= todayIso && !entries.some(e => e.status === 'batal')) return '';
+        // Catatan: filter mana yang boleh nongol di "Minggu Ini" vs "Riwayat"
+        // (termasuk tanggal yang sudah lewat, dan entri "batal" yang ketimpa
+        // pengajuan baru di jam yang sama) sudah sepenuhnya ditangani per-entri
+        // di dalam _jdwStatusListEntriesForDate. Kalau `entries` di tanggal ini
+        // sudah kosong untuk view sekarang, langsung ke-skip lewat pengecekan
+        // `!entries.length` di atas — tidak perlu pengecekan tanggal lagi di sini.
         return _jdwDayGroupHtml(d, entries, iso === todayIso);
     }).filter(Boolean).join('');
     // Kartu swipe-list yang punya aksi (Edit/Jadwal Ulang/Batal) perlu di-bind gesture-nya.
@@ -1001,6 +1037,11 @@ const JadwalPage = {
     pickedSlot: null,
     pickedMateri: null,
     pickedTentor: null,
+    // Diisi cuma lewat openAjukanGantiSetelahBatalTentor -> tentorId yang
+    // TIDAK BOLEH dipilih lagi di form Ajukan Jadwal ini (tentor yang barusan
+    // mengajukan pembatalan). Selalu direset ke null tiap openAjukanOverlay
+    // dibuka ulang (lihat di situ), supaya tidak "nempel" ke sesi form lain.
+    _excludedTentorId: null,
     currentView: 'minggu',   // 'minggu' | 'riwayat' — toggle di atas list status
     riwayatWeekOffset: 1,    // dipakai saat currentView='riwayat': 0 = minggu ini (belum genap), 1 = minggu lalu, 2 = 2 minggu lalu, dst
 
@@ -1086,6 +1127,10 @@ const JadwalPage = {
                        kiri. Sempat kebalik & ketauan dari screenshot user.)
                        — buka halaman fullscreen bandingkan jadwal lama vs
                        jadwal baru dari tentor, lihat JadwalPage.bukaResejuel
+       pengajuan_batal_tentor -> Cek juga (sama pola dengan resejuel di
+                       atas) — buka halaman fullscreen resume jadwal +
+                       alasan tentor mengajukan pembatalan, lihat
+                       JadwalPage.bukaBatalTentor
        butuh_persetujuan -> Cek (kiri, lanjutin pengajuan jadwal ulang yang
                        sempat ditinggal) + Batal (kanan, buka pilihan
                        batalkan jadwal-ulang saja / batalkan jadwalnya)
@@ -1094,6 +1139,16 @@ const JadwalPage = {
         if (e.status === 'resejuel') {
             return {
                 left: [{ icon: 'check', label: 'Cek', cls: 'act-primary', onClick: `JadwalPage.bukaResejuel('${e.id}')` }],
+                right: [],
+            };
+        }
+        if (e.status === 'pengajuan_batal_tentor') {
+            // Pengajuan pembatalan DARI TENTOR (beda dari "pengajuan_pembatalan"
+            // yang diajukan user) -> satu-satunya aksi cuma "Cek", buka halaman
+            // fullscreen resume jadwal + alasan tentor, lalu Setuju/Tolak. Lihat
+            // JadwalPage.bukaBatalTentor.
+            return {
+                left: [{ icon: 'check', label: 'Cek', cls: 'act-primary', onClick: `JadwalPage.bukaBatalTentor('${e.id}')` }],
                 right: [],
             };
         }
@@ -1178,6 +1233,7 @@ const JadwalPage = {
         _jdwAutoAdvanceStatus();
         this.editingId = entryId || null;
         this._tentorLocked = !!lockTentor;
+        this._excludedTentorId = null;
         const existing = entryId ? JadwalStore.get(entryId) : null;
         // Selalu selaraskan selectedDate dengan tanggal entri yang diedit (kalau ada) —
         // ini yang jadi acuan tanggal buat cek jam terisi/lewat, bukan cuma tanggal
@@ -1416,8 +1472,13 @@ const JadwalPage = {
         wrap.innerHTML = list.map(t => {
             const selected = this.pickedTentor === t.id;
             const noSlots = _jdwTentorHasNoSlots(t);
-            const sub = noSlots ? 'Tidak ada jadwal tersedia' : _jdwTentorMateriLabel(t);
-            return `<div class="jdw-tentor-item${selected ? ' selected' : ''}${noSlots ? ' disabled' : ''}" onclick="${noSlots ? '' : `JadwalPage.pickTentor('${t.id}')`}">
+            // Tentor yang barusan mengajukan pembatalan (this._excludedTentorId,
+            // diisi lewat openAjukanGantiSetelahBatalTentor) tidak boleh dipilih
+            // lagi di form pengganti ini.
+            const excluded = !!this._excludedTentorId && t.id === this._excludedTentorId;
+            const disabled = noSlots || excluded;
+            const sub = excluded ? 'Baru saja mengajukan pembatalan jadwal ini' : (noSlots ? 'Tidak ada jadwal tersedia' : _jdwTentorMateriLabel(t));
+            return `<div class="jdw-tentor-item${selected ? ' selected' : ''}${disabled ? ' disabled' : ''}" onclick="${disabled ? '' : `JadwalPage.pickTentor('${t.id}')`}">
                 <div class="jdw-tentor-avatar">${t.name.charAt(0)}</div>
                 <div class="jdw-tentor-item-info">
                     <div class="jdw-tentor-item-name">${t.name}</div>
@@ -1458,6 +1519,7 @@ const JadwalPage = {
     _applyPickTentor(id) {
         const t = JDW_TENTOR.find(x => x.id === id);
         if (t && _jdwTentorHasNoSlots(t)) return; // jaga-jaga, harusnya sudah tidak punya onclick
+        if (this._excludedTentorId && id === this._excludedTentorId) return; // jaga-jaga, harusnya sudah tidak punya onclick
         this.pickedTentor = id;
         if (this.pickedMateri && !_jdwTentorAllowsMateri(id, this.pickedMateri)) this.pickedMateri = null;
         if (this.pickedSlot && !_jdwTentorAllowsSlot(id, this.pickedSlot)) this.pickedSlot = null;
@@ -1888,6 +1950,121 @@ const JadwalPage = {
         _jdwRenderStatusList();
     },
 
+    /* ── Halaman fullscreen "Pengajuan Pembatalan dari Tentor" (status
+       "pengajuan_batal_tentor") — pola sama dengan #jdw-resejuel-overlay
+       (header sticky + body scroll + tombol aksi di ujung bawah body),
+       BEDANYA cuma satu resume (jadwal yang mau dibatalkan tentor, TANPA
+       jadwal baru — tentor tidak menawarkan jadwal pengganti sama sekali,
+       cuma minta izin batal), lengkap alasan tentornya. Dipicu dari tombol
+       "Cek" di kartu status "pengajuan_batal_tentor" — lihat _entryActions. ── */
+    _batalTentorTargetId: null,
+    bukaBatalTentor(id) {
+        const e = JadwalStore.get(id);
+        if (!e) return;
+        this._batalTentorTargetId = id;
+        const slot = JDW_SLOTS.find(s => s.id === e.slotId);
+        const materi = JDW_MATERI.find(m => m.id === e.materiId);
+        const tentor = JDW_TENTOR.find(t => t.id === e.tentorId);
+        document.getElementById('jdw-batal-tentor-compare').innerHTML = `
+            <div class="jdw-resejuel-item">
+                <div class="jdw-resejuel-item-label">Jadwal yang Diajukan Batal</div>
+                <div class="jdw-resejuel-item-date">${_jdwFmtDateLong(e.tanggal)}</div>
+                <div class="jdw-resejuel-item-row"><span>${slot ? slot.label : '-'}</span><span class="jdw-resejuel-item-dot">•</span><span>${materi ? materi.label : '-'}</span></div>
+                <div class="jdw-resejuel-item-tentor">${tentor ? tentor.name : '-'}</div>
+                ${e.alasanBatalTentor ? `<div class="jdw-resejuel-item-alasan"><span class="jdw-resejuel-item-alasan-label">Alasan tentor mengajukan pembatalan</span>${e.alasanBatalTentor}</div>` : ''}
+            </div>`;
+        document.getElementById('jdw-batal-tentor-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
+        const body = document.querySelector('#jdw-batal-tentor-overlay .jdw-modal-body');
+        if (body) body.scrollTop = 0;
+    },
+    closeBatalTentorOverlay() {
+        document.getElementById('jdw-batal-tentor-overlay').classList.remove('open');
+        _jdwSyncPageScrollLock();
+        this._batalTentorTargetId = null;
+    },
+    // Tolak -> jadwal TIDAK jadi dibatalkan, tapi tentor yang lama sudah
+    // menyatakan tidak bisa, jadi status balik jadi "menunggu" (pending) &
+    // diajukan ulang OTOMATIS ke tentor lain di jam & materi yang SAMA
+    // persis (cuma tentornya yang beda) — tidak perlu user mengajukan dari
+    // awal lagi. Kalau tidak ada tentor lain yang cocok (materi & jam-nya
+    // sama-sama tersedia), tentorId dilepas (null) & statusnya tetap
+    // "menunggu" tanpa tentor sampai ada yang cocok nanti.
+    tolakBatalTentor() {
+        if (!this._batalTentorTargetId) return;
+        const id = this._batalTentorTargetId;
+        const e = JadwalStore.get(id);
+        if (!e) { this.closeBatalTentorOverlay(); return; }
+        const pengganti = JDW_TENTOR.find(t => t.id !== e.tentorId && !_jdwTentorHasNoSlots(t) && _jdwTentorAllowsMateri(t.id, e.materiId) && _jdwTentorAllowsSlot(t.id, e.slotId));
+        JadwalStore.update(id, { status: 'pending', tentorId: pengganti ? pengganti.id : null, alasanBatalTentor: null });
+        this.closeBatalTentorOverlay();
+        showToast(pengganti ? `Ditolak — jadwal otomatis diajukan ulang ke ${pengganti.name}` : 'Ditolak — jadwal menunggu tentor pengganti');
+        _jdwRenderWeek();
+        _jdwRenderStatusList();
+    },
+    // Setuju -> jadwal LANGSUNG dibatalkan (status "batal", batalOleh:
+    // 'tentor') & kuota pembatalan TIDAK dipotong sama sekali
+    // (pembatalanDihitung: false, "dikembalikan" — bukan salah/pilihan
+    // user, jadi wajar tidak dianggap jatah user yang terpakai). Overlay
+    // resume ini SENGAJA belum ditutup di sini (sama pola dengan
+    // tolakResejuel — lihat catatan di situ), biar popup pilihan lanjutan
+    // di bawah bisa langsung numpuk di atasnya tanpa "loncat" balik ke
+    // halaman Jadwal dulu.
+    setujuBatalTentor() {
+        if (!this._batalTentorTargetId) return;
+        const e = JadwalStore.get(this._batalTentorTargetId);
+        if (!e) { this.closeBatalTentorOverlay(); return; }
+        JadwalStore.update(this._batalTentorTargetId, { status: 'batal', batalOleh: 'tentor', alasanBatal: e.alasanBatalTentor || null, alasanBatalTentor: null, pembatalanDihitung: false });
+        _jdwRenderWeek();
+        _jdwRenderStatusList();
+        const ov = document.getElementById('jdw-batal-tentor-setuju-overlay');
+        if (ov) { ov.classList.add('open'); _jdwSyncPageScrollLock(); }
+    },
+    // Popup pilihan setelah Setuju: "Ganti ke Jadwal Lain" (langsung buka
+    // form Ajukan Jadwal baru, pre-filled tanggal/jam/materi yang barusan
+    // dibatalkan, tentor DIKOSONGKAN & tentor yang barusan batal DIKECUALIKAN
+    // dari pilihan — lihat openAjukanGantiSetelahBatalTentor) atau "Selesai"
+    // (tutup semua, balik ke halaman Jadwal, status sudah "batal").
+    gantiJadwalSetelahBatalTentor() {
+        const ov = document.getElementById('jdw-batal-tentor-setuju-overlay');
+        if (ov) ov.classList.remove('open');
+        const sourceId = this._batalTentorTargetId;
+        this.closeBatalTentorOverlay();
+        showToast('Jadwal dibatalkan, silakan ajukan jadwal pengganti');
+        if (!sourceId) return;
+        this.openAjukanGantiSetelahBatalTentor(sourceId);
+    },
+    selesaiBatalTentor() {
+        const ov = document.getElementById('jdw-batal-tentor-setuju-overlay');
+        if (ov) ov.classList.remove('open');
+        this.closeBatalTentorOverlay();
+        showToast('✓ Jadwal sudah dibatalkan');
+    },
+    // Buka form Ajukan Jadwal BARU (bukan edit entri lama — entri lama sudah
+    // final "batal", dibiarkan begitu saja sebagai riwayat) dengan
+    // tanggal/jam/materi ikut jadwal yang barusan dibatalkan, tentor
+    // dikosongkan, DAN this._excludedTentorId dikunci ke tentor yang barusan
+    // mengajukan batal (supaya tidak bisa dipilih lagi di jam yang sama —
+    // lihat _renderTentorList) — biar user tidak perlu bolak-balik isi
+    // tanggal/jam/materi dari awal, cukup pilih tentor pengganti saja.
+    openAjukanGantiSetelahBatalTentor(sourceId) {
+        const source = JadwalStore.get(sourceId);
+        this.openAjukanOverlay(null);
+        if (source) {
+            this.selectedDate = source.tanggal;
+            this.pickedSlot = source.slotId;
+            this.pickedMateri = source.materiId;
+            this.pickedTentor = null;
+            this._excludedTentorId = source.tentorId;
+        }
+        this._updateAjukanDateLabel();
+        this._renderTentorPicker();
+        this._renderSlotGrid();
+        this._renderMateriGrid();
+        this._refreshSubmitBtn();
+        _jdwSaveState();
+    },
+
     _batalTargetId: null,
     batalEntry(id) {
         const e = JadwalStore.get(id);
@@ -2163,8 +2340,9 @@ const JadwalPage = {
     /* ── Dev helper: hapus data dummy tersimpan & bikin ulang seed lengkap
        (semua status: pending, acc, berlangsung-masuk, berlangsung-feedback,
        ditolak, pengajuan_pembatalan, selesai, resejuel, batal-tentor,
-       batal-user) — dipakai buat cek seluruh tampilan tanpa harus ajukan
-       manual satu-satu. Aman dipanggil kapan saja, langsung reload halaman. ── */
+       batal-user, batal-ditimpa, pengajuan_batal_tentor) — dipakai buat cek
+       seluruh tampilan tanpa harus ajukan manual satu-satu. Aman dipanggil
+       kapan saja, langsung reload halaman. ── */
     resetDummy() {
         try { localStorage.removeItem('cbn_jadwal_pengajuan_dummy_v1'); } catch (e) {}
         showToast('Data dummy direset — semua status jadwal dimuat ulang');
