@@ -43,6 +43,38 @@ const JDW_TENTOR = [
     { id: 'raffi', name: 'RAFFI', materi: ['twk', 'tiu', 'tkp'], slots: ['slot2', 'slot6'] },
 ];
 const JDW_STATUS_LABEL = { pending: 'Menunggu', acc: 'Disetujui', ditolak: 'Ditolak', berlangsung: 'Berlangsung', selesai: 'Selesai', pengajuan_pembatalan: 'Pengajuan Pembatalan', resejuel: 'Jadwal Ulang dari Tentor', batal: 'Dibatalkan', butuh_persetujuan: 'Butuh Persetujuan' };
+// Kuota pengajuan jadwal per user (dummy — nanti gampang disambung ke angka
+// beneran dari backend/paket bimbingan user, tinggal ganti sumber angka
+// TOTAL-nya, logika hitungnya di bawah (_jdwKuotaTerpakai/_jdwKuotaSisa)
+// TIDAK perlu diubah). Kuota TERPAKAI dihitung LANGSUNG dari status
+// pengajuan yang lagi aktif (dummy, bukan angka tersimpan terpisah) —
+// jadi otomatis nambah/berkurang sendiri ngikutin perubahan status, tanpa
+// perlu ada kode terpisah buat nambah/kurangin manual tiap ada aksi:
+//   - MENGURANGI kuota (masih dianggap "aktif", 1 slot lagi kepakai): pending
+//     (menunggu), acc (disetujui), berlangsung, pengajuan_pembatalan (masih
+//     nunggu keputusan batal/tidak), butuh_persetujuan, resejuel (jadwal
+//     ulang dari tentor, masih berbasis entri "acc" yang sama).
+//   - TIDAK/SUDAH TIDAK LAGI mengurangi kuota (otomatis balik nambah kuota
+//     begitu status masuk salah satu ini): ditolak (pengajuan ditolak),
+//     batal (dibatalkan), selesai (sesi sudah tuntas).
+const JDW_KUOTA_TOTAL = 10;
+function _jdwKuotaTerpakai() {
+    return JadwalStore.all().filter(e => e.status !== 'ditolak' && e.status !== 'batal' && e.status !== 'selesai').length;
+}
+function _jdwKuotaSisa() {
+    return Math.max(0, JDW_KUOTA_TOTAL - _jdwKuotaTerpakai());
+}
+// Render badge kuota di header (id=jdw-kuota-value) — dipanggil dari dalam
+// _jdwRenderStatusList() (satu-satunya titik render yang SUDAH dipanggil di
+// SEMUA tempat sesudah status pengajuan berubah, lihat semua pemanggil
+// _jdwRenderStatusList() di file ini) supaya badge ini otomatis ikut
+// ter-update tiap ada perubahan, TIDAK perlu ditambah manual di tiap
+// pemanggil satu-satu.
+function _jdwRenderKuota() {
+    const el = document.getElementById('jdw-kuota-value');
+    if (!el) return;
+    el.textContent = `${_jdwKuotaSisa()}/${JDW_KUOTA_TOTAL}`;
+}
 const JDW_DAY_NAMES = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 const JDW_DAY_SHORT = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
 const JDW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
@@ -219,17 +251,35 @@ function _jdwMonthGridDates(ref) {
     for (let i = 0; i < 42; i++) { const d = new Date(gridStart); d.setDate(gridStart.getDate() + i); days.push(d); }
     return days;
 }
-// Bulan depan sudah bisa "numpang" diklik dari grid bulan berjalan mulai
-// minggu ke-4 (H>=22) tiap akhir bulan — ini yang gantiin kalender ke-2
-// "Ajukan minggu depan" yang dulu cuma nongol tiap hari Minggu (sudah
-// dihapus, lihat catatan lama di histori file ini). Cuma berlaku kalau
-// grid yang lagi ditampilkan (`ref`) memang bulan berjalan SEKARANG —
-// kalau user udah maju ke bulan depan/lebih (lewat tombol navigasi), sel
-// "numpang" di situ tetap terkunci seperti biasa (tidak ada gunanya buka
-// H+2 bulan sekaligus).
+// Bulan depan sudah bisa diklik begitu MINGGU TERAKHIR bulan berjalan sudah
+// "nyambung" ke tanggal 1 bulan depan — bukan lagi patokan tanggal tetap
+// (H>=22), tapi dihitung dari kalender itu sendiri: begitu hari ini masuk ke
+// minggu (Senin-Minggu) yang di dalamnya ada tanggal 1 bulan depan, bulan
+// depan langsung kebuka. Misal tanggal 1 bulan depan jatuh di hari Kamis,
+// mingguan itu mulai dari Senin sebelumnya (bisa jadi tanggal 28/29/30/31
+// bulan berjalan, tergantung berapa hari mundur ke Senin) — begitu hari ini
+// sudah masuk Senin itu (atau lewat), bulan depan kebuka. Ini otomatis
+// menyesuaikan tiap bulan (jumlah hari beda-beda, hari pertama beda-beda),
+// nggak lagi hardcode ke tanggal 22. Dipakai gantiin kalender ke-2 "Ajukan
+// minggu depan" yang dulu cuma nongol tiap hari Minggu (sudah dihapus,
+// lihat catatan lama di histori file ini).
+function _jdwNextMonthUnlockDate(refMonth) {
+    const nextMonthFirst = new Date(refMonth.getFullYear(), refMonth.getMonth() + 1, 1);
+    const day = nextMonthFirst.getDay(); // 0=Min ... 6=Sab
+    const diffToMonday = (day === 0 ? -6 : 1 - day);
+    const weekStart = new Date(nextMonthFirst);
+    weekStart.setDate(nextMonthFirst.getDate() + diffToMonday);
+    return weekStart;
+}
+// Dipakai buat nge-cek sel "numpang" bulan depan di grid bulan berjalan
+// (lihat _jdwMonthGridHtml) — cuma berlaku kalau grid yang lagi ditampilkan
+// (`ref`) memang bulan berjalan SEKARANG — kalau user udah maju ke bulan
+// depan/lebih (lewat tombol navigasi), sel "numpang" di situ tetap terkunci
+// seperti biasa (tidak ada gunanya buka H+2 bulan sekaligus).
 function _jdwNextMonthUnlockedFor(ref) {
     const now = new Date();
-    return now.getFullYear() === ref.getFullYear() && now.getMonth() === ref.getMonth() && now.getDate() >= 22;
+    if (now.getFullYear() !== ref.getFullYear() || now.getMonth() !== ref.getMonth()) return false;
+    return _jdwToIso(now) >= _jdwToIso(_jdwNextMonthUnlockDate(ref));
 }
 // Sama kayak _jdwNextMonthUnlockedFor di atas, tapi buat grid yang REF-nya
 // sendiri sudah bulan depan (bukan lagi ngecek sel "numpang" di grid bulan
@@ -237,15 +287,16 @@ function _jdwNextMonthUnlockedFor(ref) {
 // (">" / calendarMonthNav('newer') & rescheduleNav('newer')). Tanpa fungsi
 // ini, begitu grid-nya sudah pindah ke bulan depan, semua tanggalnya lolos
 // dari pengecekan isPast (karena memang belum lewat) jadi bisa diklik bebas
-// walau belum tanggal 22 — padahal seharusnya sama-sama terkunci kayak sel
-// "numpang" di grid bulan berjalan. Bulan LEBIH dari 1 bulan ke depan (+2
-// dst) SELALU terkunci apapun tanggal sekarang — cuma bulan depan yang
-// persis 1 bulan yang bisa kebuka, itu pun cuma mulai tanggal 22.
+// walau minggu terakhir bulan berjalan belum nyambung ke bulan depan —
+// padahal seharusnya sama-sama terkunci kayak sel "numpang" di grid bulan
+// berjalan. Bulan LEBIH dari 1 bulan ke depan (+2 dst) SELALU terkunci
+// apapun tanggal sekarang — cuma bulan depan yang persis 1 bulan yang bisa
+// kebuka, itu pun cuma mulai minggu terakhir bulan berjalan.
 function _jdwIsFutureMonthLocked(ref) {
     const now = new Date();
     const monthsAhead = (ref.getFullYear() - now.getFullYear()) * 12 + (ref.getMonth() - now.getMonth());
     if (monthsAhead <= 0) return false; // bulan berjalan / sudah lewat, bukan urusan fungsi ini (dicek lewat isPast)
-    if (monthsAhead === 1) return now.getDate() < 22; // bulan depan: terkunci SELAMA belum tanggal 22
+    if (monthsAhead === 1) return _jdwToIso(now) < _jdwToIso(_jdwNextMonthUnlockDate(now)); // bulan depan: terkunci SELAMA minggu terakhir bulan berjalan belum nyambung ke bulan depan
     return true; // +2 bulan atau lebih: selalu terkunci
 }
 // Render HTML grid kalender sebulan (header nama hari + 42 sel tanggal),
@@ -259,7 +310,8 @@ function _jdwIsFutureMonthLocked(ref) {
 // lewat (.is-past) sengaja TIDAK dikasih atribut onclick sama sekali (kecuali
 // pastClickFn disediakan) — sama-sama tidak bisa diklik selayaknya kalender
 // biasa. Tanggal numpang dari bulan SESUDAHNYA beda cerita: begitu masuk
-// minggu ke-4 bulan berjalan (lihat _jdwNextMonthUnlockedFor), sel-sel itu
+// hari ini masuk minggu terakhir bulan berjalan yang nyambung ke bulan
+// depan (lihat _jdwNextMonthUnlockedFor), sel-sel itu
 // otomatis kebuka (.is-outside-unlocked, tetap bisa diklik lewat onClickFn)
 // biar user bisa langsung ajukan jadwal bulan depan dari grid yang sama.
 function _jdwMonthGridHtml(ref, opts) {
@@ -271,7 +323,8 @@ function _jdwMonthGridHtml(ref, opts) {
     // Berlaku buat SEMUA tanggal bulan `ref` (bukan cuma sel "numpang") kalau
     // grid yang lagi ditampilkan sendiri sudah bulan depan/lebih & belum
     // kebuka (lihat catatan _jdwIsFutureMonthLocked) — user bisa nyampe grid
-    // ini lewat tombol nav ">" walau belum tanggal 22.
+    // ini lewat tombol nav ">" walau minggu terakhir bulan berjalan belum
+    // nyambung ke bulan depan.
     const monthLocked = _jdwIsFutureMonthLocked(ref);
     const weekdayRow = JDW_DAY_SHORT.slice(1).concat(JDW_DAY_SHORT[0]).map(n => `<span>${n}</span>`).join('');
     const cells = days.map(d => {
@@ -724,6 +777,7 @@ function _jdwStatusListEntriesForDate(iso) {
 }
 
 function _jdwRenderStatusList() {
+    _jdwRenderKuota();
     const wrap = document.getElementById('jdw-status-list');
     if (!wrap) return;
     const todayIso = _jdwToIso(new Date());
@@ -901,12 +955,13 @@ const JadwalPage = {
        tanggalnya juga ditampilkan meredup sama persis kayak tanggal lewat,
        lihat class is-past di _jdwMonthGridHtml), cuma pesannya beda supaya
        user ngerti itu BUKAN tanggal yang sudah lewat, tapi jadwal bulan
-       depan yang baru bisa diajukan mulai tanggal 22 bulan berjalan. ── */
+       depan yang baru bisa diajukan begitu minggu terakhir bulan berjalan
+       (yang nyambung ke tanggal 1 bulan depan) sudah kesampaian. ── */
     openFutureLockedDayInfo() {
         const titleEl = document.getElementById('jdw-lewat-title');
         const msgEl = document.getElementById('jdw-lewat-msg');
         if (titleEl) titleEl.textContent = 'Tanggal Belum Bisa Dipilih';
-        if (msgEl) msgEl.textContent = 'Tanggal belum bisa dipilih. Jadwal bulan depan baru bisa diajukan mulai tanggal 22 bulan ini.';
+        if (msgEl) msgEl.textContent = 'Tanggal belum bisa dipilih. Jadwal bulan depan baru bisa diajukan begitu minggu terakhir bulan ini sudah nyambung ke tanggal 1 bulan depan.';
         document.getElementById('jdw-lewat-overlay').classList.add('open');
         _jdwSyncPageScrollLock();
     },

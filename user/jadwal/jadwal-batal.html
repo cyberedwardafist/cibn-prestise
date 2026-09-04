@@ -95,7 +95,8 @@
      (id=jdw-lewat-title / id=jdw-lewat-msg) diisi JS sebelum overlay dibuka:
        1) tanggal SUDAH LEWAT (is-past)
        2) tanggal bulan DEPAN yang BELUM kebuka (is-future-locked, sebelum
-          tanggal 22 bulan berjalan) — tampilannya sengaja dibikin SAMA kayak
+          minggu terakhir bulan berjalan nyambung ke tanggal 1 bulan depan)
+          — tampilannya sengaja dibikin SAMA kayak
           tanggal sudah lewat (sama-sama meredup di kalender), cuma pesannya
           beda supaya user ngerti itu bukan tanggal yang sudah lewat. ══════ -->
 <div class="overlay confirm-overlay" id="jdw-lewat-overlay" onclick="if(event.target===this){this.classList.remove('open');_jdwSyncPageScrollLock();}">
