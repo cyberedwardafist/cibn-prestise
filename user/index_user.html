@@ -630,6 +630,7 @@
     .jdw-status-badge.pengajuan_pembatalan { background:rgba(220,38,38,.10); color:var(--danger); }
     .jdw-status-badge.resejuel { background:rgba(124,58,237,.12); color:#7c3aed; }
     .jdw-status-badge.batal { background:rgba(90,122,154,.14); color:var(--text-sub); }
+    .jdw-status-badge.butuh_persetujuan { background:rgba(220,38,38,.10); color:var(--danger); }
     .jdw-status-badge.feedback { background:rgba(217,119,6,.12); color:var(--warning); }
 
     /* ── JADWAL: halaman fullscreen bandingkan jadwal lama vs baru (resejuel) —
@@ -1517,16 +1518,18 @@ async function loadHomeJadwalNext() {
         if (typeof _jdwAutoExpirePending === 'function') _jdwAutoExpirePending();
         if (typeof _jdwAutoAdvanceStatus === 'function') _jdwAutoAdvanceStatus();
         const all = JadwalStore.all();
-        // Pengajuan "Jadwal Ulang dari Tentor" (status "resejuel") butuh
-        // keputusan user (terima/tolak) -> selalu diprioritaskan tampil di
-        // sini duluan, terlepas tanggal aslinya lebih jauh atau tidak
-        // dibanding sesi acc/berlangsung lain (di halaman Jadwal sendiri,
-        // entri ini tampil normal di list tanggalnya dengan tombol "Cek" —
-        // lihat JadwalPage.bukaResejuel di user/jadwal.js).
-        const resejuelList = all
-            .filter(e => e.status === 'resejuel')
+        // Pengajuan "Jadwal Ulang dari Tentor" (status "resejuel") DAN entri
+        // "butuh_persetujuan" (pengajuan jadwal-ulang dari USER yang sempat
+        // ditinggal keluar sebelum selesai, lihat JadwalPage.confirmKeluarAjukan
+        // di user/jadwal/jadwal.js) sama-sama butuh tindakan user -> selalu
+        // diprioritaskan tampil di sini duluan, terlepas tanggal aslinya
+        // lebih jauh atau tidak dibanding sesi acc/berlangsung lain (di
+        // halaman Jadwal sendiri, keduanya tampil normal di list tanggalnya
+        // dengan tombol "Cek" masing-masing).
+        const needsActionList = all
+            .filter(e => e.status === 'resejuel' || e.status === 'butuh_persetujuan')
             .sort((a, b) => (a.tanggal !== b.tanggal) ? (a.tanggal < b.tanggal ? -1 : 1) : (_jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId)));
-        const upcoming = resejuelList[0] || all
+        const upcoming = needsActionList[0] || all
             .filter(e => e.status === 'acc' || e.status === 'berlangsung' || e.status === 'pengajuan_pembatalan')
             .sort((a, b) => (a.tanggal !== b.tanggal) ? (a.tanggal < b.tanggal ? -1 : 1) : (_jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId)))[0];
         if (!upcoming) { card.style.display = 'none'; return; }

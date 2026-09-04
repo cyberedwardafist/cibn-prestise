@@ -101,6 +101,23 @@
     gap: 10px;
     justify-content: center;
 }
+/* Varian tombol ditumpuk vertikal — dipakai popup PILIHAN (bukan Ya/Tidak),
+   mis. #jdw-batal-pilihan-overlay yang isinya 2 tindakan berbeda, bukan
+   konfirmasi 1 pertanyaan. */
+.confirm-btns.stack { flex-direction: column; }
+
+/* Popup kecil (.confirm-overlay) yang perlu tampil DI ATAS overlay
+   fullscreen lain — mis. "Ajukan Jadwal Lain?" di atas halaman Jadwal
+   Ulang dari Tentor, atau "Yakin Keluar?" di atas form Ajukan Jadwal
+   Ulang. Base .overlay & .overlay-fullscreen sama-sama z-index 400, jadi
+   tanpa override ini urutan tampil cuma ngikut urutan DOM (rawan salah
+   tampil di belakang overlay fullscreen-nya sendiri). 550 dipilih supaya
+   tetap di atas dock yang naik ke 500 saat overlay fullscreen terbuka
+   (body.jdw-fullscreen-open .dock-wrap di index_user.html), tapi masih di
+   bawah #confirm-overlay/.leave-confirm-overlay global (600). */
+#jdw-tolak-ajukan-overlay,
+#jdw-keluar-ajukan-overlay,
+#jdw-batal-pilihan-overlay { z-index: 550; }
 
 /* ── RESULT ANIMATION WRAPPER ── */
 .form-result {

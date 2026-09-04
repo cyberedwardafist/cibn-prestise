@@ -42,7 +42,7 @@ const JDW_TENTOR = [
     { id: 'angga', name: 'ANGGA', materi: 'ALL', slots: ['slot1', 'slot6', 'slot7'] },
     { id: 'raffi', name: 'RAFFI', materi: ['twk', 'tiu', 'tkp'], slots: ['slot2', 'slot6'] },
 ];
-const JDW_STATUS_LABEL = { pending: 'Menunggu', acc: 'Disetujui', ditolak: 'Ditolak', berlangsung: 'Berlangsung', selesai: 'Selesai', pengajuan_pembatalan: 'Pengajuan Pembatalan', resejuel: 'Jadwal Ulang dari Tentor', batal: 'Dibatalkan' };
+const JDW_STATUS_LABEL = { pending: 'Menunggu', acc: 'Disetujui', ditolak: 'Ditolak', berlangsung: 'Berlangsung', selesai: 'Selesai', pengajuan_pembatalan: 'Pengajuan Pembatalan', resejuel: 'Jadwal Ulang dari Tentor', batal: 'Dibatalkan', butuh_persetujuan: 'Butuh Persetujuan' };
 const JDW_DAY_NAMES = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 const JDW_DAY_SHORT = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
 const JDW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
@@ -295,7 +295,7 @@ const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 
 // #page-jadwal di baliknya tetap ikut dikunci scroll-nya biar konsisten -
 // tidak masuk akal halaman di belakang masih bisa discroll pas ada dialog
 // konfirmasi kecil nongol di tengah layar.
-const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-lewat-overlay', 'jdw-tolak-ajukan-overlay'];
+const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-lewat-overlay', 'jdw-tolak-ajukan-overlay', 'jdw-keluar-ajukan-overlay', 'jdw-batal-pilihan-overlay'];
 function _jdwSyncPageScrollLock() {
     const pageEl = document.getElementById('page-jadwal');
     const anyLockOpen = JDW_SCROLL_LOCK_OVERLAY_IDS.some(id => document.getElementById(id)?.classList.contains('open'));
@@ -384,6 +384,18 @@ function _jdwAutoAdvanceStatus() {
         } else if (e.status === 'pengajuan_pembatalan') {
             // Kalau tanggalnya sudah lewat sebelum sempat diputuskan (acc/tolak
             // pembatalan), anggap sesi tuntas begitu saja seperti entri "acc" lain.
+            if (e.tanggal < todayIso) {
+                JadwalStore.update(e.id, { status: 'selesai' });
+                changed = true;
+            }
+        } else if (e.status === 'butuh_persetujuan') {
+            // Sama seperti "pengajuan_pembatalan": tanggal/slotId entri ini
+            // masih tanggal jadwal LAMA (belum ketimpa, karena pengajuan
+            // jadwal-ulangnya sendiri belum sempat disubmit — lihat
+            // JadwalPage.confirmKeluarAjukan). Kalau jadwal lama itu keburu
+            // lewat hari sebelum user sempat balik nerusin/membatalkan
+            // pengajuannya, jangan sampai macet nyangkut "Butuh Persetujuan"
+            // selamanya — anggap tuntas begitu saja seperti entri "acc" lain.
             if (e.tanggal < todayIso) {
                 JadwalStore.update(e.id, { status: 'selesai' });
                 changed = true;
@@ -583,7 +595,7 @@ function _jdwStatusListEntriesForDate(iso) {
     const isRiwayat = JadwalPage.currentView === 'riwayat';
     return JadwalStore.byDate(iso)
         .filter(e => {
-            if (e.status === 'pending' || e.status === 'acc' || e.status === 'berlangsung' || e.status === 'selesai' || e.status === 'pengajuan_pembatalan' || e.status === 'resejuel') return true;
+            if (e.status === 'pending' || e.status === 'acc' || e.status === 'berlangsung' || e.status === 'selesai' || e.status === 'pengajuan_pembatalan' || e.status === 'resejuel' || e.status === 'butuh_persetujuan') return true;
             if (e.status === 'batal') return isRiwayat ? e.batalOleh === 'user' : e.batalOleh === 'tentor';
             return false;
         })
@@ -735,6 +747,9 @@ const JadwalPage = {
                        kiri. Sempat kebalik & ketauan dari screenshot user.)
                        — buka halaman fullscreen bandingkan jadwal lama vs
                        jadwal baru dari tentor, lihat JadwalPage.bukaResejuel
+       butuh_persetujuan -> Cek (kiri, lanjutin pengajuan jadwal ulang yang
+                       sempat ditinggal) + Batal (kanan, buka pilihan
+                       batalkan jadwal-ulang saja / batalkan jadwalnya)
        selesai/batal/lain -> tanpa aksi apa pun (sweep/tombol dihilangkan total) ── */
     _entryActions(e) {
         if (e.status === 'resejuel') {
@@ -762,6 +777,18 @@ const JadwalPage = {
                     ? { icon: 'doc', label: 'Feedback', cls: 'act-primary', onClick: `JadwalPage.feedbackEntry('${e.id}')` }
                     : { icon: 'login', label: 'Masuk', cls: 'act-primary', onClick: `JadwalPage.masukEntry('${e.id}')` }],
                 right: [],
+            };
+        }
+        if (e.status === 'butuh_persetujuan') {
+            // Entri jadwal-ulang yang sempat ditinggal keluar sebelum selesai
+            // diajukan (lihat JadwalPage.confirmKeluarAjukan). "Cek" balikin
+            // user ke form Ajukan Jadwal Ulang yang sama (tentor tetap
+            // dikunci) buat lanjutin, "Batal" buka pilihan mau batalin
+            // jadwal-ulangnya saja atau jadwalnya sekalian (lihat
+            // JadwalPage.openBatalPilihan).
+            return {
+                left: [{ icon: 'check', label: 'Cek', cls: 'act-primary', onClick: `JadwalPage.cekButuhPersetujuan('${e.id}')` }],
+                right: [{ icon: 'trash', label: 'Batal', cls: 'act-danger', onClick: `JadwalPage.openBatalPilihan('${e.id}')` }],
             };
         }
         if (e.status === 'pengajuan_pembatalan') {
@@ -806,7 +833,11 @@ const JadwalPage = {
         this.pickedSlot = existing ? existing.slotId : null;
         this.pickedMateri = existing ? existing.materiId : null;
         this.pickedTentor = existing ? (existing.tentorId || null) : null;
-        const isReschedule = !!(existing && existing.status === 'acc');
+        // "butuh_persetujuan" ikut dianggap mode Jadwal Ulang (bukan cuma
+        // "acc") — ini kejadian pas user balik lagi lewat tombol "Cek" buat
+        // NERUSIN pengajuan jadwal-ulang yang sempat ditinggal keluar
+        // (lihat JadwalPage.cekButuhPersetujuan & confirmKeluarAjukan).
+        const isReschedule = !!(existing && (existing.status === 'acc' || existing.status === 'butuh_persetujuan'));
         this._isReschedule = isReschedule;
         this.rescheduleDate = isReschedule ? existing.tanggal : null;
         this.rescheduleWeekRef = isReschedule ? new Date(existing.tanggal + 'T00:00:00') : null;
@@ -838,6 +869,80 @@ const JadwalPage = {
         document.getElementById('jdw-ajukan-overlay').classList.remove('open');
         _jdwSyncPageScrollLock();
         _jdwSaveState();
+    },
+    // Dipanggil dari tombol X di header form Ajukan Jadwal. Untuk pengajuan
+    // biasa/edit/jadwal-ulang normal, keluar langsung seperti biasa. TAPI
+    // kalau ini form Jadwal Ulang yang tentornya DIKUNCI (this._tentorLocked
+    // — dibuka lewat confirmAjukanSetelahTolak/cekButuhPersetujuan setelah
+    // user menolak jadwal ulang dari tentor), keluar harus dikonfirmasi dulu
+    // lewat popup "Yakin Keluar?" karena akan mengubah status pengajuan.
+    closeAjukanOverlayRequest() {
+        if (this._tentorLocked) {
+            document.getElementById('jdw-keluar-ajukan-overlay').classList.add('open');
+            _jdwSyncPageScrollLock();
+            return;
+        }
+        this.closeAjukanOverlay();
+    },
+    // User pilih "Ya, Keluar" di popup "Yakin Keluar?" — form ditutup TANPA
+    // menyimpan pengajuan jadwal-ulang baru, tapi entri lama (yang lagi
+    // dalam proses jadwal-ulang, editingId) statusnya diubah dari "acc"
+    // jadi "butuh_persetujuan" biar user tahu masih ada pengajuan jadwal
+    // ulang yang belum selesai dan perlu ditindaklanjuti (lewat "Cek" atau
+    // "Batal" di kartu status — lihat _entryActions & cekButuhPersetujuan).
+    confirmKeluarAjukan() {
+        document.getElementById('jdw-keluar-ajukan-overlay').classList.remove('open');
+        const id = this.editingId;
+        this.closeAjukanOverlay();
+        if (!id) return;
+        JadwalStore.update(id, { status: 'butuh_persetujuan' });
+        showToast('Keluar dari pengajuan jadwal ulang, status: Butuh Persetujuan');
+        _jdwRenderWeek();
+        _jdwRenderStatusList();
+    },
+    // Tombol "Cek" di kartu status "butuh_persetujuan" — balik ke form
+    // Jadwal Ulang yang sama persis (tentor tetap dikunci) buat NERUSIN
+    // pengajuan yang sempat ditinggal, bukan mulai dari awal lagi.
+    cekButuhPersetujuan(id) {
+        this.openAjukanOverlay(id, true);
+    },
+    /* ── Popup pilihan saat tombol "Batal" ditekan di kartu status
+       "butuh_persetujuan" — TANPA pertanyaan, langsung 2 pilihan tindakan:
+       "Batalkan Jadwal Ulang" (persis seperti Tolak di awal: jadwal LAMA
+       tetap berlaku, pengajuan jadwal-ulangnya saja yang batal) atau
+       "Batalkan Jadwal" (jadwalnya sekalian dibatalkan, lewat alur
+       Pengajuan Pembatalan yang sama dengan entri "acc" biasa). ── */
+    _batalPilihanTargetId: null,
+    openBatalPilihan(id) {
+        this._batalPilihanTargetId = id;
+        document.getElementById('jdw-batal-pilihan-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
+    },
+    closeBatalPilihan() {
+        document.getElementById('jdw-batal-pilihan-overlay').classList.remove('open');
+        this._batalPilihanTargetId = null;
+        _jdwSyncPageScrollLock();
+    },
+    // "Batalkan Jadwal Ulang" -> sama seperti tolakResejuel: cuma lepas
+    // proses jadwal-ulangnya, jadwal lama (entri ini sendiri) balik "acc"
+    // seperti semula. BUKAN membuka lagi form "Ajukan Jadwal Lain?".
+    batalPilihanJadwalUlang() {
+        const id = this._batalPilihanTargetId;
+        this.closeBatalPilihan();
+        if (!id) return;
+        JadwalStore.update(id, { status: 'acc' });
+        showToast('Jadwal ulang dibatalkan, jadwal lama tetap berlaku');
+        _jdwRenderWeek();
+        _jdwRenderStatusList();
+    },
+    // "Batalkan Jadwal" -> jadwalnya sekalian, lewat alur formal Pengajuan
+    // Pembatalan yang sama dipakai entri "acc" (rekap + alasan + centang
+    // persetujuan), karena di baliknya jadwal ini memang masih "acc".
+    batalPilihanJadwal() {
+        const id = this._batalPilihanTargetId;
+        this.closeBatalPilihan();
+        if (!id) return;
+        this.openBatalPengajuan(id);
     },
     /* ── Tanggal aktif yang jadi acuan grid jam: tanggal baru hasil pilih di
        kalender mini (mode Jadwal Ulang), atau tanggal biasa (ajukan baru/edit). ── */
@@ -1167,25 +1272,52 @@ const JadwalPage = {
     // pilih "Ya, Ajukan", lanjut buka halaman Ajukan Jadwal mode Jadwal Ulang
     // buat entri yang sama TAPI dengan tentor DIKUNCI (lihat
     // confirmAjukanSetelahTolak & openAjukanOverlay(entryId, true)).
+    //
+    // PENTING (fix bug tampilan): overlay #jdw-resejuel-overlay SENGAJA
+    // TIDAK ditutup di sini — dibiarkan tetap "open" di belakang popup
+    // "Ajukan Jadwal Lain?" (jdw-tolak-ajukan-overlay, z-index lebih
+    // tinggi, lihat css/modal.css). Kalau resejuel overlay ditutup duluan,
+    // halaman di baliknya (list Jadwal) sempat kelihatan sekilas SEBELUM
+    // popup pertanyaan muncul di atasnya — tampilan jadi "loncat" ke
+    // halaman jadwal dulu baru muncul popup, padahal seharusnya diam.
+    // Overlay resejuel baru benar-benar ditutup belakangan, dalam
+    // confirmAjukanSetelahTolak() (lanjut ke form Ajukan Jadwal Ulang) atau
+    // dismissTolakAjukan() (batal, balik ke halaman Jadwal) — keduanya
+    // menutup resejuel overlay TEPAT saat popup ini juga ditutup, jadi
+    // tidak ada jeda/flash tampilan sama sekali.
     _tolakAjukanEntryId: null,
     tolakResejuel() {
         if (!this._resejuelTargetId) return;
         JadwalStore.update(this._resejuelTargetId, { status: 'acc', reschedule: null });
         this._tolakAjukanEntryId = this._resejuelTargetId;
-        this.closeResejuelOverlay();
         showToast('Jadwal ulang dari tentor ditolak, jadwal lama tetap berlaku');
         _jdwRenderWeek();
         _jdwRenderStatusList();
         const ov = document.getElementById('jdw-tolak-ajukan-overlay');
         if (ov) { ov.classList.add('open'); _jdwSyncPageScrollLock(); }
     },
+    // User pilih "Ya, Ajukan" -> tutup popup pertanyaan SEKALIGUS overlay
+    // resejuel di baliknya dalam tick yang sama (lihat catatan di atas),
+    // langsung lanjut ke form Ajukan Jadwal Ulang (fullscreen juga) tentor
+    // terkunci, jadi transisinya mulus dari satu halaman fullscreen ke
+    // halaman fullscreen berikutnya tanpa sempat balik ke list Jadwal dulu.
     confirmAjukanSetelahTolak() {
         const ov = document.getElementById('jdw-tolak-ajukan-overlay');
-        if (ov) { ov.classList.remove('open'); _jdwSyncPageScrollLock(); }
+        if (ov) ov.classList.remove('open');
+        this.closeResejuelOverlay();
         const id = this._tolakAjukanEntryId;
         this._tolakAjukanEntryId = null;
         if (!id) return;
         this.openAjukanOverlay(id, true);
+    },
+    // User pilih "Tidak" (atau tap backdrop) di popup "Ajukan Jadwal Lain?"
+    // -> tidak ada pengajuan baru, tutup popup DAN overlay resejuel-nya
+    // sekaligus, balik bersih ke halaman Jadwal.
+    dismissTolakAjukan() {
+        const ov = document.getElementById('jdw-tolak-ajukan-overlay');
+        if (ov) ov.classList.remove('open');
+        this.closeResejuelOverlay();
+        this._tolakAjukanEntryId = null;
     },
     // Setuju -> jadwal ikut yang BARU (diajukan tentor). Bentrok dengan jadwal
     // lain di akun user SENGAJA tidak dicek di sini — itu urusan akun guru/

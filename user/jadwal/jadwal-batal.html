@@ -37,14 +37,54 @@
      lihat JadwalPage.openAjukanOverlay(entryId, true) & _renderTentorPicker()
      yang cek this._tentorLocked. Kalau "Tidak" -> cuma tutup dialog, tidak
      ada pengajuan baru apa pun. ══════ -->
-<div class="overlay confirm-overlay" id="jdw-tolak-ajukan-overlay" onclick="if(event.target===this){this.classList.remove('open');_jdwSyncPageScrollLock();}">
+<div class="overlay confirm-overlay" id="jdw-tolak-ajukan-overlay" onclick="if(event.target===this){JadwalPage.dismissTolakAjukan();}">
   <div class="modal" style="max-width:300px;text-align:center">
     <div class="confirm-icon warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
     <div class="confirm-title">Ajukan Jadwal Lain?</div>
     <div class="confirm-msg">Jadwal ulang dari tentor sudah ditolak, jadwal lama tetap berlaku. Mau ajukan jadwal ulang versi kamu sendiri?</div>
     <div class="confirm-btns">
-      <button class="btn-secondary" onclick="document.getElementById('jdw-tolak-ajukan-overlay').classList.remove('open');_jdwSyncPageScrollLock()" style="flex:1;padding:11px">Tidak</button>
+      <button class="btn-secondary" onclick="JadwalPage.dismissTolakAjukan()" style="flex:1;padding:11px">Tidak</button>
       <button class="btn-primary" onclick="JadwalPage.confirmAjukanSetelahTolak()" style="flex:1;margin-top:0">Ya, Ajukan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ KONFIRMASI: KELUAR DARI FORM JADWAL ULANG (TENTOR DIKUNCI) ══════
+     Muncul kalau user tap X di header form Ajukan Jadwal Ulang SELAGI
+     this._tentorLocked true (form ini dibuka lewat "Ya, Ajukan" di atas,
+     atau lewat tombol "Cek" pada kartu status "butuh_persetujuan" — lihat
+     JadwalPage.closeAjukanOverlayRequest). Kalau "Ya, Keluar" -> form
+     ditutup TANPA pengajuan baru tersimpan, tapi status entrinya diubah
+     jadi "butuh_persetujuan" (bukan "menunggu") biar user tahu masih ada
+     pengajuan jadwal ulang yang menggantung dan perlu ditindaklanjuti
+     (lewat tombol "Cek"/"Batal" di kartu status — lihat
+     JadwalPage.confirmKeluarAjukan & _entryActions). ══════ -->
+<div class="overlay confirm-overlay" id="jdw-keluar-ajukan-overlay" onclick="if(event.target===this){this.classList.remove('open');_jdwSyncPageScrollLock();}">
+  <div class="modal" style="max-width:300px;text-align:center">
+    <div class="confirm-icon warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+    <div class="confirm-title">Yakin Keluar?</div>
+    <div class="confirm-msg">Pengajuan jadwal ulang ini belum selesai. Kalau keluar sekarang, statusnya jadi "Butuh Persetujuan" dan bisa dilanjutkan atau dibatalkan nanti.</div>
+    <div class="confirm-btns">
+      <button class="btn-secondary" onclick="document.getElementById('jdw-keluar-ajukan-overlay').classList.remove('open');_jdwSyncPageScrollLock()" style="flex:1;padding:11px">Tidak</button>
+      <button class="btn-primary" onclick="JadwalPage.confirmKeluarAjukan()" style="flex:1;margin-top:0">Ya, Keluar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ PILIHAN: TOMBOL "BATAL" PADA KARTU STATUS "BUTUH PERSETUJUAN" ══════
+     BUKAN dialog pertanyaan — langsung 2 pilihan tindakan (lihat
+     JadwalPage.openBatalPilihan, dipicu dari _entryActions status
+     "butuh_persetujuan"): "Batalkan Jadwal Ulang" (persis seperti Tolak di
+     awal — jadwal lama tetap berlaku) atau "Batalkan Jadwal" (jadwalnya
+     sekalian, lewat alur Pengajuan Pembatalan yang sama dengan entri
+     "acc"). ══════ -->
+<div class="overlay confirm-overlay" id="jdw-batal-pilihan-overlay" onclick="if(event.target===this){JadwalPage.closeBatalPilihan();}">
+  <div class="modal" style="max-width:300px;text-align:center">
+    <div class="confirm-icon danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
+    <div class="confirm-title">Batalkan</div>
+    <div class="confirm-btns stack">
+      <button class="btn-primary" onclick="JadwalPage.batalPilihanJadwalUlang()" style="width:100%;margin-top:0">Batalkan Jadwal Ulang</button>
+      <button class="btn-secondary" onclick="JadwalPage.batalPilihanJadwal()" style="width:100%;padding:11px">Batalkan Jadwal</button>
     </div>
   </div>
 </div>
