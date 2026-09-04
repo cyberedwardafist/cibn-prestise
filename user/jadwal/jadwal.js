@@ -86,6 +86,12 @@ const JadwalStore = (function () {
             // tanggal beda minggu buat sekalian tes nav minggu di kalender.
             { id: 'seed_acc1', tanggal: _todayIso(1), slotId: 'slot6', materiId: 'tkp', tentorId: 'raffi', status: 'acc', createdAt: Date.now() - 90000000 },
             { id: 'seed_acc2', tanggal: _todayIso(8), slotId: 'slot4', materiId: 'toefl_struktur', tentorId: 'chika', status: 'acc', createdAt: Date.now() - 85000000 },
+            // acc, tanggal HARI INI (hari H) -> khusus buat tes popup "Tidak Bisa
+            // Dijadwalkan Ulang" (batas H-1 sudah lewat): klik tombol "Jadwal
+            // Ulang" di kartu ini harus munculkan popup, form Ajukan Jadwal
+            // Ulang TIDAK boleh kebuka. Lihat JadwalPage.resejadwalEntry &
+            // _jdwCanReschedule.
+            { id: 'seed_acc_harih', tanggal: _todayIso(0), slotId: 'slot5', materiId: 'toefl_reading', tentorId: 'chika', status: 'acc', createdAt: Date.now() - 87000000 },
             // berlangsung, jam BELUM lewat -> tombol "Masuk" (slot malam, jadi
             // biasanya masih kelihatan "Masuk" kecuali kamu tes di atas jam
             // 20.15). Kalau pas dites udah lewat jam segitu, otomatis kegantian jadi
@@ -196,6 +202,14 @@ function _jdwFmtWeekRange(weekDates) {
         ? `${first.getDate()} - ${last.getDate()} ${JDW_MONTH_SHORT[first.getMonth()]} ${first.getFullYear()}`
         : `${first.getDate()} ${JDW_MONTH_SHORT[first.getMonth()]} - ${last.getDate()} ${JDW_MONTH_SHORT[last.getMonth()]} ${last.getFullYear()}`;
 }
+// Batas maksimal pengajuan Jadwal Ulang: H-1 (selama tanggal sesi masih
+// SETELAH hari ini, boleh, terlepas jam berapa pun saat ini di H-1 —
+// cutoff-nya persis di jam 00.00 begitu tanggal sesi == hari ini / sudah
+// lewat, BUKAN dihitung mundur 24 jam dari jam sesi). Dipakai di
+// JadwalPage.resejadwalEntry().
+function _jdwCanReschedule(tanggalSesi) {
+    return tanggalSesi > _jdwToIso(new Date());
+}
 // Label materi yang diajar seorang tentor, buat ditampilkan di box picker &
 // list "Pilih Tentor" -> "TWK | TIU | TKP" atau "SEMUA" kalau materi:'ALL'.
 function _jdwTentorMateriLabel(t) {
@@ -295,7 +309,7 @@ const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 
 // #page-jadwal di baliknya tetap ikut dikunci scroll-nya biar konsisten -
 // tidak masuk akal halaman di belakang masih bisa discroll pas ada dialog
 // konfirmasi kecil nongol di tengah layar.
-const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-lewat-overlay', 'jdw-tolak-ajukan-overlay', 'jdw-keluar-ajukan-overlay', 'jdw-batal-pilihan-overlay'];
+const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-lewat-overlay', 'jdw-tolak-ajukan-overlay', 'jdw-keluar-ajukan-overlay', 'jdw-batal-pilihan-overlay', 'jdw-reschedule-harih-overlay'];
 function _jdwSyncPageScrollLock() {
     const pageEl = document.getElementById('page-jadwal');
     const anyLockOpen = JDW_SCROLL_LOCK_OVERLAY_IDS.some(id => document.getElementById(id)?.classList.contains('open'));
@@ -1222,7 +1236,31 @@ const JadwalPage = {
 
     /* ── Aksi list (dipanggil dari sweep card / tombol tabel) ── */
     editEntry(id) { this.openAjukanOverlay(id); },
-    resejadwalEntry(id) { this.openAjukanOverlay(id); },
+    // Tombol "Jadwal Ulang" (entri status "acc") -> batas maksimal pengajuan
+    // jadwal ulang adalah H-1: selama tanggal sesi masih BESOK atau lebih
+    // (belum masuk hari H, walau jamnya sudah malam sekalipun, mis. jam
+    // 20.00 di H-1 masih boleh), form Ajukan Jadwal Ulang tetap kebuka
+    // normal. Begitu tanggal SEKARANG sudah sama dengan tanggal sesi
+    // (sudah masuk hari H, dari jam 00.00), munculkan popup info & form
+    // TIDAK dibuka sama sekali.
+    resejadwalEntry(id) {
+        const e = JadwalStore.get(id);
+        if (e && !_jdwCanReschedule(e.tanggal)) {
+            this.openRescheduleHariHInfo();
+            return;
+        }
+        this.openAjukanOverlay(id);
+    },
+    // Popup info "batas H-1 sudah lewat" — cuma 1 tombol "Mengerti", sama
+    // pola kayak jdw-lewat-overlay (info tanggal sudah lewat di kalender).
+    openRescheduleHariHInfo() {
+        document.getElementById('jdw-reschedule-harih-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
+    },
+    closeRescheduleHariHInfo() {
+        document.getElementById('jdw-reschedule-harih-overlay').classList.remove('open');
+        _jdwSyncPageScrollLock();
+    },
 
     /* ── Halaman fullscreen "Jadwal Ulang dari Tentor" (status "resejuel") —
        sama pola dengan halaman Ajukan Jadwal (jdw-ajukan-overlay): header
@@ -1290,7 +1328,12 @@ const JadwalPage = {
         if (!this._resejuelTargetId) return;
         JadwalStore.update(this._resejuelTargetId, { status: 'acc', reschedule: null });
         this._tolakAjukanEntryId = this._resejuelTargetId;
-        showToast('Jadwal ulang dari tentor ditolak, jadwal lama tetap berlaku');
+        // Toast SENGAJA belum ditampilkan di sini — popup fullscreen "Ajukan
+        // Jadwal Lain?" langsung terbuka di atasnya di baris bawah ini, jadi
+        // toast kecil di pojok bawah gampang ketutup fokus popup & kelihatan
+        // "nggak muncul". Toast baru ditembak di dismissTolakAjukan() /
+        // confirmAjukanSetelahTolak() (begitu popup ini tertutup), supaya
+        // pasti kelihatan tanpa tumpang tindih dengan popup.
         _jdwRenderWeek();
         _jdwRenderStatusList();
         const ov = document.getElementById('jdw-tolak-ajukan-overlay');
@@ -1307,17 +1350,19 @@ const JadwalPage = {
         this.closeResejuelOverlay();
         const id = this._tolakAjukanEntryId;
         this._tolakAjukanEntryId = null;
+        showToast('Jadwal ulang dari tentor ditolak, jadwal lama tetap berlaku');
         if (!id) return;
         this.openAjukanOverlay(id, true);
     },
     // User pilih "Tidak" (atau tap backdrop) di popup "Ajukan Jadwal Lain?"
     // -> tidak ada pengajuan baru, tutup popup DAN overlay resejuel-nya
-    // sekaligus, balik bersih ke halaman Jadwal.
+    // sekaligus, balik bersih ke halaman Jadwal — toast baru muncul di sini.
     dismissTolakAjukan() {
         const ov = document.getElementById('jdw-tolak-ajukan-overlay');
         if (ov) ov.classList.remove('open');
         this.closeResejuelOverlay();
         this._tolakAjukanEntryId = null;
+        showToast('Jadwal ulang dari tentor ditolak, jadwal lama tetap berlaku');
     },
     // Setuju -> jadwal ikut yang BARU (diajukan tentor). Bentrok dengan jadwal
     // lain di akun user SENGAJA tidak dicek di sini — itu urusan akun guru/
@@ -1553,5 +1598,16 @@ const JadwalPage = {
         document.getElementById('jdw-sesi-overlay').classList.remove('open');
         _jdwSyncPageScrollLock();
         this._sesiEntryId = null;
+    },
+
+    /* ── Dev helper: hapus data dummy tersimpan & bikin ulang seed lengkap
+       (semua status: pending, acc, berlangsung-masuk, berlangsung-feedback,
+       ditolak, pengajuan_pembatalan, selesai, resejuel, batal-tentor,
+       batal-user) — dipakai buat cek seluruh tampilan tanpa harus ajukan
+       manual satu-satu. Aman dipanggil kapan saja, langsung reload halaman. ── */
+    resetDummy() {
+        try { localStorage.removeItem('cbn_jadwal_pengajuan_dummy_v1'); } catch (e) {}
+        showToast('Data dummy direset — semua status jadwal dimuat ulang');
+        setTimeout(() => location.reload(), 400);
     },
 };

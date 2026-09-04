@@ -101,6 +101,24 @@
   </div>
 </div>
 
+<!-- ══════ INFO: BATAS MAKSIMAL PENGAJUAN JADWAL ULANG (H-1) SUDAH LEWAT ══════
+     Muncul kalau tombol "Jadwal Ulang" ditekan pada entri yang tanggal
+     sesinya SUDAH masuk hari H (lihat JadwalPage.resejadwalEntry &
+     _jdwCanReschedule di user/jadwal.js) — batas pengajuan jadwal ulang
+     adalah H-1, jam berapa pun di H-1 masih boleh, begitu tanggal sekarang
+     sudah sama dengan tanggal sesi (dari jam 00.00), form Ajukan Jadwal
+     Ulang tidak dibuka lagi, cuma popup info ini yang tampil. ══════ -->
+<div class="overlay confirm-overlay" id="jdw-reschedule-harih-overlay" onclick="if(event.target===this){JadwalPage.closeRescheduleHariHInfo();}">
+  <div class="modal" style="max-width:300px;text-align:center">
+    <div class="confirm-icon warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+    <div class="confirm-title">Tidak Bisa Dijadwalkan Ulang</div>
+    <div class="confirm-msg">Jadwal ulang tidak bisa dilakukan karena sudah melewati batas maksimal pengajuan (paling lambat H-1). Sesi ini sudah memasuki hari H.</div>
+    <div class="confirm-btns">
+      <button class="btn-primary" onclick="JadwalPage.closeRescheduleHariHInfo()" style="flex:1;margin-top:0">Mengerti</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════════════════════════════════════════════════════════════════
      JADWAL ULANG DARI TENTOR (status "resejuel") — halaman FULLSCREEN
      (sama pola dengan user/jadwal-ajukan.html: header sticky + body scroll),
