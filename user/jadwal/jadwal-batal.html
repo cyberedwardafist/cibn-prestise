@@ -89,12 +89,20 @@
   </div>
 </div>
 
-<!-- ══════ INFO: TANGGAL SUDAH LEWAT (tidak bisa dipilih di kalender) ══════ -->
+<!-- ══════ INFO: TANGGAL TIDAK BISA DIPILIH (dipakai buat 2 alasan berbeda,
+     lihat JadwalPage.openPastDayInfo & JadwalPage.openFutureLockedDayInfo di
+     user/jadwal.js) — satu overlay yang sama dipakai bareng, judul & pesannya
+     (id=jdw-lewat-title / id=jdw-lewat-msg) diisi JS sebelum overlay dibuka:
+       1) tanggal SUDAH LEWAT (is-past)
+       2) tanggal bulan DEPAN yang BELUM kebuka (is-future-locked, sebelum
+          tanggal 22 bulan berjalan) — tampilannya sengaja dibikin SAMA kayak
+          tanggal sudah lewat (sama-sama meredup di kalender), cuma pesannya
+          beda supaya user ngerti itu bukan tanggal yang sudah lewat. ══════ -->
 <div class="overlay confirm-overlay" id="jdw-lewat-overlay" onclick="if(event.target===this){this.classList.remove('open');_jdwSyncPageScrollLock();}">
   <div class="modal" style="max-width:300px;text-align:center">
     <div class="confirm-icon warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
-    <div class="confirm-title">Tidak Bisa Dipilih</div>
-    <div class="confirm-msg">Tidak bisa dipilih karena sudah lewat hari.</div>
+    <div class="confirm-title" id="jdw-lewat-title">Tidak Bisa Dipilih</div>
+    <div class="confirm-msg" id="jdw-lewat-msg">Tidak bisa dipilih karena sudah lewat hari.</div>
     <div class="confirm-btns">
       <button class="btn-primary" onclick="document.getElementById('jdw-lewat-overlay').classList.remove('open');_jdwSyncPageScrollLock()" style="flex:1;margin-top:0">Kembali</button>
     </div>

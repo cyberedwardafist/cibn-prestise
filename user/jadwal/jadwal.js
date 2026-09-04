@@ -231,6 +231,23 @@ function _jdwNextMonthUnlockedFor(ref) {
     const now = new Date();
     return now.getFullYear() === ref.getFullYear() && now.getMonth() === ref.getMonth() && now.getDate() >= 22;
 }
+// Sama kayak _jdwNextMonthUnlockedFor di atas, tapi buat grid yang REF-nya
+// sendiri sudah bulan depan (bukan lagi ngecek sel "numpang" di grid bulan
+// berjalan) — dipakai pas user maju ke grid bulan depan lewat tombol nav
+// (">" / calendarMonthNav('newer') & rescheduleNav('newer')). Tanpa fungsi
+// ini, begitu grid-nya sudah pindah ke bulan depan, semua tanggalnya lolos
+// dari pengecekan isPast (karena memang belum lewat) jadi bisa diklik bebas
+// walau belum tanggal 22 — padahal seharusnya sama-sama terkunci kayak sel
+// "numpang" di grid bulan berjalan. Bulan LEBIH dari 1 bulan ke depan (+2
+// dst) SELALU terkunci apapun tanggal sekarang — cuma bulan depan yang
+// persis 1 bulan yang bisa kebuka, itu pun cuma mulai tanggal 22.
+function _jdwIsFutureMonthLocked(ref) {
+    const now = new Date();
+    const monthsAhead = (ref.getFullYear() - now.getFullYear()) * 12 + (ref.getMonth() - now.getMonth());
+    if (monthsAhead <= 0) return false; // bulan berjalan / sudah lewat, bukan urusan fungsi ini (dicek lewat isPast)
+    if (monthsAhead === 1) return now.getDate() < 22; // bulan depan: terkunci SELAMA belum tanggal 22
+    return true; // +2 bulan atau lebih: selalu terkunci
+}
 // Render HTML grid kalender sebulan (header nama hari + 42 sel tanggal),
 // dipakai bareng buat kalender utama (#jdw-month-grid) & kalender mini di
 // form Jadwal Ulang (#jdw-reschedule-month-grid) — bedanya cuma lewat `opts`:
@@ -251,6 +268,11 @@ function _jdwMonthGridHtml(ref, opts) {
     const days = _jdwMonthGridDates(ref);
     const lastOfMonth = new Date(ref.getFullYear(), ref.getMonth() + 1, 0);
     const nextMonthUnlocked = _jdwNextMonthUnlockedFor(ref);
+    // Berlaku buat SEMUA tanggal bulan `ref` (bukan cuma sel "numpang") kalau
+    // grid yang lagi ditampilkan sendiri sudah bulan depan/lebih & belum
+    // kebuka (lihat catatan _jdwIsFutureMonthLocked) — user bisa nyampe grid
+    // ini lewat tombol nav ">" walau belum tanggal 22.
+    const monthLocked = _jdwIsFutureMonthLocked(ref);
     const weekdayRow = JDW_DAY_SHORT.slice(1).concat(JDW_DAY_SHORT[0]).map(n => `<span>${n}</span>`).join('');
     const cells = days.map(d => {
         const iso = _jdwToIso(d);
@@ -276,6 +298,12 @@ function _jdwMonthGridHtml(ref, opts) {
         } else if (isPast) {
             cls += ' is-past';
             onclick = opts.pastClickFn ? opts.pastClickFn(iso) : '';
+        } else if (monthLocked) {
+            // Tampil SAMA kayak tanggal sudah lewat (redup, class is-past yang
+            // dipakai) — cuma onclick-nya beda, nunjukin popup "belum bisa
+            // dipilih" (bukan "sudah lewat"), lihat opts.futureLockedClickFn.
+            cls += ' is-past';
+            onclick = opts.futureLockedClickFn ? opts.futureLockedClickFn(iso) : '';
         } else {
             onclick = opts.onClickFn ? opts.onClickFn(iso) : '';
         }
@@ -777,6 +805,7 @@ function _jdwRenderWeek() {
             hasEntriesFn: iso => JadwalStore.byDate(iso).length > 0,
             onClickFn: iso => `JadwalPage.openDay('${iso}')`,
             pastClickFn: iso => `JadwalPage.openPastDayInfo('${iso}')`,
+            futureLockedClickFn: iso => `JadwalPage.openFutureLockedDayInfo('${iso}')`,
         });
         return;
     }
@@ -860,6 +889,24 @@ const JadwalPage = {
     /* ── Tap tanggal yang SUDAH LEWAT di kalender -> tidak buka form Ajukan,
        cuma info kalau tanggal itu tidak bisa dipilih lagi. ── */
     openPastDayInfo() {
+        const titleEl = document.getElementById('jdw-lewat-title');
+        const msgEl = document.getElementById('jdw-lewat-msg');
+        if (titleEl) titleEl.textContent = 'Tidak Bisa Dipilih';
+        if (msgEl) msgEl.textContent = 'Tidak bisa dipilih karena sudah lewat hari.';
+        document.getElementById('jdw-lewat-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
+    },
+    /* ── Tap tanggal bulan DEPAN (atau lebih) yang BELUM kebuka -> sama kayak
+       openPastDayInfo di atas (dipakai bareng overlay id=jdw-lewat-overlay,
+       tanggalnya juga ditampilkan meredup sama persis kayak tanggal lewat,
+       lihat class is-past di _jdwMonthGridHtml), cuma pesannya beda supaya
+       user ngerti itu BUKAN tanggal yang sudah lewat, tapi jadwal bulan
+       depan yang baru bisa diajukan mulai tanggal 22 bulan berjalan. ── */
+    openFutureLockedDayInfo() {
+        const titleEl = document.getElementById('jdw-lewat-title');
+        const msgEl = document.getElementById('jdw-lewat-msg');
+        if (titleEl) titleEl.textContent = 'Tanggal Belum Bisa Dipilih';
+        if (msgEl) msgEl.textContent = 'Tanggal belum bisa dipilih. Jadwal bulan depan baru bisa diajukan mulai tanggal 22 bulan ini.';
         document.getElementById('jdw-lewat-overlay').classList.add('open');
         _jdwSyncPageScrollLock();
     },
@@ -1238,6 +1285,7 @@ const JadwalPage = {
                 hasEntriesFn: iso => JadwalStore.byDate(iso).filter(e => e.id !== this.editingId).length > 0,
                 onClickFn: iso => `JadwalPage.pickRescheduleDate('${iso}')`,
                 pastClickFn: iso => `JadwalPage.openPastDayInfo('${iso}')`,
+                futureLockedClickFn: iso => `JadwalPage.openFutureLockedDayInfo('${iso}')`,
             });
             return;
         }

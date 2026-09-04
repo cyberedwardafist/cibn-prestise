@@ -551,7 +551,13 @@
        (.is-outside) TIDAK BISA diklik — cuma buat rapiin grid jadi 6 baris —
        sama seperti tanggal yang sudah lewat (.is-past), keduanya sengaja
        tanpa atribut onclick sama sekali (bukan cuma didisable lewat CSS). ── */
-    .jdw-week-caption-row { position:relative; display:flex; align-items:center; justify-content:center; margin-bottom:12px; }
+    /* min-height dikunci ke tinggi tombol toggle (~28px) supaya baris ini
+       TETAP punya tinggi yang sama biarpun caption di dalamnya di-hide
+       (display:none) pas mode sebulan lagi aktif (lihat _jdwRenderWeek) —
+       tanpa ini baris collapse ke ~0px & tombol (position:absolute, jadi
+       tidak ikut ngasih tinggi ke baris) numpuk langsung nempel ke elemen
+       sesudahnya (id=jdw-cal-nav), nggak ada jarak sama sekali. */
+    .jdw-week-caption-row { position:relative; display:flex; align-items:center; justify-content:center; margin-bottom:12px; min-height:28px; }
     .jdw-week-caption-row .jdw-week-caption { margin-bottom:0; }
     .jdw-cal-toggle-btn { position:absolute; right:0; top:50%; transform:translateY(-50%); display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:20px; border:1.5px solid rgba(19,50,89,.12); background:rgba(255,255,255,.55); color:var(--accent); font-family:var(--font-body); font-size:10.5px; font-weight:700; cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; white-space:nowrap; }
     .jdw-cal-toggle-btn:hover { background:rgba(255,255,255,.9); }
