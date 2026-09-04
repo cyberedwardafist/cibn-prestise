@@ -1,0 +1,20 @@
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+    <div class="section-title" style="margin-bottom:0">Manajemen Modul</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div id="modul-kelompok-filters"></div>
+      <button class="btn btn-secondary akun-select-all-mobile" onclick="toggleSelectAllModul(true)">Semua</button>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-sub);cursor:pointer;padding:0 4px" class="hide-mobile"><input type="checkbox" id="modul-select-all" onchange="toggleSelectAllModul(this.checked)" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer"> Pilih Semua</label>
+      <button class="btn btn-secondary" onclick="openManageModulKelompok()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Kelola Kelompok</button>
+      <button class="btn btn-primary" onclick="openAddModul()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Buat Modul</button>
+    </div>
+  </div>
+  <div class="section-sub">Susun soal menjadi paket ujian</div>
+  <div class="search-bar" style="flex-wrap:wrap;gap:8px;margin-top:10px">
+    <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari nama / nama internal..." oninput="_modSearch=this.value;_renderModulList()"></div>
+  </div>
+  <div class="bulk-bar" id="bulk-bar-modul"><span><b id="bulk-count-modul">0</b> modul dipilih</span><div class="bulk-bar-actions">
+    <button class="btn btn-secondary" onclick="clearModulSelection()">Batal</button>
+    <button class="btn btn-secondary" onclick="openBulkSetKelompokModul()">Set Kelompok</button>
+    <button class="btn btn-danger" onclick="deleteSelectedModul()">Hapus Massal</button>
+  </div></div>
+  <div id="modul-groups"></div>

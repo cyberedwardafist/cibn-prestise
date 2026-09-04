@@ -458,15 +458,15 @@ const REVIEW_PAGE_MODULES = {
     // dock Akun & Riwayat. Ditandai needsModals supaya dock manapun yang dibuka
     // duluan tetap bisa memicu modal ini. "MODE REVIEW" (review-ujian-overlay)
     // juga dipecah jadi file sendiri (review/mode-review.html) dengan alasan sama.
-    akun:       { html: 'review/akun.html',      js: ['review/riwayat.js', 'review/akun.js'], needsModals: true },
-    riwayat:    { html: 'review/riwayat.html',    js: ['review/riwayat.js'], needsModals: true },
-    'akun-saya':{ html: 'review/akun-saya.html',  js: ['review/akun-saya.js'] },
-    ebook:      { html: 'review/ebook.html',      js: ['review/ebook.js'] },
+    akun:       { html: 'review/akun/akun.html',           js: ['review/riwayat/riwayat.js', 'review/akun/akun.js'], needsModals: true },
+    riwayat:    { html: 'review/riwayat/riwayat.html',      js: ['review/riwayat/riwayat.js'], needsModals: true },
+    'akun-saya':{ html: 'review/akun-saya/akun-saya.html',  js: ['review/akun-saya/akun-saya.js'] },
+    ebook:      { html: 'review/ebook/ebook.html',          js: ['review/ebook/ebook.js'] },
 };
 // Fragmen modal bersama (dipakai lintas dock) yang di-load ke #review-modals-root.
 // append:true + URL yang sama dari dock manapun -> LazyLoader hanya benar-benar
 // fetch/inject SEKALI (di-cache per URL), aman dipanggil berulang dari 2 dock.
-const REVIEW_SHARED_MODALS = ['review/riwayat-modals.html', 'review/mode-review.html'];
+const REVIEW_SHARED_MODALS = ['review/riwayat/riwayat-modals.html', 'review/riwayat/mode-review.html'];
 function ensureReviewPageModule(pageId) {
     const spec = REVIEW_PAGE_MODULES[pageId];
     if (!spec) return Promise.resolve();

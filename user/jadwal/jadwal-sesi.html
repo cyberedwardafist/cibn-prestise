@@ -1,0 +1,24 @@
+<!-- ══════════════════════════════════════════════════════════════════════
+     user/jadwal-sesi.html — overlay HALAMAN: SESI BERLANGSUNG (Masuk) /
+     FEEDBACK SESI.
+     Dipakai gantian sesuai tahap sesi: begitu jam mulai tiba, tombol "Masuk"
+     buka halaman ini isinya Link Gmeet + Token (JadwalPage.masukEntry). Begitu
+     jam selesai lewat, tombol berganti jadi "Feedback" yang buka halaman ini
+     lagi tapi isinya form pertanyaan + tombol Simpan (JadwalPage.feedbackEntry).
+     Footer tombolnya sticky (#jdw-sesi-footer, lihat .jdw-modal-footer) —
+     selalu nempel di bawah layar TAPI masih di dalam overlay fullscreen
+     sendiri (z-index di atas dock), jadi tidak pernah kepotong/ketutup dock
+     utama. ═══════════════════════════════════════════════════════════════ -->
+<div class="overlay overlay-fullscreen" id="jdw-sesi-overlay">
+  <div class="modal modal-fullscreen">
+    <div class="jdw-modal-header">
+      <button class="jdw-icon-btn" onclick="JadwalPage.closeSesiOverlay()" aria-label="Kembali">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="jdw-modal-title" id="jdw-sesi-title">Sesi</div>
+      <span style="width:32px"></span>
+    </div>
+    <div class="jdw-modal-body" id="jdw-sesi-body"></div>
+    <div class="jdw-modal-footer" id="jdw-sesi-footer"></div>
+  </div>
+</div>

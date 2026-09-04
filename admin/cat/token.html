@@ -1,0 +1,126 @@
+  <div class="section-title">Manajemen Token</div>
+  <div class="section-sub">Buat dan kelola token ujian</div>
+  <div class="sub-tabs">
+    <button class="sub-tab active" data-sub="buat" onclick="renderTokenSub('buat')">Buat Token</button>
+    <button class="sub-tab" data-sub="list" onclick="renderTokenSub('list')">List Token</button>
+    <button class="sub-tab" data-sub="used" onclick="renderTokenSub('used')">Token Terpakai</button>
+  </div>
+  <div class="sub-page active dock-avoid-center" id="sub-token-buat">
+    <div class="card" style="margin:0 auto 16px;max-width:560px">
+      <div class="form-group">
+        <label class="form-label">Pilih Modul</label>
+        <input type="hidden" id="token-modul-sel" value="">
+        <button type="button" class="form-select" id="token-modul-display-btn" onclick="openTokenModulPicker()" style="display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left">
+          <span id="token-modul-display-text" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(19,50,89,0.35)">-- Pilih Modul --</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Waktu Aktif</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <button class="token-mode-btn sub-tab active" data-mode="hari_ini" onclick="_setTokenMode('hari_ini')" style="flex:1;min-width:100px">Hari Ini</button>
+          <button class="token-mode-btn sub-tab" data-mode="besok" onclick="_setTokenMode('besok')" style="flex:1;min-width:100px">Besok</button>
+          <button class="token-mode-btn sub-tab" data-mode="custom" onclick="_setTokenMode('custom')" style="flex:1;min-width:100px">Custom</button>
+        </div>
+        <div id="token-custom-wrap" style="display:none">
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Tanggal Aktivasi</label><input id="token-tgl-mulai" class="form-input" type="date"></div>
+            <div class="form-group"><label class="form-label">Tanggal Expired</label><input id="token-tgl-akhir" class="form-input" type="date"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Jam Mulai</label><input id="token-jam-mulai" class="form-input" type="time" value="08:00"></div>
+            <div class="form-group"><label class="form-label">Jam Selesai</label><input id="token-jam-akhir" class="form-input" type="time" value="23:59"></div>
+          </div>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Jumlah Token (maks. 200)</label><input id="token-jumlah" class="form-input" type="number" value="10" min="1" max="200"></div>
+      <div class="form-group">
+        <div class="switch-row">
+          <div>
+            <div class="switch-label">Pengaturan</div>
+            <div class="switch-desc">Aktifkan untuk membuka opsi tambahan: Izinkan Review, Aktifkan Grup Token, dan Batas Keluar Ujian</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="token-pengaturan-aktif" onchange="_toggleTokenPengaturan(this.checked)"><span class="switch-slider"></span></label>
+        </div>
+      </div>
+      <div id="token-pengaturan-wrap" style="display:none">
+        <div class="form-group">
+          <div class="switch-row">
+            <div>
+              <div class="switch-label">Izinkan Review</div>
+              <div class="switch-desc">Jika aktif, peserta yang memakai kode ini akan melihat tombol "Lihat Hasil" setelah selesai ujian</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="token-izinkan-review"><span class="switch-slider"></span></label>
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="switch-row">
+            <div>
+              <div class="switch-label">Aktifkan Grup Token</div>
+              <div class="switch-desc">Jika aktif, seluruh token yang dibuat pada proses ini akan tergabung dalam 1 kelompok. Nama kelompok dipakai untuk filter & unduh laporan grup (ZIP) di panel Review.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="token-grub-aktif" onchange="_toggleTokenGrub(this.checked)"><span class="switch-slider"></span></label>
+          </div>
+          <div id="token-grub-wrap" style="display:none;margin-top:10px">
+            <label class="form-label">Nama Grup Token</label>
+            <input id="token-grub-nama" class="form-input" type="text" placeholder="Contoh: Batch Ujian Oktober - Kelas A" list="token-grub-suggest">
+            <datalist id="token-grub-suggest"></datalist>
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="switch-row">
+            <div>
+              <div class="switch-label">Batas Keluar Ujian</div>
+              <div class="switch-desc">Jika aktif, ujian otomatis diselesaikan setelah peserta keluar/berpindah halaman melebihi jumlah kali di bawah ini. Matikan untuk menonaktifkan perlindungan keluar ujian sepenuhnya (peserta bebas keluar tanpa batas).</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="token-batas-keluar-aktif" checked onchange="_toggleBatasKeluar(this.checked)"><span class="switch-slider"></span></label>
+          </div>
+          <div id="token-batas-keluar-wrap" style="margin-top:10px">
+            <label class="form-label">Maksimal Keluar (kali)</label>
+            <input id="token-batas-keluar-jumlah" class="form-input" type="number" value="3" min="1" max="99">
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="generateTokens()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Buat Token</button>
+    </div>
+    <div id="token-dl-section" style="display:none;gap:10px;flex-wrap:wrap;margin-top:8px;margin-bottom:18px">
+      <button class="btn btn-secondary" onclick="downloadAllQR()">Unduh Semua QR</button>
+      <button class="btn btn-secondary" onclick="downloadTokenList()">Unduh CSV</button>
+    </div>
+    <div id="token-generated-list"><div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap" id="token-generated-table-wrap"></div><div class="swipe-list" id="token-generated-swipe-list"></div></div><div id="token-generated-pagination"></div></div>
+  </div>
+  <div class="sub-page dock-avoid" id="sub-token-list">
+    <div class="search-bar" style="flex-wrap:wrap;gap:8px">
+      <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari kode..." oninput="_ltSearch=this.value;_renderListToken()"></div>
+      <select id="list-token-modul-filter" class="form-select" style="flex:1;min-width:130px" onchange="_ltFilter=this.value;_renderListToken()"><option value="">Semua Modul</option></select>
+      <select id="list-token-grub-filter" class="form-select" style="flex:1;min-width:130px" onchange="_ltGrubFilter=this.value;_renderListToken()"><option value="">Semua Grup Token</option></select>
+    </div>
+    <div id="list-token-dl-section" style="display:none;gap:10px;flex-wrap:wrap;margin:0 0 14px">
+      <button class="btn btn-secondary" onclick="downloadAllQR(_ltFilteredData)">Unduh Semua QR</button>
+      <button class="btn btn-secondary" onclick="downloadTokenList(_ltFilteredData)">Unduh CSV</button>
+      <button class="btn btn-secondary" onclick="copyKodeList(_ltFilteredData)">Salin Semua Kode</button>
+      <span id="list-token-dl-count" style="font-size:11px;color:var(--text-sub);align-self:center"></span>
+    </div>
+    <div id="list-token-groups"></div>
+  </div>
+  <!-- TOKEN TERPAKAI -->
+  <div class="sub-page dock-avoid" id="sub-token-used">
+    <div class="search-bar" style="flex-wrap:wrap;gap:8px">
+      <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari kode / nama akun..." oninput="_tuSearch=this.value;_renderTokenUsed()"></div>
+      <select id="token-used-modul-filter" class="form-select" style="flex:1;min-width:130px" onchange="_tuFilter=this.value;_renderTokenUsed()"><option value="">Semua Modul</option></select>
+      <select id="token-used-grub-filter" class="form-select" style="flex:1;min-width:130px" onchange="_tuGrubFilter=this.value;_renderTokenUsed()"><option value="">Semua Grup Token</option></select>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <button class="sub-tab active" data-range="semua" onclick="_setTuRange('semua')" style="flex:1;min-width:90px">Semua</button>
+      <button class="sub-tab" data-range="hari_ini" onclick="_setTuRange('hari_ini')" style="flex:1;min-width:90px">Hari Ini</button>
+      <button class="sub-tab" data-range="kemarin" onclick="_setTuRange('kemarin')" style="flex:1;min-width:90px">Kemarin</button>
+      <button class="sub-tab" data-range="range" onclick="_setTuRange('range')" style="flex:1;min-width:90px">Range</button>
+    </div>
+    <div id="token-used-range-wrap" style="display:none;margin-bottom:10px">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Dari Tanggal</label><input id="token-used-range-from" class="form-input" type="date" onchange="_tuCustomFrom=this.value;_renderTokenUsed()"></div>
+        <div class="form-group"><label class="form-label">Sampai Tanggal</label><input id="token-used-range-to" class="form-input" type="date" onchange="_tuCustomTo=this.value;_renderTokenUsed()"></div>
+      </div>
+    </div>
+    <div id="token-used-groups"></div>
+  </div>

@@ -59,35 +59,42 @@ function renderPage(id, subId) {
 
 // ── LAZY-LOAD PER TAB ──────────────────────────────────────────────────────
 // Peta tab admin -> fragmen HTML + file JS yang dibutuhkannya. 'home' sengaja
-// tidak ada di sini karena sudah dimuat eager (lihat admin/home.js di shell).
+// tidak ada di sini karena sudah dimuat eager (lihat admin/home/home.js di shell).
 // Beberapa tab berbagi 1 file JS yang sama (mis. buku/ebook-library/ebook-modul
 // sama-sama pakai js/ebook.js) — LazyLoader.loadMany men-dedup per-URL otomatis,
 // jadi file itu cuma benar-benar di-fetch sekali walau 3 tab memakainya.
+// RAPI PER FUNGSI DOCK: tiap tab kini disimpan satu folder bareng fragmen
+// dan JS-nya sendiri (mis. admin/akun/akun.html + admin/akun/akun.js),
+// bukan tercecer di admin/ langsung. Tab yang satu grup dock (CAT: token/
+// laporan/review, SOAL: soal/library/modul, E-BOOK: buku/ebook-library/
+// ebook-modul) tetap satu folder gabungan karena JS-nya memang saling
+// dipakai bersama.
 const ADMIN_PAGE_MODULES = {
-    akun:            { html: 'admin/akun.html',           js: ['js/akun.js', 'admin/akun-signup.js'], modals: 'admin/akun-modals.html' },
-    'akun-admin':    { html: 'admin/akun-admin.html',     js: ['admin/akun-admin.js'] },
-    // token butuh admin/laporan.js + shared-export.js juga: modal "detail token
+    akun:            { html: 'admin/akun/akun.html',            js: ['admin/akun/akun.js', 'admin/akun/akun-signup.js'], modals: 'admin/akun/akun-modals.html' },
+    'akun-admin':    { html: 'admin/akun-admin/akun-admin.html',js: ['admin/akun-admin/akun-admin.js'] },
+    // token butuh admin/cat/laporan.js + shared-export.js juga: modal "detail token
     // terpakai" punya tombol Review yang manggil openReviewLaporan() (didefinisikan
     // di laporan.js), dan tombol unduh di dalamnya butuh shared-export.js.
-    token:           { html: 'admin/token.html',          js: ['admin/shared-export.js', 'admin/laporan.js', 'js/token.js'], modals: 'admin/token-modals.html' },
-    laporan:         { html: 'admin/laporan.html',        js: ['admin/shared-export.js', 'admin/laporan.js'], modals: 'admin/laporan-modals.html' },
-    review:          { html: 'admin/review.html',         js: ['admin/shared-export.js', 'admin/review.js'], modals: 'admin/review-modals.html' },
+    token:           { html: 'admin/cat/token.html',            js: ['admin/cat/shared-export.js', 'admin/cat/laporan.js', 'admin/cat/token.js'], modals: 'admin/cat/token-modals.html' },
+    laporan:         { html: 'admin/cat/laporan.html',          js: ['admin/cat/shared-export.js', 'admin/cat/laporan.js'], modals: 'admin/cat/laporan-modals.html' },
+    review:          { html: 'admin/cat/review.html',           js: ['admin/cat/shared-export.js', 'admin/cat/review.js'], modals: 'admin/cat/review-modals.html' },
     // soal/library/modul (fitur bank-soal) saling panggil fungsi satu sama lain
     // (mis. library.js pakai helper dari soal.js, modul.js pakai helper dari
     // library.js, soal.js refresh renderLibrary), jadi ketiganya dimuat sebagai
     // satu bundel JS+modal supaya tidak ada risiko "function is not defined" —
     // tapi fragmen HTML halamannya sendiri tetap terpisah per tab.
-    soal:            { html: 'admin/soal.html',           js: ['js/editor.js', 'js/soal.js', 'admin/library.js', 'admin/modul.js'], modals: 'admin/soal-modals.html' },
-    library:         { html: 'admin/library.html',        js: ['js/editor.js', 'js/soal.js', 'admin/library.js', 'admin/modul.js'], modals: 'admin/soal-modals.html' },
-    modul:           { html: 'admin/modul.html',          js: ['js/editor.js', 'js/soal.js', 'admin/library.js', 'admin/modul.js'], modals: 'admin/soal-modals.html' },
-    buku:            { html: 'admin/buku.html',           js: ['js/ebook.js'], modals: 'admin/ebook-modals.html' },
-    'ebook-library': { html: 'admin/ebook-library.html',  js: ['js/ebook.js'], modals: 'admin/ebook-modals.html' },
-    'ebook-modul':   { html: 'admin/ebook-modul.html',    js: ['js/ebook.js'], modals: 'admin/ebook-modals.html' },
-    landing:         { html: 'admin/landing.html',        js: ['admin/landing.js'], modals: 'admin/landing-modals.html' },
+    soal:            { html: 'admin/soal/soal.html',            js: ['admin/soal/editor.js', 'admin/soal/soal.js', 'admin/soal/library.js', 'admin/soal/modul.js'], modals: 'admin/soal/soal-modals.html' },
+    library:         { html: 'admin/soal/library.html',         js: ['admin/soal/editor.js', 'admin/soal/soal.js', 'admin/soal/library.js', 'admin/soal/modul.js'], modals: 'admin/soal/soal-modals.html' },
+    modul:           { html: 'admin/soal/modul.html',           js: ['admin/soal/editor.js', 'admin/soal/soal.js', 'admin/soal/library.js', 'admin/soal/modul.js'], modals: 'admin/soal/soal-modals.html' },
+    buku:            { html: 'admin/ebook/buku.html',           js: ['admin/ebook/ebook.js'], modals: 'admin/ebook/ebook-modals.html' },
+    'ebook-library': { html: 'admin/ebook/ebook-library.html',  js: ['admin/ebook/ebook.js'], modals: 'admin/ebook/ebook-modals.html' },
+    'ebook-modul':   { html: 'admin/ebook/ebook-modul.html',    js: ['admin/ebook/ebook.js'], modals: 'admin/ebook/ebook-modals.html' },
+    landing:         { html: 'admin/landing/landing.html',      js: ['admin/landing/landing.js'], modals: 'admin/landing/landing-modals.html' },
     // Form Tambah/Edit Paket dipisah dari keuangan.js/keuangan-modals.html jadi
-    // admin/paket-form.js + admin/paket-form.html (tampil fullscreen) — biar file
-    // keuangan.js tetap ringan tiap kali cuma form paket-nya yang diubah.
-    keuangan:        { html: 'admin/keuangan.html',       js: ['admin/keuangan.js', 'admin/paket-form.js', 'admin/paket-daterange.js'], modals: 'admin/paket-form.html' },
+    // admin/keuangan/paket-form.js + admin/keuangan/paket-form.html (tampil
+    // fullscreen) — biar file keuangan.js tetap ringan tiap kali cuma form
+    // paket-nya yang diubah.
+    keuangan:        { html: 'admin/keuangan/keuangan.html',    js: ['admin/keuangan/keuangan.js', 'admin/keuangan/paket-form.js', 'admin/keuangan/paket-daterange.js'], modals: 'admin/keuangan/paket-form.html' },
 };
 function ensureAdminPageModule(pageId) {
     const spec = ADMIN_PAGE_MODULES[pageId];
@@ -117,7 +124,7 @@ function switchSubPage(pageId, subId) {
 function setDirty(ctx='perubahan') {
     AppState.isDirty=true; AppState.dirtyContext=ctx;
     // Form Tambah/Edit Paket punya draft sendiri (localStorage cbn_paket_draft,
-    // lihat admin/paket-form.js) yang di-refresh tiap ada perubahan di form itu,
+    // lihat admin/keuangan/paket-form.js) yang di-refresh tiap ada perubahan di form itu,
     // sama seperti pola draft Soal Builder di bawah.
     if (ctx === 'paket' && typeof _pfQueueAutoSave === 'function') _pfQueueAutoSave();
 }
@@ -190,7 +197,7 @@ function closeModal(id) {
     document.getElementById(id)?.classList.remove('open');
     // Modal ditutup (Batal/X/backdrop/berhasil Simpan) -> draft refresh-nya sudah
     // tidak relevan lagi, buang supaya tidak "hidup lagi" & salah nandain dirty
-    // saat modal ini dibuka lagi dari nol nanti (lihat admin/paket-form.js).
+    // saat modal ini dibuka lagi dari nol nanti (lihat admin/keuangan/paket-form.js).
     if (id === 'paket-form-overlay' && typeof _pfDraftClear === 'function') _pfDraftClear();
     if (typeof _closeAllFilterDD === 'function') _closeAllFilterDD();
 }

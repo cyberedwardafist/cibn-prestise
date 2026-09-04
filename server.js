@@ -2,7 +2,6 @@
 
 const express   = require('express');
 const cors      = require('cors');
-const multer    = require('multer');
 const bcrypt    = require('bcryptjs');
 const jwt       = require('jsonwebtoken');
 const path      = require('path');
@@ -38,57 +37,40 @@ function safeFolderName(name) {
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 
-// ── MULTER MEMORY STORAGE (VERCEL COMPATIBLE) ────────────────────────────────
+// ── UPLOAD CONFIG (SEMUA UPLOAD FILE PAKAI PRESIGNED URL — LIHAT BAGIAN "GENERIC
+//    PRESIGNED UPLOAD" DI BAWAH). Tidak ada lagi multer/memoryStorage: server
+//    TIDAK PERNAH menerima isi file (foto/video/PDF) di body request-nya sendiri.
+//    Browser upload LANGSUNG ke Supabase Storage pakai signed URL, sehingga:
+//      - beban CPU/RAM server untuk parsing multipart & buffer file hilang total
+//      - request ke server kita cuma JSON kecil (metadata), jauh di bawah limit
+//        body serverless (mis. ±4.5MB di Vercel) berapa pun besar file aslinya
+//      - upload besar (video/PDF) tidak numpuk di RAM/bandwidth server kita
 const ALLOWED_IMAGE_MIME = {
     'image/jpeg': '.jpg',
     'image/png':  '.png',
     'image/gif':  '.gif',
     'image/webp': '.webp'
 };
-const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10MB (gambar)
 const ALLOWED_PDF_MIME = { 'application/pdf': '.pdf' };
-const MAX_EBOOK_PDF_SIZE = 80 * 1024 * 1024; // 80MB
-
-const memoryStorage = multer.memoryStorage(); // Menyimpan file sebagai buffer di RAM sementara
-
-const upload = multer({
-    storage: memoryStorage,
-    limits: { fileSize: MAX_UPLOAD_SIZE },
-    fileFilter: (req, file, cb) => {
-        if (!ALLOWED_IMAGE_MIME[file.mimetype]) return cb(new Error('INVALID_FILE_TYPE'));
-        cb(null, true);
-    }
-});
-
-const uploadEbook = multer({
-    storage: memoryStorage,
-    limits: { fileSize: MAX_EBOOK_PDF_SIZE },
-    fileFilter: (req, file, cb) => {
-        if (file.fieldname === 'pdf') {
-            if (!ALLOWED_PDF_MIME[file.mimetype]) return cb(new Error('INVALID_PDF_TYPE'));
-        } else if (file.fieldname === 'poster') {
-            if (!ALLOWED_IMAGE_MIME[file.mimetype]) return cb(new Error('INVALID_FILE_TYPE'));
-        }
-        cb(null, true);
-    }
-});
-
-// Upload media Editor Landing (logo Hero = gambar, video Hero & Video Promo = video)
+const MAX_EBOOK_PDF_SIZE = 80 * 1024 * 1024; // 80MB (PDF e-book)
 const ALLOWED_LANDING_VIDEO_MIME = { 'video/mp4': '.mp4', 'video/webm': '.webm' };
-const MAX_LANDING_VIDEO_SIZE = 40 * 1024 * 1024; // 40MB (video)
-const uploadLandingMedia = multer({
-    storage: memoryStorage,
-    limits: { fileSize: MAX_LANDING_VIDEO_SIZE },
-    fileFilter: (req, file, cb) => {
-        const kind = req.query.kind === 'video' ? 'video' : 'image';
-        if (kind === 'video') {
-            if (!ALLOWED_LANDING_VIDEO_MIME[file.mimetype]) return cb(new Error('INVALID_VIDEO_TYPE'));
-        } else {
-            if (!ALLOWED_IMAGE_MIME[file.mimetype]) return cb(new Error('INVALID_FILE_TYPE'));
-        }
-        cb(null, true);
-    }
-});
+const MAX_LANDING_VIDEO_SIZE = 40 * 1024 * 1024; // 40MB (video landing)
+
+// Setiap "kind" = 1 jenis upload yang boleh diminta lewat /api/upload-init.
+// folder      → folder utama di bucket Supabase.
+// allowedMime → whitelist MIME (server yang menentukan ekstensi file akhir,
+//               BUKAN dari nama file yang dikirim klien, supaya aman).
+// maxSize     → batas ukuran file (divalidasi juga di sini, bukan cuma di UI).
+// roles       → role yang boleh minta signed URL jenis ini.
+const UPLOAD_KINDS = {
+    'soal-image':         { folder: 'soal',       allowedMime: ALLOWED_IMAGE_MIME,         maxSize: MAX_UPLOAD_SIZE,       roles: ['admin'] },
+    'ebook-pdf':          { folder: 'ebooks',      allowedMime: ALLOWED_PDF_MIME,           maxSize: MAX_EBOOK_PDF_SIZE,    roles: ['admin'] },
+    'ebook-poster':       { folder: 'ebooks',      allowedMime: ALLOWED_IMAGE_MIME,         maxSize: MAX_UPLOAD_SIZE,       roles: ['admin'] },
+    'ebook-modul-poster': { folder: 'ebook-modul', allowedMime: ALLOWED_IMAGE_MIME,         maxSize: MAX_UPLOAD_SIZE,       roles: ['admin'] },
+    'landing-image':      { folder: 'landing',     allowedMime: ALLOWED_IMAGE_MIME,         maxSize: MAX_UPLOAD_SIZE,       roles: ['admin'] },
+    'landing-video':      { folder: 'landing',     allowedMime: ALLOWED_LANDING_VIDEO_MIME, maxSize: MAX_LANDING_VIDEO_SIZE, roles: ['admin'] }
+};
 
 // ── UPLOAD CLEANUP HELPERS (SUPABASE) ─────────────────────────────────────────
 function extractUploadFilenames(text) {
@@ -135,21 +117,10 @@ async function deleteUploadedFileByUrl(url) {
     }
 }
 
-// ── HITUNG JUMLAH HALAMAN PDF DARI BUFFER ────────────────────────────────────
-function countPdfPages(buffer) {
-    try {
-        const str = buffer.toString('latin1');
-        const countMatches = [...str.matchAll(/\/Type\s*\/Pages\b[\s\S]{0,300}?\/Count\s+(\d+)/g)];
-        const countMatches2 = [...str.matchAll(/\/Count\s+(\d+)[\s\S]{0,300}?\/Type\s*\/Pages\b/g)];
-        const all = [...countMatches, ...countMatches2].map(m => parseInt(m[1], 10)).filter(n => !isNaN(n));
-        if (all.length) return Math.max(...all);
-        const pageMatches = str.match(/\/Type\s*\/Page(?![a-zA-Z])/g);
-        return pageMatches ? pageMatches.length : 0;
-    } catch (e) {
-        console.error('[EBOOK] Gagal hitung halaman PDF:', e.message);
-        return 0;
-    }
-}
+// CATATAN: penghitung jumlah halaman PDF (dulu di sini, jalan di atas Buffer hasil
+// multer) sudah dipindah ke browser (lihat js/api.js: countPdfPagesClient) karena
+// server sekarang tidak lagi menerima isi file PDF sama sekali — file di-upload
+// langsung dari browser ke Supabase Storage lewat signed URL.
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
 async function genKode(prefix, table) {
@@ -1048,109 +1019,39 @@ app.delete('/api/grubs/:kode', auth(['admin']), ah(async (req, res) => {
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ROUTES: UPLOAD IMAGE & SOAL (SUPABASE INTEGRATION)
-// ═══════════════════════════════════════════════════════════════════════════════
-app.post('/api/upload', auth(['admin']), (req, res) => {
-    upload.single('image')(req, res, async (err) => {
-        if (err) return res.status(400).json({ error: err.message });
-        if (!req.file) return res.status(400).json({ error: 'Tidak ada file' });
-        
-        try {
-            const typeSoal = safeFolderName(req.query.type || 'umum');
-            const ext = ALLOWED_IMAGE_MIME[req.file.mimetype] || '.jpg';
-            const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-            const filePath = `soal/${typeSoal}/${fileName}`;
-
-            const { error } = await supabase.storage
-                .from(BUCKET_NAME)
-                .upload(filePath, req.file.buffer, { contentType: req.file.mimetype });
-
-            if (error) throw error;
-            const { data: publicUrlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
-            
-            res.json({ url: publicUrlData.publicUrl });
-        } catch (e) {
-            res.status(500).json({ error: 'Gagal upload ke Supabase', details: e.message });
-        }
-    });
-});
-
-// Upload media Editor Landing → folder baru "landing/" di bucket Supabase yang sama.
-// ?kind=image (logo Hero) atau ?kind=video (Video Latar Hero / Video Promo)
-// ?slot=heroLogo|heroVideo|videoPromo → dipakai sbg awalan nama file
-// ?oldUrl=... (opsional) → file lama dihapus dari Supabase begitu upload baru sukses
-app.post('/api/upload-landing', auth(['admin']), (req, res) => {
-    uploadLandingMedia.single('file')(req, res, async (err) => {
-        if (err) {
-            if (err.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ error: 'File terlalu besar (maks 40MB untuk video, 10MB untuk gambar)' });
-            if (err.message === 'INVALID_VIDEO_TYPE') return res.status(400).json({ error: 'Format video tidak didukung (gunakan MP4/WEBM)' });
-            if (err.message === 'INVALID_FILE_TYPE') return res.status(400).json({ error: 'Format gambar tidak didukung' });
-            return res.status(400).json({ error: err.message });
-        }
-        if (!req.file) return res.status(400).json({ error: 'Tidak ada file' });
-
-        const kind = req.query.kind === 'video' ? 'video' : 'image';
-        if (kind === 'image' && req.file.size > MAX_UPLOAD_SIZE) {
-            return res.status(400).json({ error: 'Gambar terlalu besar (maks 10MB)' });
-        }
-
-        try {
-            const slot = safeFolderName(req.query.slot || 'media');
-            const ext = (kind === 'video' ? ALLOWED_LANDING_VIDEO_MIME[req.file.mimetype] : ALLOWED_IMAGE_MIME[req.file.mimetype]) || '';
-            const fileName = `${slot}-${Date.now()}${ext}`;
-            const filePath = `landing/${fileName}`;
-
-            const { error } = await supabase.storage
-                .from(BUCKET_NAME)
-                .upload(filePath, req.file.buffer, { contentType: req.file.mimetype });
-            if (error) throw error;
-
-            const { data: publicUrlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
-
-            // Bersihkan file lama (kalau ada) supaya storage tidak menumpuk file yatim
-            if (req.query.oldUrl) deleteUploadedFileByUrl(req.query.oldUrl).catch(() => {});
-
-            res.json({ url: publicUrlData.publicUrl });
-        } catch (e) {
-            res.status(500).json({ error: 'Gagal upload ke Supabase', details: e.message });
-        }
-    });
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// UPLOAD LANDING MEDIA — DIRECT-TO-SUPABASE (signed URL), untuk bypass limit
-// body request Vercel serverless (±4.5MB) yang membuat video (bahkan yg <40MB
-// sesuai limit multer di atas) tetap gagal HTTP 413 kalau lewat /api/upload-landing.
+// GENERIC PRESIGNED UPLOAD — DIRECT-TO-SUPABASE (SEMUA JENIS FILE: gambar soal,
+// PDF/poster e-book, gambar/video landing, dst). Menggantikan seluruh upload lama
+// yang lewat multer (server menerima file di body-nya sendiri).
 //
-// Alurnya 2 langkah:
-//  1) POST /api/upload-landing-init  → server minta "signed upload URL" ke Supabase
-//     Storage (server TIDAK menerima file sama sekali, jadi tidak kena limit body
-//     Vercel), lalu balikin signedUrl+path+url ke browser.
-//  2) Browser PUT file itu LANGSUNG ke signedUrl (ke Supabase, bukan ke server kita).
-//  3) POST /api/upload-landing-finalize → server hapus file lama (oldUrl) setelah
-//     upload baru dikonfirmasi sukses.
+// Alurnya selalu 2 langkah, sama untuk semua jenis file:
+//  1) POST /api/upload-init     → server memvalidasi kind/mimetype/size (server
+//     TIDAK menerima isi file sama sekali, jadi tidak numpuk RAM & tidak kena
+//     limit body platform serverless mis. ±4.5MB di Vercel — berapa pun besar
+//     file aslinya), lalu minta "signed upload URL" ke Supabase Storage dan
+//     balikin signedUrl+path+url ke browser.
+//  2) Browser PUT file itu LANGSUNG ke signedUrl (ke Supabase, bukan ke server
+//     kita) — beban transfer file besar sepenuhnya di luar server kita.
+//  3) POST /api/upload-finalize → dipanggil browser setelah PUT sukses, cuma
+//     untuk beres-beres (hapus file lama/oldUrl kalau ini upload pengganti).
+//     Endpoint ini pun tidak menerima file, jadi sangat ringan.
 // ═══════════════════════════════════════════════════════════════════════════════
-app.post('/api/upload-landing-init', auth(['admin']), ah(async (req, res) => {
-    const { kind: kindRaw, slot, filename, mimetype, size } = req.body || {};
-    const kind = kindRaw === 'video' ? 'video' : 'image';
+app.post('/api/upload-init', auth(['admin']), ah(async (req, res) => {
+    const { kind, subfolder, filename, mimetype, size } = req.body || {};
+    const cfg = UPLOAD_KINDS[kind];
+    if (!cfg) return res.status(400).json({ error: 'Jenis upload tidak dikenal' });
+    if (cfg.roles && !cfg.roles.includes(req.user.role)) return res.status(403).json({ error: 'Forbidden' });
 
-    let ext, maxSize;
-    if (kind === 'video') {
-        if (!ALLOWED_LANDING_VIDEO_MIME[mimetype]) return res.status(400).json({ error: 'Format video tidak didukung (gunakan MP4/WEBM)' });
-        ext = ALLOWED_LANDING_VIDEO_MIME[mimetype];
-        maxSize = MAX_LANDING_VIDEO_SIZE;
-    } else {
-        if (!ALLOWED_IMAGE_MIME[mimetype]) return res.status(400).json({ error: 'Format gambar tidak didukung' });
-        ext = ALLOWED_IMAGE_MIME[mimetype];
-        maxSize = MAX_UPLOAD_SIZE;
-    }
-    if (typeof size === 'number' && size > maxSize) {
-        return res.status(400).json({ error: `File terlalu besar (maks ${Math.round(maxSize / (1024 * 1024))}MB untuk ${kind === 'video' ? 'video' : 'gambar'})` });
+    const ext = cfg.allowedMime[mimetype];
+    if (!ext) return res.status(400).json({ error: 'Format file tidak didukung' });
+    if (typeof size === 'number' && size > cfg.maxSize) {
+        return res.status(400).json({ error: `File terlalu besar (maks ${Math.round(cfg.maxSize / (1024 * 1024))}MB)` });
     }
 
-    const safeSlot = safeFolderName(slot || 'media');
-    const fileName = `${safeSlot}-${Date.now()}${ext}`;
-    const filePath = `landing/${fileName}`;
+    const parts = [cfg.folder];
+    if (subfolder) parts.push(safeFolderName(subfolder));
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+    parts.push(fileName);
+    const filePath = parts.join('/');
 
     const { data, error } = await supabase.storage.from(BUCKET_NAME).createSignedUploadUrl(filePath);
     if (error) return res.status(500).json({ error: 'Gagal membuat signed URL', details: error.message });
@@ -1159,7 +1060,7 @@ app.post('/api/upload-landing-init', auth(['admin']), ah(async (req, res) => {
     res.json({ signedUrl: data.signedUrl, token: data.token, path: filePath, url: publicUrlData.publicUrl });
 }));
 
-app.post('/api/upload-landing-finalize', auth(['admin']), ah(async (req, res) => {
+app.post('/api/upload-finalize', auth(['admin']), ah(async (req, res) => {
     const { oldUrl } = req.body || {};
     if (oldUrl) deleteUploadedFileByUrl(oldUrl).catch(() => {});
     res.json({ ok: true });
@@ -1327,89 +1228,48 @@ app.get('/api/ebook/:kode/file', auth(['admin', 'review', 'user']), ah(async (re
     res.redirect(e.file_pdf);
 }));
 
-app.post('/api/ebook', auth(['admin']), (req, res) => {
-    uploadEbook.fields([{ name: 'poster', maxCount: 1 }, { name: 'pdf', maxCount: 1 }])(req, res, async (err) => {
-        if (err) return res.status(400).json({ error: err.message });
-        try {
-            const { nama, kelompok } = req.body;
-            if (!nama || !nama.trim()) return res.status(400).json({ error: 'Nama buku wajib diisi' });
-            
-            const pdfFile = req.files?.pdf?.[0];
-            if (!pdfFile) return res.status(400).json({ error: 'File PDF buku wajib diupload' });
-            const posterFile = req.files?.poster?.[0];
+// CATATAN: PDF & poster SUDAH diupload langsung dari browser ke Supabase Storage
+// lewat /api/upload-init (signed URL) SEBELUM endpoint ini dipanggil. Body di sini
+// cuma metadata JSON kecil (url, nama file asli, ukuran, jumlah halaman yang
+// dihitung di browser) — server tidak lagi menerima/membaca isi file sama sekali.
+app.post('/api/ebook', auth(['admin']), ah(async (req, res) => {
+    const { nama, kelompok, pdf, poster } = req.body || {};
+    if (!nama || !nama.trim()) return res.status(400).json({ error: 'Nama buku wajib diisi' });
+    if (!pdf || !pdf.url) return res.status(400).json({ error: 'File PDF buku wajib diupload' });
 
-            const folderName = safeFolderName(nama);
-            
-            // Upload PDF ke Supabase Storage
-            const pdfExt = ALLOWED_PDF_MIME[pdfFile.mimetype] || '.pdf';
-            const pdfFileName = `ebooks/${folderName}/${Date.now()}-${Math.random().toString(36).slice(2)}${pdfExt}`;
-            await supabase.storage.from(BUCKET_NAME).upload(pdfFileName, pdfFile.buffer, { contentType: pdfFile.mimetype });
-            const pdfUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl(pdfFileName).data.publicUrl;
+    const kode = await genKode('EBK', 'ebooks');
+    await db.prepare(`INSERT INTO ebooks (kode,nama,kelompok,poster,file_pdf,file_nama_asli,jumlah_halaman,ukuran_bytes) VALUES (?,?,?,?,?,?,?,?)`)
+        .run(kode, nama.trim(), (kelompok || '').trim() || null, poster?.url || null, pdf.url, pdf.originalName || null, pdf.pages || 0, pdf.size || 0);
 
-            // Upload Poster (Jika ada)
-            let posterUrl = null;
-            if (posterFile) {
-                const imgExt = ALLOWED_IMAGE_MIME[posterFile.mimetype] || '.jpg';
-                const posterFileName = `ebooks/${folderName}/poster-${Date.now()}${imgExt}`;
-                await supabase.storage.from(BUCKET_NAME).upload(posterFileName, posterFile.buffer, { contentType: posterFile.mimetype });
-                posterUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl(posterFileName).data.publicUrl;
-            }
+    res.json(await db.prepare('SELECT * FROM ebooks WHERE kode=?').get(kode));
+}));
 
-            const jumlahHalaman = countPdfPages(pdfFile.buffer);
-            const kode = await genKode('EBK', 'ebooks');
+app.put('/api/ebook/:kode', auth(['admin']), ah(async (req, res) => {
+    const old = await db.prepare('SELECT * FROM ebooks WHERE kode=?').get(req.params.kode);
+    if (!old) return res.status(404).json({ error: 'Tidak ditemukan' });
 
-            await db.prepare(`INSERT INTO ebooks (kode,nama,kelompok,poster,file_pdf,file_nama_asli,jumlah_halaman,ukuran_bytes) VALUES (?,?,?,?,?,?,?,?)`)
-                .run(kode, nama.trim(), (kelompok || '').trim() || null, posterUrl, pdfUrl, pdfFile.originalname, jumlahHalaman, pdfFile.size);
+    const { nama, kelompok, pdf, poster } = req.body || {};
 
-            res.json(await db.prepare('SELECT * FROM ebooks WHERE kode=?').get(kode));
-        } catch (e) { res.status(500).json({ error: e.message }); }
-    });
-});
+    let newPdfUrl = old.file_pdf, newPdfName = old.file_nama_asli, newJumlahHalaman = old.jumlah_halaman, newUkuran = old.ukuran_bytes;
+    if (pdf && pdf.url) {
+        newPdfUrl = pdf.url;
+        newPdfName = pdf.originalName || null;
+        newJumlahHalaman = pdf.pages || 0;
+        newUkuran = pdf.size || 0;
+        if (old.file_pdf) deleteUploadedFileByUrl(old.file_pdf).catch(() => {}); // Hapus PDF lama dari cloud
+    }
 
-app.put('/api/ebook/:kode', auth(['admin']), (req, res) => {
-    uploadEbook.fields([{ name: 'poster', maxCount: 1 }, { name: 'pdf', maxCount: 1 }])(req, res, async (err) => {
-        if (err) return res.status(400).json({ error: err.message });
-        try {
-            const old = await db.prepare('SELECT * FROM ebooks WHERE kode=?').get(req.params.kode);
-            if (!old) return res.status(404).json({ error: 'Tidak ditemukan' });
+    let newPosterUrl = old.poster;
+    if (poster && poster.url) {
+        newPosterUrl = poster.url;
+        if (old.poster) deleteUploadedFileByUrl(old.poster).catch(() => {}); // Hapus Poster lama dari cloud
+    }
 
-            const { nama, kelompok } = req.body;
-            const pdfFile = req.files?.pdf?.[0];
-            const posterFile = req.files?.poster?.[0];
-            const folderName = safeFolderName(nama);
+    await db.prepare(`UPDATE ebooks SET nama=?,kelompok=?,poster=?,file_pdf=?,file_nama_asli=?,jumlah_halaman=?,ukuran_bytes=? WHERE kode=?`)
+        .run((nama || old.nama).trim(), (kelompok !== undefined ? (kelompok || '').trim() || null : old.kelompok), newPosterUrl, newPdfUrl, newPdfName, newJumlahHalaman, newUkuran, req.params.kode);
 
-            let newPdfUrl = old.file_pdf;
-            let newPdfName = old.file_nama_asli;
-            let newJumlahHalaman = old.jumlah_halaman;
-            let newUkuran = old.ukuran_bytes;
-            let newPosterUrl = old.poster;
-
-            if (pdfFile) {
-                const pdfExt = ALLOWED_PDF_MIME[pdfFile.mimetype] || '.pdf';
-                const pdfFileName = `ebooks/${folderName}/${Date.now()}-${Math.random().toString(36).slice(2)}${pdfExt}`;
-                await supabase.storage.from(BUCKET_NAME).upload(pdfFileName, pdfFile.buffer, { contentType: pdfFile.mimetype });
-                newPdfUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl(pdfFileName).data.publicUrl;
-                newPdfName = pdfFile.originalname;
-                newJumlahHalaman = countPdfPages(pdfFile.buffer);
-                newUkuran = pdfFile.size;
-                if (old.file_pdf) deleteUploadedFileByUrl(old.file_pdf); // Hapus PDF lama dari cloud
-            }
-
-            if (posterFile) {
-                const imgExt = ALLOWED_IMAGE_MIME[posterFile.mimetype] || '.jpg';
-                const posterFileName = `ebooks/${folderName}/poster-${Date.now()}${imgExt}`;
-                await supabase.storage.from(BUCKET_NAME).upload(posterFileName, posterFile.buffer, { contentType: posterFile.mimetype });
-                newPosterUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl(posterFileName).data.publicUrl;
-                if (old.poster) deleteUploadedFileByUrl(old.poster); // Hapus Poster lama dari cloud
-            }
-
-            await db.prepare(`UPDATE ebooks SET nama=?,kelompok=?,poster=?,file_pdf=?,file_nama_asli=?,jumlah_halaman=?,ukuran_bytes=? WHERE kode=?`)
-                .run(nama.trim(), (kelompok || '').trim() || null, newPosterUrl, newPdfUrl, newPdfName, newJumlahHalaman, newUkuran, req.params.kode);
-
-            res.json(await db.prepare('SELECT * FROM ebooks WHERE kode=?').get(req.params.kode));
-        } catch (e) { res.status(500).json({ error: e.message }); }
-    });
-});
+    res.json(await db.prepare('SELECT * FROM ebooks WHERE kode=?').get(req.params.kode));
+}));
 
 app.delete('/api/ebook/:kode', auth(['admin']), ah(async (req, res) => {
     const old = await db.prepare('SELECT * FROM ebooks WHERE kode=?').get(req.params.kode);
@@ -1438,59 +1298,36 @@ app.delete('/api/ebook-modul-kelompok/:kode', auth(['admin']), ah(async (req, re
 
 app.get('/api/ebook-modul', auth(['admin', 'review', 'user']), ah(async (req, res) => { const rows = await db.prepare('SELECT * FROM ebook_modul ORDER BY id').all(); rows.forEach(r => { if (r.ebook_list) try { r.ebook_list = JSON.parse(r.ebook_list); } catch (e) { r.ebook_list = []; } }); res.json(rows); }));
 
-app.post('/api/ebook-modul', auth(['admin']), (req, res) => {
-    uploadEbook.fields([{ name: 'poster', maxCount: 1 }])(req, res, async (err) => {
-        if (err) return res.status(400).json({ error: err.message });
-        try {
-            const { nama, kelompok } = req.body;
-            if (!nama || !nama.trim()) return res.status(400).json({ error: 'Nama modul wajib diisi' });
-            let ebook_list = []; try { ebook_list = JSON.parse(req.body.ebook_list || '[]'); } catch (e) { ebook_list = []; }
+// CATATAN: poster (kalau ada) SUDAH diupload langsung ke Supabase lewat
+// /api/upload-init sebelum endpoint ini dipanggil — body di sini cuma JSON kecil.
+app.post('/api/ebook-modul', auth(['admin']), ah(async (req, res) => {
+    const { nama, kelompok, poster } = req.body || {};
+    if (!nama || !nama.trim()) return res.status(400).json({ error: 'Nama modul wajib diisi' });
+    let ebook_list = []; try { ebook_list = Array.isArray(req.body.ebook_list) ? req.body.ebook_list : JSON.parse(req.body.ebook_list || '[]'); } catch (e) { ebook_list = []; }
 
-            const folderName = safeFolderName(nama);
-            let posterUrl = null;
-            const posterFile = req.files?.poster?.[0];
-            if (posterFile) {
-                const imgExt = ALLOWED_IMAGE_MIME[posterFile.mimetype] || '.jpg';
-                const posterFileName = `ebook-modul/${folderName}/poster-${Date.now()}${imgExt}`;
-                await supabase.storage.from(BUCKET_NAME).upload(posterFileName, posterFile.buffer, { contentType: posterFile.mimetype });
-                posterUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl(posterFileName).data.publicUrl;
-            }
+    const kode = await genKode('EBM', 'ebook_modul');
+    await db.prepare('INSERT INTO ebook_modul (kode,nama,kelompok,ebook_list,poster) VALUES (?,?,?,?,?)')
+        .run(kode, nama.trim(), (kelompok || '').trim() || null, JSON.stringify(ebook_list), poster?.url || null);
+    res.json(await db.prepare('SELECT * FROM ebook_modul WHERE kode=?').get(kode));
+}));
 
-            const kode = await genKode('EBM', 'ebook_modul');
-            await db.prepare('INSERT INTO ebook_modul (kode,nama,kelompok,ebook_list,poster) VALUES (?,?,?,?,?)')
-                .run(kode, nama.trim(), (kelompok || '').trim() || null, JSON.stringify(ebook_list), posterUrl);
-            res.json(await db.prepare('SELECT * FROM ebook_modul WHERE kode=?').get(kode));
-        } catch (e) { res.status(500).json({ error: e.message }); }
-    });
-});
+app.put('/api/ebook-modul/:kode', auth(['admin']), ah(async (req, res) => {
+    const old = await db.prepare('SELECT * FROM ebook_modul WHERE kode=?').get(req.params.kode);
+    if (!old) return res.status(404).json({ error: 'Tidak ditemukan' });
 
-app.put('/api/ebook-modul/:kode', auth(['admin']), (req, res) => {
-    uploadEbook.fields([{ name: 'poster', maxCount: 1 }])(req, res, async (err) => {
-        if (err) return res.status(400).json({ error: err.message });
-        try {
-            const old = await db.prepare('SELECT * FROM ebook_modul WHERE kode=?').get(req.params.kode);
-            if (!old) return res.status(404).json({ error: 'Tidak ditemukan' });
+    const { nama, kelompok, poster } = req.body || {};
+    let ebook_list = []; try { ebook_list = Array.isArray(req.body.ebook_list) ? req.body.ebook_list : JSON.parse(req.body.ebook_list || '[]'); } catch (e) { ebook_list = []; }
 
-            const { nama, kelompok } = req.body;
-            let ebook_list = []; try { ebook_list = JSON.parse(req.body.ebook_list || '[]'); } catch (e) { ebook_list = []; }
-            const folderName = safeFolderName(nama);
+    let newPosterUrl = old.poster;
+    if (poster && poster.url) {
+        newPosterUrl = poster.url;
+        if (old.poster) deleteUploadedFileByUrl(old.poster).catch(() => {});
+    }
 
-            let newPosterUrl = old.poster;
-            const posterFile = req.files?.poster?.[0];
-            if (posterFile) {
-                const imgExt = ALLOWED_IMAGE_MIME[posterFile.mimetype] || '.jpg';
-                const posterFileName = `ebook-modul/${folderName}/poster-${Date.now()}${imgExt}`;
-                await supabase.storage.from(BUCKET_NAME).upload(posterFileName, posterFile.buffer, { contentType: posterFile.mimetype });
-                newPosterUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl(posterFileName).data.publicUrl;
-                if (old.poster) deleteUploadedFileByUrl(old.poster);
-            }
-
-            await db.prepare('UPDATE ebook_modul SET nama=?,kelompok=?,ebook_list=?,poster=? WHERE kode=?')
-                .run(nama.trim(), (kelompok || '').trim() || null, JSON.stringify(ebook_list), newPosterUrl, req.params.kode);
-            res.json(await db.prepare('SELECT * FROM ebook_modul WHERE kode=?').get(req.params.kode));
-        } catch (e) { res.status(500).json({ error: e.message }); }
-    });
-});
+    await db.prepare('UPDATE ebook_modul SET nama=?,kelompok=?,ebook_list=?,poster=? WHERE kode=?')
+        .run((nama || old.nama).trim(), (kelompok !== undefined ? (kelompok || '').trim() || null : old.kelompok), JSON.stringify(ebook_list), newPosterUrl, req.params.kode);
+    res.json(await db.prepare('SELECT * FROM ebook_modul WHERE kode=?').get(req.params.kode));
+}));
 
 app.delete('/api/ebook-modul/:kode', auth(['admin']), ah(async (req, res) => {
     const old = await db.prepare('SELECT * FROM ebook_modul WHERE kode=?').get(req.params.kode);
@@ -1664,11 +1501,37 @@ LAZY_MODULES.forEach((mod) => {
     }));
 });
 
+// ── RAPIKAN FOLDER: shell tiap modul kini disimpan SATU FOLDER bareng
+// fragmen-nya sendiri (mis. admin/index_admin.html satu tempat dengan
+// admin/home.js, dst) — bukan lagi tercecer di root. URL publiknya
+// TIDAK berubah sama sekali (masih /index_admin.html, /ujian.html, dst)
+// supaya semua href/window.location.href yang sudah ada di seluruh
+// halaman tetap jalan tanpa perlu diubah satu-satu.
+app.get('/index_admin.html',  (req, res) => res.sendFile(path.join(__dirname, 'admin',  'index_admin.html')));
+app.get('/index_review.html', (req, res) => res.sendFile(path.join(__dirname, 'review', 'index_review.html')));
+app.get('/index_user.html',   (req, res) => res.sendFile(path.join(__dirname, 'user',   'index_user.html')));
+app.get('/ujian.html',        (req, res) => res.sendFile(path.join(__dirname, 'ujian',  'ujian.html')));
+app.get('/landing.html',      (req, res) => res.sendFile(path.join(__dirname, 'landing','landing.html')));
+
+// /login.html tetap di-redirect di server SEBELUM static folder auth/
+// dipasang, supaya perilakunya sama persis seperti sebelumnya (redirect
+// beneran di server, bukan halaman meta-refresh yang ke-serve duluan).
+app.get('/login.html', (req, res) => res.redirect('/masuk.html'));
+
+// ── Halaman publik (sebelum login), alur masuk/daftar, dan alur
+// pembayaran kini dikelompokkan per folder (public/, auth/, payment/)
+// supaya lebih mudah ditemukan & di-maintain. Dipasang tanpa prefix di
+// URL (persis seperti dulu semua file ini ada langsung di root), jadi
+// semua tautan lama (index.html, masuk.html, pembayaran.html, dst)
+// tetap resolve ke path yang sama seperti sebelumnya.
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'auth')));
+app.use(express.static(path.join(__dirname, 'payment')));
+
 app.use(express.static(__dirname));
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use('/js',  express.static(path.join(__dirname, 'js')));
-app.get('/login.html', (req, res) => res.redirect('/masuk.html'));
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 app.use((req, res) => res.status(404).json({ error: 'Endpoint tidak ditemukan' }));
 app.use((err, req, res, next) => {

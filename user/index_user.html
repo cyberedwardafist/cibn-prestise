@@ -1365,18 +1365,18 @@ const USER_PAGE_MODULES = {
     // bukan ke-jebak jadi anak elemen ber-transform (.page) — lihat catatan
     // panjang di sebelah #jdw-overlays-root di HTML.
     jadwal: {
-        html: 'user/jadwal.html',
+        html: 'user/jadwal/jadwal.html',
         htmlAppend: [
-            'user/jadwal-ajukan.html', // Ajukan Jadwal / Jadwal Ulang / Edit (satu form dipakai bertiga)
-            'user/jadwal-tentor.html', // Pilih Tentor
-            'user/jadwal-sesi.html',   // Sesi Berlangsung (Masuk) / Feedback
-            'user/jadwal-batal.html',  // Konfirmasi Batalkan Jadwal + info tanggal lewat
+            'user/jadwal/jadwal-ajukan.html', // Ajukan Jadwal / Jadwal Ulang / Edit (satu form dipakai bertiga)
+            'user/jadwal/jadwal-tentor.html', // Pilih Tentor
+            'user/jadwal/jadwal-sesi.html',   // Sesi Berlangsung (Masuk) / Feedback
+            'user/jadwal/jadwal-batal.html',  // Konfirmasi Batalkan Jadwal + info tanggal lewat
         ],
         htmlAppendTarget: 'jdw-overlays-root',
-        js: ['user/jadwal.js'],
+        js: ['user/jadwal/jadwal.js'],
     },
-    riwayat: { html: 'user/riwayat.html', js: ['user/riwayat.js'] },
-    ebook:   { html: 'user/ebook.html',   js: ['user/ebook.js'] },
+    riwayat: { html: 'user/riwayat/riwayat.html', js: ['user/riwayat/riwayat.js'] },
+    ebook:   { html: 'user/ebook/ebook.html',     js: ['user/ebook/ebook.js'] },
 };
 function ensureUserPageModule(pageId) {
     const spec = USER_PAGE_MODULES[pageId];

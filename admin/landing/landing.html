@@ -1,0 +1,276 @@
+<div class="section-title">Editor Landing Page</div>
+<div class="section-sub">Atur teks yang tampil di halaman utama (index.html) — perubahan tayang langsung setelah disimpan</div>
+<!-- Navigasi section (HERO/TEKNOLOGI/VIDEO/dst) BUKAN lagi bar horizontal di sini —
+     sekarang jadi panel dock vertikal mengambang (id="ld-sub-tabs"), sama persis
+     seperti id="side-dock" grup CAT/SOAL. Lihat #landing-dock-wrap di index_admin.html. -->
+
+<!-- HERO -->
+<div class="sub-page active dock-avoid-center" id="sub-landing-hero">
+  <div class="card" style="margin:0 auto 16px;max-width:640px">
+    <div class="form-group"><label class="form-label">Label Kecil (Eyebrow)</label><input id="ld-hero-eyebrow" class="form-input" type="text" placeholder="Manajemen Investasi Prestise"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Judul Utama</label><input id="ld-hero-title-main" class="form-input" type="text" placeholder="Investasi Bukan Sekadar Angka."></div>
+      <div class="form-group"><label class="form-label">Judul Penekanan (miring)</label><input id="ld-hero-title-em" class="form-input" type="text" placeholder="Ini Warisan."></div>
+    </div>
+    <div class="form-group"><label class="form-label">Deskripsi (Lead)</label><textarea id="ld-hero-lead" class="form-input" rows="3" placeholder="CIBN PRESTISE memadukan riset pasar mendalam..."></textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Teks Tombol Utama</label><input id="ld-hero-cta1" class="form-input" type="text" placeholder="Lihat Paket Keanggotaan"></div>
+      <div class="form-group"><label class="form-label">Teks Tombol Kedua</label><input id="ld-hero-cta2" class="form-input" type="text" placeholder="Baca Testimoni"></div>
+    </div>
+
+    <label class="form-label" style="margin-top:6px;display:block">Logo (Emblem Hero)</label>
+    <div class="ld-media-upload">
+      <div id="ld-hero-logo-preview" class="ld-media-preview ld-media-preview-square"></div>
+      <div class="ld-media-controls">
+        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" id="ld-hero-logo-input" onchange="ldHandleMediaUpload(this,'image','heroLogo','ld-hero-logo-preview')">
+        <p class="ld-media-hint">PNG/JPG/WEBP, maks 10MB. Kosongkan untuk pakai logo bawaan.</p>
+        <button type="button" class="btn btn-secondary ld-media-reset-btn" onclick="ldClearMedia('heroLogo','ld-hero-logo-preview',this)">Pakai Logo Bawaan</button>
+      </div>
+    </div>
+
+    <label class="form-label" style="margin-top:14px;display:block">Video Latar Hero</label>
+    <div class="ld-media-upload">
+      <div id="ld-hero-video-preview" class="ld-media-preview ld-media-preview-wide"></div>
+      <div class="ld-media-controls">
+        <input type="file" accept="video/mp4,video/webm" id="ld-hero-video-input" onchange="ldHandleMediaUpload(this,'video','heroVideo','ld-hero-video-preview')">
+        <p class="ld-media-hint">MP4/WEBM, idealnya ≤15MB (1920×1080). Maks 40MB. Kosongkan untuk pakai video bawaan.</p>
+        <button type="button" class="btn btn-secondary ld-media-reset-btn" onclick="ldClearMedia('heroVideo','ld-hero-video-preview',this)">Pakai Video Bawaan</button>
+      </div>
+    </div>
+    <label class="form-label" style="margin-top:6px;display:block">Statistik (3 kartu)</label>
+    <div class="form-row">
+      <div class="form-group"><input id="ld-hero-stat1-value" class="form-input" type="text" placeholder="12rb+"></div>
+      <div class="form-group"><input id="ld-hero-stat1-label" class="form-input" type="text" placeholder="Anggota Aktif"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><input id="ld-hero-stat2-value" class="form-input" type="text" placeholder="8 Tahun"></div>
+      <div class="form-group"><input id="ld-hero-stat2-label" class="form-input" type="text" placeholder="Pengalaman Riset"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><input id="ld-hero-stat3-value" class="form-input" type="text" placeholder="97%"></div>
+      <div class="form-group"><input id="ld-hero-stat3-label" class="form-input" type="text" placeholder="Tingkat Kepuasan"></div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="saveLandingHero()">Simpan Bagian Hero</button>
+  </div>
+</div>
+
+<!-- TEKNOLOGI -->
+<div class="sub-page dock-avoid-center" id="sub-landing-teknologi">
+  <div class="card" style="margin:0 auto 16px;max-width:640px">
+    <div class="form-group"><label class="form-label">Label Kecil (Eyebrow)</label><input id="ld-tek-eyebrow" class="form-input" type="text" placeholder="Di Balik Layar"></div>
+    <div class="form-group"><label class="form-label">Judul</label><input id="ld-tek-heading" class="form-input" type="text" placeholder="Teknologi yang Kami Gunakan"></div>
+    <div class="form-group"><label class="form-label">Deskripsi</label><textarea id="ld-tek-desc" class="form-input" rows="2" placeholder="Setiap keputusan didukung oleh infrastruktur analisis..."></textarea></div>
+    <label class="form-label" style="margin-top:6px;display:block">4 Kartu Teknologi</label>
+    <div id="ld-tek-cards"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="saveLandingTeknologi()">Simpan Bagian Teknologi</button>
+  </div>
+</div>
+
+<!-- VIDEO PROMO -->
+<div class="sub-page dock-avoid-center" id="sub-landing-video">
+  <div class="card" style="margin:0 auto 16px;max-width:640px">
+    <div class="form-group"><label class="form-label">Label Kecil (Eyebrow)</label><input id="ld-vp-eyebrow" class="form-input" type="text" placeholder="Lihat Prestise Bergerak"></div>
+    <div class="form-group"><label class="form-label">Judul</label><input id="ld-vp-heading" class="form-input" type="text" placeholder="Satu Menit untuk Memahami Standar Kami"></div>
+    <div class="form-group"><label class="form-label">Deskripsi</label><textarea id="ld-vp-desc" class="form-input" rows="2" placeholder="Riset mendalam, teknologi real-time..."></textarea></div>
+    <div class="form-group"><label class="form-label">Teks Tombol</label><input id="ld-vp-cta" class="form-input" type="text" placeholder="Lihat Paket Keanggotaan"></div>
+
+    <label class="form-label" style="margin-top:6px;display:block">Video Latar Video Promo</label>
+    <div class="ld-media-upload">
+      <div id="ld-vp-video-preview" class="ld-media-preview ld-media-preview-wide"></div>
+      <div class="ld-media-controls">
+        <input type="file" accept="video/mp4,video/webm" id="ld-vp-video-input" onchange="ldHandleMediaUpload(this,'video','videoPromo','ld-vp-video-preview')">
+        <p class="ld-media-hint">MP4/WEBM, idealnya ≤15MB (1920×1080). Maks 40MB. Kosongkan untuk pakai video bawaan.</p>
+        <button type="button" class="btn btn-secondary ld-media-reset-btn" onclick="ldClearMedia('videoPromo','ld-vp-video-preview',this)">Pakai Video Bawaan</button>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="saveLandingVideoPromo()">Simpan Bagian Video Promo</button>
+  </div>
+</div>
+
+<!-- PAKET -->
+<div class="sub-page dock-avoid-center" id="sub-landing-paket">
+  <div class="card" style="margin:0 auto 16px;max-width:640px">
+    <div class="section-sub" style="margin:-4px 0 12px">Halaman <b>paket.html</b> (judul halaman)</div>
+    <div class="form-group"><label class="form-label">Label Kecil (Eyebrow)</label><input id="ld-paket-eyebrow" class="form-input" type="text" placeholder="Keanggotaan CIBN PRESTISE"></div>
+    <div class="form-group"><label class="form-label">Judul</label><input id="ld-paket-title" class="form-input" type="text" placeholder="Temukan Paket yang Tepat"></div>
+    <div class="form-group"><label class="form-label">Deskripsi</label><textarea id="ld-paket-desc" class="form-input" rows="2" placeholder="Cari berdasarkan nama paket atau fitur yang Anda butuhkan..."></textarea></div>
+    <div class="section-sub" style="margin:14px 0 12px">Bagian "Pilih Paket" di <b>index.html</b> (preview)</div>
+    <div class="form-group"><label class="form-label">Label Kecil (Eyebrow)</label><input id="ld-paket-prev-eyebrow" class="form-input" type="text" placeholder="Keanggotaan"></div>
+    <div class="form-group"><label class="form-label">Judul</label><input id="ld-paket-prev-heading" class="form-input" type="text" placeholder="Pilih Paket Sesuai Perjalanan Anda"></div>
+    <div class="form-group"><label class="form-label">Deskripsi</label><textarea id="ld-paket-prev-desc" class="form-input" rows="2" placeholder="Dari langkah pertama hingga pendampingan privat..."></textarea></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="saveLandingPaket()">Simpan Bagian Paket</button>
+  </div>
+</div>
+
+<!-- TESTIMONI — dipecah jadi 2 sub-tab (Teks / Isi Testimoni), pola sama persis
+     dengan class="sub-tabs" yang dipakai di tab lain (mis. Token/Akun/Keuangan/Legal). -->
+<div class="sub-page dock-avoid-center" id="sub-landing-testimoni">
+  <div class="sub-tabs" style="max-width:760px;margin:0 auto 16px">
+    <button class="sub-tab active" data-testi-sub="teks" onclick="renderLandingTestiSub('teks')">Teks</button>
+    <button class="sub-tab" data-testi-sub="poster" onclick="renderLandingTestiSub('poster')">Poster</button>
+    <button class="sub-tab" data-testi-sub="buat" onclick="renderLandingTestiSub('buat')">Buat Testimoni</button>
+    <button class="sub-tab" data-testi-sub="list" onclick="renderLandingTestiSub('list')">Isi Testimoni</button>
+  </div>
+
+  <div class="ld-testi-panel active" id="ld-testi-panel-teks">
+    <div class="card" style="margin:0 auto 16px;max-width:640px">
+      <div class="section-sub" style="margin:-4px 0 12px">Halaman <b>testimoni.html</b> (judul halaman)</div>
+      <div class="form-group"><label class="form-label">Label Kecil (Eyebrow)</label><input id="ld-testi-eyebrow" class="form-input" type="text" placeholder="Suara Anggota"></div>
+      <div class="form-group"><label class="form-label">Judul</label><input id="ld-testi-title" class="form-input" type="text" placeholder="Testimoni yang Berbicara Sendiri"></div>
+      <div class="form-group"><label class="form-label">Deskripsi</label><textarea id="ld-testi-desc" class="form-input" rows="2" placeholder="Cerita nyata dari trader dan investor..."></textarea></div>
+
+      <div class="section-sub" style="margin:14px 0 12px">Bagian "Kata Mereka" di <b>index.html</b> (preview)</div>
+      <div class="form-group"><label class="form-label">Label Kecil (Eyebrow)</label><input id="ld-testi-prev-eyebrow" class="form-input" type="text" placeholder="Kata Mereka"></div>
+      <div class="form-group"><label class="form-label">Judul</label><input id="ld-testi-prev-heading" class="form-input" type="text" placeholder="Dipercaya oleh Investor & Trader Serius"></div>
+      <div class="form-group"><label class="form-label">Deskripsi</label><textarea id="ld-testi-prev-desc" class="form-input" rows="2" placeholder="Pengalaman nyata dari anggota..."></textarea></div>
+
+      <div class="section-sub" style="margin:14px 0 12px">Bagian <b>Sorotan</b> (kartu foto besar) di testimoni.html</div>
+      <div class="form-group"><label class="form-label">Label Kecil (Eyebrow)</label><input id="ld-testi-sorotan-eyebrow" class="form-input" type="text" placeholder="Sorotan"></div>
+      <div class="form-group"><label class="form-label">Judul</label><input id="ld-testi-sorotan-heading" class="form-input" type="text" placeholder="Wajah di Balik Cerita"></div>
+      <div class="form-group"><label class="form-label">Deskripsi</label><textarea id="ld-testi-sorotan-desc" class="form-input" rows="2" placeholder="Testimoni yang lebih menonjolkan sosok anggota..."></textarea></div>
+
+      <div class="section-sub" style="margin:14px 0 12px">Bagian <b>Semua Testimoni</b> (kartu teks) di testimoni.html</div>
+      <div class="form-group"><label class="form-label">Label Kecil (Eyebrow)</label><input id="ld-testi-semua-eyebrow" class="form-input" type="text" placeholder="Semua Testimoni"></div>
+      <div class="form-group"><label class="form-label">Judul</label><input id="ld-testi-semua-heading" class="form-input" type="text" placeholder="Fokus pada Ceritanya"></div>
+      <div class="form-group"><label class="form-label">Deskripsi</label><textarea id="ld-testi-semua-desc" class="form-input" rows="2" placeholder="Kumpulan testimoni lengkap yang bisa Anda cari..."></textarea></div>
+
+      <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="saveLandingTestimoni()">Simpan Teks Bagian Testimoni</button>
+    </div>
+  </div>
+
+  <div class="ld-testi-panel" id="ld-testi-panel-poster">
+    <div class="card" style="margin:0 auto 16px;max-width:640px">
+      <div class="section-sub" style="margin:-4px 0 4px">Poster Sorotan di <b>testimoni.html</b></div>
+      <div class="section-sub" style="margin:0 0 14px;font-size:12px;color:var(--text-sub)">Gambar banner lebar (rasio 19:6) yang tampil di paling atas bagian Sorotan, menggantikan posisi kartu besar. Gambar ditampilkan utuh tanpa terpotong, di desktop maupun mobile.</div>
+
+      <label class="form-label" style="display:block">Gambar Poster</label>
+      <div class="ld-media-upload" style="margin-bottom:14px;align-items:flex-start">
+        <div id="ld-testi-poster-preview" class="ld-media-preview ld-media-preview-poster"></div>
+      </div>
+      <div class="ld-media-controls" style="margin-bottom:14px">
+        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" id="ld-testi-poster-input" onchange="ldTestiPosterUpload(this)">
+        <p class="ld-media-hint">PNG/JPG/WEBP, maks 10MB. Rasio disarankan 19:6 (mis. 1900×600px) supaya tidak ada bagian terpotong.</p>
+      </div>
+      <button class="btn btn-secondary" style="width:100%" onclick="ldClearTestiPoster()">Hapus Poster (kembali ke tampilan Sorotan biasa)</button>
+    </div>
+  </div>
+
+  <div class="ld-testi-panel" id="ld-testi-panel-buat">
+    <div class="card" style="margin:0 auto 16px;max-width:640px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div class="section-sub" style="margin:0;max-width:420px">Kelola Kelompok Pendaftaran — dipakai untuk mengelompokkan testimoni & aturan satu Sorotan per kelompok.</div>
+        <button class="btn btn-secondary" onclick="openTestiKelompokManage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Kelola Kelompok</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin:0 auto 16px;max-width:640px">
+      <div class="section-sub" style="margin:-4px 0 12px">Tambahkan testimoni baru — otomatis masuk ke daftar di tab <b>Isi Testimoni</b> setelah disimpan.</div>
+
+      <label class="form-label" style="display:block">Foto</label>
+      <div class="ld-media-upload" style="margin-bottom:14px">
+        <div id="ld-testi-new-photo-preview" class="ld-media-preview ld-media-preview-square"></div>
+        <div class="ld-media-controls">
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" id="ld-testi-new-photo-input" onchange="ldTestiNewPhotoUpload(this)">
+          <p class="ld-media-hint">PNG/JPG/WEBP, maks 10MB.</p>
+        </div>
+      </div>
+
+      <div class="form-group"><label class="form-label">Nama</label><input id="ld-testi-new-name" class="form-input" type="text" placeholder="Nama anggota"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Daftar Sebagai (Kelompok)</label><select id="ld-testi-new-kelompok" class="form-input"><option value="">-- Pilih Kelompok --</option></select></div>
+        <div class="form-group"><label class="form-label">Tahun Diterima</label><input id="ld-testi-new-tahun" class="form-input" type="number" min="2000" max="2100" placeholder="2026"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Kutipan Testimoni</label><textarea id="ld-testi-new-quote" class="form-input" rows="3" placeholder="Isi testimoni..."></textarea></div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
+        <div class="switch-row">
+          <div><div class="switch-label">Sorotan</div><div class="switch-desc">Tampil di kartu foto besar (Sorotan) di testimoni.html</div></div>
+          <label class="switch"><input type="checkbox" id="ld-testi-new-sorotan"><span class="switch-slider"></span></label>
+        </div>
+        <div class="switch-row">
+          <div><div class="switch-label">Semua Testimoni</div><div class="switch-desc">Tampil di daftar teks yang bisa dicari</div></div>
+          <label class="switch"><input type="checkbox" id="ld-testi-new-semua" checked><span class="switch-slider"></span></label>
+        </div>
+        <div class="switch-row">
+          <div><div class="switch-label">Marquee Berjalan</div><div class="switch-desc">Tampil di baris teks berjalan (marquee-wrap) di atas halaman</div></div>
+          <label class="switch"><input type="checkbox" id="ld-testi-new-marquee" checked><span class="switch-slider"></span></label>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="submitNewTesti()">+ Simpan Testimoni</button>
+    </div>
+  </div>
+
+  <div class="ld-testi-panel" id="ld-testi-panel-list">
+    <div class="card" style="margin:0 auto 16px;max-width:760px">
+      <div class="section-sub" style="margin:0 0 12px;max-width:520px">Daftar testimoni yang tampil di testimoni.html, dikelompokkan per <b>kelompok pendaftaran</b>. Centang Sorotan / Semua Testimoni / Marquee Berjalan lewat form edit untuk atur penempatannya. Untuk menambah testimoni baru atau mengelola kelompok, buka tab <b>Buat Testimoni</b>.</div>
+      <div class="search-bar" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari nama / tahun / kutipan..." oninput="_ldTestiSearch=this.value;_renderLdTestiList()"></div>
+        <div id="ld-testi-filters"></div>
+      </div>
+      <div id="ld-testi-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- LEGAL — dipecah jadi 2 sub-tab (Syarat & Ketentuan / Kebijakan Privasi), pola sama
+     persis dengan class="sub-tabs" yang dipakai di tab lain (mis. Token/Akun/Keuangan). -->
+<div class="sub-page dock-avoid-center" id="sub-landing-legal">
+  <div class="sub-tabs" style="max-width:640px;margin:0 auto 16px">
+    <button class="sub-tab active" data-legal-sub="syarat" onclick="renderLandingLegalSub('syarat')">Syarat & Ketentuan</button>
+    <button class="sub-tab" data-legal-sub="privasi" onclick="renderLandingLegalSub('privasi')">Kebijakan Privasi</button>
+  </div>
+
+  <div class="ld-legal-panel active" id="ld-legal-syarat">
+    <div class="card" style="margin:0 auto 16px;max-width:640px">
+      <div class="section-sub" style="margin:-4px 0 12px">Halaman <b>syarat-ketentuan.html</b></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Label Kecil (Eyebrow)</label><input id="ld-syarat-eyebrow" class="form-input" type="text" placeholder="Legal"></div>
+        <div class="form-group"><label class="form-label">Judul</label><input id="ld-syarat-title" class="form-input" type="text" placeholder="Syarat & Ketentuan"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Info Pembaruan</label><input id="ld-syarat-updated" class="form-input" type="text" placeholder="Terakhir diperbarui 30 Agustus 2026"></div>
+      <div class="form-group">
+        <label class="form-label">Isi Syarat & Ketentuan</label>
+        <textarea id="ld-syarat-content" class="form-input" rows="12" placeholder="Tulis isi Syarat & Ketentuan di sini...&#10;&#10;Pisahkan tiap paragraf dengan baris kosong. Awali baris dengan '## ' untuk membuat sub-judul, misal:&#10;## 1. Ketentuan Umum"></textarea>
+        <p style="font-size:12px;color:rgba(19,50,89,0.5);margin-top:6px">Tips: baris kosong = paragraf baru. Awali baris dengan <code>## </code> untuk sub-judul (mis. <code>## 1. Ketentuan Umum</code>).</p>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="saveLandingSyarat()">Simpan Syarat & Ketentuan</button>
+    </div>
+  </div>
+
+  <div class="ld-legal-panel" id="ld-legal-privasi">
+    <div class="card" style="margin:0 auto 16px;max-width:640px">
+      <div class="section-sub" style="margin:-4px 0 12px">Halaman <b>kebijakan-privasi.html</b></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Label Kecil (Eyebrow)</label><input id="ld-privasi-eyebrow" class="form-input" type="text" placeholder="Legal"></div>
+        <div class="form-group"><label class="form-label">Judul</label><input id="ld-privasi-title" class="form-input" type="text" placeholder="Kebijakan Privasi"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Info Pembaruan</label><input id="ld-privasi-updated" class="form-input" type="text" placeholder="Terakhir diperbarui 30 Agustus 2026"></div>
+      <div class="form-group">
+        <label class="form-label">Isi Kebijakan Privasi</label>
+        <textarea id="ld-privasi-content" class="form-input" rows="12" placeholder="Tulis isi Kebijakan Privasi di sini...&#10;&#10;Pisahkan tiap paragraf dengan baris kosong. Awali baris dengan '## ' untuk membuat sub-judul, misal:&#10;## 1. Data yang Kami Kumpulkan"></textarea>
+        <p style="font-size:12px;color:rgba(19,50,89,0.5);margin-top:6px">Tips: baris kosong = paragraf baru. Awali baris dengan <code>## </code> untuk sub-judul (mis. <code>## 1. Data yang Kami Kumpulkan</code>).</p>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="saveLandingPrivasi()">Simpan Kebijakan Privasi</button>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="sub-page dock-avoid-center" id="sub-landing-footer">
+  <div class="card" style="margin:0 auto 16px;max-width:640px">
+    <div class="form-group"><label class="form-label">Deskripsi Singkat Brand</label><textarea id="ld-footer-desc" class="form-input" rows="2" placeholder="Manajemen investasi dan edukasi pasar dengan standar prestise..."></textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Email</label><input id="ld-footer-email" class="form-input" type="email" placeholder="hello@cibnprestise.id"></div>
+      <div class="form-group"><label class="form-label">Telepon</label><input id="ld-footer-phone" class="form-input" type="text" placeholder="+62 21 1234 5678"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Alamat</label><input id="ld-footer-address" class="form-input" type="text" placeholder="Jakarta, Indonesia"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Link Instagram</label><input id="ld-footer-ig" class="form-input" type="text" placeholder="https://instagram.com/..."></div>
+      <div class="form-group"><label class="form-label">Link Twitter/X</label><input id="ld-footer-tw" class="form-input" type="text" placeholder="https://x.com/..."></div>
+    </div>
+    <div class="form-group"><label class="form-label">Link LinkedIn</label><input id="ld-footer-li" class="form-input" type="text" placeholder="https://linkedin.com/..."></div>
+    <div class="form-group"><label class="form-label">Teks Copyright</label><input id="ld-footer-copy" class="form-input" type="text" placeholder="© 2026 CIBN PRESTISE. Seluruh hak cipta dilindungi."></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="saveLandingFooter()">Simpan Bagian Footer</button>
+  </div>
+</div>

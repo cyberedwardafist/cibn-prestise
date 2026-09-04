@@ -1,0 +1,83 @@
+<!-- user-form-overlay -->
+<div class="overlay" id="user-form-overlay"><div class="modal"><div class="modal-header"><div class="modal-title" id="uf-title">Tambah Akun</div><button class="modal-close" onclick="closeModalCheckDirty('user-form-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<input type="hidden" id="uf-mode" value="add"><input type="hidden" id="uf-id" value=""><input type="hidden" id="uf-role" value="">
+<div id="uf-form-body">
+  <div class="form-group"><label class="form-label">Nama Lengkap</label><input id="uf-nama" class="form-input" type="text" placeholder="Nama lengkap" oninput="setDirty('pengisian form akun')"></div>
+  <div class="form-group"><label class="form-label">Email</label><input id="uf-email" class="form-input" type="email" placeholder="email@domain.com" oninput="setDirty()"></div>
+  <div class="form-group" id="uf-grub-wrap" style="display:none"><label class="form-label">Grup (Opsional)</label><select id="uf-grub" class="form-select"><option value="">-- Tanpa Grup --</option></select></div>
+  <div class="form-group"><label class="form-label">Password <span style="font-size:10px;color:var(--text-sub);font-weight:400">(kosongkan saat edit jika tidak diubah)</span></label><div style="position:relative"><input id="uf-password" class="form-input" type="password" placeholder="Min. 6 karakter" oninput="setDirty()"><button type="button" onclick="togglePwVis('uf-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-sub);width:22px;height:22px;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+  <div class="form-group"><label class="form-label">Konfirmasi Password</label><input id="uf-konfirm" class="form-input" type="password" placeholder="Ulangi password" oninput="setDirty()"></div>
+  <div class="form-group"><label class="form-label">Status</label><select id="uf-status" class="form-select"><option value="aktif">Aktif</option><option value="pending">Pending</option><option value="suspend">Suspend</option></select></div>
+  <!-- Paket & Langganan — hanya tampil untuk role User -->
+  <div id="uf-paket-wrap" style="display:none;border-top:1.5px solid rgba(19,50,89,0.08);margin-top:14px;padding-top:14px">
+    <div style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">📦 Paket &amp; Langganan</div>
+    <div class="form-group"><label class="form-label">Nama Paket</label><input id="uf-paket-nama" class="form-input" type="text" placeholder="Misal: Professional" oninput="setDirty()"></div>
+    <div class="form-group">
+      <label class="form-label">Durasi Langganan</label>
+      <select id="uf-durasi" class="form-select" onchange="_onUfDurasiChange()">
+        <option value="">-- Tanpa Langganan --</option>
+        <option value="hari">1 Hari</option>
+        <option value="minggu">1 Minggu</option>
+        <option value="bulan">1 Bulan</option>
+        <option value="tahun">1 Tahun</option>
+        <option value="range">Rentang Tanggal (Custom)</option>
+      </select>
+    </div>
+    <div id="uf-langganan-range-wrap" class="form-row" style="display:none">
+      <div class="form-group"><label class="form-label">Langganan Mulai</label><input id="uf-langganan-mulai" class="form-input" type="date" oninput="setDirty()"></div>
+      <div class="form-group"><label class="form-label">Langganan Akhir</label><input id="uf-langganan-akhir" class="form-input" type="date" oninput="setDirty()"></div>
+    </div>
+    <div id="uf-durasi-preview" style="display:none;font-size:11.5px;color:var(--text-sub);margin-top:-6px"></div>
+  </div>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModalCheckDirty('user-form-overlay')">Batal</button><button class="btn btn-primary" onclick="submitUserForm()">Proses</button></div>
+</div></div>
+
+<!-- bulk-edit-overlay -->
+<div class="overlay" id="bulk-edit-overlay"><div class="modal"><div class="modal-header"><div class="modal-title" id="bue-title">Edit Massal</div><button class="modal-close" onclick="closeModal('bulk-edit-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+<input type="hidden" id="bue-role" value="">
+<div id="bue-body">
+  <p style="font-size:12.5px;color:var(--text-sub);margin-bottom:14px">Centang field yang ingin diubah. Field yang tidak dicentang akan tetap seperti semula. Perubahan berlaku untuk <b id="bue-count">0</b> akun terpilih.</p>
+  <div class="form-group" id="bue-grub-wrap" style="display:none">
+    <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="bue-grub-on" onchange="_bueToggle('grub')" style="accent-color:var(--blue);width:16px;height:16px"> Ganti Grup</label>
+    <select id="bue-grub" class="form-select" disabled><option value="">-- Tanpa Grup --</option></select>
+  </div>
+  <div class="form-group" id="bue-status-wrap">
+    <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="bue-status-on" onchange="_bueToggle('status')" style="accent-color:var(--blue);width:16px;height:16px"> Aktivasi / Status Akun</label>
+    <select id="bue-status" class="form-select" disabled><option value="aktif">Aktif</option><option value="pending">Pending</option><option value="suspend">Suspend</option></select>
+  </div>
+  <div id="bue-paket-wrap" style="display:none;border-top:1.5px solid rgba(19,50,89,0.08);margin-top:14px;padding-top:14px">
+    <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px"><input type="checkbox" id="bue-paket-on" onchange="_bueToggle('paket')" style="accent-color:var(--blue);width:16px;height:16px"> 📦 Ganti Paket &amp; Langganan</label>
+    <div id="bue-paket-fields" style="opacity:.45;pointer-events:none">
+      <div class="form-group"><label class="form-label">Nama Paket</label><input id="bue-paket-nama" class="form-input" type="text" placeholder="Misal: Professional"></div>
+      <div class="form-group">
+        <label class="form-label">Durasi Langganan</label>
+        <select id="bue-durasi" class="form-select" onchange="_onBueDurasiChange()">
+          <option value="">-- Tanpa Langganan --</option>
+          <option value="hari">1 Hari</option>
+          <option value="minggu">1 Minggu</option>
+          <option value="bulan">1 Bulan</option>
+          <option value="tahun">1 Tahun</option>
+          <option value="range">Rentang Tanggal (Custom)</option>
+        </select>
+      </div>
+      <div id="bue-langganan-range-wrap" class="form-row" style="display:none">
+        <div class="form-group"><label class="form-label">Langganan Mulai</label><input id="bue-langganan-mulai" class="form-input" type="date"></div>
+        <div class="form-group"><label class="form-label">Langganan Akhir</label><input id="bue-langganan-akhir" class="form-input" type="date"></div>
+      </div>
+      <div id="bue-durasi-preview" style="display:none;font-size:11.5px;color:var(--text-sub);margin-top:-6px"></div>
+    </div>
+  </div>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('bulk-edit-overlay')">Batal</button><button class="btn btn-primary" onclick="submitBulkEditAkun()">Terapkan</button></div>
+</div></div>
+
+<!-- user-grub-overlay -->
+<div class="overlay" id="user-grub-overlay"><div class="modal"><div class="modal-header"><div class="modal-title">Kelola Grup</div><button class="modal-close" onclick="closeModal('user-grub-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <input id="user-grub-new-input" class="form-input" type="text" placeholder="Nama grup baru" onkeydown="if(event.key==='Enter')addUserGrub()">
+    <button class="btn btn-primary" style="flex-shrink:0" onclick="addUserGrub()">Tambah</button>
+  </div>
+  <div id="user-grub-manage-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('user-grub-overlay')">Tutup</button></div>
+</div></div>

@@ -70,51 +70,35 @@ async function apiPut(path, body) { return apiFetch(path, { method: 'PUT', body:
 async function apiDel(path) { return apiFetch(path, { method: 'DELETE' }); }
 async function apiGet(path) { return apiFetch(path); }
 
-// ── UPLOAD IMAGE ──
-// Mengembalikan salah satu dari:
-//   { url }             -> sukses
-//   { error, rejected }  -> server menolak (tipe file salah / ukuran > limit) -> JANGAN fallback ke base64
-//   { networkError }    -> gagal terhubung ke server (offline dll) -> caller boleh fallback ke base64
-async function apiUploadImage(file) {
-    const token = Auth.getToken();
-    const form = new FormData();
-    form.append('image', file);
-    let res;
-    try {
-        res = await fetch(API_BASE + '/upload', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: form
-        });
-    } catch (e) {
-        return { networkError: true };
-    }
-    let data = null;
-    try { data = await res.json(); } catch (e) { /* ignore */ }
-    if (!res.ok) {
-        return { error: (data && data.error) || `HTTP ${res.status}`, rejected: true };
-    }
-    return data || { networkError: true };
-}
-
-// ── UPLOAD LANDING MEDIA (Editor Landing: Logo Hero, Video Hero, Video Promo) ──
-// kind  : 'image' (logo) atau 'video' (video latar)
-// slot  : nama slot ('heroLogo' | 'heroVideo' | 'videoPromo') — dipakai sbg nama file di Supabase
-// oldUrl: URL file lama (kalau ada) supaya server sekalian menghapusnya dari Supabase Storage
+// ── UPLOAD FILE (GENERIC, PRESIGNED URL) ──
+// Dipakai untuk SEMUA jenis upload (gambar soal, PDF/poster e-book, gambar/video
+// landing, dst). Server TIDAK PERNAH menerima isi file: browser minta "signed
+// upload URL" dulu ke server kita, lalu PUT file itu LANGSUNG ke Supabase Storage.
+// Ini menekan beban server drastis (tidak ada parsing multipart, tidak ada buffer
+// file di RAM server, request ke server kita cuma JSON kecil) dan sekaligus
+// membuat upload tidak lagi kena limit body platform serverless (mis. ±4.5MB
+// di Vercel), berapa pun besar file aslinya (sesuai limit per-kind di server.js).
 //
-// CATATAN: upload TIDAK lagi lewat body request ke server kita (yang di Vercel
-// dibatasi ±4.5MB oleh platform, di luar kendali kode ini). Sekarang file di-PUT
-// LANGSUNG dari browser ke Supabase Storage pakai signed URL, jadi limit yang
-// berlaku murni limit di server.js (10MB gambar / 40MB video).
-async function apiUploadLandingMedia(file, kind, slot, oldUrl) {
-    const normKind = kind === 'video' ? 'video' : 'image';
-
-    // 1) Minta signed upload URL ke server kita
+// kind      : salah satu key UPLOAD_KINDS di server.js, mis. 'soal-image',
+//             'ebook-pdf', 'ebook-poster', 'ebook-modul-poster', 'landing-image',
+//             'landing-video'.
+// file      : objek File dari <input type="file"> / drag-drop / paste.
+// subfolder : (opsional) sub-folder di dalam folder kind tsb, mis. nama buku
+//             (di-sanitize di server, bukan di sini).
+// oldUrl    : (opsional) URL file lama yang akan dihapus dari Supabase setelah
+//             upload baru sukses (supaya storage tidak menumpuk file yatim).
+//
+// Mengembalikan salah satu dari:
+//   { url, path }        -> sukses
+//   { error, rejected }  -> server/storage menolak (tipe file salah, ukuran > limit, dst)
+//   { networkError }     -> gagal terhubung ke server/storage (offline dll)
+async function apiUploadFile(kind, file, { subfolder, oldUrl } = {}) {
+    // 1) Minta signed upload URL ke server kita (server tidak menerima file sama sekali)
     let init;
     try {
-        init = await apiPost('/upload-landing-init', {
-            kind: normKind,
-            slot: slot || 'media',
+        init = await apiPost('/upload-init', {
+            kind,
+            subfolder: subfolder || null,
             filename: file.name,
             mimetype: file.type,
             size: file.size
@@ -142,16 +126,62 @@ async function apiUploadLandingMedia(file, kind, slot, oldUrl) {
         return { error: detail || `Gagal upload ke storage (HTTP ${putRes.status})`, rejected: true };
     }
 
-    // 3) Konfirmasi ke server → hapus file lama (oldUrl) kalau ada
+    // 3) Konfirmasi ke server → hapus file lama (oldUrl) kalau ada. Kegagalan
+    //    langkah ini tidak boleh membuat upload dianggap gagal — file baru sudah
+    //    tersimpan sukses di langkah 2.
     try {
-        await apiPost('/upload-landing-finalize', { oldUrl: oldUrl || null });
-    } catch (e) {
-        // Kegagalan cleanup file lama tidak boleh membuat upload dianggap gagal —
-        // file baru sudah tersimpan sukses di langkah 2.
-    }
+        await apiPost('/upload-finalize', { oldUrl: oldUrl || null });
+    } catch (e) { /* abaikan kegagalan cleanup */ }
 
-    return { url: init.url };
+    return { url: init.url, path: init.path };
 }
+
+// ── UPLOAD IMAGE (gambar di editor soal) ──
+// Mengembalikan salah satu dari:
+//   { url }             -> sukses
+//   { error, rejected }  -> server menolak (tipe file salah / ukuran > limit) -> JANGAN fallback ke base64
+//   { networkError }    -> gagal terhubung ke server (offline dll) -> caller boleh fallback ke base64
+async function apiUploadImage(file) {
+    return apiUploadFile('soal-image', file, { subfolder: 'umum' });
+}
+
+// ── UPLOAD LANDING MEDIA (Editor Landing: Logo Hero, Video Hero, Video Promo) ──
+// kind  : 'image' (logo) atau 'video' (video latar)
+// slot  : nama slot ('heroLogo' | 'heroVideo' | 'videoPromo') — dipakai sbg nama file di Supabase
+// oldUrl: URL file lama (kalau ada) supaya server sekalian menghapusnya dari Supabase Storage
+async function apiUploadLandingMedia(file, kind, slot, oldUrl) {
+    const uploadKind = kind === 'video' ? 'landing-video' : 'landing-image';
+    return apiUploadFile(uploadKind, file, { subfolder: slot || 'media', oldUrl });
+}
+
+// ── UPLOAD FILE E-BOOK (PDF buku / poster buku / poster modul) ──
+// kind: 'ebook-pdf' | 'ebook-poster' | 'ebook-modul-poster'
+// nama: nama buku/modul, dipakai sbg sub-folder supaya file-file 1 buku terkumpul
+async function apiUploadEbookFile(kind, file, nama, oldUrl) {
+    return apiUploadFile(kind, file, { subfolder: nama, oldUrl });
+}
+
+// ── HITUNG JUMLAH HALAMAN PDF (DI BROWSER) ──
+// Dulu dihitung di server dari Buffer hasil multer; sekarang server tidak lagi
+// menerima isi file PDF sama sekali, jadi penghitungan dipindah ke sini — jalan
+// di atas ArrayBuffer file yang memang sudah ada di memori browser (dibutuhkan
+// juga untuk di-upload). Logikanya sama persis dengan versi server yang lama.
+async function countPdfPagesClient(file) {
+    try {
+        const buf = await file.arrayBuffer();
+        const str = new TextDecoder('latin1').decode(buf);
+        const countMatches = [...str.matchAll(/\/Type\s*\/Pages\b[\s\S]{0,300}?\/Count\s+(\d+)/g)];
+        const countMatches2 = [...str.matchAll(/\/Count\s+(\d+)[\s\S]{0,300}?\/Type\s*\/Pages\b/g)];
+        const all = [...countMatches, ...countMatches2].map(m => parseInt(m[1], 10)).filter(n => !isNaN(n));
+        if (all.length) return Math.max(...all);
+        const pageMatches = str.match(/\/Type\s*\/Page(?![a-zA-Z])/g);
+        return pageMatches ? pageMatches.length : 0;
+    } catch (e) {
+        console.error('[EBOOK] Gagal hitung halaman PDF:', e.message);
+        return 0;
+    }
+}
+
 
 // ── AUTH API ──
 const AuthAPI = {
@@ -246,34 +276,6 @@ const ModulKelompokAPI = {
     async delete(kode) { return await apiDel(`/modul-kelompok/${kode}`); }
 };
 
-// ── EBOOK UPLOAD HELPER (multipart: poster gambar + file pdf) ──
-// Beda dari apiFetch biasa karena body-nya FormData, bukan JSON.
-// Mengembalikan: data hasil (sukses) | throw Error (gagal terhubung ATAU ditolak server).
-// Fitur e-book butuh koneksi server (file PDF tidak realistis disimpan lokal), jadi
-// kegagalan jaringan di sini juga selalu dilempar sebagai error, bukan diam-diam gagal.
-async function apiEbookSubmit(method, path, formData) {
-    const token = Auth.getToken();
-    let res;
-    try {
-        res = await fetch(API_BASE + path, { method, headers: { 'Authorization': `Bearer ${token}` }, body: formData });
-    } catch (e) {
-        throw new Error('Tidak bisa terhubung ke server. Periksa koneksi internet Anda dan coba lagi.');
-    }
-    let data = null;
-    try { data = await res.json(); } catch (e) { /* body kosong */ }
-    if (!res.ok) {
-        if (res.status === 401) {
-            Auth.clearSession();
-            if (!location.pathname.endsWith('login.html')) {
-                showToastSafe('Sesi berakhir, silakan login kembali', 'danger');
-                setTimeout(() => { location.href = 'login.html'; }, 1200);
-            }
-        }
-        throw new Error((data && data.error) || `HTTP ${res.status}`);
-    }
-    return data;
-}
-
 // ── EBOOK KELOMPOK API (dikelola di Library, opsional) ──
 const EbookKelompokAPI = {
     async getAll() { return await apiGet('/ebook-kelompok') || []; },
@@ -283,18 +285,23 @@ const EbookKelompokAPI = {
 };
 
 // ── EBOOK API ──
+// CATATAN: dulu endpoint ini menerima multipart FormData (file PDF + poster
+// langsung ke server via multer). Sekarang file sudah di-upload duluan ke
+// Supabase lewat apiUploadEbookFile (signed URL) — payload di sini cuma JSON
+// metadata kecil ({ nama, kelompok, pdf: {url,...}, poster: {url} }), jadi
+// dipakai apiPost/apiPut biasa, bukan lagi helper multipart terpisah.
 const EbookAPI = {
     async getAll() { return await apiGet('/ebook') || []; },
-    async create(formData) { return await apiEbookSubmit('POST', '/ebook', formData); },
-    async update(kode, formData) { return await apiEbookSubmit('PUT', `/ebook/${kode}`, formData); },
+    async create(data) { return await apiPost('/ebook', data); },
+    async update(kode, data) { return await apiPut(`/ebook/${kode}`, data); },
     async delete(kode) { return await apiDel(`/ebook/${kode}`); }
 };
 
-// ── EBOOK MODUL API (paket buku) ──
+// ── EBOOK MODUL API (paket buku) ── (poster juga sudah di-upload duluan, lihat catatan di atas)
 const EbookModulAPI = {
     async getAll() { return await apiGet('/ebook-modul') || []; },
-    async create(formData) { return await apiEbookSubmit('POST', '/ebook-modul', formData); },
-    async update(kode, formData) { return await apiEbookSubmit('PUT', `/ebook-modul/${kode}`, formData); },
+    async create(data) { return await apiPost('/ebook-modul', data); },
+    async update(kode, data) { return await apiPut(`/ebook-modul/${kode}`, data); },
     async delete(kode) { return await apiDel(`/ebook-modul/${kode}`); }
 };
 

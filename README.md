@@ -68,12 +68,36 @@ cibn-prestise/
 │   ├── migrate-from-sqlite.js  <- Migrasi data dari database SQLite lama
 │   └── legacy-sqlite/           <- (opsional) taruh file .db lama di sini untuk migrasi
 ├── uploads/              <- File/gambar yang diupload
-├── index_admin.html      <- Dashboard Admin
-├── index_user.html       <- Dashboard Peserta Ujian
-├── index_review.html     <- Dashboard Guru (rekap, analisa, pembahasan)
-├── ujian.html             <- Halaman pengerjaan ujian (peserta)
-├── login.html             <- Login & Signup
-├── landing.html           <- Landing page
+├── public/                <- Halaman publik (sebelum login)
+│   ├── index.html              <- Landing utama (dilayani juga di "/")
+│   ├── paket.html, info-paket.html
+│   ├── materi.html, tentang.html, testimoni.html
+│   └── kebijakan-privasi.html, syarat-ketentuan.html
+├── auth/                  <- Alur login & pendaftaran
+│   ├── masuk.html, login.html (redirect -> masuk.html)
+│   ├── daftar.html, otp.html
+├── payment/                <- Alur pembayaran
+│   ├── pembayaran.html, qris.html
+├── admin/                  <- Dashboard Admin (module lazy-load)
+│   ├── index_admin.html         <- Shell/dashboard Admin
+│   └── *.html / *.js            <- Fragmen tiap tab (lazy-loaded)
+├── user/                   <- Dashboard Peserta Ujian (module lazy-load)
+│   ├── index_user.html          <- Shell/dashboard Peserta
+│   └── *.html / *.js            <- Fragmen tiap tab (lazy-loaded)
+├── review/                 <- Dashboard Guru (module lazy-load)
+│   ├── index_review.html        <- Shell/dashboard Guru
+│   └── *.html / *.js            <- Fragmen tiap tab (lazy-loaded)
+├── ujian/                  <- Halaman pengerjaan ujian (module lazy-load)
+│   ├── ujian.html                <- Shell pengerjaan ujian (peserta)
+│   └── hasil.html / hasil.js     <- Fragmen hasil (lazy-loaded)
+├── landing/                <- Landing page (module lazy-load)
+│   ├── landing.html              <- Shell landing page
+│   └── auth.js, chat.js, dst      <- Fragmen (lazy-loaded)
+│
+│   Catatan: seluruh URL di atas TIDAK berubah dari sebelumnya
+│   (mis. tetap /index_admin.html, /ujian.html, /masuk.html, /pembayaran.html).
+│   Hanya lokasi fisik file yang dirapikan per folder; server.js
+│   sudah diupdate supaya URL lama tetap sama persis.
 ├── css/
 │   ├── base.css
 │   ├── taskbar.css        <- Floating dock navigation
