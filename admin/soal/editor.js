@@ -721,16 +721,24 @@ function _ensureMathJaxLoaded() {
 
 // MathQuill butuh jQuery dimuat lebih dulu, baru mathquill.js + CSS-nya.
 //
-// PENYEBAB ERROR "MathQuill is not defined" (walau script-nya berhasil ke-load,
-// tidak ada error jaringan): mathquill.min.js & jquery.min.js dibungkus format
-// UMD — kalau halaman admin ini kebetulan sudah punya AMD loader aktif (mis.
-// RequireJS, atau library lain yang mendaftarkan `window.define.amd`), UMD
-// akan mendaftar library itu sebagai *module AMD*, BUKAN menempel ke variabel
-// global `window.MathQuill` / `window.jQuery` — persis gejala di laporan ini.
-// Solusinya: matikan sementara penanda AMD selama kedua script ini dimuat,
-// supaya keduanya jatuh ke perilaku default (nempel ke window), lalu
-// kembalikan seperti semula setelah selesai supaya tidak mengganggu bagian
-// lain dari halaman admin yang mungkin memang butuh AMD loader tsb.
+// RIWAYAT MASALAH — dua penyebab berbeda yang sudah pernah bikin ini gagal:
+// 1) UMD/AMD conflict: mathquill.min.js & jquery.min.js dibungkus format UMD —
+//    kalau halaman ini kebetulan sudah punya AMD loader aktif (mis. RequireJS,
+//    atau library lain yang mendaftarkan `window.define.amd`), UMD akan
+//    mendaftar library itu sebagai *module AMD*, BUKAN menempel ke variabel
+//    global `window.MathQuill` / `window.jQuery`. Solusinya: matikan sementara
+//    penanda AMD selama kedua script ini dimuat (lihat `_withAmdDisabled`).
+// 2) VERSI SALAH (penyebab sebenarnya laporan "MathQuill is not defined" yang
+//    terakhir): sebelumnya dipakai mathquill 0.9.1 dari CDN, padahal versi
+//    itu API-nya masih gaya lama (`$(elemen).mathquill(...)`) dan TIDAK
+//    PUNYA `MathQuill.getInterface()` sama sekali — sudah dicek langsung ke
+//    source build 0.9.1, fungsi itu memang tidak ada di file-nya. API
+//    `MathQuill.getInterface(2)` yang dipakai kode di bawah baru ada mulai
+//    versi 0.10.x. Jadi walau script berhasil 100% dimuat, `window.MathQuill`
+//    tetap ada tapi tidak punya method yang dibutuhkan → error terus.
+//    Sekarang MathQuill (0.10.1) & jQuery (3.7.1) di-vendor lokal di folder
+//    ini (bukan CDN lagi), supaya (a) versinya pasti benar, dan (b) fitur ini
+//    tidak lagi bergantung sama sekali ke koneksi internet/CDN pihak ketiga.
 function _withAmdDisabled(scriptEl, onDone) {
     const hadAmdLoader = !!(window.define && window.define.amd);
     const amdBackup = window.define;
@@ -749,17 +757,17 @@ function _ensureMathQuillLoaded() {
                 const link = document.createElement('link');
                 link.id = 'mathquill-css';
                 link.rel = 'stylesheet';
-                link.href = 'https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.9.1/mathquill.min.css';
+                link.href = '/admin/soal/vendor/mathquill/mathquill.css';
                 document.head.appendChild(link);
             }
             if (window.MathQuill) { resolve(); return; }
             const mqScript = document.createElement('script');
             mqScript.id = 'mathquill-js';
-            mqScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.9.1/mathquill.min.js';
+            mqScript.src = '/admin/soal/vendor/mathquill/mathquill.min.js';
             _withAmdDisabled(mqScript, (ok) => {
                 if (!ok) { reject(new Error('Gagal memuat papan rumus')); return; }
-                if (window.MathQuill) resolve();
-                else reject(new Error('MathQuill dimuat tapi window.MathQuill tidak terbentuk (kemungkinan konflik AMD/RequireJS di halaman ini)'));
+                if (window.MathQuill && typeof window.MathQuill.getInterface === 'function') resolve();
+                else reject(new Error('MathQuill dimuat tapi API getInterface tidak ada (versi berkas lokal tidak sesuai)'));
             });
             document.head.appendChild(mqScript);
         };
@@ -772,7 +780,7 @@ function _ensureMathQuillLoaded() {
         }
         const jq = document.createElement('script');
         jq.id = 'mathquill-jquery';
-        jq.src = 'https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js';
+        jq.src = '/admin/soal/vendor/jquery/jquery.min.js';
         _withAmdDisabled(jq, (ok) => {
             if (!ok) { reject(new Error('Gagal memuat jQuery untuk papan rumus')); return; }
             if (window.jQuery) loadMathQuill();
@@ -822,7 +830,7 @@ async function openMathEditor(editorInstance, existingLatex, existingImg) {
         await _ensureMathQuillLoaded();
     } catch (e) {
         if (window._mathEd._openToken !== token) return;
-        if (box) box.innerHTML = '<span style="color:var(--danger);font-size:12px">Gagal memuat papan rumus (periksa koneksi internet). Tutup lalu buka lagi untuk coba ulang.</span>';
+        if (box) box.innerHTML = '<span style="color:var(--danger);font-size:12px">Gagal memuat papan rumus (berkas vendor/mathquill tidak ditemukan di server). Tutup lalu buka lagi untuk coba ulang.</span>';
         return;
     }
     if (window._mathEd._openToken !== token) return; // modal sudah ditutup/diganti sebelum loading selesai
