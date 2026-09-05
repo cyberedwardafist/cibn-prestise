@@ -155,18 +155,26 @@ let _atdSikapCats = [];  // ['K1','K2',...]
 // bisa aja sebenarnya ada di nilai 7.5, jadi meleset kalau dibandingkan sama
 // titik data yg beneran di nilai 7). targetCount = kira-kira berapa garis
 // bantu yg diinginkan (bukan jumlah pasti, krn ikut dibulatkan ke kelipatan rapi).
-function _atdNiceTicks(maxVal, targetCount) {
-    targetCount = targetCount || 5;
-    if (!isFinite(maxVal) || maxVal <= 0) maxVal = targetCount;
-    const rawStep = maxVal / targetCount;
-    const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
-    const norm = rawStep / mag;
-    let niceNorm;
-    if (norm <= 1) niceNorm = 1;
-    else if (norm <= 2) niceNorm = 2;
-    else if (norm <= 5) niceNorm = 5;
-    else niceNorm = 10;
-    const step = niceNorm * mag;
+// Hitung skala sumbu Y yg "rapi" (kelipatan 1/2/5/10 dst, BUKAN angka
+// sembarang kayak 7.3) secara OTOMATIS menyesuaikan besar data — tidak
+// dipatok ke jumlah garis tertentu. Aturannya: mulai dari step sekecil
+// mungkin (1), lalu step dinaikkan ke kelipatan rapi berikutnya (1→2→5→10→
+// 20→50→...) SELAMA jumlah garis yg dihasilkan masih lebih banyak dari
+// MAX_TICKS. Jadi utk data kecil (mis. maxVal 12) tiap angka dpt garis
+// sendiri (step 1), sedangkan utk data besar (mis. maxVal 300) step ikut
+// membesar otomatis supaya sumbu Y tidak penuh sesak — jaraknya selalu
+// menyesuaikan, bukan jumlah tick yg tetap.
+function _atdNiceTicks(maxVal) {
+    if (!isFinite(maxVal) || maxVal <= 0) maxVal = 1;
+    const MAX_TICKS = 12; // batas atas garis bantu biar tetap enak dibaca
+    let step = 1;
+    while (maxVal / step > MAX_TICKS) {
+        const mag = Math.pow(10, Math.floor(Math.log10(step)));
+        const norm = step / mag;
+        if (norm < 2) step = 2 * mag;
+        else if (norm < 5) step = 5 * mag;
+        else step = 10 * mag;
+    }
     const niceMax = Math.ceil(maxVal / step) * step;
     const ticks = [];
     for (let v = 0; v <= niceMax + step * 0.001; v += step) ticks.push(Math.round(v * 100) / 100);
@@ -208,7 +216,7 @@ function _atdBuildLineChart(containerId, opts) {
     const N = categories.length;
     const slotW = plotW / N;
     const cx = i => left + i * slotW + slotW / 2;
-    const { max: yMax, ticks } = _atdNiceTicks(maxVal, 4);
+    const { max: yMax, ticks } = _atdNiceTicks(maxVal);
     const cy = v => top + plotH - (yMax > 0 ? (v / yMax) * plotH : 0);
 
     let svgParts = '';
@@ -275,7 +283,7 @@ function _atdBuildSikapMedianChart(containerId, opts) {
     catData.forEach(c => c.dist.forEach(d => Object.keys(d).forEach(v => {
         if (d[v] > 0) { const n = Number(v); maxVal = Math.max(maxVal, n); dataValsSet.add(n); }
     })));
-    const { max: yMax, ticks } = _atdNiceTicks(maxVal, 6);
+    const { max: yMax, ticks } = _atdNiceTicks(maxVal);
     const cy = v => top + plotH - (yMax > 0 ? (v / yMax) * plotH : 0);
 
     let svgParts = '';
