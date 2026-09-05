@@ -9,6 +9,10 @@
 // identifier-nya belum exist sama sekali -> ReferenceError)
 let _libData=[],_libSearch='',_libType='all',_libKelompokFilter='all';
 const _libSelected=new Set();
+// Dataset HASIL FILTER lengkap (semua grup, bukan cuma yang lagi dirender virtual-scroll ke DOM) —
+// dipakai Pilih Semua & hitung centang, biar totalnya bener2 jumlah data asli (grup A 25 + grup B 50 = 75),
+// bukan cuma yang kebetulan ada di DOM saat itu.
+let _libFilteredCache=[];
 
 async function renderLibrary(){
     [_libData]=await Promise.all([SoalAPI.getAll().catch(()=>[]), _loadSoalKelompokList()]);
@@ -53,6 +57,7 @@ function _renderLibList(){
     if(_libType!=='all')data=data.filter(s=>s.type===_libType);
     if(_libKelompokFilter==='none')data=data.filter(s=>!s.kelompok);
     else if(_libKelompokFilter!=='all')data=data.filter(s=>s.kelompok===_libKelompokFilter);
+    _libFilteredCache=data;
     const el=document.getElementById('library-groups');if(!el)return;
     if(!data.length){el.innerHTML='<div class="empty-state"><p>Belum ada soal di library</p></div>';_updateLibBulkBar();return;}
     // Kelompokkan per kelompok soal (pola sama seperti Token Terpakai yang dikelompokkan per hari)
@@ -77,13 +82,18 @@ function toggleLibSelect(kode,checked){
     _updateLibBulkBar();
 }
 function toggleSelectAllLib(checked){
-    document.querySelectorAll('#library-groups .lib-row-check').forEach(cb=>{
-        cb.checked=checked;
-        if(checked)_libSelected.add(cb.dataset.kode);else _libSelected.delete(cb.dataset.kode);
-    });
-    document.querySelectorAll('#library-groups .swipe-card').forEach(card=>{
-        const kode=card.dataset.kode;if(!kode)return;
+    // Pakai SELURUH data hasil filter (_libFilteredCache) — semua grup, bukan cuma baris yang
+    // kebetulan lagi dirender virtual-scroll ke DOM — supaya "Pilih Semua" beneran pilih semua
+    // data (grup A 25 + grup B 50 = 75 tercentang), bukan cuma yang lagi kelihatan di layar.
+    _libFilteredCache.forEach(s=>{
+        const kode=s.kode||s.id;
         if(checked)_libSelected.add(kode);else _libSelected.delete(kode);
+    });
+    // DOM di sini cuma perlu disinkronkan buat baris yang KEBETULAN lagi ada di layar;
+    // baris lain otomatis kebawa checked/selected pas ke-scroll & dirender ulang (_libCardHtml/_libSwipeCardHtml
+    // baca dari _libSelected).
+    document.querySelectorAll('#library-groups .lib-row-check').forEach(cb=>{cb.checked=checked;});
+    document.querySelectorAll('#library-groups .swipe-card').forEach(card=>{
         card.querySelector('.swipe-card-body')?.classList.toggle('selected',checked);
     });
     _updateLibBulkBar();
@@ -109,8 +119,9 @@ function _updateLibBulkBar(){
     const cnt=document.getElementById('bulk-count-lib');if(cnt)cnt.textContent=n;
     const selAll=document.getElementById('lib-select-all');
     if(selAll){
-        const rows=Array.from(document.querySelectorAll('#library-groups .lib-row-check'));
-        selAll.checked=rows.length>0&&rows.every(cb=>_libSelected.has(cb.dataset.kode));
+        // Dicek terhadap SELURUH data hasil filter (_libFilteredCache), bukan cuma baris yang
+        // lagi ada di DOM — biar centang "Pilih Semua" akurat walau belum semua grup pernah discroll.
+        selAll.checked=_libFilteredCache.length>0&&_libFilteredCache.every(s=>_libSelected.has(s.kode||s.id));
     }
 }
 function deleteSelectedLibSoal(){

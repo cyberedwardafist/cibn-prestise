@@ -84,13 +84,22 @@ function toggleAkunSelect(role,kode,checked){
     _updateBulkBar(role);
 }
 function toggleSelectAllAkun(role,checked){
-    document.querySelectorAll(`#${role}-tbody .akun-row-check`).forEach(cb=>{
-        cb.checked=checked;
-        const set=_akunSelected[role];if(set){if(checked)set.add(cb.dataset.kode);else set.delete(cb.dataset.kode);}
-    });
+    // Pakai cache list HASIL FILTER per role (_adminListCache/_reviewListCache/_userListCache) —
+    // seluruh data, bukan cuma baris yang kebetulan lagi dirender virtual-scroll ke DOM — supaya
+    // "Pilih Semua" beneran pilih semua data (mis. grup A 25 + grup B 50 = 75 tercentang), bukan
+    // cuma yang lagi kelihatan di layar.
+    const list=role==='admin'?_adminListCache:role==='review'?_reviewListCache:_userListCache;
+    const set=_akunSelected[role];
+    if(set){
+        list.forEach(a=>{
+            const kode=a.kode||a.id;
+            if(checked)set.add(kode);else set.delete(kode);
+        });
+    }
+    // DOM di sini cuma perlu disinkronkan buat baris yang KEBETULAN lagi ada di layar; baris lain
+    // otomatis kebawa checked/selected pas ke-scroll & dirender ulang (baca dari _akunSelected).
+    document.querySelectorAll(`#${role}-tbody .akun-row-check`).forEach(cb=>{cb.checked=checked;});
     document.querySelectorAll(`#${role}-swipe-list .swipe-card`).forEach(card=>{
-        const kode=card.dataset.kode;if(!kode)return;
-        const set=_akunSelected[role];if(set){if(checked)set.add(kode);else set.delete(kode);}
         card.querySelector('.swipe-card-body')?.classList.toggle('selected',checked);
     });
     _updateBulkBar(role);
@@ -124,8 +133,10 @@ function _updateBulkBar(role){
     const cnt=document.getElementById(`bulk-count-${role}`);if(cnt)cnt.textContent=n;
     const selAll=document.getElementById(`${role}-select-all`);
     if(selAll){
-        const rows=Array.from(document.querySelectorAll(`#${role}-tbody .akun-row-check`));
-        selAll.checked=rows.length>0&&rows.every(cb=>set.has(cb.dataset.kode));
+        // Dicek terhadap SELURUH data hasil filter (list cache per role), bukan cuma baris yang
+        // lagi ada di DOM — biar centang "Pilih Semua" akurat walau belum semua data pernah discroll.
+        const list=role==='admin'?_adminListCache:role==='review'?_reviewListCache:_userListCache;
+        selAll.checked=list.length>0&&set&&list.every(a=>set.has(a.kode||a.id));
     }
 }
 let _bueRole='';
