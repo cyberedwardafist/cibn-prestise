@@ -137,3 +137,50 @@
   <div id="modul-kelompok-manage-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
   <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('modul-kelompok-overlay')">Tutup</button></div>
 </div></div>
+
+<!-- math-editor-overlay -->
+<div class="overlay" id="math-editor-overlay"><div class="modal modal-lg">
+  <div class="modal-header">
+    <div class="modal-title">Sisipkan Rumus Matematika</div>
+    <button class="modal-close" onclick="closeMathEditor()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <p style="font-size:12px;color:var(--text-sub);margin-bottom:14px">Klik tombol simbol, lalu isi angkanya langsung di kotak yang muncul di bawah. Gunakan tombol panah di keyboard untuk pindah antar bagian (pembilang/penyebut, dalam akar, dst) — tidak perlu mengetik kode apa pun.</p>
+  <div class="form-group">
+    <label class="form-label">Simbol</label>
+    <div class="math-symbol-grid">
+      <button type="button" class="math-sym-btn" title="Pecahan" onclick="mathCmd('/')">a/b</button>
+      <button type="button" class="math-sym-btn" title="Akar" onclick="mathCmd('\\sqrt')">√</button>
+      <button type="button" class="math-sym-btn" title="Akar pangkat n" onclick="mathCmd('\\sqrt[]{}','write')">ⁿ√</button>
+      <button type="button" class="math-sym-btn" title="Pangkat" onclick="mathCmd('^')">x&#x207F;</button>
+      <button type="button" class="math-sym-btn" title="Bawah (subscript)" onclick="mathCmd('_')">x&#x2099;</button>
+      <button type="button" class="math-sym-btn" title="Kali" onclick="mathCmd('\\times')">×</button>
+      <button type="button" class="math-sym-btn" title="Bagi" onclick="mathCmd('\\div')">÷</button>
+      <button type="button" class="math-sym-btn" title="Persen" onclick="mathCmd('\\%','write')">%</button>
+      <button type="button" class="math-sym-btn" title="Plus-minus" onclick="mathCmd('\\pm')">±</button>
+      <button type="button" class="math-sym-btn" title="Kurang dari sama dengan" onclick="mathCmd('\\leq')">≤</button>
+      <button type="button" class="math-sym-btn" title="Lebih dari sama dengan" onclick="mathCmd('\\geq')">≥</button>
+      <button type="button" class="math-sym-btn" title="Tidak sama dengan" onclick="mathCmd('\\neq')">≠</button>
+      <button type="button" class="math-sym-btn" title="Pi" onclick="mathCmd('\\pi')">π</button>
+      <button type="button" class="math-sym-btn" title="Derajat" onclick="mathCmd('^{\\circ}','write')">°</button>
+      <button type="button" class="math-sym-btn" title="Tak hingga" onclick="mathCmd('\\infty')">∞</button>
+      <button type="button" class="math-sym-btn" title="Sigma (penjumlahan)" onclick="mathCmd('\\sum')">Σ</button>
+      <button type="button" class="math-sym-btn" title="Kurung" onclick="mathCmd('()','write')">( )</button>
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Papan Rumus <span style="font-weight:400;color:var(--text-sub)">(klik di sini lalu ketik angka biasa)</span></label>
+    <div id="math-visual-field" class="math-visual-field" style="border:1.5px solid rgba(19,50,89,0.14);border-radius:12px;background:#fff;padding:14px;min-height:56px;display:flex;align-items:center"></div>
+  </div>
+  <div class="form-group">
+    <button type="button" class="btn btn-secondary btn-sm" onclick="toggleMathAdvanced()">⚙ Mode Lanjutan (ketik kode)</button>
+    <div id="math-advanced-wrap" style="display:none;margin-top:10px">
+      <label class="form-label">Kode LaTeX <span style="font-weight:400;color:var(--text-sub)">— untuk pola rumit/berulang, mis. akar bersarang</span></label>
+      <textarea id="math-latex-advanced" class="form-input" rows="2" style="font-family:'Courier New',monospace;font-size:13px;resize:vertical"></textarea>
+      <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="applyMathAdvancedInput()">Terapkan ke Papan Rumus</button>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-secondary" onclick="closeMathEditor()">Batal</button>
+    <button class="btn btn-primary" onclick="mathEditorInsert()">Sisipkan Rumus</button>
+  </div>
+</div></div>

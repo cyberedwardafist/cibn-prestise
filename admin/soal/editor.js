@@ -125,6 +125,16 @@ class RichEditor {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
             </button>
             <div class="rtb-sep"></div>
+            <!-- Table -->
+            <div class="rtb-table-wrap">
+                <button class="rtb-btn rtb-table-btn" title="Sisipkan Tabel">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                </button>
+                <div class="rtb-table-grid-pop"></div>
+            </div>
+            <!-- Math equation -->
+            <button class="rtb-btn rtb-math-btn" title="Sisipkan Rumus Matematika (pecahan, akar, pangkat, dll)" style="font-weight:700;font-size:12px;font-style:italic">√x</button>
+            <div class="rtb-sep"></div>
             <!-- Undo / Redo -->
             <button class="rtb-btn" data-cmd="undo" title="Undo (Ctrl+Z)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.65"/></svg>
@@ -156,6 +166,15 @@ class RichEditor {
             </select>
             <button class="rtb-btn rtb-img-apply" style="font-size:11px;padding:3px 8px">Terapkan</button>
             <button class="rtb-btn rtb-img-remove" style="font-size:11px;padding:3px 8px;color:var(--danger)">Hapus</button>
+        </div>
+        <!-- Table cell controls (hidden until cursor is inside a table) -->
+        <div class="rtb-tbl-controls" style="display:none">
+            <span style="font-size:11px;color:var(--text-sub)">Tabel:</span>
+            <button class="rtb-btn rtb-tbl-row-add" style="font-size:11px;padding:3px 8px">+ Baris</button>
+            <button class="rtb-btn rtb-tbl-col-add" style="font-size:11px;padding:3px 8px">+ Kolom</button>
+            <button class="rtb-btn rtb-tbl-row-del" style="font-size:11px;padding:3px 8px;color:var(--danger)">− Baris</button>
+            <button class="rtb-btn rtb-tbl-col-del" style="font-size:11px;padding:3px 8px;color:var(--danger)">− Kolom</button>
+            <button class="rtb-btn rtb-tbl-del" style="font-size:11px;padding:3px 8px;color:var(--danger)">Hapus Tabel</button>
         </div>
         `;
     }
@@ -197,6 +216,20 @@ class RichEditor {
                 this._deselectImg();
             }
         });
+
+        // Double-click rumus matematika (hasil dari math editor) → buka lagi untuk diedit
+        this.editor.addEventListener('dblclick', (e) => {
+            if (e.target.tagName === 'IMG' && e.target.dataset.editorMath === '1') {
+                e.preventDefault();
+                let latex = '';
+                try { latex = decodeURIComponent(e.target.dataset.latex || ''); } catch (err) { latex = e.target.dataset.latex || ''; }
+                openMathEditor(this, latex, e.target);
+            }
+        });
+
+        // Cursor masuk/keluar sel tabel → tampilkan/sembunyikan kontrol baris-kolom
+        this.editor.addEventListener('mouseup', () => this._updateTableControls());
+        this.editor.addEventListener('keyup', () => this._updateTableControls());
 
         this.editor.addEventListener('paste', (e) => {
             // Cek dulu apakah yang ditempel adalah gambar (screenshot, copy dari file explorer, dll)
@@ -321,6 +354,150 @@ class RichEditor {
                 if (this._selectedImg) { this._selectedImg.remove(); this._deselectImg(); if (this.options.onchange) this.options.onchange(this.getHTML()); }
             });
         }
+
+        // ── Table: grid-picker popover ──
+        this._buildTableGridPopover();
+        const tableBtn = this.toolbar.querySelector('.rtb-table-btn');
+        if (tableBtn) {
+            tableBtn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                const pop = this.toolbar.querySelector('.rtb-table-grid-pop');
+                const wasOpen = pop.classList.contains('open');
+                document.querySelectorAll('.rtb-table-grid-pop.open').forEach(p => p.classList.remove('open'));
+                if (!wasOpen) {
+                    this._tableInsertRange = this._getCurrentRange();
+                    pop.classList.add('open');
+                }
+            });
+        }
+
+        // ── Table: row/column controls ──
+        this.toolbar.querySelector('.rtb-tbl-row-add')?.addEventListener('mousedown', (e) => { e.preventDefault(); this._tblAddRow(); });
+        this.toolbar.querySelector('.rtb-tbl-col-add')?.addEventListener('mousedown', (e) => { e.preventDefault(); this._tblAddCol(); });
+        this.toolbar.querySelector('.rtb-tbl-row-del')?.addEventListener('mousedown', (e) => { e.preventDefault(); this._tblDelRow(); });
+        this.toolbar.querySelector('.rtb-tbl-col-del')?.addEventListener('mousedown', (e) => { e.preventDefault(); this._tblDelCol(); });
+        this.toolbar.querySelector('.rtb-tbl-del')?.addEventListener('mousedown', (e) => { e.preventDefault(); this._tblDelTable(); });
+
+        // ── Math equation button ──
+        this.toolbar.querySelector('.rtb-math-btn')?.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            openMathEditor(this, '', null);
+        });
+    }
+
+    // ══════════════ TABEL ══════════════
+    _getCurrentRange() {
+        const sel = document.getSelection();
+        if (sel && sel.rangeCount && this.editor.contains(sel.anchorNode)) return sel.getRangeAt(0).cloneRange();
+        const r = document.createRange();
+        r.selectNodeContents(this.editor);
+        r.collapse(false);
+        return r;
+    }
+
+    _buildTableGridPopover() {
+        const pop = this.toolbar.querySelector('.rtb-table-grid-pop');
+        if (!pop) return;
+        const MAXR = 8, MAXC = 8;
+        let html = '<div class="rtb-grid-label">Pilih ukuran tabel</div><div class="rtb-grid-cells">';
+        for (let r = 1; r <= MAXR; r++) {
+            for (let c = 1; c <= MAXC; c++) html += `<div class="rtb-grid-cell" data-r="${r}" data-c="${c}"></div>`;
+        }
+        html += '</div><div class="rtb-grid-size-label">1 x 1</div>';
+        pop.innerHTML = html;
+        const cells = pop.querySelectorAll('.rtb-grid-cell');
+        const sizeLabel = pop.querySelector('.rtb-grid-size-label');
+        cells.forEach(cell => {
+            const r = +cell.dataset.r, c = +cell.dataset.c;
+            cell.addEventListener('mouseenter', () => {
+                cells.forEach(cc => cc.classList.toggle('active', +cc.dataset.r <= r && +cc.dataset.c <= c));
+                sizeLabel.textContent = `${r} x ${c}`;
+            });
+            cell.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                this._insertTable(r, c);
+                pop.classList.remove('open');
+            });
+        });
+    }
+
+    _insertTable(rows, cols) {
+        this.editor.focus();
+        const sel = document.getSelection();
+        if (this._tableInsertRange) { sel.removeAllRanges(); sel.addRange(this._tableInsertRange); }
+        let html = '<table class="soal-editor-table" data-editor-table="1" style="border-collapse:collapse;width:100%;margin:8px 0"><tbody>';
+        for (let r = 0; r < rows; r++) {
+            html += '<tr>';
+            for (let c = 0; c < cols; c++) html += '<td style="border:1px solid rgba(19,50,89,0.3);padding:7px 10px;min-width:36px;vertical-align:top">&nbsp;</td>';
+            html += '</tr>';
+        }
+        html += '</tbody></table><p><br></p>';
+        document.execCommand('insertHTML', false, html);
+        if (this.options.onchange) this.options.onchange(this.getHTML());
+    }
+
+    _updateTableControls() {
+        const controls = this.toolbar.querySelector('.rtb-tbl-controls');
+        if (!controls) return;
+        const sel = document.getSelection();
+        let cell = null;
+        if (sel && sel.rangeCount) {
+            let node = sel.anchorNode;
+            if (node && node.nodeType === 3) node = node.parentElement;
+            cell = node && node.closest ? node.closest('td,th') : null;
+            if (cell && !this.editor.contains(cell)) cell = null;
+        }
+        this._activeCell = cell;
+        controls.style.display = cell ? 'flex' : 'none';
+    }
+
+    _tblAddRow() {
+        const cell = this._activeCell; if (!cell) return;
+        const row = cell.closest('tr'), table = cell.closest('table');
+        if (!row || !table) return;
+        const newRow = row.cloneNode(true);
+        Array.from(newRow.children).forEach(td => td.innerHTML = '&nbsp;');
+        row.after(newRow);
+        if (this.options.onchange) this.options.onchange(this.getHTML());
+    }
+    _tblAddCol() {
+        const cell = this._activeCell; if (!cell) return;
+        const table = cell.closest('table'); if (!table) return;
+        const idx = cell.cellIndex;
+        table.querySelectorAll('tr').forEach(tr => {
+            const ref = tr.children[idx];
+            if (!ref) return;
+            const nc = ref.cloneNode(true);
+            nc.innerHTML = '&nbsp;';
+            ref.after(nc);
+        });
+        if (this.options.onchange) this.options.onchange(this.getHTML());
+    }
+    _tblDelRow() {
+        const cell = this._activeCell; if (!cell) return;
+        const row = cell.closest('tr'), table = cell.closest('table');
+        if (!row || !table) return;
+        if (table.querySelectorAll('tr').length <= 1) { this._tblDelTable(); return; }
+        row.remove();
+        this._activeCell = null; this._updateTableControls();
+        if (this.options.onchange) this.options.onchange(this.getHTML());
+    }
+    _tblDelCol() {
+        const cell = this._activeCell; if (!cell) return;
+        const table = cell.closest('table'); if (!table) return;
+        const idx = cell.cellIndex;
+        const firstRow = table.querySelector('tr');
+        if (firstRow && firstRow.children.length <= 1) { this._tblDelTable(); return; }
+        table.querySelectorAll('tr').forEach(tr => { if (tr.children[idx]) tr.children[idx].remove(); });
+        this._activeCell = null; this._updateTableControls();
+        if (this.options.onchange) this.options.onchange(this.getHTML());
+    }
+    _tblDelTable() {
+        const cell = this._activeCell; if (!cell) return;
+        const table = cell.closest('table');
+        if (table) table.remove();
+        this._activeCell = null; this._updateTableControls();
+        if (this.options.onchange) this.options.onchange(this.getHTML());
     }
 
     _selectImg(img) {
@@ -442,6 +619,196 @@ class RichEditor {
     }
 }
 
+// Tutup popover grid tabel kalau klik di luar tombolnya
+document.addEventListener('mousedown', (e) => {
+    if (!e.target.closest || !e.target.closest('.rtb-table-wrap')) {
+        document.querySelectorAll('.rtb-table-grid-pop.open').forEach(p => p.classList.remove('open'));
+    }
+});
+
+/* =============================================
+   MATH EQUATION EDITOR
+   Papan rumus VISUAL (MathQuill) — klik tombol,
+   isi angka langsung di kotak yang muncul, panah
+   kiri/kanan/atas/bawah untuk pindah antar bagian
+   (pembilang/penyebut, dalam akar, dst). Tidak
+   perlu mengetik kode LaTeX sama sekali.
+   Hasil akhirnya dirender ulang dengan MathJax
+   (SVG) lalu disisipkan sebagai <img> mandiri
+   (data-URI) — jadi tetap tampil benar di
+   ujian/review/hasil tanpa perlu load library
+   tambahan di halaman-halaman itu. data-latex
+   disimpan di img supaya bisa diedit lagi nanti
+   (dobel-klik gambar rumus untuk buka lagi).
+   ============================================= */
+window._mathEd = { editor: null, savedRange: null, editingImg: null, _jaxReadyPromise: null, _mqReadyPromise: null, mq: null, mathField: null };
+
+function _ensureMathJaxLoaded() {
+    if (window.MathJax && window.MathJax.tex2svgPromise) return Promise.resolve();
+    if (window._mathEd._jaxReadyPromise) return window._mathEd._jaxReadyPromise;
+    window._mathEd._jaxReadyPromise = new Promise((resolve, reject) => {
+        const existing = document.getElementById('mathjax-svg-script');
+        if (existing) {
+            if (window.MathJax && window.MathJax.startup && window.MathJax.startup.promise) {
+                window.MathJax.startup.promise.then(resolve);
+            } else {
+                existing.addEventListener('load', () => {
+                    (window.MathJax?.startup?.promise || Promise.resolve()).then(resolve);
+                });
+            }
+            return;
+        }
+        const script = document.createElement('script');
+        script.id = 'mathjax-svg-script';
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js';
+        script.onload = () => {
+            (window.MathJax?.startup?.promise || Promise.resolve()).then(resolve);
+        };
+        script.onerror = () => reject(new Error('Gagal memuat MathJax'));
+        document.head.appendChild(script);
+    });
+    return window._mathEd._jaxReadyPromise;
+}
+
+// MathQuill butuh jQuery dimuat lebih dulu, baru mathquill.js + CSS-nya.
+function _ensureMathQuillLoaded() {
+    if (window.MathQuill) return Promise.resolve();
+    if (window._mathEd._mqReadyPromise) return window._mathEd._mqReadyPromise;
+    window._mathEd._mqReadyPromise = new Promise((resolve, reject) => {
+        const loadMathQuill = () => {
+            if (!document.getElementById('mathquill-css')) {
+                const link = document.createElement('link');
+                link.id = 'mathquill-css';
+                link.rel = 'stylesheet';
+                link.href = 'https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.9.1/mathquill.min.css';
+                document.head.appendChild(link);
+            }
+            if (window.MathQuill) { resolve(); return; }
+            const mqScript = document.createElement('script');
+            mqScript.id = 'mathquill-js';
+            mqScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.9.1/mathquill.min.js';
+            mqScript.onload = () => resolve();
+            mqScript.onerror = () => reject(new Error('Gagal memuat papan rumus'));
+            document.head.appendChild(mqScript);
+        };
+        if (window.jQuery) { loadMathQuill(); return; }
+        const existingJq = document.getElementById('mathquill-jquery');
+        if (existingJq) { existingJq.addEventListener('load', loadMathQuill); return; }
+        const jq = document.createElement('script');
+        jq.id = 'mathquill-jquery';
+        jq.src = 'https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js';
+        jq.onload = loadMathQuill;
+        jq.onerror = () => reject(new Error('Gagal memuat jQuery untuk papan rumus'));
+        document.head.appendChild(jq);
+    });
+    return window._mathEd._mqReadyPromise;
+}
+
+// "%" adalah karakter komentar di LaTeX — escape otomatis biar orang tidak
+// perlu tahu soal itu, baik saat ketik manual maupun dari papan rumus.
+function _mathEscapePercent(latex) {
+    return latex.replace(/([^\\])%/g, '$1\\%').replace(/^%/, '\\%');
+}
+
+async function openMathEditor(editorInstance, existingLatex, existingImg) {
+    window._mathEd.editor = editorInstance;
+    window._mathEd.editingImg = existingImg || null;
+    const sel = document.getSelection();
+    window._mathEd.savedRange = (sel && sel.rangeCount) ? sel.getRangeAt(0).cloneRange() : null;
+    if (typeof openModal === 'function') openModal('math-editor-overlay');
+    const box = document.getElementById('math-visual-field');
+    if (box) box.innerHTML = '<span style="color:var(--text-sub);font-size:12px">Memuat papan rumus...</span>';
+    const advWrap = document.getElementById('math-advanced-wrap');
+    if (advWrap) advWrap.style.display = 'none';
+    try {
+        await _ensureMathQuillLoaded();
+    } catch (e) {
+        if (box) box.innerHTML = '<span style="color:var(--danger);font-size:12px">Gagal memuat papan rumus (periksa koneksi internet)</span>';
+        return;
+    }
+    if (!window._mathEd.mq) window._mathEd.mq = MathQuill.getInterface(2);
+    if (box) {
+        box.innerHTML = '';
+        window._mathEd.mathField = window._mathEd.mq.MathField(box, {
+            spaceBehavesLikeTab: true,
+            handlers: { edit: () => _syncMathAdvancedInput() }
+        });
+    }
+    const mf = window._mathEd.mathField;
+    if (mf) { mf.latex(existingLatex || ''); setTimeout(() => mf.focus(), 150); }
+    _syncMathAdvancedInput();
+}
+
+function closeMathEditor() {
+    if (typeof closeModal === 'function') closeModal('math-editor-overlay');
+    window._mathEd.editor = null;
+    window._mathEd.editingImg = null;
+    window._mathEd.savedRange = null;
+}
+
+// Dipanggil oleh tombol-tombol simbol di modal. mode='write' untuk simbol
+// yang langsung ditulis apa adanya (mis. \times), tanpa mode berarti '\cmd'
+// yang membuat struktur dengan kotak isian (mis. pecahan, akar, pangkat).
+function mathCmd(latexCmd, mode) {
+    const mf = window._mathEd.mathField;
+    if (!mf) return;
+    if (mode === 'write') mf.write(latexCmd); else mf.cmd(latexCmd);
+    mf.focus();
+    _syncMathAdvancedInput();
+}
+
+// ── Mode lanjutan (opsional): ketik/lihat kode LaTeX langsung, untuk yang
+// sudah terbiasa atau butuh pola rumit berulang (mis. akar bersarang panjang).
+function toggleMathAdvanced() {
+    const wrap = document.getElementById('math-advanced-wrap');
+    if (!wrap) return;
+    const willShow = wrap.style.display === 'none' || !wrap.style.display;
+    wrap.style.display = willShow ? 'block' : 'none';
+    if (willShow) _syncMathAdvancedInput();
+}
+function _syncMathAdvancedInput() {
+    const ta = document.getElementById('math-latex-advanced');
+    if (ta && window._mathEd.mathField) ta.value = window._mathEd.mathField.latex();
+}
+function applyMathAdvancedInput() {
+    const ta = document.getElementById('math-latex-advanced');
+    if (ta && window._mathEd.mathField) window._mathEd.mathField.latex(ta.value);
+}
+
+async function mathEditorInsert() {
+    const mf = window._mathEd.mathField;
+    const latex = mf ? mf.latex().trim() : '';
+    if (!latex) { if (typeof showToast === 'function') showToast('Rumus masih kosong', 'danger'); return; }
+    let svgEl;
+    try {
+        await _ensureMathJaxLoaded();
+        const node = await window.MathJax.tex2svgPromise(_mathEscapePercent(latex), { display: false });
+        svgEl = node.querySelector('svg');
+    } catch (e) {
+        if (typeof showToast === 'function') showToast('Rumus tidak valid, periksa kembali', 'danger');
+        return;
+    }
+    if (!svgEl) return;
+    svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    const svgStr = new XMLSerializer().serializeToString(svgEl);
+    const dataUri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)));
+    const encLatex = encodeURIComponent(latex);
+    const imgHtml = `<img src="${dataUri}" data-editor-math="1" data-latex="${encLatex}" alt="rumus matematika" style="vertical-align:middle;display:inline-block;max-width:100%">`;
+
+    const st = window._mathEd;
+    if (st.editingImg && st.editingImg.isConnected) {
+        st.editingImg.outerHTML = imgHtml;
+        if (st.editor && st.editor.options.onchange) st.editor.options.onchange(st.editor.getHTML());
+    } else if (st.editor) {
+        st.editor.editor.focus();
+        const sel = document.getSelection();
+        if (st.savedRange) { sel.removeAllRanges(); sel.addRange(st.savedRange); }
+        document.execCommand('insertHTML', false, imgHtml);
+        if (st.editor.options.onchange) st.editor.options.onchange(st.editor.getHTML());
+    }
+    closeMathEditor();
+}
+
 /* ── EDITOR CSS (injected) ── */
 (function injectEditorCSS() {
     if (document.getElementById('rich-editor-css')) return;
@@ -559,6 +926,51 @@ class RichEditor {
     .rich-content a { color: #1a5aa0; text-decoration: underline; }
     .rich-content ul, .rich-content ol { padding-left: 24px; }
     .rich-content blockquote { border-left: 3px solid rgba(19,50,89,0.2); margin: 0; padding-left: 12px; color: rgba(19,50,89,0.6); }
+    .rich-content table { border-collapse: collapse; }
+    .rich-content table td, .rich-content table th { border: 1px solid rgba(19,50,89,0.3); padding: 7px 10px; min-width: 24px; }
+    .rich-content img[data-editor-math="1"] { cursor: pointer; border-radius: 4px; transition: outline 0.15s, background 0.15s; }
+    .rich-content img[data-editor-math="1"]:hover { outline: 2px dashed rgba(19,50,89,0.35); background: rgba(19,50,89,0.04); }
+
+    /* Table grid-picker popover */
+    .rtb-table-wrap { position: relative; display: inline-flex; }
+    .rtb-table-grid-pop {
+        display: none;
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        z-index: 30;
+        background: rgba(255,255,255,0.98);
+        border: 1.5px solid rgba(19,50,89,0.14);
+        border-radius: 10px;
+        box-shadow: 0 10px 28px rgba(19,50,89,0.18);
+        padding: 10px;
+        width: max-content;
+    }
+    .rtb-table-grid-pop.open { display: block; }
+    .rtb-grid-label { font-size: 11px; color: var(--text-sub); margin-bottom: 6px; font-weight: 600; }
+    .rtb-grid-cells { display: grid; grid-template-columns: repeat(8, 16px); grid-template-rows: repeat(8, 16px); gap: 2px; }
+    .rtb-grid-cell { width: 16px; height: 16px; border: 1px solid rgba(19,50,89,0.25); border-radius: 2px; background: rgba(19,50,89,0.03); cursor: pointer; }
+    .rtb-grid-cell.active { background: rgba(19,50,89,0.55); border-color: var(--blue, #133259); }
+    .rtb-grid-size-label { margin-top: 6px; font-size: 11px; font-weight: 700; color: var(--blue); text-align: center; }
+
+    /* Math quick-symbol picker (inside modal) */
+    .math-symbol-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+    .math-sym-btn {
+        min-width: 38px; height: 34px; padding: 0 8px;
+        border: 1.5px solid rgba(19,50,89,0.14);
+        border-radius: 8px;
+        background: rgba(19,50,89,0.03);
+        color: var(--blue, #133259);
+        font-size: 14px; font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+    }
+    .math-sym-btn:hover { background: rgba(19,50,89,0.1); border-color: rgba(19,50,89,0.3); }
+
+    /* MathQuill visual field */
+    .math-visual-field { min-height: 30px; }
+    .math-visual-field .mq-editable-field { font-size: 22px; min-width: 100%; border: none !important; box-shadow: none !important; padding: 4px !important; }
+    .math-visual-field .mq-editable-field.mq-focused { box-shadow: none !important; }
     `;
     document.head.appendChild(style);
 })();
