@@ -1,13 +1,16 @@
 // admin/analisa/analisa-token.js
-// Halaman ANALISA > TOKEN — menampilkan daftar TOKEN YANG TERGABUNG DALAM GRUP
-// SAJA (token tanpa grub_token disembunyikan), dengan search nama grup, filter
-// jangka waktu (Hari Ini / Minggu Ini / Bulan Ini / Custom), dan list yang
-// dipisah per tanggal — pola & markup-nya sama seperti "Token Terpakai" di CAT
-// (lihat admin/cat/token.js -> _tuGroupHtml/_renderTokenUsed), cuma sumber
-// datanya digabung (token aktif + token terpakai) lalu difilter grub_token saja.
+// Halaman ANALISA > TOKEN — menampilkan daftar GRUP TOKEN (token tanpa
+// grub_token disembunyikan), dengan search nama grup dan filter jangka waktu
+// (Hari Ini / Minggu Ini / Bulan Ini / Custom) berdasarkan tanggal dibuatnya
+// token. List DIRINGKAS per grup (bukan per token satu-satu) — tiap baris
+// grup menampilkan: nama grup, jumlah token digenerate, jumlah token
+// terpakai, masa aktivasi (tanggal awal - tanggal akhir), modul, dan status
+// grup. Sumber datanya digabung (token aktif + token terpakai) lalu
+// difilter grub_token saja, sama seperti sebelumnya.
 //
-// Klik salah satu token akan pindah ke halaman detail (admin/analisa/analisa-token-detail.js)
-// — file terpisah, isinya masih kosong (menyusul).
+// Klik salah satu grup akan pindah ke halaman detail
+// (admin/analisa/analisa-token-detail.js) — file terpisah, isinya masih
+// kosong (menyusul), sekarang membawa NAMA GRUP (bukan kode token tunggal).
 
 let _atData = [];
 let _atSearch = '';
@@ -56,24 +59,49 @@ function _setAtRange(range) {
     _renderAnalisaTokenList();
 }
 
-function _atGroupHtml(group) {
-    const items = group.items;
-    const label = group.key === '0000-00-00' ? 'Tanggal Tidak Diketahui' : new Date(group.key).toLocaleDateString('id-ID', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
-    const rows = items.map((tk, i) => `<tr style="cursor:pointer" onclick="openAnalisaTokenDetail('${tk.kode}')">
-        <td>${i+1}</td>
-        <td><code style="font-family:monospace;font-weight:700;color:var(--blue);font-size:12px">${tk.kode}</code></td>
-        <td style="font-size:12px">${tk.grub_token}</td>
-        <td class="hide-mobile" style="font-size:12px">${tk.modul_nama || tk.modul_kode || '-'}</td>
-        <td><span class="history-badge" style="${tk._dipakai ? 'background:rgba(22,163,74,.12);color:#16a34a' : 'background:rgba(19,50,89,.08);color:var(--text-sub)'}">${tk._dipakai ? 'Terpakai' : 'Belum'}</span></td>
-    </tr>`).join('');
-    const cards = items.map(tk => SwipeCards.buildSwipeCardHtml({
-        title: tk.kode,
-        sub: `${tk.grub_token} · ${tk.modul_nama || tk.modul_kode || '-'}`,
-        sideHtml: tk._dipakai ? '<span class="history-badge" style="background:rgba(22,163,74,.12);color:#16a34a">Terpakai</span>' : '<span class="history-badge" style="background:rgba(19,50,89,.08);color:var(--text-sub)">Belum</span>',
-        onTapAttr: `onclick="openAnalisaTokenDetail('${tk.kode}')"`
-    })).join('');
-    return `<div class="section-sub" style="font-weight:700;color:var(--blue);text-transform:none;margin:18px 0 8px">${label} <span style="font-weight:500;color:var(--text-sub);font-size:11px">(${items.length} token)</span></div>
-    <div class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table><thead><tr><th>#</th><th>Kode Token</th><th>Grup</th><th class="hide-mobile">Modul</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div><div class="swipe-list">${cards}</div></div>`;
+// Status ringkas 1 grup berdasarkan gabungan seluruh token di dalamnya —
+// TIDAK menampilkan token satu-satu, cukup 1 label yang mewakili kondisi grup.
+function _atStatusBadge(items) {
+    const total = items.length;
+    const used = items.filter(t => t._dipakai).length;
+    const now = Date.now();
+    const allExpired = total > 0 && items.every(t => t.expired && new Date(t.expired).getTime() < now);
+    if (total > 0 && used === total) return { label: 'Habis Terpakai', style: 'background:rgba(19,50,89,.08);color:var(--text-sub)' };
+    if (allExpired) return { label: 'Kadaluarsa', style: 'background:rgba(220,38,38,.12);color:#dc2626' };
+    if (used === 0) return { label: 'Belum Digunakan', style: 'background:rgba(19,50,89,.08);color:var(--text-sub)' };
+    return { label: 'Berjalan', style: 'background:rgba(37,99,235,.12);color:#2563eb' };
+}
+
+// Masa aktivasi grup = rentang tanggal aktivasi paling awal s/d expired paling akhir
+// dari seluruh token dalam grup itu (bukan per-token, cukup 1 rentang mewakili grup).
+function _atMasaAktivasi(items) {
+    const akts = items.map(t => t.aktivasi).filter(Boolean).map(v => new Date(v)).filter(d => !isNaN(d));
+    const exps = items.map(t => t.expired).filter(Boolean).map(v => new Date(v)).filter(d => !isNaN(d));
+    if (!akts.length && !exps.length) return '-';
+    const minA = akts.length ? new Date(Math.min.apply(null, akts.map(d => d.getTime()))) : null;
+    const maxE = exps.length ? new Date(Math.max.apply(null, exps.map(d => d.getTime()))) : null;
+    return `${_atFmt(minA)} – ${_atFmt(maxE)}`;
+}
+
+function _atModulLabel(items) {
+    const set = new Set(items.map(t => t.modul_nama || t.modul_kode).filter(Boolean));
+    return set.size ? Array.from(set).join(', ') : '-';
+}
+
+function _atEsc(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
+// 1 grup = 1 baris/kartu ringkasan: nama grup, jumlah digenerate, jumlah
+// terpakai, masa aktivasi, modul, status — bukan daftar semua token di grup itu.
+function _atGroupSummary(name, items) {
+    const total = items.length;
+    const used = items.filter(t => t._dipakai).length;
+    const st = _atStatusBadge(items);
+    return {
+        name, total, used,
+        masa: _atMasaAktivasi(items),
+        modul: _atModulLabel(items),
+        badge: `<span class="history-badge" style="${st.style}">${st.label}</span>`
+    };
 }
 
 function _renderAnalisaTokenList() {
@@ -101,16 +129,39 @@ function _renderAnalisaTokenList() {
     if (!wrap) return;
     if (!data.length) { wrap.innerHTML = '<div class="empty-state"><p>Tidak ada token bergrup ditemukan</p></div>'; return; }
 
-    const groups = {};
-    data.forEach(t => { const k = _atDateKey(t); (groups[k] = groups[k] || []).push(t); });
-    const dayKeys = Object.keys(groups).sort((a,b) => b.localeCompare(a));
+    // Kelompokkan berdasarkan NAMA GRUP (grub_token), bukan tanggal — setiap
+    // grup diringkas jadi 1 baris/kartu, walau isinya puluhan token.
+    const groupsMap = {};
+    data.forEach(t => { const k = t.grub_token; (groupsMap[k] = groupsMap[k] || []).push(t); });
+    const latestOf = items => Math.max.apply(null, items.map(t => new Date(t.created_at || t.token_created_at || 0).getTime() || 0));
+    const groupNames = Object.keys(groupsMap).sort((a, b) => latestOf(groupsMap[b]) - latestOf(groupsMap[a]));
 
-    wrap.innerHTML = dayKeys.map(k => _atGroupHtml({ key: k, items: groups[k] })).join('');
+    const summaries = groupNames.map(name => _atGroupSummary(name, groupsMap[name]));
+
+    const rows = summaries.map((g, i) => `<tr style="cursor:pointer" onclick="openAnalisaTokenDetail('${_atEsc(g.name)}')">
+        <td>${i+1}</td>
+        <td style="font-size:12px;font-weight:700;color:var(--blue)">${g.name}</td>
+        <td style="font-size:12px">${g.total}</td>
+        <td style="font-size:12px">${g.used}</td>
+        <td class="hide-mobile" style="font-size:11px">${g.masa}</td>
+        <td class="hide-mobile" style="font-size:12px">${g.modul}</td>
+        <td>${g.badge}</td>
+    </tr>`).join('');
+
+    const cards = summaries.map(g => SwipeCards.buildSwipeCardHtml({
+        title: g.name,
+        sub: `${g.used}/${g.total} terpakai · ${g.modul} · ${g.masa}`,
+        sideHtml: g.badge,
+        onTapAttr: `onclick="openAnalisaTokenDetail('${_atEsc(g.name)}')"`
+    })).join('');
+
+    wrap.innerHTML = `<div class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table><thead><tr><th>#</th><th>Nama Grup</th><th>Digenerate</th><th>Terpakai</th><th class="hide-mobile">Masa Aktivasi</th><th class="hide-mobile">Modul</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div><div class="swipe-list">${cards}</div></div>`;
     wrap.querySelectorAll('.swipe-list').forEach(el => { if (window.SwipeCards) SwipeCards.bindSwipeList(el); });
 }
 
-function openAnalisaTokenDetail(kode) {
-    window._analisaTokenDetailKode = kode;
+function openAnalisaTokenDetail(grup) {
+    window._analisaTokenDetailGrup = grup;
+    window._analisaTokenDetailItems = (_atData || []).filter(t => t.grub_token === grup);
     navigateTo('analisa-token-detail');
 }
 
