@@ -55,13 +55,8 @@ function _renderModulList(){
     data.forEach(m=>{ const k=m.kelompok||'__none__'; (groups[k]=groups[k]||[]).push(m); });
     const orderedKeys=[..._modulKelompokList.map(k=>k.kode).filter(k=>groups[k]), ...(groups.__none__?['__none__']:[])];
     const groupList=orderedKeys.map(k=>({key:k,label:k==='__none__'?'Tanpa Kelompok':_modulKelompokNama(k),items:groups[k]}));
-    VirtualList.renderGroups(el,{
-        items:groupList,
-        estimateHeight:(g)=>40+g.items.length*78,
-        renderItem:_modulGroupHtml,
-        emptyHtml:'<div class="empty-state"><p>Belum ada modul</p></div>',
-        onRendered:()=>{ if(window.SwipeCards)el.querySelectorAll('.swipe-list').forEach(sw=>SwipeCards.bindSwipeList(sw,_modulSelectOpts())); }
-    });
+    el.innerHTML=groupList.map(_modulGroupHtml).join('');
+    if(window.SwipeCards)el.querySelectorAll('.swipe-list').forEach(sw=>SwipeCards.bindSwipeList(sw,_modulSelectOpts()));
     _updateModulBulkBar();
 }
 

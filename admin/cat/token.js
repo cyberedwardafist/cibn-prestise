@@ -222,16 +222,8 @@ function _renderListToken(){
     const dayKeys=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
     const groupList=dayKeys.map(k=>({key:k,items:groups[k]}));
 
-    // Virtual scroll PER-GRUP-HARI: cuma grup yang lagi kelihatan + 1 layar buffer yang
-    // benar-benar dirender ke DOM. Estimasi tinggi tiap grup dari jumlah tokennya, biar
-    // grup hari ramai (banyak token) & grup hari sepi tetap dihitung proporsional.
-    VirtualList.renderGroups(wrap,{
-        items:groupList,
-        estimateHeight:(g)=>60+g.items.length*56,
-        renderItem:_ltGroupHtml,
-        emptyHtml:'<div class="empty-state"><p>Tidak ada token aktif</p></div>',
-        onRendered:()=>{ wrap.querySelectorAll('.swipe-list').forEach(el=>{ if(window.SwipeCards)SwipeCards.bindSwipeList(el); }); }
-    });
+    wrap.innerHTML=groupList.map(_ltGroupHtml).join('');
+    wrap.querySelectorAll('.swipe-list').forEach(el=>{ if(window.SwipeCards)SwipeCards.bindSwipeList(el); });
 }
 async function hapusListToken(kode){showConfirm('Hapus Token','Yakin hapus token ini?','danger',async()=>{await TokensAPI.delete(kode);showToast('Token dihapus','danger');await _initListToken();});}
 function openTokenQR(kode,modulKode){
@@ -380,16 +372,8 @@ function _renderTokenUsed(){
     const dayKeys=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
     const groupList=dayKeys.map(k=>({key:k,items:groups[k]}));
 
-    // Virtual scroll PER-GRUP-HARI — bagian ini paling rawan menumpuk karena TIDAK PERNAH
-    // dibersihkan otomatis (beda dengan List Token yang otomatis buang token expired).
-    // Data di sini terus bertambah selama aplikasi dipakai, jadi windowing di sini paling penting.
-    VirtualList.renderGroups(wrap,{
-        items:groupList,
-        estimateHeight:(g)=>60+g.items.length*56,
-        renderItem:_tuGroupHtml,
-        emptyHtml:'<div class="empty-state"><p>Tidak ada token terpakai</p></div>',
-        onRendered:()=>{ wrap.querySelectorAll('.swipe-list').forEach(el=>{ if(window.SwipeCards)SwipeCards.bindSwipeList(el); }); }
-    });
+    wrap.innerHTML=groupList.map(_tuGroupHtml).join('');
+    wrap.querySelectorAll('.swipe-list').forEach(el=>{ if(window.SwipeCards)SwipeCards.bindSwipeList(el); });
 }
 async function hapusTokenUsed(kode){showConfirm('Hapus Token','Yakin hapus data token ini? Riwayat pemakaiannya tidak lagi bisa dilihat dari sini.','danger',async()=>{await TokensAPI.delete(kode);showToast('Token dihapus','danger');await _initTokenUsed();});}
 function openTokenUsedData(kode){

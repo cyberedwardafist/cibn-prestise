@@ -27,17 +27,11 @@ async function renderAdminList(){
     const list=filterList(data,_adminSearch,['nama','email']);
     _adminListCache=list;
     const tb=document.getElementById('admin-tbody');if(!tb)return;
-    // Virtual scroll: cuma baris yang kelihatan + 1 layar buffer yang benar-benar dirender ke DOM,
-    // sisanya diwakili spacer kosong. Baris di-render ulang otomatis saat discroll.
-    VirtualList.render(tb,{items:list,rowHeight:52,tag:'tr',colSpan:6,
-        renderItem:_adminRowHtml,
-        emptyHtml:`<tr><td colspan="6"><div class="empty-state"><p>Belum ada akun admin</p></div></td></tr>`});
+    tb.innerHTML=list.length?list.map(_adminRowHtml).join(''):`<tr><td colspan="6"><div class="empty-state"><p>Belum ada akun admin</p></div></td></tr>`;
     const swEl=document.getElementById('admin-swipe-list');
     if(swEl&&window.SwipeCards){
-        VirtualList.render(swEl,{items:list,rowHeight:78,tag:'div',
-            renderItem:_adminCardHtml,
-            emptyHtml:'<div class="swipe-card-empty">Belum ada akun admin</div>',
-            onRendered:()=>SwipeCards.bindSwipeList(swEl,_akunSelectOpts('admin'))});
+        swEl.innerHTML=list.length?list.map(_adminCardHtml).join(''):'<div class="swipe-card-empty">Belum ada akun admin</div>';
+        SwipeCards.bindSwipeList(swEl,_akunSelectOpts('admin'));
     }
     _updateBulkBar('admin');
 }
@@ -61,15 +55,11 @@ async function renderReviewList(){
     const list=filterList(data,_reviewSearch,['nama','email']);
     _reviewListCache=list;
     const tb=document.getElementById('review-tbody');if(!tb)return;
-    VirtualList.render(tb,{items:list,rowHeight:52,tag:'tr',colSpan:6,
-        renderItem:_reviewRowHtml,
-        emptyHtml:`<tr><td colspan="6"><div class="empty-state"><p>Belum ada akun reviewer</p></div></td></tr>`});
+    tb.innerHTML=list.length?list.map(_reviewRowHtml).join(''):`<tr><td colspan="6"><div class="empty-state"><p>Belum ada akun reviewer</p></div></td></tr>`;
     const swEl=document.getElementById('review-swipe-list');
     if(swEl&&window.SwipeCards){
-        VirtualList.render(swEl,{items:list,rowHeight:78,tag:'div',
-            renderItem:_reviewCardHtml,
-            emptyHtml:'<div class="swipe-card-empty">Belum ada akun reviewer</div>',
-            onRendered:()=>SwipeCards.bindSwipeList(swEl,_akunSelectOpts('review'))});
+        swEl.innerHTML=list.length?list.map(_reviewCardHtml).join(''):'<div class="swipe-card-empty">Belum ada akun reviewer</div>';
+        SwipeCards.bindSwipeList(swEl,_akunSelectOpts('review'));
     }
     _updateBulkBar('review');
 }
@@ -257,15 +247,11 @@ async function renderUserList(){
     else if(_userGrubFilter!=='all')list=list.filter(u=>u.grub===_userGrubFilter);
     _userListCache=list;
     const tb=document.getElementById('user-tbody');if(!tb)return;
-    VirtualList.render(tb,{items:list,rowHeight:56,tag:'tr',colSpan:8,
-        renderItem:_userRowHtml,
-        emptyHtml:`<tr><td colspan="8"><div class="empty-state"><p>Belum ada user</p></div></td></tr>`});
+    tb.innerHTML=list.length?list.map(_userRowHtml).join(''):`<tr><td colspan="8"><div class="empty-state"><p>Belum ada user</p></div></td></tr>`;
     const swEl=document.getElementById('user-swipe-list');
     if(swEl&&window.SwipeCards){
-        VirtualList.render(swEl,{items:list,rowHeight:82,tag:'div',
-            renderItem:_userCardHtml,
-            emptyHtml:'<div class="swipe-card-empty">Belum ada user</div>',
-            onRendered:()=>SwipeCards.bindSwipeList(swEl,_akunSelectOpts('user'))});
+        swEl.innerHTML=list.length?list.map(_userCardHtml).join(''):'<div class="swipe-card-empty">Belum ada user</div>';
+        SwipeCards.bindSwipeList(swEl,_akunSelectOpts('user'));
     }
     _updateBulkBar('user');
 }

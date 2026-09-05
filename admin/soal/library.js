@@ -65,13 +65,8 @@ function _renderLibList(){
     data.forEach(s=>{ const k=s.kelompok||'__none__'; (groups[k]=groups[k]||[]).push(s); });
     const orderedKeys=[..._soalKelompokList.map(k=>k.kode).filter(k=>groups[k]), ...(groups.__none__?['__none__']:[])];
     const groupList=orderedKeys.map(k=>({key:k,label:k==='__none__'?'Tanpa Kelompok':_soalKelompokNama(k),items:groups[k]}));
-    VirtualList.renderGroups(el,{
-        items:groupList,
-        estimateHeight:(g)=>40+g.items.length*96,
-        renderItem:_libGroupHtml,
-        emptyHtml:'<div class="empty-state"><p>Belum ada soal di library</p></div>',
-        onRendered:()=>{ if(window.SwipeCards)el.querySelectorAll('.swipe-list').forEach(sw=>SwipeCards.bindSwipeList(sw,_libSelectOpts())); }
-    });
+    el.innerHTML=groupList.map(_libGroupHtml).join('');
+    if(window.SwipeCards)el.querySelectorAll('.swipe-list').forEach(sw=>SwipeCards.bindSwipeList(sw,_libSelectOpts()));
     _updateLibBulkBar();
 }
 
