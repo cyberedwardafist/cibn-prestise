@@ -33,21 +33,27 @@
 //     & ujian/hasil.js hitungHasil): grafik individual per-peserta untuk tipe
 //     ini SUDAH ADA di hasil.js (per kolom K1-K10: Dijawab/Benar/Salah, 1
 //     peserta). Di ANALISA GRUP ini datanya beda tujuan: bukan 1 peserta, tapi
-//     AGREGAT SELURUH PESERTA dalam grup token itu, supaya kelihatan pola
-//     pengerjaan kolektifnya — mis. kolom mana yang paling banyak DILEWATI
-//     (bukan cuma salah) di seluruh grup, indikasi kelelahan/attention-drop
-//     makin ke kolom belakang (pola klasik tes ber-kolom banyak spt ini).
-//     x = nomor kolom (K1..K10, urutan tetap sesuai desain admin), y = jumlah
-//     kesempatan-jawab digabung semua peserta, 3 garis per kolom: hijau =
-//     Benar, merah = Salah, abu-abu = Tidak Dijawab (di-skip).
+//     SEBARAN nilai SELURUH PESERTA dalam grup token itu per kolom — bukan 1
+//     angka agregat spt versi lama, tapi per kombinasi (kolom, nilai) berapa
+//     ORANG yang dapat nilai itu (mis. di kolom 1 ada 4 orang dapat Benar=10).
+//     Tiap kombinasi digambar sbg bola kecil berlabel jumlah orang, lalu
+//     ditarik garis MEDIAN (bukan rata-rata — supaya tahan thd nilai ekstrem/
+//     outlier, mis. 1 orang jatuh jauh di 1 kolom tidak menyeret garis turun
+//     jauh spt rata-rata) yang menyambung tiap kolom per kategori. 3 kategori:
+//     hijau = Benar, merah = Salah, biru = Jumlah Dijawab (Benar+Salah orang
+//     itu di kolom tsb) — pola makin ke kolom belakang makin turun/berat ke
+//     Salah jadi indikasi kelelahan/attention-drop kolektif grup.
 //
 // Interaksi: arahkan kursor (desktop) / sentuh (mobile) ke kolom soal mana
-// pun -> muncul popup diagram lingkaran (persen Benar/Salah, atau persen
-// per nilai) dekat kursor/titik sentuh. Sentuh/klik di luar popup menutupnya.
+// pun -> muncul popup dekat kursor/titik sentuh. Utk tipe Benar/Salah & Nilai/
+// Skor: diagram lingkaran (persen tiap kategori). Utk tipe Sikap Kerja: panel
+// ringkas median + rentang + jumlah orang per kategori (bukan pie, krn di sini
+// datanya sebaran per kategori, bukan proporsi dari 1 total yang sama).
+// Sentuh/klik di luar popup menutupnya.
 //
 // Data & pemetaan warna di bawah ini 100% dummy untuk contoh visual — saat
-// nanti disambung ke data asli, cukup ganti _ATD_DUMMY_BINARY /
-// _ATD_DUMMY_SKOR dengan hasil agregasi jawaban sungguhan per soal per grup.
+// nanti disambung ke data asli, cukup ganti _ATD_DUMMY_BINARY / _ATD_DUMMY_SKOR
+// / _ATD_DUMMY_SIKAP_RAW dengan hasil agregasi jawaban sungguhan per grup.
 
 function renderAnalisaTokenDetail() {
     const grup = window._analisaTokenDetailGrup || null;
@@ -80,20 +86,67 @@ const _ATD_DUMMY_SKOR = [
 const _ATD_SKOR_PALETTE = ['#2666b8','#dc2626','#d97706','#16a34a','#9333ea','#0891b2','#db2777','#64748b'];
 let _atdSkorColorMap = {};
 
-// Dummy: 10 kolom, agregat 20 peserta dalam grup, sengaja dipola makin ke
-// kolom belakang makin banyak Salah & Tidak Dijawab (demo pola kelelahan).
-const _ATD_DUMMY_SIKAP = [
-    { kolom: 1,  benar: 165, salah: 30, tidak: 5 },
-    { kolom: 2,  benar: 160, salah: 35, tidak: 5 },
-    { kolom: 3,  benar: 150, salah: 40, tidak: 10 },
-    { kolom: 4,  benar: 140, salah: 45, tidak: 15 },
-    { kolom: 5,  benar: 130, salah: 50, tidak: 20 },
-    { kolom: 6,  benar: 120, salah: 55, tidak: 25 },
-    { kolom: 7,  benar: 100, salah: 60, tidak: 40 },
-    { kolom: 8,  benar: 90,  salah: 65, tidak: 45 },
-    { kolom: 9,  benar: 80,  salah: 70, tidak: 50 },
-    { kolom: 10, benar: 70,  salah: 75, tidak: 55 }
-];
+// Dummy: 10 kolom x 15 "peserta", per peserta { benar, salah } (dijawab =
+// benar+salah). Deterministic (seed tetap, bukan Math.random()) supaya hasil
+// sama tiap reload — cuma demo visual, BUKAN data acak sungguhan. Dipola makin
+// ke kolom belakang makin banyak Salah (rasio benar turun) — demo pola
+// kelelahan kolektif grup.
+function _atdGenSikapRaw() {
+    const N_PESERTA = 15, N_KOLOM = 10, ITEM_PER_KOLOM = 12; // skala nilai 0–12 per kolom
+    let seed = 7;
+    const rnd = () => { seed = (seed * 48271) % 2147483647; return seed / 2147483647; };
+    const raw = [];
+    for (let k = 0; k < N_KOLOM; k++) {
+        const fatigue = k / (N_KOLOM - 1); // 0 (kolom awal) → 1 (kolom akhir)
+        const benarRatioBase = 0.9 - fatigue * 0.5; // makin belakang makin banyak salah
+        const dijawabBase = ITEM_PER_KOLOM - Math.round(fatigue * 2); // sedikit makin jarang dijawab penuh
+        const rows = [];
+        for (let p = 0; p < N_PESERTA; p++) {
+            const dijawab = Math.max(4, dijawabBase - Math.round(rnd() * 3));
+            const ratio = Math.min(1, Math.max(0, benarRatioBase + (rnd() - 0.5) * 0.35));
+            const benar = Math.round(dijawab * ratio);
+            rows.push({ benar, salah: dijawab - benar });
+        }
+        raw.push(rows);
+    }
+    // Kolom 8 (indeks 7): suntik 1 outlier rendah — contoh "median tahan
+    // outlier" (kebanyakan peserta lain tetap tinggi, 1 orang jatuh jauh,
+    // garis median tidak ikut terseret turun spt kalau pakai rata-rata).
+    raw[7][0] = { benar: 2, salah: 8 };
+    return raw;
+}
+const _ATD_DUMMY_SIKAP_RAW = _atdGenSikapRaw();
+
+function _atdDistFromRaw(raw, pick) {
+    return raw.map(rows => {
+        const dist = {};
+        rows.forEach(row => { const v = pick(row); dist[v] = (dist[v] || 0) + 1; });
+        return dist;
+    });
+}
+
+// Median tertimbang dari peta {nilai: jumlah_orang}. Kalau total orang genap,
+// median = rata-rata 2 nilai tengah (definisi median standar) — BUKAN
+// rata-rata SEMUA nilai, jadi tetap tahan thd outlier di ujung sebaran.
+function _atdWeightedMedian(dist) {
+    const entries = Object.entries(dist).map(([v, c]) => [Number(v), c]).filter(([, c]) => c > 0).sort((a, b) => a[0] - b[0]);
+    const total = entries.reduce((s, [, c]) => s + c, 0);
+    if (!total) return 0;
+    const targetLow = Math.ceil(total / 2);
+    const targetHigh = Math.floor(total / 2) + 1;
+    let cum = 0, low = null, high = null;
+    for (const [v, c] of entries) {
+        cum += c;
+        if (low === null && cum >= targetLow) low = v;
+        if (high === null && cum >= targetHigh) high = v;
+    }
+    return (low + high) / 2;
+}
+
+// Disimpan supaya popup (_atdRenderSikapStatPopup) bisa baca ulang tanpa
+// hitung ulang dari _ATD_DUMMY_SIKAP_RAW tiap hover.
+let _atdSikapDist = [];  // [{label,color,dist:[{nilai:jumlahOrang} per kolom]}]
+let _atdSikapCats = [];  // ['K1','K2',...]
 
 // ── HELPERS ──────────────────────────────────────────────────────────────
 function _atdNiceMax(v) { if (!isFinite(v) || v <= 5) return 5; return Math.ceil(v / 5) * 5; }
@@ -119,9 +172,10 @@ function _atdSkorLegendHtml(colorMap) {
 }
 
 function _atdSikapLegendHtml() {
-    return `<div class="atd-legend-item"><span class="atd-legend-dot" style="background:#16a34a"></span>Benar</div>
-            <div class="atd-legend-item"><span class="atd-legend-dot" style="background:#dc2626"></span>Salah</div>
-            <div class="atd-legend-item"><span class="atd-legend-dot" style="background:#94a3b8"></span>Tidak Dijawab</div>`;
+    return `<div class="atd-legend-item"><span class="atd-legend-dot" style="background:#16a34a"></span>Benar (median)</div>
+            <div class="atd-legend-item"><span class="atd-legend-dot" style="background:#dc2626"></span>Salah (median)</div>
+            <div class="atd-legend-item"><span class="atd-legend-dot" style="background:#2666b8"></span>Jumlah Dijawab (median)</div>
+            <div class="atd-legend-item"><span class="atd-legend-dot" style="background:#94a3b8;border-radius:50%"></span>Bola = jumlah orang per nilai</div>`;
 }
 
 // ── RENDER GRAFIK GARIS (SVG murni) ────────────────────────────────────────
@@ -176,56 +230,69 @@ function _atdBuildLineChart(containerId, opts) {
         <div class="atd-legend" id="${containerId}-legend"></div>`;
 }
 
-// ── RENDER GRAFIK AREA MENUMPUK 100% (SVG murni) ───────────────────────────
-// Dipakai utk data komposisi (3 kategori yg totalnya tetap per kolom, mis.
-// Benar+Salah+Tidak Dijawab = seluruh kesempatan jawab). Skala Y selalu 0–100%
-// supaya antar kolom langsung bisa dibandingkan proporsinya, dan pola
-// pergeseran (mis. area "Benar" menyusut ke kolom belakang) langsung terlihat
-// sbg bentuk, bukan hrs dibandingkan dr 3 garis terpisah.
-// series: array berurutan dari BAWAH ke ATAS, mis. [Benar, Salah, Tidak].
-function _atdBuildStackedAreaChart(containerId, opts) {
-    const { title, sub, categories, series, kind } = opts;
+// ── RENDER GRAFIK MEDIAN + SEBARAN (SVG murni) ─────────────────────────────
+// Dipakai khusus utk Sikap Kerja: tiap kategori (Benar/Salah/Jumlah Dijawab)
+// per kolom BUKAN 1 angka, tapi sebaran nilai antar peserta. catData:
+// [{label,color,dist:[{nilai:jumlahOrang} per kolom, urut sesuai categories]}].
+// Tiap (kolom,nilai) dgn jumlahOrang>0 digambar sbg bola kecil berlabel angka,
+// lalu ditarik garis MEDIAN per kategori yg menyambung tiap kolom — garis inilah
+// yang jadi fokus utama (digambar di atas bola2 sebaran) supaya pola/tren
+// kolektifnya langsung terlihat jelas tanpa tertarik outlier.
+function _atdBuildSikapMedianChart(containerId, opts) {
+    const { title, sub, categories, catData, kind } = opts;
     const width = 680, height = 300, left = 34, right = 16, top = 16, bottom = 40;
     const plotW = width - left - right, plotH = height - top - bottom;
     const N = categories.length;
     const slotW = plotW / N;
     const cx = i => left + i * slotW + slotW / 2;
-    const yAt = lvl => top + plotH - (lvl / 100) * plotH;
 
-    const totals = categories.map((_, i) => series.reduce((sum, s) => sum + s.values[i], 0));
-    let cum = categories.map(() => 0);
-    const levels = [];
-    series.forEach(s => {
-        cum = cum.map((c, i) => c + (totals[i] ? (s.values[i] / totals[i]) * 100 : 0));
-        levels.push(cum.slice());
-    });
+    let maxVal = 0;
+    catData.forEach(c => c.dist.forEach(d => Object.keys(d).forEach(v => { if (d[v] > 0) maxVal = Math.max(maxVal, Number(v)); })));
+    const yMax = _atdNiceMax(maxVal);
+    const cy = v => top + plotH - (yMax > 0 ? (v / yMax) * plotH : 0);
 
     let svgParts = '';
-    const steps = 4;
+    const steps = 5;
     for (let s = 0; s <= steps; s++) {
-        const val = Math.round(100 * s / steps);
+        const val = Math.round(yMax * s / steps);
         const y = top + plotH - (plotH * s / steps);
         svgParts += `<line class="atd-grid-line" x1="${left}" y1="${y}" x2="${left + plotW}" y2="${y}"></line>`;
-        svgParts += `<text class="atd-axis-label" x="${left - 6}" y="${y + 3}" text-anchor="end">${val}%</text>`;
+        svgParts += `<text class="atd-axis-label" x="${left - 6}" y="${y + 3}" text-anchor="end">${val}</text>`;
     }
     svgParts += `<line class="atd-axis-line" x1="${left}" y1="${top}" x2="${left}" y2="${top + plotH}"></line>`;
     svgParts += `<line class="atd-axis-line" x1="${left}" y1="${top + plotH}" x2="${left + plotW}" y2="${top + plotH}"></line>`;
 
-    // Pita area, dari bawah (level 0) ke atas (level ~100)
-    series.forEach((s, k) => {
-        const topLvl = levels[k];
-        const bottomLvl = k === 0 ? categories.map(() => 0) : levels[k - 1];
-        let d = '';
-        categories.forEach((_, i) => { d += (i === 0 ? 'M' : 'L') + `${cx(i).toFixed(1)},${yAt(topLvl[i]).toFixed(1)} `; });
-        for (let i = N - 1; i >= 0; i--) { d += `L${cx(i).toFixed(1)},${yAt(bottomLvl[i]).toFixed(1)} `; }
-        d += 'Z';
-        svgParts += `<path class="atd-area" d="${d}" fill="${s.color}"></path>`;
-        let lineD = '';
-        categories.forEach((_, i) => { lineD += (i === 0 ? 'M' : 'L') + `${cx(i).toFixed(1)},${yAt(topLvl[i]).toFixed(1)} `; });
-        svgParts += `<path class="atd-area-line" d="${lineD}" fill="none" stroke="${s.color}"></path>`;
+    // Geser kecil per kategori supaya bola 3 kategori di kolom yg sama tidak
+    // numpuk persis — sengaja kecil (±8px) biar tetap "cuma kelihatan aja",
+    // tidak mencolok, sesuai permintaan.
+    const mid = (catData.length - 1) / 2;
+    const offsets = catData.map((_, k) => (k - mid) * 8);
+
+    // 1) Bola sebaran — digambar dulu, jadi lapisan bawah
+    catData.forEach((c, k) => {
+        c.dist.forEach((d, i) => {
+            Object.entries(d).forEach(([val, count]) => {
+                if (!count) return;
+                const r = Math.min(9, 2.6 + Math.sqrt(count) * 1.6);
+                const px = cx(i) + offsets[k];
+                const py = cy(Number(val));
+                svgParts += `<circle class="atd-bubble" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${r.toFixed(1)}" fill="${c.color}"></circle>`;
+                svgParts += `<text class="atd-bubble-label" x="${px.toFixed(1)}" y="${(py + 2.5).toFixed(1)}">${count}</text>`;
+            });
+        });
     });
 
-    // Garis bantu + area sentuh per kolom (grup tetap dipakai utk popup persentase)
+    // 2) Garis median per kategori — digambar di atas bola, jadi fokus utama
+    const medians = catData.map(c => c.dist.map(d => _atdWeightedMedian(d)));
+    catData.forEach((c, k) => {
+        const pts = medians[k].map((m, i) => `${(cx(i) + offsets[k]).toFixed(1)},${cy(m).toFixed(1)}`).join(' ');
+        svgParts += `<polyline class="atd-median-line" points="${pts}" stroke="${c.color}" fill="none"></polyline>`;
+        medians[k].forEach((m, i) => {
+            svgParts += `<circle class="atd-median-dot" cx="${(cx(i) + offsets[k]).toFixed(1)}" cy="${cy(m).toFixed(1)}" r="4" fill="#fff" stroke="${c.color}"></circle>`;
+        });
+    });
+
+    // 3) Garis bantu + area sentuh per kolom (grup tetap dipakai utk popup median)
     categories.forEach((cat, i) => {
         svgParts += `<g class="atd-chart-group" data-idx="${i}" data-kind="${kind}">
             <rect class="atd-hit" x="${(left + i * slotW).toFixed(1)}" y="${top}" width="${slotW.toFixed(1)}" height="${plotH}"></rect>
@@ -240,13 +307,15 @@ function _atdBuildStackedAreaChart(containerId, opts) {
     el.innerHTML = `
         <div class="atd-chart-head">
             <div><div class="atd-chart-title">${title}</div><div class="atd-chart-sub">${sub}</div></div>
-            <div class="atd-chart-hint">Sentuh / arahkan kursor ke tiap kolom untuk lihat persentase</div>
+            <div class="atd-chart-hint">Sentuh / arahkan kursor ke tiap kolom untuk lihat median & sebarannya</div>
         </div>
         <div class="atd-chart-svg-wrap">${svg}</div>
         <div class="atd-legend" id="${containerId}-legend"></div>`;
 }
 
 // ── POPUP DIAGRAM LINGKARAN (donut, teknik stroke-dasharray) ────────────
+// Dipakai utk tipe Benar/Salah & Nilai/Skor (data komposisi/proporsi dari 1
+// total yang sama per kolom, jadi cocok jadi persen di pie).
 function _atdPieSvg(slices) {
     const r = 15.9155;
     let cum = 0;
@@ -271,19 +340,6 @@ function _atdSlicesFor(kind, idx) {
             ]
         };
     }
-    if (kind === 'sikap') {
-        const s = _ATD_DUMMY_SIKAP[idx];
-        const total = s.benar + s.salah + s.tidak;
-        const dijawab = s.benar + s.salah;
-        return {
-            title: `Kolom ${s.kolom} · ${dijawab} dijawab dari ${total} kesempatan`,
-            slices: [
-                { label: 'Benar', value: s.benar, pct: total ? Math.round(s.benar / total * 100) : 0, color: '#16a34a' },
-                { label: 'Salah', value: s.salah, pct: total ? Math.round(s.salah / total * 100) : 0, color: '#dc2626' },
-                { label: 'Tidak Dijawab', value: s.tidak, pct: total ? Math.round(s.tidak / total * 100) : 0, color: '#94a3b8' }
-            ]
-        };
-    }
     const s = _ATD_DUMMY_SKOR[idx];
     const entries = Object.entries(s.breakdown).filter(([, v]) => v > 0).sort((a, b) => b[0] - a[0]);
     const total = entries.reduce((sum, [, v]) => sum + v, 0);
@@ -298,6 +354,26 @@ function _atdRenderPiePopup(title, slices) {
     const pop = _atdGetPiePopEl();
     if (!pop) return;
     pop.innerHTML = `<div class="atd-pie-pop-title">${title}</div><div class="atd-pie-pop-body">${_atdPieSvg(slices)}<div class="atd-pie-pop-legend">${legend}</div></div>`;
+}
+
+// ── POPUP STAT (median/rentang/jumlah orang) — khusus Sikap Kerja ─────────
+// Bukan pie krn di sini tiap kategori punya sebaran & skala sendiri2, bukan
+// proporsi dari 1 total yang sama, jadi disajikan sbg ringkasan per kategori.
+function _atdRenderSikapStatPopup(idx) {
+    const kolomLabel = _atdSikapCats[idx] || `#${idx + 1}`;
+    const rows = _atdSikapDist.map(c => {
+        const dist = c.dist[idx] || {};
+        const entries = Object.entries(dist).map(([v, cnt]) => [Number(v), cnt]).filter(([, cnt]) => cnt > 0).sort((a, b) => a[0] - b[0]);
+        const n = entries.reduce((s, [, cnt]) => s + cnt, 0);
+        const min = entries.length ? entries[0][0] : 0;
+        const max = entries.length ? entries[entries.length - 1][0] : 0;
+        const median = _atdWeightedMedian(dist);
+        return `<div class="atd-pie-pop-row"><span class="atd-legend-dot" style="background:${c.color}"></span><span>${c.label}</span><b>Median ${median}</b></div>
+                <div class="atd-pie-pop-sub">Rentang ${min}–${max} · n=${n} orang</div>`;
+    }).join('');
+    const pop = _atdGetPiePopEl();
+    if (!pop) return;
+    pop.innerHTML = `<div class="atd-pie-pop-title">Kolom ${kolomLabel}</div><div class="atd-pie-pop-body atd-pie-pop-body-stat">${rows}</div>`;
 }
 
 // #atd-pie-pop dipindah ke <body> (bukan dibiarkan di dalam .page) karena
@@ -330,8 +406,12 @@ function _atdPositionPiePopup(evt) {
 
 let _atdActiveGroup = null;
 function _atdShowPie(evt, groupEl, kind, idx) {
-    const { title, slices } = _atdSlicesFor(kind, idx);
-    _atdRenderPiePopup(title, slices);
+    if (kind === 'sikap') {
+        _atdRenderSikapStatPopup(idx);
+    } else {
+        const { title, slices } = _atdSlicesFor(kind, idx);
+        _atdRenderPiePopup(title, slices);
+    }
     _atdPositionPiePopup(evt);
     const pop = document.getElementById('atd-pie-pop');
     if (pop) pop.style.display = 'block';
@@ -407,20 +487,22 @@ function _atdRenderDummyCharts() {
     if (legS) legS.innerHTML = _atdSkorLegendHtml(_atdSkorColorMap);
     _atdBindChartEvents('atd-chart-skor', 'skor');
 
-    // 3) Tipe Sikap Kerja — agregat seluruh peserta dalam grup, per kolom.
-    // Disajikan sbg area menumpuk 100% (bukan garis terpisah) krn Benar+Salah+
-    // Tidak Dijawab = total tetap tiap kolom -> ini data komposisi, jadi pola
-    // "area Benar menyusut ke kolom belakang" langsung kelihatan bentuknya.
-    const catsK = _ATD_DUMMY_SIKAP.map(s => 'K' + s.kolom);
-    const seriesK = [
-        { label: 'Benar', color: '#16a34a', values: _ATD_DUMMY_SIKAP.map(s => s.benar) },
-        { label: 'Salah', color: '#dc2626', values: _ATD_DUMMY_SIKAP.map(s => s.salah) },
-        { label: 'Tidak Dijawab', color: '#94a3b8', values: _ATD_DUMMY_SIKAP.map(s => s.tidak) }
+    // 3) Tipe Sikap Kerja — sebaran nilai antar peserta per kolom (Benar/
+    // Salah/Jumlah Dijawab), digambar sbg bola kecil + garis median per
+    // kategori (lihat komentar _atdBuildSikapMedianChart).
+    const distBenar = _atdDistFromRaw(_ATD_DUMMY_SIKAP_RAW, r => r.benar);
+    const distSalah = _atdDistFromRaw(_ATD_DUMMY_SIKAP_RAW, r => r.salah);
+    const distDijawab = _atdDistFromRaw(_ATD_DUMMY_SIKAP_RAW, r => r.benar + r.salah);
+    _atdSikapCats = _ATD_DUMMY_SIKAP_RAW.map((_, i) => 'K' + (i + 1));
+    _atdSikapDist = [
+        { label: 'Benar', color: '#16a34a', dist: distBenar },
+        { label: 'Salah', color: '#dc2626', dist: distSalah },
+        { label: 'Jumlah Dijawab', color: '#2666b8', dist: distDijawab }
     ];
-    _atdBuildStackedAreaChart('atd-chart-sikap', {
-        title: 'Grafik Sikap Kerja — Agregat Grup, Per Kolom (dummy)',
-        sub: 'Proporsi 100% tiap kolom, supaya pergeseran benar → salah/dilewati antar kolom terlihat jelas',
-        categories: catsK, series: seriesK, kind: 'sikap'
+    _atdBuildSikapMedianChart('atd-chart-sikap', {
+        title: 'Grafik Sikap Kerja — Median & Sebaran, Per Kolom (dummy)',
+        sub: 'Tiap bola = jumlah orang yang dapat nilai itu; garis = median (bukan rata-rata) tiap kategori per kolom',
+        categories: _atdSikapCats, catData: _atdSikapDist, kind: 'sikap'
     });
     const legK = document.getElementById('atd-chart-sikap-legend');
     if (legK) legK.innerHTML = _atdSikapLegendHtml();

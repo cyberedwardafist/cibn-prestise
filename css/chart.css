@@ -25,6 +25,12 @@
 .atd-chart-group:hover .atd-hover-guide,
 .atd-chart-group.atd-active .atd-hover-guide{opacity:1}
 
+/* Sikap Kerja: bola sebaran (kecil, tidak mencolok) + garis median (fokus utama) */
+.atd-bubble{opacity:.3;pointer-events:none}
+.atd-bubble-label{font-size:7px;font-family:var(--font-body);text-anchor:middle;fill:var(--text-main);pointer-events:none;user-select:none}
+.atd-median-line{stroke-width:2.6;fill:none}
+.atd-median-dot{stroke-width:2.2;pointer-events:none}
+
 .atd-axis-line{stroke:rgba(19,50,89,.14);stroke-width:1}
 .atd-grid-line{stroke:rgba(19,50,89,.08);stroke-width:1;stroke-dasharray:3 3}
 .atd-axis-label{fill:var(--text-sub);font-size:9px;font-family:var(--font-body)}
@@ -44,6 +50,10 @@
 .atd-pie-pop-row .atd-legend-dot{width:8px;height:8px;border-radius:50%}
 .atd-pie-pop-row b{margin-left:auto;color:var(--blue);font-weight:700;white-space:nowrap}
 .atd-pie-pop-pct{color:var(--text-sub);font-weight:500;font-size:10px}
+
+/* Varian popup Sikap Kerja: daftar median/rentang per kategori, bukan donut */
+.atd-pie-pop-body-stat{display:block}
+.atd-pie-pop-sub{font-size:9px;color:var(--text-sub);margin:-2px 0 6px 15px}
 
 @media (max-width:520px){
     .atd-pie-pop{width:180px}
