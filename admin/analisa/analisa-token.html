@@ -1,0 +1,25 @@
+  <div class="section-title">Analisa · Token</div>
+  <div class="section-sub">Daftar token yang tergabung dalam grup token</div>
+
+  <div class="form-group" style="margin-bottom:10px">
+    <input id="at-search" class="form-input" type="text" placeholder="Cari nama grup token..." oninput="_atSearch=this.value;_renderAnalisaTokenList()">
+  </div>
+
+  <div class="sub-tabs" style="margin-bottom:10px">
+    <button class="sub-tab active" data-range="semua" onclick="_setAtRange('semua')" style="flex:1;min-width:80px">Semua</button>
+    <button class="sub-tab" data-range="hari_ini" onclick="_setAtRange('hari_ini')" style="flex:1;min-width:80px">Hari Ini</button>
+    <button class="sub-tab" data-range="minggu_ini" onclick="_setAtRange('minggu_ini')" style="flex:1;min-width:80px">Minggu Ini</button>
+    <button class="sub-tab" data-range="bulan_ini" onclick="_setAtRange('bulan_ini')" style="flex:1;min-width:80px">Bulan Ini</button>
+    <button class="sub-tab" data-range="custom" onclick="_setAtRange('custom')" style="flex:1;min-width:80px">Custom</button>
+  </div>
+
+  <!-- Kalender custom (murni CSS+JS sendiri, TIDAK pakai <input type="date"> bawaan browser) -->
+  <div id="at-custom-wrap" style="display:none;margin-bottom:14px">
+    <div class="cal-daterange-wrap">
+      <div class="cal-widget" id="at-cal-from"></div>
+      <div class="cal-widget" id="at-cal-to"></div>
+    </div>
+    <div class="cal-daterange-summary" id="at-cal-summary"></div>
+  </div>
+
+  <div id="analisa-token-groups"></div>
