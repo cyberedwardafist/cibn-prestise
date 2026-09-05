@@ -47,7 +47,7 @@ function renderPage(id, subId) {
         // jadi langsung ReferenceError sebelum sempat cek map[id]. Dengan string +
         // window[...], cuma nama fungsi utk id yang sedang aktif yang di-resolve,
         // dan modul-nya sudah pasti sudah dimuat oleh ensureAdminPageModule di atas.
-        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul' };
+        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', analisa:'renderAnalisa' };
         const fn = map[id] && window[map[id]];
         if (typeof fn === 'function') fn();
         if (subId) switchSubPage(id, subId);
@@ -90,6 +90,7 @@ const ADMIN_PAGE_MODULES = {
     'ebook-library': { html: 'admin/ebook/ebook-library.html',  js: ['admin/ebook/ebook.js'], modals: 'admin/ebook/ebook-modals.html' },
     'ebook-modul':   { html: 'admin/ebook/ebook-modul.html',    js: ['admin/ebook/ebook.js'], modals: 'admin/ebook/ebook-modals.html' },
     landing:         { html: 'admin/landing/landing.html',      js: ['admin/landing/landing.js'], modals: 'admin/landing/landing-modals.html' },
+    analisa:         { html: 'admin/analisa/analisa.html',      js: ['admin/analisa/analisa.js'] },
     // Form Tambah/Edit Paket dipisah dari keuangan.js/keuangan-modals.html jadi
     // admin/keuangan/paket-form.js + admin/keuangan/paket-form.html (tampil
     // fullscreen) — biar file keuangan.js tetap ringan tiap kali cuma form
