@@ -361,12 +361,13 @@ class RichEditor {
         if (tableBtn) {
             tableBtn.addEventListener('mousedown', (e) => {
                 e.preventDefault();
-                const pop = this.toolbar.querySelector('.rtb-table-grid-pop');
+                const pop = this._tableGridPop;
+                if (!pop) return;
                 const wasOpen = pop.classList.contains('open');
                 document.querySelectorAll('.rtb-table-grid-pop.open').forEach(p => p.classList.remove('open'));
                 if (!wasOpen) {
                     this._tableInsertRange = this._getCurrentRange();
-                    pop.classList.add('open');
+                    this._openTableGridPop(tableBtn);
                 }
             });
         }
@@ -398,6 +399,7 @@ class RichEditor {
     _buildTableGridPopover() {
         const pop = this.toolbar.querySelector('.rtb-table-grid-pop');
         if (!pop) return;
+        this._tableGridPop = pop; // simpan referensi: elemen ini akan dipindah ke <body> saat dibuka
         const MAXR = 8, MAXC = 8;
         let html = '<div class="rtb-grid-label">Pilih ukuran tabel</div><div class="rtb-grid-cells">';
         for (let r = 1; r <= MAXR; r++) {
@@ -419,6 +421,34 @@ class RichEditor {
                 pop.classList.remove('open');
             });
         });
+    }
+
+    // Popover grid tabel sebelumnya diposisikan `position:absolute` di dalam
+    // `.rich-editor-wrap`, sedangkan wrap itu punya `overflow:hidden` — jadi
+    // separuh grid kepotong kalau tombol tabelnya dekat tepi bawah/kanan area
+    // editor (lihat laporan bug). Solusinya: pindahkan popover ke <body> dan
+    // pakai `position:fixed` dengan koordinat dihitung dari posisi tombol,
+    // supaya lolos dari elemen induk manapun yang overflow-nya hidden/auto
+    // (termasuk modal itu sendiri).
+    _openTableGridPop(btn) {
+        const pop = this._tableGridPop;
+        if (!pop || !btn) return;
+        if (pop.parentElement !== document.body) document.body.appendChild(pop);
+        pop.classList.add('open');
+        const r = btn.getBoundingClientRect();
+        const popRect = pop.getBoundingClientRect();
+        let top = r.bottom + 6;
+        let left = r.left;
+        // Jaga supaya tidak keluar dari tepi kanan layar
+        if (left + popRect.width > window.innerWidth - 8) {
+            left = Math.max(8, window.innerWidth - popRect.width - 8);
+        }
+        // Kalau tidak cukup ruang di bawah tombol, tampilkan di atas tombol
+        if (top + popRect.height > window.innerHeight - 8) {
+            top = Math.max(8, r.top - popRect.height - 6);
+        }
+        pop.style.top = top + 'px';
+        pop.style.left = left + 'px';
     }
 
     _insertTable(rows, cols) {
@@ -619,12 +649,20 @@ class RichEditor {
     }
 }
 
-// Tutup popover grid tabel kalau klik di luar tombolnya
+// Tutup popover grid tabel kalau klik di luar tombolnya ATAU di luar popovernya
+// sendiri (popover sekarang bisa dipindah ke <body>, jadi dua-duanya dicek).
 document.addEventListener('mousedown', (e) => {
-    if (!e.target.closest || !e.target.closest('.rtb-table-wrap')) {
+    if (!e.target.closest) return;
+    if (!e.target.closest('.rtb-table-wrap') && !e.target.closest('.rtb-table-grid-pop')) {
         document.querySelectorAll('.rtb-table-grid-pop.open').forEach(p => p.classList.remove('open'));
     }
 });
+// Tutup juga kalau ada scroll (di window atau di dalam modal yang scrollable) —
+// posisinya fixed berdasarkan koordinat saat dibuka, jadi tidak ikut mengikuti
+// scroll; daripada salah posisi, popovernya ditutup saja.
+document.addEventListener('scroll', () => {
+    document.querySelectorAll('.rtb-table-grid-pop.open').forEach(p => p.classList.remove('open'));
+}, true);
 
 /* =============================================
    MATH EQUATION EDITOR
@@ -646,7 +684,7 @@ window._mathEd = { editor: null, savedRange: null, editingImg: null, _jaxReadyPr
 function _ensureMathJaxLoaded() {
     if (window.MathJax && window.MathJax.tex2svgPromise) return Promise.resolve();
     if (window._mathEd._jaxReadyPromise) return window._mathEd._jaxReadyPromise;
-    window._mathEd._jaxReadyPromise = new Promise((resolve, reject) => {
+    const promise = new Promise((resolve, reject) => {
         const existing = document.getElementById('mathjax-svg-script');
         if (existing) {
             if (window.MathJax && window.MathJax.startup && window.MathJax.startup.promise) {
@@ -655,6 +693,7 @@ function _ensureMathJaxLoaded() {
                 existing.addEventListener('load', () => {
                     (window.MathJax?.startup?.promise || Promise.resolve()).then(resolve);
                 });
+                existing.addEventListener('error', () => reject(new Error('Gagal memuat MathJax')));
             }
             return;
         }
@@ -667,14 +706,24 @@ function _ensureMathJaxLoaded() {
         script.onerror = () => reject(new Error('Gagal memuat MathJax'));
         document.head.appendChild(script);
     });
-    return window._mathEd._jaxReadyPromise;
+    // PENTING: kalau gagal (mis. koneksi putus sesaat), JANGAN simpan Promise yang
+    // sudah reject ini selamanya — sebelumnya ini menyebabkan fitur rumus mati
+    // total untuk sisa sesi begitu sekali gagal load, meski koneksi sudah pulih.
+    // Bersihkan cache + tag script yang gagal supaya percobaan berikutnya benar-benar
+    // mengambil ulang dari CDN.
+    promise.catch(() => {
+        window._mathEd._jaxReadyPromise = null;
+        document.getElementById('mathjax-svg-script')?.remove();
+    });
+    window._mathEd._jaxReadyPromise = promise;
+    return promise;
 }
 
 // MathQuill butuh jQuery dimuat lebih dulu, baru mathquill.js + CSS-nya.
 function _ensureMathQuillLoaded() {
     if (window.MathQuill) return Promise.resolve();
     if (window._mathEd._mqReadyPromise) return window._mathEd._mqReadyPromise;
-    window._mathEd._mqReadyPromise = new Promise((resolve, reject) => {
+    const promise = new Promise((resolve, reject) => {
         const loadMathQuill = () => {
             if (!document.getElementById('mathquill-css')) {
                 const link = document.createElement('link');
@@ -693,7 +742,11 @@ function _ensureMathQuillLoaded() {
         };
         if (window.jQuery) { loadMathQuill(); return; }
         const existingJq = document.getElementById('mathquill-jquery');
-        if (existingJq) { existingJq.addEventListener('load', loadMathQuill); return; }
+        if (existingJq) {
+            existingJq.addEventListener('load', loadMathQuill);
+            existingJq.addEventListener('error', () => reject(new Error('Gagal memuat jQuery untuk papan rumus')));
+            return;
+        }
         const jq = document.createElement('script');
         jq.id = 'mathquill-jquery';
         jq.src = 'https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js';
@@ -701,16 +754,32 @@ function _ensureMathQuillLoaded() {
         jq.onerror = () => reject(new Error('Gagal memuat jQuery untuk papan rumus'));
         document.head.appendChild(jq);
     });
-    return window._mathEd._mqReadyPromise;
+    // Sama seperti MathJax di atas: jangan simpan Promise gagal secara permanen,
+    // supaya user bisa buka-tutup lagi modalnya dan sistem coba ambil ulang.
+    promise.catch(() => {
+        window._mathEd._mqReadyPromise = null;
+        document.getElementById('mathquill-jquery')?.remove();
+        document.getElementById('mathquill-js')?.remove();
+    });
+    window._mathEd._mqReadyPromise = promise;
+    return promise;
 }
 
 // "%" adalah karakter komentar di LaTeX — escape otomatis biar orang tidak
 // perlu tahu soal itu, baik saat ketik manual maupun dari papan rumus.
 function _mathEscapePercent(latex) {
-    return latex.replace(/([^\\])%/g, '$1\\%').replace(/^%/, '\\%');
+    // Pakai negative lookbehind supaya "%" beruntun (mis. "%%") ikut ter-escape
+    // semua — versi lama (konsumsi 1 karakter sebelum "%") melewatkan "%" kedua
+    // pada kasus seperti itu.
+    return latex.replace(/(?<!\\)%/g, '\\%');
 }
 
 async function openMathEditor(editorInstance, existingLatex, existingImg) {
+    // Token unik per-panggilan: kalau modal ini keburu ditutup / dibuka ulang
+    // sebelum proses loading (async) selesai, hasil loading yang "basi" itu
+    // tidak akan menimpa state atau merebut fokus secara tidak terduga.
+    const token = {};
+    window._mathEd._openToken = token;
     window._mathEd.editor = editorInstance;
     window._mathEd.editingImg = existingImg || null;
     const sel = document.getSelection();
@@ -720,12 +789,16 @@ async function openMathEditor(editorInstance, existingLatex, existingImg) {
     if (box) box.innerHTML = '<span style="color:var(--text-sub);font-size:12px">Memuat papan rumus...</span>';
     const advWrap = document.getElementById('math-advanced-wrap');
     if (advWrap) advWrap.style.display = 'none';
+    const ta = document.getElementById('math-latex-advanced');
+    if (ta) ta.value = '';
     try {
         await _ensureMathQuillLoaded();
     } catch (e) {
-        if (box) box.innerHTML = '<span style="color:var(--danger);font-size:12px">Gagal memuat papan rumus (periksa koneksi internet)</span>';
+        if (window._mathEd._openToken !== token) return;
+        if (box) box.innerHTML = '<span style="color:var(--danger);font-size:12px">Gagal memuat papan rumus (periksa koneksi internet). Tutup lalu buka lagi untuk coba ulang.</span>';
         return;
     }
+    if (window._mathEd._openToken !== token) return; // modal sudah ditutup/diganti sebelum loading selesai
     if (!window._mathEd.mq) window._mathEd.mq = MathQuill.getInterface(2);
     if (box) {
         box.innerHTML = '';
@@ -735,23 +808,56 @@ async function openMathEditor(editorInstance, existingLatex, existingImg) {
         });
     }
     const mf = window._mathEd.mathField;
-    if (mf) { mf.latex(existingLatex || ''); setTimeout(() => mf.focus(), 150); }
+    if (mf) {
+        mf.latex(existingLatex || '');
+        // Coba fokuskan beberapa kali (bukan cuma sekali di 150ms) — modal butuh
+        // waktu animasi untuk muncul, dan kalau sistem modal punya focus-trap
+        // sendiri yang jalan belakangan, fokus ke papan rumus bisa "direbut
+        // balik" sehingga user tidak bisa langsung mengetik angka.
+        const tryFocus = (n) => {
+            if (window._mathEd._openToken !== token) return;
+            mf.focus();
+            if (n > 0) setTimeout(() => tryFocus(n - 1), 120);
+        };
+        tryFocus(4);
+    }
     _syncMathAdvancedInput();
 }
 
 function closeMathEditor() {
     if (typeof closeModal === 'function') closeModal('math-editor-overlay');
+    window._mathEd._openToken = null;
     window._mathEd.editor = null;
     window._mathEd.editingImg = null;
     window._mathEd.savedRange = null;
+    window._mathEd.mathField = null;
 }
+
+// Jaring pengaman: kalau modal math-editor ditutup lewat cara lain (klik area
+// gelap di luar kotak modal, atau tombol Escape) dan bukan lewat tombol
+// Batal/Sisipkan, pastikan state di atas tetap ke-reset — supaya sesi buka
+// berikutnya tidak salah target (mis. malah mengedit rumus lama) atau nyangkut.
+document.addEventListener('mousedown', (e) => {
+    const ov = document.getElementById('math-editor-overlay');
+    if (ov && e.target === ov) closeMathEditor();
+});
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const ov = document.getElementById('math-editor-overlay');
+    if (ov && getComputedStyle(ov).display !== 'none') closeMathEditor();
+});
 
 // Dipanggil oleh tombol-tombol simbol di modal. mode='write' untuk simbol
 // yang langsung ditulis apa adanya (mis. \times), tanpa mode berarti '\cmd'
 // yang membuat struktur dengan kotak isian (mis. pecahan, akar, pangkat).
 function mathCmd(latexCmd, mode) {
     const mf = window._mathEd.mathField;
-    if (!mf) return;
+    if (!mf) {
+        // Sebelumnya diam saja kalau papan rumus belum/gagal siap — dari sisi
+        // user kelihatannya seperti tombol rusak. Kasih tahu supaya jelas.
+        if (typeof showToast === 'function') showToast('Papan rumus belum siap, tunggu sebentar lalu coba lagi', 'warning');
+        return;
+    }
     if (mode === 'write') mf.write(latexCmd); else mf.cmd(latexCmd);
     mf.focus();
     _syncMathAdvancedInput();
@@ -777,7 +883,11 @@ function applyMathAdvancedInput() {
 
 async function mathEditorInsert() {
     const mf = window._mathEd.mathField;
-    const latex = mf ? mf.latex().trim() : '';
+    if (!mf) {
+        if (typeof showToast === 'function') showToast('Papan rumus belum siap / gagal dimuat, tutup lalu buka lagi', 'danger');
+        return;
+    }
+    const latex = mf.latex().trim();
     if (!latex) { if (typeof showToast === 'function') showToast('Rumus masih kosong', 'danger'); return; }
     let svgEl;
     try {
@@ -935,10 +1045,8 @@ async function mathEditorInsert() {
     .rtb-table-wrap { position: relative; display: inline-flex; }
     .rtb-table-grid-pop {
         display: none;
-        position: absolute;
-        top: calc(100% + 6px);
-        left: 0;
-        z-index: 30;
+        position: fixed;
+        z-index: 4000;
         background: rgba(255,255,255,0.98);
         border: 1.5px solid rgba(19,50,89,0.14);
         border-radius: 10px;
