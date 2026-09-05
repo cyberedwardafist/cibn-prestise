@@ -212,9 +212,12 @@ function _atdBuildLineChart(containerId, opts) {
     const cy = v => top + plotH - (yMax > 0 ? (v / yMax) * plotH : 0);
 
     let svgParts = '';
+    // Tick pendek + label seragam di tiap angka sumbu Y (sama gayanya dgn
+    // grafik Sikap Kerja, biar konsisten se-halaman Analisa).
     ticks.forEach(val => {
         const y = cy(val);
         svgParts += `<line class="atd-grid-line" x1="${left}" y1="${y}" x2="${left + plotW}" y2="${y}"></line>`;
+        svgParts += `<line class="atd-data-tick" x1="${(left - 4).toFixed(1)}" y1="${y.toFixed(1)}" x2="${left}" y2="${y.toFixed(1)}"></line>`;
         svgParts += `<text class="atd-axis-label" x="${left - 6}" y="${y + 3}" text-anchor="end">${val}</text>`;
     });
     svgParts += `<line class="atd-axis-line" x1="${left}" y1="${top}" x2="${left}" y2="${top + plotH}"></line>`;
