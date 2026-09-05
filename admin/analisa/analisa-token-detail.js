@@ -13,20 +13,20 @@
 //
 // ── GRAFIK PER SOAL (bagian baru, MASIH DATA DUMMY — belum ditarik dari
 // jawaban asli) ──────────────────────────────────────────────────────────
-// Prototipe 2 tipe grafik batang, murni SVG + CSS sendiri (css/chart.css),
+// Prototipe grafik GARIS (line chart), murni SVG + CSS sendiri (css/chart.css),
 // tanpa library chart eksternal apapun:
 //
 //  1) Tipe "Benar/Salah" (soal dinilai otomatis, mis. pilihan ganda):
 //     x = nomor urut soal (urutan asli dibuat admin, BUKAN urutan acak saat
 //     ujian — jadi soal no.3 di sini selalu soal yg sama walau saat ujian
 //     tampil di posisi acak berbeda utk tiap peserta), y = jumlah jawaban,
-//     2 batang per soal: hijau = Benar, merah = Salah.
+//     2 garis per soal: hijau = Benar, merah = Salah.
 //
 //  2) Tipe "Nilai/Skor Sendiri" (soal dinilai reviewer, mis. uraian/essay
 //     dgn skala nilai 0-5): x = nomor urut soal, y = jumlah jawaban (jumlah
-//     orang), 1 batang berwarna per nilai yang muncul pada soal itu — warna
-//     dipetakan tetap per nilai (legenda di bawah grafik), TINGGI batang =
-//     banyaknya orang yang dapat nilai itu (bukan stacked/ditumpuk).
+//     orang), 1 garis berwarna per nilai yang muncul — warna
+//     dipetakan tetap per nilai (legenda di bawah grafik), TINGGI titik garis =
+//     banyaknya orang yang dapat nilai itu di tiap soal.
 //
 //  3) Tipe "Sikap Kerja" (kolom forced-choice, 4 dari 5 item ditampilkan, 1
 //     "kunci" tersembunyi tiap soal — lihat admin/soal/soal.js generateKolomSoal
@@ -38,7 +38,7 @@
 //     (bukan cuma salah) di seluruh grup, indikasi kelelahan/attention-drop
 //     makin ke kolom belakang (pola klasik tes ber-kolom banyak spt ini).
 //     x = nomor kolom (K1..K10, urutan tetap sesuai desain admin), y = jumlah
-//     kesempatan-jawab digabung semua peserta, 3 batang per kolom: hijau =
+//     kesempatan-jawab digabung semua peserta, 3 garis per kolom: hijau =
 //     Benar, merah = Salah, abu-abu = Tidak Dijawab (di-skip).
 //
 // Interaksi: arahkan kursor (desktop) / sentuh (mobile) ke kolom soal mana
@@ -124,13 +124,15 @@ function _atdSikapLegendHtml() {
             <div class="atd-legend-item"><span class="atd-legend-dot" style="background:#94a3b8"></span>Tidak Dijawab</div>`;
 }
 
-// ── RENDER GRAFIK BATANG (SVG murni) ──────────────────────────────────────
-function _atdBuildBarChart(containerId, opts) {
-    const { title, sub, categories, groupsData, yMax, kind } = opts;
+// ── RENDER GRAFIK GARIS (SVG murni) ────────────────────────────────────────
+function _atdBuildLineChart(containerId, opts) {
+    const { title, sub, categories, series, yMax, kind } = opts;
     const width = 680, height = 300, left = 34, right = 16, top = 16, bottom = 40;
     const plotW = width - left - right, plotH = height - top - bottom;
     const N = categories.length;
     const slotW = plotW / N;
+    const cx = i => left + i * slotW + slotW / 2;
+    const cy = v => top + plotH - (yMax > 0 ? (v / yMax) * plotH : 0);
 
     let svgParts = '';
     const steps = 4;
@@ -143,26 +145,22 @@ function _atdBuildBarChart(containerId, opts) {
     svgParts += `<line class="atd-axis-line" x1="${left}" y1="${top}" x2="${left}" y2="${top + plotH}"></line>`;
     svgParts += `<line class="atd-axis-line" x1="${left}" y1="${top + plotH}" x2="${left + plotW}" y2="${top + plotH}"></line>`;
 
+    // Garis per seri (di bawah titik & area sentuh)
+    series.forEach(s => {
+        const pts = s.values.map((v, i) => `${cx(i).toFixed(1)},${cy(v).toFixed(1)}`).join(' ');
+        svgParts += `<polyline class="atd-line" points="${pts}" stroke="${s.color}" fill="none"></polyline>`;
+    });
+
+    // Titik + area sentuh per kategori (grup tetap dipakai utk popup persentase)
     categories.forEach((cat, i) => {
-        const bars = groupsData[i];
-        const barsCount = bars.length;
-        const gap = 4, maxBarW = 28;
-        const barW = Math.max(6, Math.min(maxBarW, (slotW - gap * (barsCount + 1)) / barsCount));
-        const totalBarsWidth = barsCount * barW + gap * (barsCount + 1);
-        const startX = left + i * slotW + Math.max(0, (slotW - totalBarsWidth) / 2) + gap;
-
-        let barsSvg = '';
-        bars.forEach((b, j) => {
-            const x = startX + j * (barW + gap);
-            const h = yMax > 0 ? (b.value / yMax) * plotH : 0;
-            const y = top + plotH - h;
-            barsSvg += `<rect class="atd-bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" rx="3" fill="${b.color}"></rect>`;
+        let dotsSvg = '';
+        series.forEach(s => {
+            dotsSvg += `<circle class="atd-dot" cx="${cx(i).toFixed(1)}" cy="${cy(s.values[i]).toFixed(1)}" r="3.5" fill="${s.color}"></circle>`;
         });
-
-        svgParts += `<g class="atd-bar-group" data-idx="${i}" data-kind="${kind}">
+        svgParts += `<g class="atd-chart-group" data-idx="${i}" data-kind="${kind}">
             <rect class="atd-hit" x="${(left + i * slotW).toFixed(1)}" y="${top}" width="${slotW.toFixed(1)}" height="${plotH}"></rect>
-            ${barsSvg}
-            <text class="atd-x-label" x="${(left + i * slotW + slotW / 2).toFixed(1)}" y="${top + plotH + 18}">${cat}</text>
+            ${dotsSvg}
+            <text class="atd-x-label" x="${cx(i).toFixed(1)}" y="${top + plotH + 18}">${cat}</text>
         </g>`;
     });
 
@@ -264,7 +262,7 @@ function _atdHidePie() {
 }
 
 function _atdBindChartEvents(containerId, kind) {
-    document.querySelectorAll(`#${containerId} .atd-bar-group`).forEach(g => {
+    document.querySelectorAll(`#${containerId} .atd-chart-group`).forEach(g => {
         const idx = +g.dataset.idx;
         g.addEventListener('mouseenter', e => _atdShowPie(e, g, kind, idx));
         g.addEventListener('mousemove', e => _atdPositionPiePopup(e));
@@ -286,36 +284,39 @@ function _atdBindChartEvents(containerId, kind) {
     }
 }
 
-// ── ENTRY: bangun kedua contoh grafik dummy ──────────────────────────────
+// ── ENTRY: bangun ketiga contoh grafik dummy ──────────────────────────────
 function _atdRenderDummyCharts() {
     // 1) Tipe Benar/Salah
     const catsB = _ATD_DUMMY_BINARY.map(s => s.nomor);
-    const groupsB = _ATD_DUMMY_BINARY.map(s => ([
-        { label: 'Benar', value: s.benar, color: '#16a34a' },
-        { label: 'Salah', value: s.salah, color: '#dc2626' }
-    ]));
+    const seriesB = [
+        { label: 'Benar', color: '#16a34a', values: _ATD_DUMMY_BINARY.map(s => s.benar) },
+        { label: 'Salah', color: '#dc2626', values: _ATD_DUMMY_BINARY.map(s => s.salah) }
+    ];
     const yMaxB = _atdNiceMax(Math.max.apply(null, _ATD_DUMMY_BINARY.flatMap(s => [s.benar, s.salah])));
-    _atdBuildBarChart('atd-chart-binary', {
+    _atdBuildLineChart('atd-chart-binary', {
         title: 'Grafik Per Soal — Tipe Benar/Salah (dummy)',
         sub: 'Contoh: soal pilihan ganda, dinilai otomatis benar/salah',
-        categories: catsB, groupsData: groupsB, yMax: yMaxB, kind: 'binary'
+        categories: catsB, series: seriesB, yMax: yMaxB, kind: 'binary'
     });
     const legB = document.getElementById('atd-chart-binary-legend');
     if (legB) legB.innerHTML = _atdBinaryLegendHtml();
     _atdBindChartEvents('atd-chart-binary', 'binary');
 
-    // 2) Tipe Nilai/Skor Sendiri
+    // 2) Tipe Nilai/Skor Sendiri — 1 garis per nilai, titik 0 dipakai di soal
+    // yang tidak punya nilai itu supaya garis tetap menyambung antar soal.
     _atdSkorColorMap = _atdBuildNilaiColorMap(_ATD_DUMMY_SKOR);
     const catsS = _ATD_DUMMY_SKOR.map(s => s.nomor);
-    const groupsS = _ATD_DUMMY_SKOR.map(s => Object.entries(s.breakdown)
-        .filter(([, v]) => v > 0)
-        .sort((a, b) => b[0] - a[0])
-        .map(([nilai, v]) => ({ label: `Nilai ${nilai}`, value: v, color: _atdSkorColorMap[nilai] })));
+    const nilaiKeys = Object.keys(_atdSkorColorMap).sort((a, b) => b - a);
+    const seriesS = nilaiKeys.map(nilai => ({
+        label: `Nilai ${nilai}`,
+        color: _atdSkorColorMap[nilai],
+        values: _ATD_DUMMY_SKOR.map(s => s.breakdown[nilai] || 0)
+    }));
     const yMaxS = _atdNiceMax(Math.max.apply(null, _ATD_DUMMY_SKOR.flatMap(s => Object.values(s.breakdown))));
-    _atdBuildBarChart('atd-chart-skor', {
+    _atdBuildLineChart('atd-chart-skor', {
         title: 'Grafik Per Soal — Tipe Nilai/Skor Sendiri (dummy)',
         sub: 'Contoh: soal uraian/essay, dinilai reviewer skala 0–5',
-        categories: catsS, groupsData: groupsS, yMax: yMaxS, kind: 'skor'
+        categories: catsS, series: seriesS, yMax: yMaxS, kind: 'skor'
     });
     const legS = document.getElementById('atd-chart-skor-legend');
     if (legS) legS.innerHTML = _atdSkorLegendHtml(_atdSkorColorMap);
@@ -323,16 +324,16 @@ function _atdRenderDummyCharts() {
 
     // 3) Tipe Sikap Kerja — agregat seluruh peserta dalam grup, per kolom
     const catsK = _ATD_DUMMY_SIKAP.map(s => 'K' + s.kolom);
-    const groupsK = _ATD_DUMMY_SIKAP.map(s => ([
-        { label: 'Benar', value: s.benar, color: '#16a34a' },
-        { label: 'Salah', value: s.salah, color: '#dc2626' },
-        { label: 'Tidak Dijawab', value: s.tidak, color: '#94a3b8' }
-    ]));
+    const seriesK = [
+        { label: 'Benar', color: '#16a34a', values: _ATD_DUMMY_SIKAP.map(s => s.benar) },
+        { label: 'Salah', color: '#dc2626', values: _ATD_DUMMY_SIKAP.map(s => s.salah) },
+        { label: 'Tidak Dijawab', color: '#94a3b8', values: _ATD_DUMMY_SIKAP.map(s => s.tidak) }
+    ];
     const yMaxK = _atdNiceMax(Math.max.apply(null, _ATD_DUMMY_SIKAP.flatMap(s => [s.benar, s.salah, s.tidak])));
-    _atdBuildBarChart('atd-chart-sikap', {
+    _atdBuildLineChart('atd-chart-sikap', {
         title: 'Grafik Sikap Kerja — Agregat Grup, Per Kolom (dummy)',
         sub: 'Contoh: seluruh peserta digabung, terlihat pola makin banyak salah/dilewati di kolom belakang',
-        categories: catsK, groupsData: groupsK, yMax: yMaxK, kind: 'sikap'
+        categories: catsK, series: seriesK, yMax: yMaxK, kind: 'sikap'
     });
     const legK = document.getElementById('atd-chart-sikap-legend');
     if (legK) legK.innerHTML = _atdSikapLegendHtml();

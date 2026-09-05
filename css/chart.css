@@ -1,4 +1,4 @@
-/* css/chart.css — grafik batang per-soal (Analisa Token) + popup diagram lingkaran
+/* css/chart.css — grafik garis per-soal (Analisa Token) + popup diagram lingkaran
    Dipakai oleh admin/analisa/analisa-token-detail.js. Murni SVG + CSS sendiri,
    tidak pakai library chart eksternal apapun (konsisten dgn pola kalender custom
    di daterange.css). */
@@ -12,11 +12,12 @@
 .atd-chart-svg-wrap{width:100%;overflow-x:auto}
 .atd-chart-svg{display:block;min-width:100%}
 
-.atd-bar-group{cursor:pointer}
-.atd-bar-group rect.atd-bar{transition:opacity .12s ease}
-.atd-bar-group:hover rect.atd-bar,
-.atd-bar-group.atd-active rect.atd-bar{opacity:.72}
-.atd-bar-group rect.atd-hit{fill:transparent}
+.atd-chart-group{cursor:pointer}
+.atd-chart-group rect.atd-hit{fill:transparent}
+.atd-line{stroke-width:2;transition:stroke-width .12s ease}
+.atd-dot{transition:r .12s ease,opacity .12s ease}
+.atd-chart-group:hover .atd-dot,
+.atd-chart-group.atd-active .atd-dot{r:5.5}
 
 .atd-axis-line{stroke:rgba(19,50,89,.14);stroke-width:1}
 .atd-grid-line{stroke:rgba(19,50,89,.08);stroke-width:1;stroke-dasharray:3 3}
