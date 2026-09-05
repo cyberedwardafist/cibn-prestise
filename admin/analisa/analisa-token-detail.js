@@ -268,15 +268,31 @@ function _atdBuildSikapMedianChart(containerId, opts) {
     const cx = i => left + i * slotW + slotW / 2;
 
     let maxVal = 0;
-    catData.forEach(c => c.dist.forEach(d => Object.keys(d).forEach(v => { if (d[v] > 0) maxVal = Math.max(maxVal, Number(v)); })));
+    const dataValsSet = new Set();
+    catData.forEach(c => c.dist.forEach(d => Object.keys(d).forEach(v => {
+        if (d[v] > 0) { const n = Number(v); maxVal = Math.max(maxVal, n); dataValsSet.add(n); }
+    })));
     const { max: yMax, ticks } = _atdNiceTicks(maxVal, 6);
     const cy = v => top + plotH - (yMax > 0 ? (v / yMax) * plotH : 0);
 
     let svgParts = '';
+    // Garis + label utama (skala rapi, kelipatan tetap) — jaraknya TIDAK diubah
     ticks.forEach(val => {
         const y = cy(val);
         svgParts += `<line class="atd-grid-line" x1="${left}" y1="${y}" x2="${left + plotW}" y2="${y}"></line>`;
         svgParts += `<text class="atd-axis-label" x="${left - 6}" y="${y + 3}" text-anchor="end">${val}</text>`;
+    });
+    // Label TAMBAHAN persis di tiap nilai yg beneran ada datanya (mis. 7 di
+    // antara garis rapi 5 & 8) — supaya nggak "ilang" cuma keliatan mepet ke
+    // garis terdekat. Kecil (7px) & jadi tick pendek sendiri (bukan garis
+    // penuh selebar plot, biar nggak numpuk sama garis rapi di atas), tapi
+    // warnanya tetap jelas/kontras, bukan pudar sampai susah dibaca.
+    const niceSet = new Set(ticks);
+    Array.from(dataValsSet).sort((a, b) => a - b).forEach(val => {
+        if (niceSet.has(val)) return; // sudah kebagian label utama, jangan dobel
+        const y = cy(val);
+        svgParts += `<line class="atd-data-tick" x1="${(left - 4).toFixed(1)}" y1="${y.toFixed(1)}" x2="${left}" y2="${y.toFixed(1)}"></line>`;
+        svgParts += `<text class="atd-data-tick-label" x="${(left - 6).toFixed(1)}" y="${(y + 2.5).toFixed(1)}" text-anchor="end">${val}</text>`;
     });
     svgParts += `<line class="atd-axis-line" x1="${left}" y1="${top}" x2="${left}" y2="${top + plotH}"></line>`;
     svgParts += `<line class="atd-axis-line" x1="${left}" y1="${top + plotH}" x2="${left + plotW}" y2="${top + plotH}"></line>`;

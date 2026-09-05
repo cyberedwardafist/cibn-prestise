@@ -30,6 +30,10 @@
 .atd-bubble-label{font-size:7px;font-family:var(--font-body);text-anchor:middle;fill:var(--text-main);pointer-events:none;user-select:none}
 .atd-median-line{stroke-width:2.6;fill:none}
 .atd-median-dot{stroke-width:2.2;pointer-events:none}
+/* Label tambahan tepat di nilai yg beneran ada datanya (mis. 7 di antara
+   garis rapi 5 & 8) — kecil tapi warnanya tetap jelas/kontras */
+.atd-data-tick{stroke:var(--blue);stroke-width:1;opacity:.6}
+.atd-data-tick-label{font-size:7px;font-family:var(--font-body);fill:var(--blue);opacity:.9}
 
 .atd-axis-line{stroke:rgba(19,50,89,.14);stroke-width:1}
 .atd-grid-line{stroke:rgba(19,50,89,.08);stroke-width:1;stroke-dasharray:3 3}
