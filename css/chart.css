@@ -33,11 +33,11 @@
 /* Label tambahan tepat di nilai yg beneran ada datanya (mis. 7 di antara
    garis rapi 5 & 8) — kecil tapi warnanya tetap jelas/kontras */
 .atd-data-tick{stroke:var(--blue);stroke-width:1;opacity:.6}
-.atd-data-tick-label{font-size:7px;font-family:var(--font-body);fill:var(--blue);opacity:.9}
+.atd-data-tick-label{font-size:8px;font-family:var(--font-body);fill:var(--blue);opacity:.9}
 
 .atd-axis-line{stroke:rgba(19,50,89,.14);stroke-width:1}
 .atd-grid-line{stroke:rgba(19,50,89,.08);stroke-width:1;stroke-dasharray:3 3}
-.atd-axis-label{fill:var(--text-sub);font-size:9px;font-family:var(--font-body)}
+.atd-axis-label{fill:var(--text-sub);font-size:8px;font-family:var(--font-body)}
 .atd-x-label{fill:var(--text-sub);font-size:10px;font-family:var(--font-body);text-anchor:middle}
 .atd-x-label.atd-active{fill:var(--blue);font-weight:700}
 
