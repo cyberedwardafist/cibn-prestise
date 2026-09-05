@@ -5,6 +5,10 @@
 
 const _modulSelected=new Set();
 let _modSearch='';
+// Dataset HASIL FILTER lengkap (semua grup, bukan cuma yang lagi dirender virtual-scroll ke DOM) —
+// dipakai Pilih Semua & hitung centang, biar totalnya bener2 jumlah data asli (grup A 25 + grup B 50 = 75),
+// bukan cuma yang kebetulan ada di DOM saat itu.
+let _modulFilteredCache=[];
 async function renderModul(){
     [_modulData,_soalForModul]=await Promise.all([ModulAPI.getAll().catch(()=>[]),SoalAPI.getAll().catch(()=>[]),_loadSoalKelompokList(),_loadModulKelompokList()]);
     // Buang seleksi lama yang kodenya sudah tidak ada lagi di data terbaru (pola sama seperti Library)
@@ -43,6 +47,7 @@ function _renderModulList(){
     if(_modulKelompokFilter==='none')data=data.filter(m=>!m.kelompok);
     else if(_modulKelompokFilter!=='all')data=data.filter(m=>m.kelompok===_modulKelompokFilter);
     if(_modSearch){const q=_modSearch.toLowerCase();data=data.filter(m=>(m.nama||'').toLowerCase().includes(q)||(m.nama_internal||'').toLowerCase().includes(q)||(m.kode||m.id||'').toString().toLowerCase().includes(q));}
+    _modulFilteredCache=data;
     const el=document.getElementById('modul-groups');if(!el)return;
     if(!data.length){el.innerHTML='<div class="empty-state"><p>Belum ada modul</p></div>';_updateModulBulkBar();return;}
     // Kelompokkan per kelompok modul (pola sama seperti Token Terpakai yang dikelompokkan per hari)
@@ -50,13 +55,8 @@ function _renderModulList(){
     data.forEach(m=>{ const k=m.kelompok||'__none__'; (groups[k]=groups[k]||[]).push(m); });
     const orderedKeys=[..._modulKelompokList.map(k=>k.kode).filter(k=>groups[k]), ...(groups.__none__?['__none__']:[])];
     const groupList=orderedKeys.map(k=>({key:k,label:k==='__none__'?'Tanpa Kelompok':_modulKelompokNama(k),items:groups[k]}));
-    VirtualList.renderGroups(el,{
-        items:groupList,
-        estimateHeight:(g)=>40+g.items.length*78,
-        renderItem:_modulGroupHtml,
-        emptyHtml:'<div class="empty-state"><p>Belum ada modul</p></div>',
-        onRendered:()=>{ if(window.SwipeCards)el.querySelectorAll('.swipe-list').forEach(sw=>SwipeCards.bindSwipeList(sw,_modulSelectOpts())); }
-    });
+    el.innerHTML=groupList.map(_modulGroupHtml).join('');
+    if(window.SwipeCards)el.querySelectorAll('.swipe-list').forEach(sw=>SwipeCards.bindSwipeList(sw,_modulSelectOpts()));
     _updateModulBulkBar();
 }
 
@@ -67,13 +67,18 @@ function toggleModulSelect(kode,checked){
     _updateModulBulkBar();
 }
 function toggleSelectAllModul(checked){
-    document.querySelectorAll('#modul-groups .modul-row-check').forEach(cb=>{
-        cb.checked=checked;
-        if(checked)_modulSelected.add(cb.dataset.kode);else _modulSelected.delete(cb.dataset.kode);
-    });
-    document.querySelectorAll('#modul-groups .swipe-card').forEach(card=>{
-        const kode=card.dataset.kode;if(!kode)return;
+    // Pakai SELURUH data hasil filter (_modulFilteredCache) — semua grup, bukan cuma baris yang
+    // kebetulan lagi dirender virtual-scroll ke DOM — supaya "Pilih Semua" beneran pilih semua
+    // data (grup A 25 + grup B 50 = 75 tercentang), bukan cuma yang lagi kelihatan di layar.
+    _modulFilteredCache.forEach(m=>{
+        const kode=m.kode||m.id;
         if(checked)_modulSelected.add(kode);else _modulSelected.delete(kode);
+    });
+    // DOM di sini cuma perlu disinkronkan buat baris yang KEBETULAN lagi ada di layar;
+    // baris lain otomatis kebawa checked/selected pas ke-scroll & dirender ulang (_modulCardHtml/_modulSwipeCardHtml
+    // baca dari _modulSelected).
+    document.querySelectorAll('#modul-groups .modul-row-check').forEach(cb=>{cb.checked=checked;});
+    document.querySelectorAll('#modul-groups .swipe-card').forEach(card=>{
         card.querySelector('.swipe-card-body')?.classList.toggle('selected',checked);
     });
     _updateModulBulkBar();
@@ -99,8 +104,9 @@ function _updateModulBulkBar(){
     const cnt=document.getElementById('bulk-count-modul');if(cnt)cnt.textContent=n;
     const selAll=document.getElementById('modul-select-all');
     if(selAll){
-        const rows=Array.from(document.querySelectorAll('#modul-groups .modul-row-check'));
-        selAll.checked=rows.length>0&&rows.every(cb=>_modulSelected.has(cb.dataset.kode));
+        // Dicek terhadap SELURUH data hasil filter (_modulFilteredCache), bukan cuma baris yang
+        // lagi ada di DOM — biar centang "Pilih Semua" akurat walau belum semua grup pernah discroll.
+        selAll.checked=_modulFilteredCache.length>0&&_modulFilteredCache.every(m=>_modulSelected.has(m.kode||m.id));
     }
 }
 function deleteSelectedModul(){

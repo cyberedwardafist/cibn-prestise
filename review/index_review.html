@@ -196,6 +196,7 @@
 .ebook-search-clear:focus-visible,.ebk-clear-filter:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .ebook-kelompok-select{padding:10px 12px;border-radius:12px;border:1.5px solid rgba(19,50,89,.12);background:rgba(255,255,255,.55);font-family:var(--font-body);font-size:12.5px;color:var(--text-main);outline:none;max-width:170px;cursor:pointer;transition:border-color .2s}
 .ebook-kelompok-select:focus{border-color:var(--accent)}
+#ebook-kelompok-filter-wrap{max-width:170px}
 .ebook-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:18px 14px}
 .ebook-card{position:relative;background:rgba(255,255,255,.65);border:1.5px solid rgba(255,255,255,.85);border-radius:5px 14px 14px 5px;overflow:hidden;box-shadow:2px 3px 10px rgba(19,50,89,.08);cursor:pointer;transition:transform .28s cubic-bezier(.22,.8,.32,1),box-shadow .28s;display:flex;flex-direction:column;-webkit-tap-highlight-color:transparent}
 .ebook-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:4px;background:var(--ebk-spine,var(--accent));z-index:2}
@@ -252,6 +253,297 @@
     .ebook-card,.ebook-reader-overlay,.ebook-reader-progress-fill,.ebook-swipe-track{transition:none!important}
     .ebook-card:hover{transform:none}
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   TAB JADWAL — disalin persis dari user/index_user.html supaya tampilan &
+   perilakunya SAMA PERSIS dengan tab Jadwal di akun user (lihat
+   review/jadwal/jadwal.html & review/jadwal/jadwal.js, hasil salinan dari
+   user/jadwal/*). Variabel warna (--blue, --accent, dst) sudah tersedia
+   lewat css/base.css yang di-link di head halaman ini, jadi tidak perlu
+   didefinisikan ulang. Class swipe-card/.swipe-list yang dipakai list
+   status Jadwal juga sudah ada di css/base.css (dipakai bareng oleh
+   review/akun & admin), jadi tidak ikut disalin ke sini. ══════════════ */
+    /* ─── PAGE: JADWAL ─── */
+    #page-jadwal { align-items:stretch; padding-top:24px; }
+    .jadwal-header-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+    .jadwal-title { font-family:var(--font-head); font-size:22px; font-weight:700; color:var(--blue); }
+    .jadwal-empty { text-align:center; padding:48px 24px; color:var(--text-sub); }
+    .jadwal-empty svg { width:52px; height:52px; margin-bottom:12px; opacity:.28; }
+    .jadwal-empty p { font-size:14px; margin-bottom:4px; font-weight:600; }
+    .jadwal-empty small { font-size:12px; }
+    .jadwal-refresh-btn { display:flex; align-items:center; gap:5px; padding:7px 12px; border-radius:10px; border:1.5px solid rgba(19,50,89,.12); background:rgba(255,255,255,.5); cursor:pointer; font-size:12px; font-weight:600; color:var(--blue); transition:all .2s; }
+    .jadwal-refresh-btn:hover { background:rgba(255,255,255,.8); }
+    .jadwal-refresh-btn svg { width:13px; height:13px; }
+    /* Badge KUOTA PENGAJUAN — gantiin tombol Reset Dummy/Refresh di header
+       tab Jadwal (lihat user/jadwal.html & _jdwRenderKuota di user/jadwal.js). */
+    .jadwal-kuota-badge { display:flex; align-items:center; gap:6px; padding:7px 12px; border-radius:20px; border:1.5px solid rgba(26,90,160,.18); background:rgba(26,90,160,.08); color:var(--accent); font-family:var(--font-body); font-size:11.5px; font-weight:600; white-space:nowrap; }
+    .jadwal-kuota-badge svg { width:14px; height:14px; flex-shrink:0; }
+    .jadwal-kuota-badge strong { font-family:var(--font-head); font-weight:700; color:var(--blue); }
+    /* Grup dua badge (kuota pengajuan + kuota pembatalan) ditumpuk vertikal
+       di pojok kanan header — lihat user/jadwal.html & _jdwRenderKuota di
+       user/jadwal.js (satu fungsi yang sama update dua-duanya sekaligus). */
+    .jadwal-kuota-group { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+    .jadwal-kuota-badge.batal { border-color:rgba(220,38,38,.2); background:rgba(220,38,38,.08); color:var(--danger); }
+    .jadwal-kuota-badge.batal strong { color:var(--danger); }
+
+    /* ── JADWAL: kalender 1 minggu ala iPhone ── */
+    .jdw-week-card { padding:18px 10px 14px; margin-bottom:12px; }
+    .jdw-week-caption { font-size:11px; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:.04em; margin-bottom:12px; text-align:center; }
+    .jdw-week-strip { display:flex; justify-content:space-between; gap:2px; }
+    .jdw-day { flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; padding:6px 2px 8px; border-radius:14px; cursor:pointer; transition:background .2s; -webkit-tap-highlight-color:transparent; }
+    .jdw-day:hover { background:rgba(19,50,89,.05); }
+    .jdw-day-name { font-size:10px; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:.02em; }
+    .jdw-day-num-wrap { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--font-head); font-size:14px; font-weight:700; color:var(--blue); position:relative; transition:all .2s; }
+    .jdw-day.is-today .jdw-day-num-wrap { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; box-shadow:0 4px 12px rgba(26,90,160,.35); }
+    .jdw-day.has-entries .jdw-day-num-wrap::after { content:''; position:absolute; bottom:-6px; left:50%; transform:translateX(-50%); width:4px; height:4px; border-radius:50%; background:var(--accent); }
+    .jdw-day.is-today.has-entries .jdw-day-num-wrap::after { background:#fff; }
+    .jdw-day.is-past { opacity:.4; cursor:pointer; }
+    .jdw-day.is-past .jdw-day-num-wrap { background:rgba(19,50,89,.05); }
+    .jdw-day.is-future-locked { opacity:.35; cursor:default; }
+    .jdw-day.is-riwayat-disabled { opacity:.35; cursor:default; }
+    .jdw-day.is-riwayat-selected .jdw-day-num-wrap { border:2px solid var(--accent); }
+    .jdw-week-hint { text-align:center; font-size:11.5px; color:var(--text-sub); margin-top:2px; margin-bottom:4px; }
+
+    /* ── JADWAL: tombol buka tampilan sebulan (di kalender utama & kalender
+       mini Jadwal Ulang) + grid kalender sebulan (6 baris x 7 kolom, ala
+       kalender biasa). Tanggal "numpang lewat" dari bulan sebelum/sesudah
+       (.is-outside) TIDAK BISA diklik — cuma buat rapiin grid jadi 6 baris —
+       sama seperti tanggal yang sudah lewat (.is-past), keduanya sengaja
+       tanpa atribut onclick sama sekali (bukan cuma didisable lewat CSS). ── */
+    /* min-height dikunci ke tinggi tombol toggle (~28px) supaya baris ini
+       TETAP punya tinggi yang sama biarpun caption di dalamnya di-hide
+       (display:none) pas mode sebulan lagi aktif (lihat _jdwRenderWeek) —
+       tanpa ini baris collapse ke ~0px & tombol (position:absolute, jadi
+       tidak ikut ngasih tinggi ke baris) numpuk langsung nempel ke elemen
+       sesudahnya (id=jdw-cal-nav), nggak ada jarak sama sekali. */
+    .jdw-week-caption-row { position:relative; display:flex; align-items:center; justify-content:center; margin-bottom:12px; min-height:28px; }
+    .jdw-week-caption-row .jdw-week-caption { margin-bottom:0; }
+    .jdw-cal-toggle-btn { position:absolute; right:0; top:50%; transform:translateY(-50%); display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:20px; border:1.5px solid rgba(19,50,89,.12); background:rgba(255,255,255,.55); color:var(--accent); font-family:var(--font-body); font-size:10.5px; font-weight:700; cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; white-space:nowrap; }
+    .jdw-cal-toggle-btn:hover { background:rgba(255,255,255,.9); }
+    .jdw-cal-toggle-btn.active { border-color:var(--accent); background:rgba(26,90,160,.1); }
+    .jdw-cal-toggle-btn svg { width:13px; height:13px; flex-shrink:0; }
+    .jdw-form-label-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+    .jdw-form-label-row .jdw-form-label { margin-bottom:0; }
+    .jdw-month-grid { margin-top:2px; }
+    .jdw-month-weekdays { display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:6px; }
+    .jdw-month-weekdays span { text-align:center; font-size:10px; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:.02em; }
+    .jdw-month-cells { display:grid; grid-template-columns:repeat(7,1fr); row-gap:4px; }
+    .jdw-mcell { display:flex; align-items:center; justify-content:center; padding:2px 0; -webkit-tap-highlight-color:transparent; }
+    .jdw-mcell-num { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--font-head); font-size:12.5px; font-weight:700; color:var(--blue); position:relative; transition:all .2s; }
+    .jdw-mcell[onclick] { cursor:pointer; }
+    .jdw-mcell[onclick]:hover .jdw-mcell-num { background:rgba(19,50,89,.05); }
+    .jdw-mcell.is-today .jdw-mcell-num { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; box-shadow:0 4px 12px rgba(26,90,160,.35); }
+    .jdw-mcell.is-selected .jdw-mcell-num { box-shadow:inset 0 0 0 2px var(--accent); }
+    .jdw-mcell.has-entries .jdw-mcell-num::after { content:''; position:absolute; bottom:-4px; left:50%; transform:translateX(-50%); width:4px; height:4px; border-radius:50%; background:var(--accent); }
+    .jdw-mcell.is-today.has-entries .jdw-mcell-num::after { background:#fff; }
+    .jdw-mcell.is-past .jdw-mcell-num { opacity:.35; }
+    .jdw-mcell.is-outside { cursor:default; }
+    .jdw-mcell.is-outside .jdw-mcell-num { opacity:.18; }
+    .jdw-mcell.is-outside-unlocked .jdw-mcell-num { opacity:.55; }
+
+    /* ── JADWAL: toggle Minggu Ini / Riwayat + nav minggu (riwayat) ── */
+    .jdw-view-toggle { display:flex; gap:8px; margin:14px 0 12px; }
+    .jdw-view-btn { flex:1; padding:10px 12px; border-radius:12px; border:1.5px solid rgba(19,50,89,.12); background:rgba(255,255,255,.55); color:var(--blue); font-family:var(--font-body); font-size:12.5px; font-weight:700; cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; }
+    .jdw-view-btn:hover { background:rgba(255,255,255,.85); }
+    .jdw-view-btn.active { border-color:transparent; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; box-shadow:0 4px 14px rgba(26,90,160,.3); }
+    .jdw-riwayat-nav { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+    .jdw-riwayat-caption { flex:1; text-align:center; font-family:var(--font-head); font-size:13px; font-weight:700; color:var(--blue); }
+    .jdw-icon-btn:disabled { opacity:.35; cursor:not-allowed; }
+
+    /* ── JADWAL: list pengajuan menunggu/disetujui, dipisah per hari (ala Token Terpakai admin) ── */
+    .jdw-status-list { display:flex; flex-direction:column; gap:16px; padding-bottom:4px; }
+    .jdw-status-day-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:8px; padding:0 2px; }
+    .jdw-status-day-label { font-family:var(--font-head); font-size:12.5px; font-weight:700; color:var(--blue); }
+    .jdw-status-day-today { display:inline-block; margin-left:6px; font-family:var(--font-body); font-size:10px; font-weight:700; color:#fff; background:linear-gradient(135deg,var(--accent),var(--accent2)); padding:2px 8px; border-radius:20px; vertical-align:middle; }
+    .jdw-status-day-count { font-size:11px; font-weight:700; color:var(--text-sub); white-space:nowrap; flex-shrink:0; }
+    .jdw-status-day-empty { font-size:12px; color:var(--text-sub); padding:13px 14px; border-radius:12px; background:rgba(19,50,89,.04); border:1.5px dashed rgba(19,50,89,.14); text-align:center; }
+
+    /* ── JADWAL: halaman fullscreen (detail tanggal & form ajukan) ── */
+    .overlay-fullscreen { padding:0; align-items:stretch; justify-content:stretch; background:var(--bg); backdrop-filter:none; }
+    /* overflow:hidden + overscroll-behavior:contain di sini supaya efek
+       rubber-band/bounce pas scroll di dalam .jdw-modal-body (khususnya di
+       Safari iOS) nggak "bocor" nampilin background di belakang modal (blob
+       animasi dll) — jadi walau di-scroll sampai mental, yang kelihatan tetap
+       background var(--bg) yang sama, nggak ada ruang kosong yang beda warna. */
+    .modal-fullscreen { width:100%; max-width:100%; height:100%; max-height:100%; border-radius:0; padding:0; margin:0; display:flex; flex-direction:column; background:var(--bg); backdrop-filter:none; border:none; box-shadow:none; transform:none; overflow:hidden; overscroll-behavior:contain; }
+    .overlay-fullscreen.open .modal-fullscreen { transform:none; }
+    /* Header & body sengaja dibikin SATU warna background (var(--bg), sama
+       kayak .modal-fullscreen) dan border pemisahnya dilepas — supaya
+       nyambung/menyatu jadi satu permukaan, bukan dua panel kepotong. Header
+       tetap sticky biar judul & tombol back tetap keliatan pas discroll. */
+    .jdw-modal-header { flex-shrink:0; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; background:var(--bg); position:sticky; top:0; z-index:2; }
+    .jdw-modal-title { font-family:var(--font-head); font-size:16px; font-weight:700; color:var(--blue); flex:1; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .jdw-modal-title-wrap { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; }
+    .jdw-modal-title-wrap .jdw-modal-title { flex:none; }
+    .jdw-modal-subtitle { font-size:11px; font-weight:600; color:var(--text-sub); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
+    .jdw-modal-subtitle:empty { display:none; }
+    /* min-height:100% + background var(--bg) sendiri (nggak cuma ngandelin
+       warna dari parent) supaya background body SELALU penuh se-layar,
+       walaupun kontennya pendek atau lagi di-scroll/overscroll — nggak ada
+       lagi ruang kosong di bawah yang keliatan beda/nggak sinkron. */
+    .jdw-modal-body { flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; padding:36px 16px 28px; width:100%; max-width:640px; margin:0 auto; box-sizing:border-box; background:var(--bg); min-height:100%; }
+    /* Ajukan Jadwal: tombol AJUKAN sekarang ikut di dalam area scroll (bukan
+       footer sticky lagi) — kasih padding-bottom ekstra biar begitu discroll
+       sampai habis, tombolnya berhenti di posisi nyaman di atas dock utama
+       (sama kayak jarak aman 100px yang dipakai .page buat konten lain). */
+    /* 140px = sama kayak jarak aman dock yang dipakai #page-jadwal (bukan 100px
+       generik punya .page lain) -- sekarang dock kelihatan/dipakai lagi di atas
+       overlay ini (lihat body.jdw-fullscreen-open di atas), jadi tombol AJUKAN di
+       ujung scroll harus berhenti di atas dock, bukan ketutup olehnya. */
+    #jdw-ajukan-overlay .jdw-modal-body { padding-bottom:calc(200px + env(safe-area-inset-bottom)); }
+    #jdw-tentor-overlay .jdw-modal-body { padding-bottom:calc(200px + env(safe-area-inset-bottom)); }
+    #jdw-resejuel-overlay .jdw-modal-body, #jdw-batal-tentor-overlay .jdw-modal-body { padding-bottom:calc(200px + env(safe-area-inset-bottom)); }
+    .jdw-ajukan-submit-section { margin-top:4px; }
+    /* Overlay Ajukan Jadwal (#jdw-ajukan-overlay) & Pilih Tentor (#jdw-tentor-overlay)
+       bisa "open" BARENGAN (buka Pilih Tentor tidak menutup Ajukan Jadwal
+       dulu) — pin z-index eksplisit di sini biar Pilih Tentor SELALU tampil
+       di atas Ajukan Jadwal, TIDAK bergantung urutan DOM/urutan fetch sama
+       sekali (jaga-jaga tambahan di luar urutan loading yang sudah dipastikan
+       sequential di ensureUserPageModule). */
+    #jdw-tentor-overlay { z-index:201; }
+    .jdw-modal-footer { flex-shrink:0; padding:14px 16px; background:var(--bg); position:sticky; bottom:0; z-index:2; }
+
+    /* ── JADWAL: tombol & badge status generik (self-contained, tidak bergantung css/base.css) ── */
+    .jdw-btn { display:inline-flex; align-items:center; gap:6px; padding:9px 16px; border-radius:11px; border:none; font-family:var(--font-body); font-size:12.5px; font-weight:700; cursor:pointer; transition:all .2s; white-space:nowrap; }
+    .jdw-btn-primary { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; box-shadow:0 4px 14px rgba(26,90,160,.3); }
+    .jdw-btn-primary:hover { transform:translateY(-1px); box-shadow:0 6px 18px rgba(26,90,160,.4); }
+    .jdw-btn-primary:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+    .jdw-btn-secondary { background:rgba(19,50,89,.07); color:var(--blue); border:1.5px solid rgba(19,50,89,.12); }
+    .jdw-btn-secondary:hover { background:rgba(19,50,89,.12); }
+    .jdw-btn-danger { background:rgba(220,38,38,.08); color:var(--danger); border:1.5px solid rgba(220,38,38,.15); }
+    .jdw-btn-danger:hover { background:rgba(220,38,38,.15); }
+    .jdw-btn-sm { padding:6px 12px; font-size:11px; border-radius:9px; }
+    .jdw-btn-block { width:100%; justify-content:center; }
+    .jdw-icon-btn { width:34px; height:34px; padding:0; display:inline-flex; align-items:center; justify-content:center; border-radius:10px; background:rgba(19,50,89,.07); color:var(--blue); border:1.5px solid rgba(19,50,89,.1); cursor:pointer; transition:all .2s; flex-shrink:0; }
+    .jdw-icon-btn:hover { background:rgba(19,50,89,.14); }
+    .jdw-icon-btn svg { width:16px; height:16px; }
+    .jdw-status-badge { font-size:10px; font-weight:700; padding:3px 9px; border-radius:20px; flex-shrink:0; white-space:nowrap; display:inline-block; }
+    .jdw-status-badge.pending { background:rgba(217,119,6,.12); color:var(--warning); }
+    .jdw-status-badge.acc { background:rgba(22,163,74,.12); color:var(--success); }
+    .jdw-status-badge.ditolak { background:rgba(220,38,38,.12); color:var(--danger); }
+    .jdw-status-badge.berlangsung { background:rgba(26,90,160,.12); color:var(--accent); }
+    .jdw-status-badge.selesai { background:rgba(90,122,154,.14); color:var(--text-sub); }
+    .jdw-status-badge.pengajuan_pembatalan { background:rgba(220,38,38,.10); color:var(--danger); }
+    .jdw-status-badge.resejuel { background:rgba(124,58,237,.12); color:#7c3aed; }
+    .jdw-status-badge.batal { background:rgba(90,122,154,.14); color:var(--text-sub); }
+    .jdw-status-badge.butuh_persetujuan { background:rgba(220,38,38,.10); color:var(--danger); }
+    .jdw-status-badge.pengajuan_batal_tentor { background:rgba(124,58,237,.12); color:#7c3aed; }
+    .jdw-status-badge.feedback { background:rgba(217,119,6,.12); color:var(--warning); }
+
+    /* ── JADWAL: halaman fullscreen bandingkan jadwal lama vs baru (resejuel) —
+       resume LAMA (diajukan user) di atas, resume BARU (diajukan tentor,
+       termasuk alasan tentor) di bawah, tiap resume nampilin nama tentornya
+       juga. Susunan vertikal ini KHUSUS mobile — di desktop disusun
+       berdampingan, lihat @media (min-width:769px) di bawah. ── */
+    .jdw-resejuel-compare { display:flex; flex-direction:column; align-items:stretch; gap:2px; margin:2px 0 18px; }
+    .jdw-resejuel-item { padding:14px 16px; border-radius:14px; background:rgba(19,50,89,.04); border:1.5px solid rgba(19,50,89,.1); }
+    .jdw-resejuel-item.new { background:rgba(124,58,237,.06); border-color:rgba(124,58,237,.25); }
+    .jdw-resejuel-item-label { font-size:10.5px; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:.02em; margin-bottom:5px; }
+    .jdw-resejuel-item.new .jdw-resejuel-item-label { color:#7c3aed; }
+    .jdw-resejuel-item-date { font-family:var(--font-head); font-size:13.5px; font-weight:700; color:var(--blue); margin-bottom:3px; }
+    .jdw-resejuel-item-row { font-size:12px; color:var(--text-sub); font-weight:600; display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+    .jdw-resejuel-item-dot { opacity:.5; }
+    .jdw-resejuel-item-tentor { font-size:12px; color:var(--blue); font-weight:700; }
+    .jdw-resejuel-item-alasan { margin-top:10px; padding-top:10px; border-top:1px dashed rgba(19,50,89,.14); font-size:12px; color:var(--text-sub); font-weight:600; line-height:1.5; }
+    .jdw-resejuel-item.new .jdw-resejuel-item-alasan { border-top-color:rgba(124,58,237,.2); }
+    .jdw-resejuel-item-alasan-label { display:block; font-size:10.5px; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:.02em; margin-bottom:4px; }
+    .jdw-resejuel-arrow { display:flex; justify-content:center; color:#7c3aed; margin:2px 0; }
+    .jdw-resejuel-arrow svg { width:18px; height:18px; }
+    /* Tombol Tolak/Setuju berdampingan, ditaruh di ujung bawah body (bukan
+       footer sticky) — sama pola kayak tombol AJUKAN di halaman Ajukan
+       Jadwal, biar ikut kescroll & berhenti di atas dock utama. */
+    .jdw-resejuel-actions { display:flex; gap:10px; margin-top:4px; }
+    .jdw-resejuel-actions .jdw-btn { flex:1; justify-content:center; }
+    /* ── JADWAL: layar desktop (lebih luas) — resume lama & baru disusun
+       BERDAMPINGAN (lama di kiri, baru di kanan) alih-alih ditumpuk vertikal,
+       panahnya diputar jadi horizontal, tetap di antara keduanya, tetap
+       mengarah dari jadwal lama ke jadwal baru. ── */
+    @media (min-width:769px) {
+        .jdw-resejuel-compare { flex-direction:row; align-items:stretch; gap:16px; }
+        .jdw-resejuel-item { flex:1; }
+        .jdw-resejuel-arrow { align-self:center; margin:0; flex-shrink:0; }
+        .jdw-resejuel-arrow svg { transform:rotate(-90deg); }
+    }
+
+    /* ── JADWAL: tabel desktop untuk daftar pengajuan ── */
+    .jdw-entry-table { width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed; }
+    .jdw-entry-table th { text-align:left; padding:9px 12px; font-size:11px; color:var(--text-sub); border-bottom:1.5px solid rgba(19,50,89,.08); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .jdw-entry-table td { padding:11px 12px; border-bottom:1px solid rgba(19,50,89,.06); vertical-align:middle; overflow-wrap:break-word; }
+    .jdw-entry-table tr:last-child td { border-bottom:none; }
+    .jdw-entry-table th:nth-child(1), .jdw-entry-table td:nth-child(1) { width:13%; }
+    .jdw-entry-table th:nth-child(2), .jdw-entry-table td:nth-child(2) { width:12%; }
+    .jdw-entry-table th:nth-child(3), .jdw-entry-table td:nth-child(3) { width:20%; }
+    .jdw-entry-table th:nth-child(4), .jdw-entry-table td:nth-child(4) { width:20%; }
+    .jdw-entry-table th:nth-child(5), .jdw-entry-table td:nth-child(5) { width:35%; }
+
+    /* ── JADWAL: halaman "Sesi Berlangsung" (Masuk) & "Feedback Sesi" ── */
+    .jdw-sesi-item { padding:16px; border-radius:14px; background:rgba(255,255,255,.6); border:1.5px solid rgba(19,50,89,.1); margin-bottom:14px; }
+    .jdw-sesi-item-label { font-size:11px; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; }
+    .jdw-sesi-item-row { display:flex; align-items:center; gap:10px; }
+    .jdw-sesi-item-value { flex:1; min-width:0; font-family:var(--font-body); font-size:13.5px; font-weight:700; color:var(--blue); word-break:break-all; }
+    .jdw-sesi-item-value.mono { font-family:monospace; letter-spacing:.1em; }
+    .jdw-sesi-copy-btn { width:38px; height:38px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:11px; border:1.5px solid rgba(19,50,89,.12); background:rgba(19,50,89,.06); color:var(--accent); cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; }
+    .jdw-sesi-copy-btn:hover { background:rgba(26,90,160,.12); }
+    .jdw-sesi-copy-btn svg { width:16px; height:16px; }
+    .jdw-sesi-hint { font-size:12px; color:var(--text-sub); line-height:1.6; text-align:center; margin-top:6px; }
+    .jdw-rating-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+    .jdw-textarea { width:100%; min-height:110px; resize:vertical; background:rgba(255,255,255,.6); border:1.5px solid rgba(19,50,89,.12); border-radius:12px; padding:12px 14px; font-family:var(--font-body); font-size:13.5px; color:var(--blue); outline:none; box-sizing:border-box; transition:border-color .2s, box-shadow .2s; }
+    .jdw-textarea:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(26,90,160,.08); }
+    .jdw-textarea::placeholder { color:rgba(19,50,89,.32); }
+
+    /* ── JADWAL: form Ajukan (chip pilih jam & materi) ── */
+    .jdw-form-section { margin-bottom:24px; }
+    .jdw-form-label { font-family:var(--font-head); font-size:13px; font-weight:700; color:var(--blue); margin-bottom:10px; }
+    .jdw-chip-grid { display:flex; flex-direction:column; gap:8px; }
+    .jdw-chip { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-radius:12px; border:1.5px solid rgba(19,50,89,.12); background:rgba(255,255,255,.6); cursor:pointer; font-size:13.5px; font-weight:600; color:var(--blue); transition:all .2s; }
+    .jdw-chip:hover { background:rgba(255,255,255,.9); }
+    .jdw-chip.selected { border-color:var(--accent); background:rgba(26,90,160,.08); color:var(--accent); }
+    .jdw-chip.disabled { opacity:.45; cursor:not-allowed; }
+    .jdw-chip.disabled small { color:var(--text-sub); font-weight:600; }
+    .jdw-chip-check { width:18px; height:18px; border-radius:50%; border:1.5px solid rgba(19,50,89,.2); flex-shrink:0; position:relative; }
+    .jdw-chip.selected .jdw-chip-check { border-color:var(--accent); background:var(--accent); }
+    .jdw-chip.selected .jdw-chip-check::after { content:''; position:absolute; top:4px; left:4px; width:8px; height:8px; border-radius:50%; background:#fff; }
+    .jdw-materi-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+    .jdw-materi-chip { padding:14px 10px; border-radius:12px; border:1.5px solid rgba(19,50,89,.12); background:rgba(255,255,255,.6); cursor:pointer; font-size:12.5px; font-weight:700; color:var(--blue); text-align:center; transition:all .2s; }
+    .jdw-materi-chip:hover { background:rgba(255,255,255,.9); }
+    .jdw-materi-chip.selected { border-color:var(--accent); background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; box-shadow:0 4px 12px rgba(26,90,160,.3); }
+    .jdw-materi-chip.disabled { opacity:.4; cursor:not-allowed; background:rgba(19,50,89,.04); }
+    /* ── Pilih Tentor: box picker di halaman Ajukan Jadwal + halaman list tentor ── */
+    .jdw-tentor-picker-empty { display:flex; align-items:center; justify-content:center; gap:6px; padding:14px 16px; border-radius:12px; border:1.5px dashed rgba(19,50,89,.25); background:rgba(19,50,89,.03); color:var(--accent); font-family:var(--font-body); font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; }
+    .jdw-tentor-picker-empty:hover { background:rgba(26,90,160,.06); }
+    .jdw-tentor-picker-selected { display:flex; align-items:center; gap:12px; padding:11px 14px; border-radius:12px; border:1.5px solid rgba(19,50,89,.12); background:rgba(255,255,255,.6); cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; }
+    .jdw-tentor-picker-selected:hover { background:rgba(255,255,255,.9); }
+    /* Terkunci (habis tolak jadwal ulang dari tentor -> lanjut ajukan versi
+       sendiri, tentor WAJIB tetap sama) — tidak bisa diklik/diganti sama
+       sekali, tampilan digelapkan biar kelihatan nonaktif. */
+    .jdw-tentor-picker-selected.locked { cursor:default; opacity:.7; background:rgba(19,50,89,.04); }
+    .jdw-tentor-picker-selected.locked:hover { background:rgba(19,50,89,.04); }
+    .jdw-tentor-avatar { width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; display:flex; align-items:center; justify-content:center; font-family:var(--font-head); font-weight:700; font-size:14px; flex-shrink:0; }
+    .jdw-tentor-picker-info { flex:1; min-width:0; }
+    .jdw-tentor-picker-name { font-family:var(--font-head); font-size:13.5px; font-weight:700; color:var(--blue); }
+    .jdw-tentor-picker-sub { font-size:11px; color:var(--text-sub); margin-top:2px; letter-spacing:.01em; }
+    .jdw-tentor-search-wrap { position:relative; margin-bottom:14px; }
+    .jdw-tentor-search-wrap svg { position:absolute; left:14px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:var(--text-sub); pointer-events:none; }
+    .jdw-tentor-search-input { width:100%; padding:12px 14px 12px 40px; border-radius:12px; border:1.5px solid rgba(19,50,89,.12); background:rgba(255,255,255,.6); font-family:var(--font-body); font-size:13.5px; color:var(--blue); outline:none; box-sizing:border-box; transition:border-color .2s, box-shadow .2s; }
+    .jdw-tentor-search-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(26,90,160,.08); }
+    .jdw-tentor-search-input::placeholder { color:rgba(19,50,89,.32); }
+    .jdw-tentor-list { display:flex; flex-direction:column; gap:8px; }
+    .jdw-tentor-item { display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:12px; border:1.5px solid rgba(19,50,89,.1); background:rgba(255,255,255,.55); cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; }
+    .jdw-tentor-item:hover { background:rgba(255,255,255,.9); }
+    .jdw-tentor-item.selected { border-color:var(--accent); background:rgba(26,90,160,.08); }
+    .jdw-tentor-item-info { flex:1; min-width:0; }
+    .jdw-tentor-item-name { font-family:var(--font-head); font-size:13.5px; font-weight:700; color:var(--blue); }
+    .jdw-tentor-item-sub { font-size:11px; color:var(--text-sub); margin-top:3px; letter-spacing:.01em; }
+    .jdw-tentor-item-check { width:18px; height:18px; border-radius:50%; border:1.5px solid rgba(19,50,89,.2); flex-shrink:0; position:relative; }
+    .jdw-tentor-item.selected .jdw-tentor-item-check { border-color:var(--accent); background:var(--accent); }
+    .jdw-tentor-item.selected .jdw-tentor-item-check::after { content:''; position:absolute; top:4px; left:4px; width:8px; height:8px; border-radius:50%; background:#fff; }
+    .jdw-tentor-empty { text-align:center; font-size:12.5px; color:var(--text-sub); padding:34px 10px; }
+    /* Tentor tanpa jam available sama sekali (slots:[]) -> diabu-abukan & tidak bisa dipilih */
+    .jdw-tentor-item.disabled { opacity:.45; cursor:not-allowed; background:rgba(19,50,89,.04); }
+    .jdw-tentor-item.disabled:hover { background:rgba(19,50,89,.04); }
+    .jdw-tentor-item.disabled .jdw-tentor-avatar { background:rgba(19,50,89,.25); filter:grayscale(1); }
+    .jdw-tentor-item.disabled .jdw-tentor-item-sub { color:#c0392b; font-weight:600; }
+    .jdw-tentor-item.disabled .jdw-tentor-item-check { display:none; }
 </style>
 </head>
 <body>
@@ -290,10 +582,7 @@
     </div>
 
     <!-- JADWAL -->
-    <div class="page" id="page-jadwal">
-      <div class="section-title">Jadwal</div>
-      <div class="section-sub">Informasi jadwal</div>
-    </div>
+<div class="page" id="page-jadwal"></div>
 
     <!-- BAHAS -->
     <div class="page" id="page-bahas">
@@ -321,6 +610,15 @@
        ditaruh di dalam salah satu .page, modal yang dibuka dari dock LAIN akan
        ter-render tapi tetap tak terlihat sampai dock pemiliknya dibuka. -->
   <div id="review-modals-root"></div>
+
+  <!-- Overlay Jadwal (Ajukan/Tentor/Sesi/Batal) SENGAJA ditaruh DI SINI, di
+       luar #page-jadwal — sama alasannya kayak #review-modals-root di atas:
+       #page-jadwal pakai class .page yang punya `transform` (buat animasi
+       pindah tab), kalau overlay position:fixed ditaruh JADI ANAK elemen
+       yang ber-transform, browser nganggap dia fixed relatif ke kotak
+       elemen itu, bukan ke layar sungguhan. Lihat juga catatan yang sama
+       persis di user/index_user.html (#jdw-overlays-root). -->
+  <div id="jdw-overlays-root"></div>
 
   <!-- TASKBAR -->
   <div class="dock-wrap">
@@ -387,7 +685,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="js/lazy-loader.js"></script>
-<script src="js/virtual-list.js"></script>
 <!-- Tab lain (akun, riwayat, ebook, akun-saya) TIDAK dimuat di sini lagi — masing-masing
      (HTML + JS + modal) di-fetch dari server hanya saat tab-nya benar-benar dibuka.
      Lihat ensureReviewPageModule() di bawah, dipanggil dari renderPage(). -->
@@ -434,9 +731,9 @@ function renderPage(id) {
     else if (id === 'riwayat') renderRiwayat();
     else if (id === 'akun-saya') renderAkunSaya();
     else if (id === 'ebook') EbookLib.load();
+    else if (id === 'jadwal') loadJadwal();
     // halaman baru (kosong, siap diisi)
     // else if (id === 'keuangan') renderKeuangan();
-    // else if (id === 'jadwal') renderJadwal();
     // else if (id === 'bahas') renderBahas();
     // else if (id === 'laporan') renderLaporan();
   }).catch(err => {
@@ -447,8 +744,8 @@ function renderPage(id) {
 
 // ── LAZY-LOAD PER TAB ────────────────────────────────────────────────────
 // 'home' tidak ada di sini karena sudah dimuat eager (bagian dari script ini).
-// keuangan/jadwal/bahas/laporan belum diimplementasikan (lihat renderPage di
-// atas) jadi tidak butuh modul apa pun.
+// keuangan/bahas/laporan belum diimplementasikan (lihat renderPage di atas)
+// jadi tidak butuh modul apa pun.
 const REVIEW_PAGE_MODULES = {
     // akun butuh review/riwayat.js juga: tombol "Lihat Riwayat" di daftar user
     // manggil openRiwayatUser() yang didefinisikan di riwayat.js. Modal-nya
@@ -462,6 +759,23 @@ const REVIEW_PAGE_MODULES = {
     riwayat:    { html: 'review/riwayat/riwayat.html',      js: ['review/riwayat/riwayat.js'], needsModals: true },
     'akun-saya':{ html: 'review/akun-saya/akun-saya.html',  js: ['review/akun-saya/akun-saya.js'] },
     ebook:      { html: 'review/ebook/ebook.html',          js: ['review/ebook/ebook.js'] },
+    // jadwal: disalin persis dari USER_PAGE_MODULES.jadwal di user/index_user.html
+    // — shell (jadwal.html) + tiap overlay/aksi dipecah jadi file sendiri
+    // (htmlAppend), di-append SATU-SATU (bukan bareng) ke #jdw-overlays-root
+    // (di LUAR #page-jadwal) biar overlay fullscreen-nya beneran fixed ke
+    // layar & urutan tumpukannya konsisten. Lihat catatan panjangnya di
+    // user/index_user.html dekat #jdw-overlays-root & USER_PAGE_MODULES.jadwal.
+    jadwal: {
+        html: 'review/jadwal/jadwal.html',
+        htmlAppend: [
+            'review/jadwal/jadwal-ajukan.html',
+            'review/jadwal/jadwal-tentor.html',
+            'review/jadwal/jadwal-sesi.html',
+            'review/jadwal/jadwal-batal.html',
+        ],
+        htmlAppendTarget: 'jdw-overlays-root',
+        js: ['review/jadwal/jadwal.js'],
+    },
 };
 // Fragmen modal bersama (dipakai lintas dock) yang di-load ke #review-modals-root.
 // append:true + URL yang sama dari dock manapun -> LazyLoader hanya benar-benar
@@ -471,14 +785,33 @@ function ensureReviewPageModule(pageId) {
     const spec = REVIEW_PAGE_MODULES[pageId];
     if (!spec) return Promise.resolve();
     const container = document.getElementById('page-' + pageId);
-    const assets = [];
-    if (container) assets.push({ url: '/' + spec.html, container });
-    if (spec.needsModals) {
-        const modalsRoot = document.getElementById('review-modals-root');
-        if (modalsRoot) REVIEW_SHARED_MODALS.forEach(url => assets.push({ url: '/' + url, container: modalsRoot, append: true }));
-    }
-    spec.js.forEach(url => assets.push({ url: '/' + url }));
-    return LazyLoader.loadMany(assets);
+    // Shell utama (spec.html) HARUS selesai ngisi innerHTML container dulu,
+    // baru fragmen overlay (spec.htmlAppend) di-APPEND sesudahnya — kalau
+    // dijalanin bareng, ada resiko innerHTML shell nimpa balik fragmen
+    // overlay yang keburu di-append duluan (race condition). Sama pola
+    // kayak ensureUserPageModule() di user/index_user.html.
+    const mainLoad = container
+        ? LazyLoader.loadMany([{ url: '/' + spec.html, container }])
+        : Promise.resolve();
+    return mainLoad.then(async () => {
+        if (spec.htmlAppend) {
+            const appendTarget = spec.htmlAppendTarget ? document.getElementById(spec.htmlAppendTarget) : container;
+            if (appendTarget) {
+                for (const url of spec.htmlAppend) {
+                    await LazyLoader.loadMany([{ url: '/' + url, container: appendTarget, append: true }]);
+                }
+            }
+        }
+        if (spec.needsModals) {
+            const modalsRoot = document.getElementById('review-modals-root');
+            if (modalsRoot) {
+                for (const url of REVIEW_SHARED_MODALS) {
+                    await LazyLoader.loadMany([{ url: '/' + url, container: modalsRoot, append: true }]);
+                }
+            }
+        }
+        return LazyLoader.loadMany(spec.js.map(url => ({ url: '/' + url })));
+    });
 }
 
 function openModal(id) {

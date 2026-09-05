@@ -149,6 +149,7 @@
     .ebook-search-clear:focus-visible,.ebk-clear-filter:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     .ebook-kelompok-select{padding:10px 12px;border-radius:12px;border:1.5px solid rgba(19,50,89,.12);background:rgba(255,255,255,.55);font-family:var(--font-body);font-size:12.5px;color:var(--text-main);outline:none;max-width:170px;cursor:pointer;transition:border-color .2s}
     .ebook-kelompok-select:focus{border-color:var(--accent)}
+    #ebook-kelompok-filter-wrap{max-width:170px}
     .ebook-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:18px 14px}
     .ebook-card{position:relative;background:rgba(255,255,255,.65);border:1.5px solid rgba(255,255,255,.85);border-radius:5px 14px 14px 5px;overflow:hidden;box-shadow:2px 3px 10px rgba(19,50,89,.08);cursor:pointer;transition:transform .28s cubic-bezier(.22,.8,.32,1),box-shadow .28s;display:flex;flex-direction:column;-webkit-tap-highlight-color:transparent}
     .ebook-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:4px;background:var(--ebk-spine,var(--accent));z-index:2}
@@ -479,11 +480,11 @@
     .home-greeting { font-family:var(--font-head); font-size:22px; font-weight:700; color:var(--blue); }
     .home-greeting span { display:block; font-size:13px; font-weight:400; color:var(--text-sub); margin-top:2px; font-family:var(--font-body); }
     .home-date-chip { font-size:11px; font-weight:600; color:var(--text-sub); background:rgba(255,255,255,.55); border:1px solid rgba(19,50,89,.1); padding:5px 12px; border-radius:20px; }
-    .home-banner { width:100%; padding:22px 24px; margin-bottom:18px; background:linear-gradient(145deg,var(--blue) 0%,#1c4a7a 60%,#0d2a4e 100%); border-radius:20px; box-shadow:0 8px 28px rgba(19,50,89,.22); position:relative; overflow:hidden; }
+    .home-banner { width:100%; min-height:86px; padding:22px 24px; margin-bottom:18px; background:linear-gradient(145deg,var(--blue) 0%,#1c4a7a 60%,#0d2a4e 100%); border-radius:20px; box-shadow:0 8px 28px rgba(19,50,89,.22); position:relative; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center; }
     .home-banner::before { content:''; position:absolute; top:-30px; right:-30px; width:150px; height:150px; border-radius:50%; background:rgba(255,255,255,.06); }
     .home-banner::after { content:''; position:absolute; bottom:-20px; left:20px; width:100px; height:100px; border-radius:50%; background:rgba(255,255,255,.04); }
-    .home-banner-title { font-family:var(--font-head); font-size:16px; font-weight:700; color:#fff; margin-bottom:4px; position:relative; z-index:1; }
-    .home-banner-sub { font-size:12px; color:rgba(255,255,255,.7); position:relative; z-index:1; }
+    .home-banner-title { font-family:var(--font-head); font-size:16px; font-weight:700; color:#fff; margin-bottom:4px; position:relative; z-index:1; padding-right:78px; }
+    .home-banner-sub { font-size:12px; color:rgba(255,255,255,.7); position:relative; z-index:1; padding-right:78px; }
     .home-banner-icon { position:absolute; right:22px; top:50%; transform:translateY(-50%); width:52px; height:52px; background:rgba(255,255,255,.12); border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:1; }
     .home-banner-icon svg { width:26px; height:26px; color:#fff; }
     .home-quick-title { font-size:12px; font-weight:700; color:var(--text-sub); letter-spacing:.06em; text-transform:uppercase; margin-bottom:10px; }
@@ -554,6 +555,8 @@
     .jdw-day.is-past { opacity:.4; cursor:pointer; }
     .jdw-day.is-past .jdw-day-num-wrap { background:rgba(19,50,89,.05); }
     .jdw-day.is-future-locked { opacity:.35; cursor:default; }
+    .jdw-day.is-riwayat-disabled { opacity:.35; cursor:default; }
+    .jdw-day.is-riwayat-selected .jdw-day-num-wrap { border:2px solid var(--accent); }
     .jdw-week-hint { text-align:center; font-size:11.5px; color:var(--text-sub); margin-top:2px; margin-bottom:4px; }
 
     /* ── JADWAL: tombol buka tampilan sebulan (di kalender utama & kalender
@@ -644,7 +647,7 @@
        ujung scroll harus berhenti di atas dock, bukan ketutup olehnya. */
     #jdw-ajukan-overlay .jdw-modal-body { padding-bottom:calc(200px + env(safe-area-inset-bottom)); }
     #jdw-tentor-overlay .jdw-modal-body { padding-bottom:calc(200px + env(safe-area-inset-bottom)); }
-    #jdw-resejuel-overlay .jdw-modal-body { padding-bottom:calc(200px + env(safe-area-inset-bottom)); }
+    #jdw-resejuel-overlay .jdw-modal-body, #jdw-batal-tentor-overlay .jdw-modal-body { padding-bottom:calc(200px + env(safe-area-inset-bottom)); }
     .jdw-ajukan-submit-section { margin-top:4px; }
     /* Overlay Ajukan Jadwal (#jdw-ajukan-overlay) & Pilih Tentor (#jdw-tentor-overlay)
        bisa "open" BARENGAN (buka Pilih Tentor tidak menutup Ajukan Jadwal
@@ -679,6 +682,7 @@
     .jdw-status-badge.resejuel { background:rgba(124,58,237,.12); color:#7c3aed; }
     .jdw-status-badge.batal { background:rgba(90,122,154,.14); color:var(--text-sub); }
     .jdw-status-badge.butuh_persetujuan { background:rgba(220,38,38,.10); color:var(--danger); }
+    .jdw-status-badge.pengajuan_batal_tentor { background:rgba(124,58,237,.12); color:#7c3aed; }
     .jdw-status-badge.feedback { background:rgba(217,119,6,.12); color:var(--warning); }
 
     /* ── JADWAL: halaman fullscreen bandingkan jadwal lama vs baru (resejuel) —
@@ -717,10 +721,15 @@
     }
 
     /* ── JADWAL: tabel desktop untuk daftar pengajuan ── */
-    .jdw-entry-table { width:100%; border-collapse:collapse; font-size:13px; }
-    .jdw-entry-table th { text-align:left; padding:9px 12px; font-size:11px; color:var(--text-sub); border-bottom:1.5px solid rgba(19,50,89,.08); }
-    .jdw-entry-table td { padding:11px 12px; border-bottom:1px solid rgba(19,50,89,.06); vertical-align:middle; }
+    .jdw-entry-table { width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed; }
+    .jdw-entry-table th { text-align:left; padding:9px 12px; font-size:11px; color:var(--text-sub); border-bottom:1.5px solid rgba(19,50,89,.08); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .jdw-entry-table td { padding:11px 12px; border-bottom:1px solid rgba(19,50,89,.06); vertical-align:middle; overflow-wrap:break-word; }
     .jdw-entry-table tr:last-child td { border-bottom:none; }
+    .jdw-entry-table th:nth-child(1), .jdw-entry-table td:nth-child(1) { width:13%; }
+    .jdw-entry-table th:nth-child(2), .jdw-entry-table td:nth-child(2) { width:12%; }
+    .jdw-entry-table th:nth-child(3), .jdw-entry-table td:nth-child(3) { width:20%; }
+    .jdw-entry-table th:nth-child(4), .jdw-entry-table td:nth-child(4) { width:20%; }
+    .jdw-entry-table th:nth-child(5), .jdw-entry-table td:nth-child(5) { width:35%; }
 
     /* ── JADWAL: halaman "Sesi Berlangsung" (Masuk) & "Feedback Sesi" ── */
     .jdw-sesi-item { padding:16px; border-radius:14px; background:rgba(255,255,255,.6); border:1.5px solid rgba(19,50,89,.1); margin-bottom:14px; }
@@ -910,7 +919,7 @@
       <button class="notif-banner-btn" onclick="goPage('profil');openPaketModal()">Perbarui Paket</button>
     </div>
   </div>
-  <div class="home-banner glass">
+  <div class="home-banner">
     <div class="home-banner-title">CIBN PRESTISE</div>
     <div class="home-banner-sub">Platform ujian online terpercaya</div>
     <div class="home-banner-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
@@ -1213,7 +1222,6 @@
 <div class="toast" id="toast"></div>
 <script src="js/custom-select.js"></script>
 <script src="js/lazy-loader.js"></script>
-<script src="js/virtual-list.js"></script>
 <script src="js/swipe.js"></script>
 <!-- Tab jadwal/riwayat/ebook TIDAK dimuat di sini lagi — masing-masing (HTML + JS
      + modal) di-fetch dari server hanya saat tab-nya benar-benar dibuka. Lihat

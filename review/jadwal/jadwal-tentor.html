@@ -1,0 +1,61 @@
+<!-- ══════════════════════════════════════════════════════════════════════
+     user/jadwal-tentor.html — overlay HALAMAN: PILIH TENTOR.
+     Dibuka dari box "+ Pilih Tentor" (atau box tentor yang sudah kepilih) di
+     dalam halaman Ajukan Jadwal (user/jadwal-ajukan.html). Isinya search bar
+     + list nama tentor beserta materi yang mereka ajar. Milih salah satu ->
+     balik lagi ke halaman Ajukan Jadwal dengan tentor itu kepilih, dan materi
+     yang bukan diajar tentor itu otomatis di-nonaktifkan (abu-abu) di bagian
+     Pilih Materi. ══════════════════════════════════════════════════════ -->
+<div class="overlay overlay-fullscreen" id="jdw-tentor-overlay">
+  <div class="modal modal-fullscreen">
+    <div class="jdw-modal-header">
+      <button class="jdw-icon-btn" onclick="JadwalPage.closeTentorOverlay()" aria-label="Kembali">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="jdw-modal-title">Pilih Tentor</div>
+      <span style="width:32px"></span>
+    </div>
+    <div class="jdw-modal-body">
+      <div class="jdw-tentor-search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="jdw-tentor-search-input" id="jdw-tentor-search" placeholder="Cari nama atau materi (TWK, TOEFL, dst)..." oninput="JadwalPage.filterTentor(this.value)">
+      </div>
+      <div class="jdw-tentor-list" id="jdw-tentor-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ KONFIRMASI: GANTI TENTOR (khusus mode Jadwal Ulang, tentor TIDAK
+     dikunci) — muncul kalau user pilih tentor lain yang beda dari tentor asli
+     jadwal ini (lihat JadwalPage.pickTentor & _rescheduleOriginalTentor).
+     "Ya" -> tentor beneran diganti, jatah ganti-tentor (1x per sesi/jadwal)
+     langsung kepakai (JadwalPage.confirmTentorGanti). "Tidak"/tap backdrop ->
+     cuma nutup popup ini, tentor TIDAK jadi diganti, tetap di halaman Pilih
+     Tentor yang sama seperti sebelum popup muncul. ══════ -->
+<div class="overlay confirm-overlay" id="jdw-tentor-ganti-confirm-overlay" onclick="if(event.target===this){JadwalPage.closeTentorGantiConfirm();}">
+  <div class="modal" style="max-width:300px;text-align:center">
+    <div class="confirm-icon warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+    <div class="confirm-title">Ganti Tentor?</div>
+    <div class="confirm-msg">Apakah Anda yakin akan mengganti tentor? Pergantian tentor hanya bisa dilakukan 1x tiap sesi.</div>
+    <div class="confirm-btns">
+      <button class="btn-secondary" onclick="JadwalPage.closeTentorGantiConfirm()" style="flex:1;padding:11px">Tidak</button>
+      <button class="btn-primary" onclick="JadwalPage.confirmTentorGanti()" style="flex:1;margin-top:0">Ya, Ganti</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ INFO: TIDAK BISA GANTI TENTOR LAGI ══════
+     Muncul kalau user coba pilih tentor lain (beda dari tentor yang lagi
+     aktif) padahal jatah ganti tentor (1x per sesi/jadwal) sudah kepakai
+     duluan — lihat JadwalPage.openTentorGantiTerpakai. Cuma 1 tombol
+     "Mengerti", tentor TIDAK berubah sama sekali. ══════ -->
+<div class="overlay confirm-overlay" id="jdw-tentor-ganti-terpakai-overlay" onclick="if(event.target===this){JadwalPage.closeTentorGantiTerpakai();}">
+  <div class="modal" style="max-width:300px;text-align:center">
+    <div class="confirm-icon danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
+    <div class="confirm-title">Tidak Bisa Ganti Tentor</div>
+    <div class="confirm-msg">Anda tidak bisa mengganti tentor karena sudah melakukan sebelumnya.</div>
+    <div class="confirm-btns">
+      <button class="btn-primary" onclick="JadwalPage.closeTentorGantiTerpakai()" style="flex:1;margin-top:0">Mengerti</button>
+    </div>
+  </div>
+</div>

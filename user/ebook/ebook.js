@@ -103,13 +103,11 @@ const EbookLib = {
     },
     _syncToolbarUI() {
         const detailHeader = document.getElementById('ebook-detail-header');
-        const kelompokSel = document.getElementById('ebook-kelompok-filter-select');
-        const sortSel = document.getElementById('ebook-sort-select');
+        const kelompokWrap = document.getElementById('ebook-kelompok-filter-wrap');
         const searchInput = document.getElementById('ebook-search-input');
         const isDetail = !!this._openModulKode;
         if (detailHeader) detailHeader.style.display = isDetail ? 'flex' : 'none';
-        if (kelompokSel) kelompokSel.style.display = isDetail ? 'none' : '';
-        if (sortSel) sortSel.style.display = isDetail ? 'none' : '';
+        if (kelompokWrap) kelompokWrap.style.display = isDetail ? 'none' : '';
         if (searchInput) searchInput.placeholder = isDetail ? 'Cari judul buku...' : 'Cari judul modul...';
         if (isDetail) {
             const m = this.modules.find(x => x.kode === this._openModulKode);

@@ -14,15 +14,11 @@ function _signupCardHtml(r){return SwipeCards.buildSwipeCardHtml({
 async function renderSignupRequests(){
     _signups=await UsersAPI.getSignupRequests().catch(()=>[]);
     const el=document.getElementById('signup-req-list');if(!el)return;
-    VirtualList.render(el,{items:_signups,rowHeight:52,tag:'tr',colSpan:6,
-        renderItem:_signupRowHtml,
-        emptyHtml:`<tr><td colspan="6"><div class="empty-state"><p>Tidak ada permintaan pendaftaran</p></div></td></tr>`});
+    el.innerHTML=_signups.length?_signups.map(_signupRowHtml).join(''):`<tr><td colspan="6"><div class="empty-state"><p>Tidak ada permintaan pendaftaran</p></div></td></tr>`;
     const swEl=document.getElementById('signup-swipe-list');
     if(swEl&&window.SwipeCards){
-        VirtualList.render(swEl,{items:_signups,rowHeight:78,tag:'div',
-            renderItem:_signupCardHtml,
-            emptyHtml:'<div class="swipe-card-empty">Tidak ada permintaan pendaftaran</div>',
-            onRendered:()=>SwipeCards.bindSwipeList(swEl)});
+        swEl.innerHTML=_signups.length?_signups.map(_signupCardHtml).join(''):'<div class="swipe-card-empty">Tidak ada permintaan pendaftaran</div>';
+        SwipeCards.bindSwipeList(swEl);
     }
 }
 async function approveSignup(id){showConfirm('Aktivasi Akun','Yakin aktifkan akun ini?','warning',async()=>{try{await UsersAPI.approveSignup(id);showToast('Akun diaktifkan!','success');await renderSignupRequests();await renderHome();}catch(e){showToast('Gagal: '+e.message,'danger');}});}
@@ -42,15 +38,11 @@ function _paketReqCardHtml(r){return SwipeCards.buildSwipeCardHtml({
 async function renderPaketRequests(){
     _paketReqs=await PaketRequestsAPI.getAll().catch(()=>[]);
     const el=document.getElementById('paket-req-list');if(!el)return;
-    VirtualList.render(el,{items:_paketReqs,rowHeight:52,tag:'tr',colSpan:7,
-        renderItem:_paketReqRowHtml,
-        emptyHtml:`<tr><td colspan="7"><div class="empty-state"><p>Tidak ada permintaan aktivasi paket</p></div></td></tr>`});
+    el.innerHTML=_paketReqs.length?_paketReqs.map(_paketReqRowHtml).join(''):`<tr><td colspan="7"><div class="empty-state"><p>Tidak ada permintaan aktivasi paket</p></div></td></tr>`;
     const swEl=document.getElementById('paket-req-swipe-list');
     if(swEl&&window.SwipeCards){
-        VirtualList.render(swEl,{items:_paketReqs,rowHeight:78,tag:'div',
-            renderItem:_paketReqCardHtml,
-            emptyHtml:'<div class="swipe-card-empty">Tidak ada permintaan aktivasi paket</div>',
-            onRendered:()=>SwipeCards.bindSwipeList(swEl)});
+        swEl.innerHTML=_paketReqs.length?_paketReqs.map(_paketReqCardHtml).join(''):'<div class="swipe-card-empty">Tidak ada permintaan aktivasi paket</div>';
+        SwipeCards.bindSwipeList(swEl);
     }
 }
 async function approvePaketRequest(kode){showConfirm('Aktivasi Paket','Yakin sudah menerima pembayarannya? Paket akan langsung aktif untuk user ini.','warning',async()=>{try{await PaketRequestsAPI.approve(kode);showToast('Paket diaktifkan!','success');await renderPaketRequests();}catch(e){showToast('Gagal: '+e.message,'danger');}});}
