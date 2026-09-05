@@ -799,17 +799,40 @@ async function openMathEditor(editorInstance, existingLatex, existingImg) {
         return;
     }
     if (window._mathEd._openToken !== token) return; // modal sudah ditutup/diganti sebelum loading selesai
-    if (!window._mathEd.mq) window._mathEd.mq = MathQuill.getInterface(2);
-    if (box) {
-        box.innerHTML = '';
-        window._mathEd.mathField = window._mathEd.mq.MathField(box, {
-            spaceBehavesLikeTab: true,
-            handlers: { edit: () => _syncMathAdvancedInput() }
-        });
+    // Inisialisasi MathQuill dibungkus try/catch: sebelumnya kalau ini melempar
+    // error (mis. bentrok dengan versi jQuery lain yang sudah dipakai halaman
+    // admin ini untuk keperluan lain), errornya diam-diam tidak tertangkap —
+    // box jadi kosong tanpa kotak input sama sekali, makanya kelihatan
+    // seperti "tidak bisa nulis apa pun" padahal sebenarnya papan rumusnya
+    // gagal terbentuk. Sekarang errornya ditangkap dan user diarahkan ke
+    // "Mode Lanjutan" (ketik kode LaTeX manual) sebagai jalur cadangan yang
+    // tidak butuh MathQuill sama sekali.
+    try {
+        if (!window._mathEd.mq) window._mathEd.mq = MathQuill.getInterface(2);
+        if (box) {
+            box.innerHTML = '';
+            window._mathEd.mathField = window._mathEd.mq.MathField(box, {
+                spaceBehavesLikeTab: true,
+                handlers: { edit: () => _syncMathAdvancedInput() }
+            });
+        }
+    } catch (err) {
+        console.error('[math-editor] gagal inisialisasi MathQuill:', err);
+        window._mathEd.mathField = null;
+        if (box) box.innerHTML = '<span style="color:var(--danger);font-size:12px">Papan rumus visual gagal dimuat (kemungkinan bentrok dengan komponen lain di halaman ini). Gunakan "⚙ Mode Lanjutan" di bawah untuk mengetik kode LaTeX secara manual.</span>';
+        if (advWrap) advWrap.style.display = 'block';
+        if (ta) ta.value = existingLatex || '';
+        return;
     }
     const mf = window._mathEd.mathField;
     if (mf) {
         mf.latex(existingLatex || '');
+        // Klik di mana pun di dalam kotak papan rumus akan memfokuskan field-nya —
+        // jaga-jaga kalau klik tidak selalu tepat kena textarea internal MathQuill.
+        if (box && !box._mathClickBound) {
+            box._mathClickBound = true;
+            box.addEventListener('mousedown', () => setTimeout(() => window._mathEd.mathField?.focus(), 0));
+        }
         // Coba fokuskan beberapa kali (bukan cuma sekali di 150ms) — modal butuh
         // waktu animasi untuk muncul, dan kalau sistem modal punya focus-trap
         // sendiri yang jalan belakangan, fokus ke papan rumus bisa "direbut
@@ -819,7 +842,7 @@ async function openMathEditor(editorInstance, existingLatex, existingImg) {
             mf.focus();
             if (n > 0) setTimeout(() => tryFocus(n - 1), 120);
         };
-        tryFocus(4);
+        tryFocus(6);
     }
     _syncMathAdvancedInput();
 }
@@ -883,11 +906,15 @@ function applyMathAdvancedInput() {
 
 async function mathEditorInsert() {
     const mf = window._mathEd.mathField;
-    if (!mf) {
+    // Kalau papan rumus visual gagal terbentuk (lihat catatan di openMathEditor),
+    // tetap coba ambil rumus dari textarea "Mode Lanjutan" kalau user mengisinya
+    // di situ — supaya insert rumus tidak 100% bergantung ke MathQuill.
+    const advTa = document.getElementById('math-latex-advanced');
+    const latex = (mf ? mf.latex() : (advTa ? advTa.value : '')).trim();
+    if (!mf && !latex) {
         if (typeof showToast === 'function') showToast('Papan rumus belum siap / gagal dimuat, tutup lalu buka lagi', 'danger');
         return;
     }
-    const latex = mf.latex().trim();
     if (!latex) { if (typeof showToast === 'function') showToast('Rumus masih kosong', 'danger'); return; }
     let svgEl;
     try {
