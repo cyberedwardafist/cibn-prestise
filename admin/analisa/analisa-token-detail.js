@@ -60,9 +60,129 @@ function renderAnalisaTokenDetail() {
     const items = window._analisaTokenDetailItems || [];
     const sub = document.getElementById('atd-kode-sub');
     if (sub) sub.textContent = grup ? `Grup: ${grup} (${items.length} token)` : '-';
-    // TODO: render ringkasan analisa asli grup ini (skor rata-rata, sebaran
-    // peserta, dst) di #atd-content menyusul instruksi berikutnya.
+    _atdRenderRingkasan(grup, items);
+    _atdRenderPeserta(grup, items);
     _atdRenderDummyCharts();
+}
+
+function _atdEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])); }
+
+// ── RINGKASAN GRUP: jumlah token dibuat/terpakai/hangus + modul & soal yang
+// dipakai grup ini — ditaruh di #atd-content. "Hangus" = token yang TIDAK
+// pernah dipakai (t._dipakai falsy) TAPI sudah lewat tanggal expired-nya
+// (sama seperti definisi status "Kadaluarsa" di daftar grup / analisa-token.js).
+async function _atdRenderRingkasan(grup, items) {
+    const el = document.getElementById('atd-content');
+    if (!el) return;
+    if (!grup || !items.length) { el.innerHTML = '<div class="empty-state"><p>Analisa untuk grup ini akan segera hadir</p></div>'; return; }
+
+    const now = Date.now();
+    const total = items.length;
+    const used = items.filter(t => t._dipakai).length;
+    const hangus = items.filter(t => !t._dipakai && t.expired && new Date(t.expired).getTime() < now).length;
+
+    // Modul yang dipakai grup ini (bisa lebih dari 1 kalau token digenerate dari
+    // modul berbeda-beda dalam 1 grup) — dikumpulkan dari modul_kode/modul_nama
+    // yang menempel di tiap token.
+    const modulMap = {};
+    items.forEach(t => {
+        const kode = t.modul_kode; if (!kode) return;
+        if (!modulMap[kode]) modulMap[kode] = t.modul_nama || t.modul_kode;
+    });
+    const modulKodes = Object.keys(modulMap);
+
+    let modulSoalHtml = '<div class="empty-state" style="padding:16px"><p>Belum ada modul yang tertaut ke token grup ini</p></div>';
+    if (modulKodes.length) {
+        const [modulList, soalList] = await Promise.all([
+            ModulAPI.getAll().catch(() => []),
+            SoalAPI.getAll().catch(() => [])
+        ]);
+        const soalByKode = {};
+        (soalList || []).forEach(s => { soalByKode[s.kode] = s.nama || s.kode; });
+        const modulByKode = {};
+        (modulList || []).forEach(m => { modulByKode[m.kode] = m; });
+
+        modulSoalHtml = modulKodes.map(kode => {
+            const m = modulByKode[kode];
+            const namaModul = _atdEsc(modulMap[kode] || kode);
+            const soalRows = (m && Array.isArray(m.soal_list) && m.soal_list.length)
+                ? m.soal_list.map((sl, i) => `<div class="atd-soal-row">${i + 1}. ${_atdEsc(soalByKode[sl.soal_kode] || sl.soal_kode)}</div>`).join('')
+                : '<div class="atd-soal-row" style="opacity:.6">Modul ini belum berisi soal, atau modulnya sudah dihapus</div>';
+            return `<div class="atd-modul-block">
+                <div class="atd-modul-title">${namaModul} <span style="font-weight:400;color:var(--text-sub);font-size:11px">(${(m && m.soal_list ? m.soal_list.length : 0)} soal)</span></div>
+                <div class="atd-soal-list">${soalRows}</div>
+            </div>`;
+        }).join('');
+    }
+
+    el.innerHTML = `
+        <div class="section-title" style="font-size:16px;margin-bottom:14px">Ringkasan Grup</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:18px">
+            <div class="stat-card" style="cursor:default">
+                <div class="stat-icon accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
+                <div class="stat-num">${total}</div>
+                <div class="stat-label">Token Dibuat</div>
+            </div>
+            <div class="stat-card" style="cursor:default">
+                <div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <div class="stat-num">${used}</div>
+                <div class="stat-label">Token Terpakai</div>
+            </div>
+            <div class="stat-card" style="cursor:default">
+                <div class="stat-icon" style="background:rgba(220,38,38,.12);color:#dc2626"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
+                <div class="stat-num">${hangus}</div>
+                <div class="stat-label">Token Hangus</div>
+            </div>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:8px">Modul &amp; Soal yang Digunakan</div>
+        <div class="atd-modul-wrap">${modulSoalHtml}</div>
+    `;
+}
+
+// ── PESERTA: daftar akun yang memakai token di grup ini. Kartu ini bisa
+// diklik (header) untuk buka/tutup daftarnya ke bawah — tiap baris
+// menampilkan nama akun + grup asal tokennya (di halaman ini semua peserta
+// otomatis dari grup yang sama, karena "items" sudah difilter per grup sejak
+// openAnalisaTokenDetail() di analisa-token.js).
+function _atdRenderPeserta(grup, items) {
+    const el = document.getElementById('atd-peserta-card');
+    if (!el) return;
+    if (!grup) { el.innerHTML = '<div class="empty-state"><p>Data peserta akan segera hadir</p></div>'; return; }
+
+    const peserta = items.filter(t => t._dipakai).map(t => ({
+        nama: t.user_nama || t.digunakan_oleh || 'Akun tidak diketahui',
+        grup: grup,
+        skor: (t.skor === null || t.skor === undefined) ? null : t.skor,
+        selesai: t.tgl_selesai || null
+    }));
+
+    const rows = peserta.length
+        ? peserta.map(p => `<div class="atd-peserta-row">
+                <div class="atd-peserta-nama">${_atdEsc(p.nama)}</div>
+                <div class="atd-peserta-grup"><span class="history-badge" style="background:rgba(19,50,89,.08);color:var(--text-sub)">${_atdEsc(p.grup)}</span></div>
+                <div class="atd-peserta-skor">${p.skor !== null ? 'Skor ' + p.skor : '-'}</div>
+            </div>`).join('')
+        : '<div class="empty-state" style="padding:16px"><p>Belum ada akun yang memakai token grup ini</p></div>';
+
+    el.innerHTML = `
+        <div class="atd-peserta-header" onclick="_atdTogglePeserta()">
+            <div>
+                <div class="section-title" style="font-size:16px;margin-bottom:2px">Peserta</div>
+                <div class="section-sub" style="margin-bottom:0">${peserta.length} akun menggunakan token grup ini</div>
+            </div>
+            <svg class="atd-peserta-chevron" id="atd-peserta-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="atd-peserta-list" id="atd-peserta-list" style="display:none">${rows}</div>
+    `;
+}
+
+function _atdTogglePeserta() {
+    const list = document.getElementById('atd-peserta-list');
+    const chev = document.getElementById('atd-peserta-chevron');
+    if (!list) return;
+    const willOpen = list.style.display === 'none';
+    list.style.display = willOpen ? 'block' : 'none';
+    if (chev) chev.style.transform = willOpen ? 'rotate(180deg)' : '';
 }
 
 // ── DATA DUMMY ──────────────────────────────────────────────────────────
