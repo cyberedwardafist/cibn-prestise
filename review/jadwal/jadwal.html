@@ -1,0 +1,82 @@
+<!-- review/jadwal/jadwal.html
+     Fragmen JADWAL sisi REVIEW/GURU (tentor) — di-lazy-load ke #page-jadwal.
+     Lihat review/jadwal/jadwal.js untuk logikanya. -->
+<div class="section-title">Jadwal Mengajar</div>
+<div class="section-sub">Kelola pengajuan &amp; sesi bimbingan kamu sebagai tentor</div>
+
+<!-- Tampil kalau akun review ini BELUM ditautkan ke tentor manapun -->
+<div class="card" id="rjw-tentor-picker" style="display:none;">
+  <div class="form-label" style="margin-bottom:10px;">Pilih identitas tentor kamu</div>
+  <div style="font-size:12px;color:var(--text-sub);margin-bottom:14px;line-height:1.5;">
+    Akun review ini belum ditautkan ke tentor manapun di perangkat ini. Pilih salah satu supaya sistem tahu jadwal mana yang perlu ditampilkan (masih dummy — nanti gampang disambung ke data akun asli).
+  </div>
+  <select id="rjw-tentor-select" class="form-select" style="width:100%;margin-bottom:14px;"></select>
+  <button class="btn btn-primary" onclick="RjwPage.saveTentor()">Simpan &amp; Lanjutkan</button>
+</div>
+
+<!-- Dashboard utama, tampil kalau sudah ada tentor yang ditautkan -->
+<div id="rjw-dashboard" style="display:none;">
+  <div class="card" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+    <div>
+      <div style="font-size:12px;color:var(--text-sub);">Login sebagai tentor</div>
+      <div id="rjw-my-tentor-name" style="font-family:var(--font-head);font-weight:800;font-size:16px;color:var(--blue);">-</div>
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="RjwPage.gantiTentor()">Ganti</button>
+  </div>
+
+  <div class="form-label" style="margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+    Menunggu Persetujuan <span class="badge badge-pending" id="rjw-count-pending">0</span>
+  </div>
+  <div id="rjw-list-pending" style="margin-bottom:24px;"></div>
+
+  <div class="form-label" style="margin-bottom:10px;">Jadwal Aktif</div>
+  <div id="rjw-list-aktif" style="margin-bottom:20px;"></div>
+
+  <button class="btn btn-secondary btn-sm" id="rjw-riwayat-toggle" onclick="RjwPage.toggleRiwayat()" style="width:fit-content;margin-bottom:10px;">Tampilkan Riwayat</button>
+  <div id="rjw-list-riwayat" style="display:none;"></div>
+</div>
+
+<!-- MODAL: Tolak Pengajuan -->
+<div class="overlay" id="rjw-tolak-overlay">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Tolak Pengajuan</div>
+      <button class="modal-close" onclick="closeModal('rjw-tolak-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-label" style="margin-bottom:6px;">Alasan (opsional)</div>
+      <textarea id="rjw-tolak-alasan" class="form-textarea" rows="3" style="width:100%;" placeholder="Contoh: jam bentrok dengan sesi lain"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('rjw-tolak-overlay')">Batal</button>
+      <button class="btn btn-danger" onclick="RjwPage.confirmTolak()">Tolak Pengajuan</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Feedback Sesi -->
+<div class="overlay" id="rjw-feedback-overlay">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Feedback Sesi</div>
+      <button class="modal-close" onclick="closeModal('rjw-feedback-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="rjw-feedback-info" style="font-size:12px;color:var(--text-sub);margin-bottom:14px;"></div>
+      <div class="form-label" style="margin-bottom:6px;">Progress Murid</div>
+      <select id="rjw-feedback-progress" class="form-select" style="width:100%;margin-bottom:14px;">
+        <option value="5">Sangat Baik</option>
+        <option value="4">Baik</option>
+        <option value="3">Cukup</option>
+        <option value="2">Kurang</option>
+        <option value="1">Perlu Perhatian Khusus</option>
+      </select>
+      <div class="form-label" style="margin-bottom:6px;">Catatan untuk Sesi Berikutnya</div>
+      <textarea id="rjw-feedback-catatan" class="form-textarea" rows="3" style="width:100%;" placeholder="Catatan progress, materi yang perlu diulang, dst"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('rjw-feedback-overlay')">Batal</button>
+      <button class="btn btn-primary" onclick="RjwPage.confirmFeedback()">Simpan Feedback</button>
+    </div>
+  </div>
+</div>

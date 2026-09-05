@@ -291,10 +291,7 @@
     </div>
 
     <!-- JADWAL -->
-    <div class="page" id="page-jadwal">
-      <div class="section-title">Jadwal</div>
-      <div class="section-sub">Informasi jadwal</div>
-    </div>
+<div class="page" id="page-jadwal"></div>
 
     <!-- BAHAS -->
     <div class="page" id="page-bahas">
@@ -434,9 +431,9 @@ function renderPage(id) {
     else if (id === 'riwayat') renderRiwayat();
     else if (id === 'akun-saya') renderAkunSaya();
     else if (id === 'ebook') EbookLib.load();
+    else if (id === 'jadwal') renderJadwalReview();
     // halaman baru (kosong, siap diisi)
     // else if (id === 'keuangan') renderKeuangan();
-    // else if (id === 'jadwal') renderJadwal();
     // else if (id === 'bahas') renderBahas();
     // else if (id === 'laporan') renderLaporan();
   }).catch(err => {
@@ -462,6 +459,7 @@ const REVIEW_PAGE_MODULES = {
     riwayat:    { html: 'review/riwayat/riwayat.html',      js: ['review/riwayat/riwayat.js'], needsModals: true },
     'akun-saya':{ html: 'review/akun-saya/akun-saya.html',  js: ['review/akun-saya/akun-saya.js'] },
     ebook:      { html: 'review/ebook/ebook.html',          js: ['review/ebook/ebook.js'] },
+    jadwal:     { html: 'review/jadwal/jadwal.html',        js: ['review/jadwal/jadwal.js'] },
 };
 // Fragmen modal bersama (dipakai lintas dock) yang di-load ke #review-modals-root.
 // append:true + URL yang sama dari dock manapun -> LazyLoader hanya benar-benar
