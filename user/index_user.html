@@ -719,10 +719,15 @@
     }
 
     /* ── JADWAL: tabel desktop untuk daftar pengajuan ── */
-    .jdw-entry-table { width:100%; border-collapse:collapse; font-size:13px; }
-    .jdw-entry-table th { text-align:left; padding:9px 12px; font-size:11px; color:var(--text-sub); border-bottom:1.5px solid rgba(19,50,89,.08); }
-    .jdw-entry-table td { padding:11px 12px; border-bottom:1px solid rgba(19,50,89,.06); vertical-align:middle; }
+    .jdw-entry-table { width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed; }
+    .jdw-entry-table th { text-align:left; padding:9px 12px; font-size:11px; color:var(--text-sub); border-bottom:1.5px solid rgba(19,50,89,.08); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .jdw-entry-table td { padding:11px 12px; border-bottom:1px solid rgba(19,50,89,.06); vertical-align:middle; overflow-wrap:break-word; }
     .jdw-entry-table tr:last-child td { border-bottom:none; }
+    .jdw-entry-table th:nth-child(1), .jdw-entry-table td:nth-child(1) { width:13%; }
+    .jdw-entry-table th:nth-child(2), .jdw-entry-table td:nth-child(2) { width:12%; }
+    .jdw-entry-table th:nth-child(3), .jdw-entry-table td:nth-child(3) { width:20%; }
+    .jdw-entry-table th:nth-child(4), .jdw-entry-table td:nth-child(4) { width:20%; }
+    .jdw-entry-table th:nth-child(5), .jdw-entry-table td:nth-child(5) { width:35%; }
 
     /* ── JADWAL: halaman "Sesi Berlangsung" (Masuk) & "Feedback Sesi" ── */
     .jdw-sesi-item { padding:16px; border-radius:14px; background:rgba(255,255,255,.6); border:1.5px solid rgba(19,50,89,.1); margin-bottom:14px; }
