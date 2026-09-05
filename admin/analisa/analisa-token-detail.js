@@ -224,13 +224,27 @@ function _atdSlicesFor(kind, idx) {
 
 function _atdRenderPiePopup(title, slices) {
     const legend = slices.map(s => `<div class="atd-pie-pop-row"><span class="atd-legend-dot" style="background:${s.color}"></span><span>${s.label}</span><b>${s.pct}%</b></div>`).join('');
-    const pop = document.getElementById('atd-pie-pop');
+    const pop = _atdGetPiePopEl();
     if (!pop) return;
     pop.innerHTML = `<div class="atd-pie-pop-title">${title}</div><div class="atd-pie-pop-body">${_atdPieSvg(slices)}<div class="atd-pie-pop-legend">${legend}</div></div>`;
 }
 
-function _atdPositionPiePopup(evt) {
+// #atd-pie-pop dipindah ke <body> (bukan dibiarkan di dalam .page) karena
+// .page punya CSS "transform" (lihat css/base.css .page/.page.active) — dan
+// elemen manapun dengan "transform" otomatis jadi containing-block baru utk
+// descendant "position:fixed", jadi posisi popup ikut acuan kotak .page yg
+// scrollable itu, BUKAN acuan viewport. Efeknya waktu halaman di-scroll jauh
+// ke bawah (grafiknya kan di bawah), popup fixed tsb melenceng jauh dari
+// posisi kursor/sentuhan sebenarnya. Pindah ke <body> membuat fixed-nya
+// kembali relatif ke viewport, jadi selalu tepat di dekat kursor.
+function _atdGetPiePopEl() {
     const pop = document.getElementById('atd-pie-pop');
+    if (pop && pop.parentElement !== document.body) document.body.appendChild(pop);
+    return pop;
+}
+
+function _atdPositionPiePopup(evt) {
+    const pop = _atdGetPiePopEl();
     if (!pop) return;
     const pt = (evt.touches && evt.touches[0]) ? evt.touches[0] : evt;
     const x = pt.clientX != null ? pt.clientX : window.innerWidth / 2;
