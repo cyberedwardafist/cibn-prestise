@@ -76,10 +76,16 @@ const _ATD_DUMMY_RINGKASAN = {
     total: 25,
     used: 18,
     hangus: 3,
-    modul: [
-        { nama: 'Tes Potensi Akademik', soal: ['Sinonim & Antonim', 'Deret Angka', 'Analogi Verbal', 'Logika Matematika', 'Pemahaman Bacaan'] },
-        { nama: 'Tes Sikap Kerja', soal: ['Kolom 1 – Ketelitian', 'Kolom 2 – Kecepatan', 'Kolom 3 – Konsistensi', 'Kolom 4 – Daya Tahan'] }
-    ]
+    modul: {
+        nama: 'Tes Potensi Akademik',
+        soal: [
+            { nama: 'Sinonim & Antonim', butir: 20 },
+            { nama: 'Deret Angka', butir: 15 },
+            { nama: 'Analogi Verbal', butir: 20 },
+            { nama: 'Logika Matematika', butir: 25 },
+            { nama: 'Pemahaman Bacaan', butir: 10 }
+        ]
+    }
 };
 
 const _ATD_DUMMY_PESERTA = [
@@ -100,16 +106,16 @@ function _atdRenderRingkasan(grup, items) {
 
     const { total, used, hangus, modul } = _ATD_DUMMY_RINGKASAN;
 
-    const modulSoalHtml = modul.length
-        ? modul.map(m => {
-            const soalRows = m.soal.length
-                ? m.soal.map((nama, i) => `<div class="atd-soal-row">${i + 1}. ${_atdEsc(nama)}</div>`).join('')
+    const modulSoalHtml = modul
+        ? (() => {
+            const soalRows = modul.soal.length
+                ? modul.soal.map((s, i) => `<div class="atd-soal-row">${i + 1}. ${_atdEsc(s.nama)} <span style="color:var(--text-sub)">(${s.butir} pertanyaan)</span></div>`).join('')
                 : '<div class="atd-soal-row" style="opacity:.6">Modul ini belum berisi soal</div>';
             return `<div class="atd-modul-block">
-                <div class="atd-modul-title">${_atdEsc(m.nama)} <span style="font-weight:400;color:var(--text-sub);font-size:11px">(${m.soal.length} soal)</span></div>
+                <div class="atd-modul-title">${_atdEsc(modul.nama)}</div>
                 <div class="atd-soal-list">${soalRows}</div>
             </div>`;
-        }).join('')
+        })()
         : '<div class="empty-state" style="padding:16px"><p>Belum ada modul yang tertaut ke token grup ini</p></div>';
 
     el.innerHTML = `
@@ -175,6 +181,19 @@ function _atdTogglePeserta() {
     const willOpen = list.style.display === 'none';
     list.style.display = willOpen ? 'block' : 'none';
     if (chev) chev.style.transform = willOpen ? 'rotate(180deg)' : '';
+}
+
+// Klik nomor soal (sumbu-X) di grafik "Benar/Salah" atau "Nilai/Skor Sendiri"
+// (kind: 'binary' | 'skor') -> pindah ke halaman admin/analisa/analisa-soal.js
+// (SENGAJA masih kosong, cuma ada tombol kembali — isinya menyusul). Konteks
+// (grup asal + nomor soal + tipe grafik) dititip lewat window var, sama
+// polanya dgn openAnalisaTokenDetail() di analisa-token.js.
+function _atdGoToSoalDetail(evt, kind, nomor) {
+    if (evt) evt.stopPropagation();
+    window._analisaSoalDetailGrup = window._analisaTokenDetailGrup || null;
+    window._analisaSoalDetailNomor = nomor;
+    window._analisaSoalDetailKind = kind;
+    navigateTo('analisa-soal');
 }
 
 
@@ -388,7 +407,7 @@ function _atdBuildLineChart(containerId, opts) {
         svgParts += `<g class="atd-chart-group" data-idx="${i}" data-kind="${kind}">
             <rect class="atd-hit" x="${(left + i * slotW).toFixed(1)}" y="${top}" width="${slotW.toFixed(1)}" height="${plotH}"></rect>
             ${dotsSvg}
-            <text class="atd-x-label" x="${cx(i).toFixed(1)}" y="${top + plotH + 18}">${cat}</text>
+            <text class="atd-x-label atd-x-label-clickable" x="${cx(i).toFixed(1)}" y="${top + plotH + 18}" onclick="_atdGoToSoalDetail(event,'${kind}',${JSON.stringify(cat)})">${cat}</text>
         </g>`;
     });
 

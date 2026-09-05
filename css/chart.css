@@ -40,6 +40,8 @@
 .atd-axis-label{fill:var(--text-sub);font-size:8px;font-family:var(--font-body)}
 .atd-x-label{fill:var(--text-sub);font-size:10px;font-family:var(--font-body);text-anchor:middle}
 .atd-x-label.atd-active{fill:var(--blue);font-weight:700}
+.atd-x-label-clickable{cursor:pointer}
+.atd-x-label-clickable:hover{fill:var(--blue);font-weight:700;text-decoration:underline}
 
 .atd-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid rgba(19,50,89,.08)}
 .atd-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-sub)}
