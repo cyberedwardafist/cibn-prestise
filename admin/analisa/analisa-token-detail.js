@@ -60,10 +60,123 @@ function renderAnalisaTokenDetail() {
     const items = window._analisaTokenDetailItems || [];
     const sub = document.getElementById('atd-kode-sub');
     if (sub) sub.textContent = grup ? `Grup: ${grup} (${items.length} token)` : '-';
-    // TODO: render ringkasan analisa asli grup ini (skor rata-rata, sebaran
-    // peserta, dst) di #atd-content menyusul instruksi berikutnya.
+    _atdRenderRingkasan(grup, items);
+    _atdRenderPeserta(grup, items);
     _atdRenderDummyCharts();
 }
+
+function _atdEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])); }
+
+// ── DATA DUMMY — Ringkasan Grup & Peserta ─────────────────────────────────
+// SAMA POLANYA dgn _ATD_DUMMY_BINARY/_ATD_DUMMY_SKOR/_ATD_DUMMY_SIKAP_RAW di
+// bawah (grafik per-soal): ini contoh visual saja, BELUM ditarik dari data
+// token/laporan asli. Nanti tinggal ganti isi 2 konstanta ini (atau computed
+// dari `items` yang beneran) dengan hasil agregasi sungguhan per grup.
+const _ATD_DUMMY_RINGKASAN = {
+    total: 25,
+    used: 18,
+    hangus: 3,
+    modul: [
+        { nama: 'Tes Potensi Akademik', soal: ['Sinonim & Antonim', 'Deret Angka', 'Analogi Verbal', 'Logika Matematika', 'Pemahaman Bacaan'] },
+        { nama: 'Tes Sikap Kerja', soal: ['Kolom 1 – Ketelitian', 'Kolom 2 – Kecepatan', 'Kolom 3 – Konsistensi', 'Kolom 4 – Daya Tahan'] }
+    ]
+};
+
+const _ATD_DUMMY_PESERTA = [
+    { nama: 'Ahmad Fauzi', skor: 88 },
+    { nama: 'Siti Nurhaliza', skor: 76 },
+    { nama: 'Budi Santoso', skor: 92 },
+    { nama: 'Dewi Lestari', skor: 65 },
+    { nama: 'Rizky Ramadhan', skor: 81 }
+];
+
+// ── RINGKASAN GRUP: jumlah token dibuat/terpakai/hangus + modul & soal yang
+// dipakai grup ini — ditaruh di #atd-content. MASIH DATA DUMMY (lihat
+// _ATD_DUMMY_RINGKASAN di atas) — belum dihitung dari `items` beneran.
+function _atdRenderRingkasan(grup, items) {
+    const el = document.getElementById('atd-content');
+    if (!el) return;
+    if (!grup) { el.innerHTML = '<div class="empty-state"><p>Analisa untuk grup ini akan segera hadir</p></div>'; return; }
+
+    const { total, used, hangus, modul } = _ATD_DUMMY_RINGKASAN;
+
+    const modulSoalHtml = modul.length
+        ? modul.map(m => {
+            const soalRows = m.soal.length
+                ? m.soal.map((nama, i) => `<div class="atd-soal-row">${i + 1}. ${_atdEsc(nama)}</div>`).join('')
+                : '<div class="atd-soal-row" style="opacity:.6">Modul ini belum berisi soal</div>';
+            return `<div class="atd-modul-block">
+                <div class="atd-modul-title">${_atdEsc(m.nama)} <span style="font-weight:400;color:var(--text-sub);font-size:11px">(${m.soal.length} soal)</span></div>
+                <div class="atd-soal-list">${soalRows}</div>
+            </div>`;
+        }).join('')
+        : '<div class="empty-state" style="padding:16px"><p>Belum ada modul yang tertaut ke token grup ini</p></div>';
+
+    el.innerHTML = `
+        <div class="section-title" style="font-size:16px;margin-bottom:2px">Ringkasan Grup (dummy)</div>
+        <div class="section-sub" style="margin-bottom:14px">Contoh tampilan — angka &amp; daftar di bawah ini belum ditarik dari data token/laporan asli</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:18px">
+            <div class="stat-card" style="cursor:default">
+                <div class="stat-icon accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
+                <div class="stat-num">${total}</div>
+                <div class="stat-label">Token Dibuat</div>
+            </div>
+            <div class="stat-card" style="cursor:default">
+                <div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <div class="stat-num">${used}</div>
+                <div class="stat-label">Token Terpakai</div>
+            </div>
+            <div class="stat-card" style="cursor:default">
+                <div class="stat-icon" style="background:rgba(220,38,38,.12);color:#dc2626"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
+                <div class="stat-num">${hangus}</div>
+                <div class="stat-label">Token Hangus</div>
+            </div>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:8px">Modul &amp; Soal yang Digunakan</div>
+        <div class="atd-modul-wrap">${modulSoalHtml}</div>
+    `;
+}
+
+// ── PESERTA: daftar akun yang memakai token di grup ini. Kartu ini bisa
+// diklik (header) untuk buka/tutup daftarnya ke bawah — tiap baris
+// menampilkan nama akun + grup asal tokennya. MASIH DATA DUMMY (lihat
+// _ATD_DUMMY_PESERTA di atas) — belum ditarik dari `items`/laporan beneran.
+function _atdRenderPeserta(grup, items) {
+    const el = document.getElementById('atd-peserta-card');
+    if (!el) return;
+    if (!grup) { el.innerHTML = '<div class="empty-state"><p>Data peserta akan segera hadir</p></div>'; return; }
+
+    const peserta = _ATD_DUMMY_PESERTA.map(p => Object.assign({ grup }, p));
+
+    const rows = peserta.length
+        ? peserta.map(p => `<div class="atd-peserta-row">
+                <div class="atd-peserta-nama">${_atdEsc(p.nama)}</div>
+                <div class="atd-peserta-grup"><span class="history-badge" style="background:rgba(19,50,89,.08);color:var(--text-sub)">${_atdEsc(p.grup)}</span></div>
+                <div class="atd-peserta-skor">${p.skor !== null && p.skor !== undefined ? 'Skor ' + p.skor : '-'}</div>
+            </div>`).join('')
+        : '<div class="empty-state" style="padding:16px"><p>Belum ada akun yang memakai token grup ini</p></div>';
+
+    el.innerHTML = `
+        <div class="atd-peserta-header" onclick="_atdTogglePeserta()">
+            <div>
+                <div class="section-title" style="font-size:16px;margin-bottom:2px">Peserta (dummy)</div>
+                <div class="section-sub" style="margin-bottom:0">${peserta.length} akun menggunakan token grup ini</div>
+            </div>
+            <svg class="atd-peserta-chevron" id="atd-peserta-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="atd-peserta-list" id="atd-peserta-list" style="display:none">${rows}</div>
+    `;
+}
+
+function _atdTogglePeserta() {
+    const list = document.getElementById('atd-peserta-list');
+    const chev = document.getElementById('atd-peserta-chevron');
+    if (!list) return;
+    const willOpen = list.style.display === 'none';
+    list.style.display = willOpen ? 'block' : 'none';
+    if (chev) chev.style.transform = willOpen ? 'rotate(180deg)' : '';
+}
+
 
 // ── DATA DUMMY ──────────────────────────────────────────────────────────
 const _ATD_DUMMY_BINARY = [

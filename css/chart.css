@@ -55,6 +55,19 @@
 .atd-pie-pop-row b{margin-left:auto;color:var(--blue);font-weight:700;white-space:nowrap}
 .atd-pie-pop-pct{color:var(--text-sub);font-weight:500;font-size:10px}
 
+/* ── RINGKASAN GRUP (stat token + modul/soal) & PESERTA — admin/analisa/analisa-token-detail.js ── */
+.atd-modul-wrap{display:flex;flex-direction:column;gap:12px}
+.atd-modul-block{background:rgba(19,50,89,.04);border:1px solid rgba(19,50,89,.08);border-radius:12px;padding:12px 14px}
+.atd-modul-title{font-weight:700;font-size:13px;color:var(--blue);margin-bottom:6px}
+.atd-soal-list{display:flex;flex-direction:column;gap:3px}
+.atd-soal-row{font-size:12px;color:var(--text-main)}
+
+.atd-peserta-header{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer}
+.atd-peserta-list{display:flex;flex-direction:column;gap:6px;margin-top:14px;padding-top:14px;border-top:1px solid rgba(19,50,89,.08)}
+.atd-peserta-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;background:rgba(19,50,89,.03);border-radius:10px}
+.atd-peserta-nama{font-weight:600;font-size:13px;color:var(--blue);flex:1;min-width:120px}
+.atd-peserta-skor{font-size:11px;color:var(--text-sub)}
+
 /* Varian popup Sikap Kerja: daftar median/rentang per kategori, bukan donut */
 .atd-pie-pop-body-stat{display:block}
 .atd-pie-pop-sub{font-size:9px;color:var(--text-sub);margin:-2px 0 6px 15px}
