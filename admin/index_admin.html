@@ -538,7 +538,9 @@ body.soal-building #side-dock-wrap.side-dock-right{
 <div class="page dock-avoid" id="page-ebook-library"></div>
 <div class="page dock-avoid" id="page-ebook-modul"></div>
 <div class="page dock-avoid" id="page-landing"></div>
-<div class="page" id="page-analisa"></div>
+<div class="page dock-avoid" id="page-analisa-token"></div>
+<div class="page dock-avoid" id="page-analisa-soal"></div>
+<div class="page dock-avoid" id="page-analisa-modul"></div>
 <div class="page" id="page-keuangan"></div>
 <div class="page" id="page-akun-admin"></div>
 
@@ -554,7 +556,7 @@ body.soal-building #side-dock-wrap.side-dock-right{
     <button class="dock-item" data-group="soalujian" onclick="navigateTo('soal')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><span class="dock-label">SOAL</span></button>
     <button class="dock-item dock-overflow-item" data-group="ebook" onclick="navigateTo('buku')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div><span class="dock-label">E-BOOK</span></button>
     <button class="dock-item dock-overflow-item" data-page="landing" onclick="navigateTo('landing')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><span class="dock-label">LANDING</span></button>
-    <button class="dock-item dock-overflow-item" data-page="analisa" onclick="navigateTo('analisa')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><span class="dock-label">ANALISA</span></button>
+    <button class="dock-item dock-overflow-item" data-group="analisa" onclick="navigateTo('analisa-token')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><span class="dock-label">ANALISA</span></button>
     <button class="dock-item" data-page="keuangan" onclick="navigateTo('keuangan')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><span class="dock-label">KEUANGAN</span></button>
     <!-- Overflow items: tampil inline saat layar lebar, masuk titik-3 saat sempit -->
     <button class="dock-item dock-overflow-item" data-page="akun-admin" onclick="navigateTo('akun-admin')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span class="dock-label">AKUN-KU</span></button>
@@ -797,6 +799,16 @@ const SIDE_DOCK_GROUPS = {
       { page:'ebook-library', label:'LIBRARY',
         icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>' },
       { page:'ebook-modul',   label:'MODUL',
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>' },
+    ]
+  },
+  analisa: {
+    items: [
+      { page:'analisa-token', label:'TOKEN',
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>' },
+      { page:'analisa-soal',  label:'SOAL',
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' },
+      { page:'analisa-modul', label:'MODUL',
         icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>' },
     ]
   }
