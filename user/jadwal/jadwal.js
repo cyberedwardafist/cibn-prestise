@@ -642,6 +642,62 @@ function _jdwMaxRiwayatOffset() {
     const diffWeeks = Math.round((thisMonday - earliestMonday) / (7 * 24 * 60 * 60 * 1000));
     return Math.max(minOffset, diffWeeks);
 }
+// Sama kayak _jdwHasPastDaysThisWeek/_jdwMinRiwayatOffset/_jdwMaxRiwayatOffset
+// di atas, tapi versi PER-BULAN -> dipakai kalau grid "1 Bulan" dibuka SAAT
+// currentView='riwayat' (lihat _jdwRenderWeek & JadwalPage.calendarMonthNav).
+// Batas kiri/kanan sengaja dihitung dari data yang sama (entri paling lama
+// di JadwalStore) biar konsisten dengan batas versi minggu di atas — "tanggal
+// yang punya riwayat, kanan-kirinya adalah batas dimana ada data riwayat".
+function _jdwHasPastDaysThisMonth() {
+    return new Date().getDate() > 1;
+}
+function _jdwMinRiwayatMonthOffset() {
+    return _jdwHasPastDaysThisMonth() ? 0 : 1;
+}
+function _jdwMaxRiwayatMonthOffset() {
+    const minOffset = _jdwMinRiwayatMonthOffset();
+    const all = JadwalStore.all();
+    if (!all.length) return minOffset;
+    const earliestIso = all.map(e => e.tanggal).sort()[0];
+    const earliestDate = new Date(earliestIso + 'T00:00:00');
+    const now = new Date();
+    const diffMonths = (now.getFullYear() - earliestDate.getFullYear()) * 12 + (now.getMonth() - earliestDate.getMonth());
+    return Math.max(minOffset, diffMonths);
+}
+// Grid sebulan versi Riwayat (dipakai lewat tombol "1 Bulan" saat
+// currentView='riwayat') — beda dari _jdwMonthGridHtml (dipakai kalender
+// "Minggu Ini") karena aturannya lebih sederhana: TIDAK ada konsep
+// past/future-locked (riwayat semuanya "sudah lewat" by definition), sel
+// cuma bisa diklik kalau tanggalnya punya riwayat (_jdwStatusListEntriesForDate
+// otomatis mode riwayat karena currentView sudah 'riwayat' saat ini
+// dipanggil) — sel tanpa riwayat & sel "numpang" bulan lain TIDAK dikasih
+// onclick sama sekali, sama seperti perilaku strip minggu Riwayat sekarang.
+function _jdwRiwayatMonthGridHtml(ref) {
+    const todayIso = _jdwToIso(new Date());
+    const days = _jdwMonthGridDates(ref);
+    const weekdayRow = JDW_DAY_SHORT.slice(1).concat(JDW_DAY_SHORT[0]).map(n => `<span>${n}</span>`).join('');
+    const cells = days.map(d => {
+        const iso = _jdwToIso(d);
+        const isOutside = d.getMonth() !== ref.getMonth();
+        const isToday = iso === todayIso;
+        const isSelected = JadwalPage.riwayatDateFilter === iso;
+        const hasEntries = !isOutside && _jdwStatusListEntriesForDate(iso).length > 0;
+        let cls = 'jdw-mcell';
+        if (isOutside) cls += ' is-outside';
+        if (isToday) cls += ' is-today';
+        if (hasEntries) cls += ' has-entries';
+        // Pakai class .is-selected & .is-past yang SUDAH ada style-nya buat
+        // .jdw-mcell (bukan .is-riwayat-selected/.is-riwayat-disabled yang
+        // cuma ada style-nya buat .jdw-day di strip minggu) -> tampilan
+        // "terpilih" (ring accent) & "tidak bisa diklik" (redup) tetap
+        // konsisten dengan grid bulan yang lain, tanpa perlu CSS baru.
+        if (isSelected) cls += ' is-selected';
+        if (!isOutside && !hasEntries) cls += ' is-past';
+        const onclick = hasEntries ? ` onclick="JadwalPage.filterRiwayatDate('${iso}')"` : '';
+        return `<div class="${cls}"${onclick}><span class="jdw-mcell-num">${d.getDate()}</span></div>`;
+    }).join('');
+    return `<div class="jdw-month-weekdays">${weekdayRow}</div><div class="jdw-month-cells">${cells}</div>`;
+}
 
 /* ══════════════════════════════════════════
    AUTO-TOLAK PENGAJUAN YANG KELEWATAN JAM
@@ -859,6 +915,7 @@ function _jdwSaveViewState() {
         localStorage.setItem(JDW_VIEW_STATE_KEY, JSON.stringify({
             view: JadwalPage.currentView,
             riwayatWeekOffset: JadwalPage.riwayatWeekOffset,
+            riwayatMonthOffset: JadwalPage.riwayatMonthOffset,
         }));
     } catch (e) {}
 }
@@ -871,6 +928,7 @@ function _jdwRestoreViewState() {
     if (!st) return;
     JadwalPage.currentView = st.view === 'riwayat' ? 'riwayat' : 'minggu';
     JadwalPage.riwayatWeekOffset = (typeof st.riwayatWeekOffset === 'number' && st.riwayatWeekOffset >= 0) ? st.riwayatWeekOffset : 1;
+    JadwalPage.riwayatMonthOffset = (typeof st.riwayatMonthOffset === 'number' && st.riwayatMonthOffset >= 0) ? st.riwayatMonthOffset : 0;
     document.querySelectorAll('#jdw-view-toggle .jdw-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === JadwalPage.currentView));
     const nav = document.getElementById('jdw-riwayat-nav');
     if (nav) nav.style.display = JadwalPage.currentView === 'riwayat' ? 'flex' : 'none';
@@ -1050,12 +1108,42 @@ function _jdwRenderWeek() {
     // (bukan selalu minggu berjalan), tanggal yang tidak punya riwayat
     // tidak bisa diklik, dan tap tanggal yang punya riwayat memfilter
     // daftar di bawah ke tanggal itu saja (tap lagi = batal filter).
-    // Grid-sebulan tidak dipakai di mode ini -> tombol "1 Bulan" disembunyikan.
+    // Tombol "1 Bulan" TETAP ada & fungsinya sama persis kayak versi
+    // minggu: cuma tanggal yang punya riwayat yang bisa diklik, dan
+    // kiri/kanan (navigasi bulan) dibatasi ke rentang bulan yang memang
+    // punya data riwayat (lihat _jdwMinRiwayatMonthOffset/_jdwMaxRiwayatMonthOffset).
+    const weekNav = document.getElementById('jdw-riwayat-nav');
     if (JadwalPage.currentView === 'riwayat') {
+        if (toggleBtn) toggleBtn.style.display = '';
+        if (JadwalPage.calendarExpanded) {
+            const minMonthOffset = _jdwMinRiwayatMonthOffset();
+            const maxMonthOffset = _jdwMaxRiwayatMonthOffset();
+            if (JadwalPage.riwayatMonthOffset < minMonthOffset) JadwalPage.riwayatMonthOffset = minMonthOffset;
+            if (JadwalPage.riwayatMonthOffset > maxMonthOffset) JadwalPage.riwayatMonthOffset = maxMonthOffset;
+            const ref = new Date();
+            ref.setDate(1);
+            ref.setMonth(ref.getMonth() - JadwalPage.riwayatMonthOffset);
+            strip.style.display = 'none';
+            if (monthGrid) monthGrid.style.display = '';
+            if (navWrap) navWrap.style.display = 'flex';
+            if (caption) caption.style.display = 'none';
+            if (weekNav) weekNav.style.display = 'none';
+            if (monthCaption) monthCaption.textContent = `${JDW_MONTH_NAMES[ref.getMonth()]} ${ref.getFullYear()}`;
+            const prevBtn = document.getElementById('jdw-cal-prev-btn');
+            if (prevBtn) prevBtn.disabled = JadwalPage.riwayatMonthOffset >= maxMonthOffset;
+            const nextBtn = document.getElementById('jdw-cal-next-btn');
+            if (nextBtn) nextBtn.disabled = JadwalPage.riwayatMonthOffset <= minMonthOffset;
+            if (toggleLabel) toggleLabel.textContent = '1 Minggu';
+            if (toggleBtn) toggleBtn.classList.add('active');
+            if (monthGrid) monthGrid.innerHTML = _jdwRiwayatMonthGridHtml(ref);
+            return;
+        }
         if (monthGrid) monthGrid.style.display = 'none';
         if (navWrap) navWrap.style.display = 'none';
         if (caption) caption.style.display = '';
-        if (toggleBtn) toggleBtn.style.display = 'none';
+        if (toggleLabel) toggleLabel.textContent = '1 Bulan';
+        if (toggleBtn) toggleBtn.classList.remove('active');
+        if (weekNav) weekNav.style.display = 'flex';
         strip.style.display = '';
         const weekDates = _jdwRiwayatWeekDates();
         if (caption) caption.textContent = _jdwFmtWeekRange(weekDates);
@@ -1135,6 +1223,7 @@ const JadwalPage = {
     _excludedTentorId: null,
     currentView: 'minggu',   // 'minggu' | 'riwayat' — toggle di atas list status
     riwayatWeekOffset: 1,    // dipakai saat currentView='riwayat': 0 = minggu ini (belum genap), 1 = minggu lalu, 2 = 2 minggu lalu, dst
+    riwayatMonthOffset: 0,   // sama kayak riwayatWeekOffset tapi buat grid "1 Bulan" saat Riwayat: 0 = bulan ini, 1 = bulan lalu, dst
     riwayatDateFilter: null, // 'YYYY-MM-DD' kalau lagi difilter ke 1 tanggal spesifik (tap tanggal di kalender atas saat Riwayat), null = tampil 1 minggu penuh
 
     /* ── Kalender utama: toggle strip 1 minggu <-> grid 1 bulan ── */
@@ -1146,6 +1235,21 @@ const JadwalPage = {
         _jdwRenderWeek();
     },
     calendarMonthNav(dir) {
+        // Saat currentView='riwayat', grid "1 Bulan" pakai batas & offset
+        // sendiri (riwayatMonthOffset, dibatasi ke rentang bulan yang punya
+        // data riwayat) -> BUKAN calendarMonthRef yang dipakai kalender
+        // "Minggu Ini" biasa (lihat cabang riwayat di _jdwRenderWeek).
+        if (this.currentView === 'riwayat') {
+            const minOffset = _jdwMinRiwayatMonthOffset();
+            const maxOffset = _jdwMaxRiwayatMonthOffset();
+            if (dir === 'older') this.riwayatMonthOffset = Math.min(maxOffset, this.riwayatMonthOffset + 1);
+            else if (dir === 'newer') this.riwayatMonthOffset = Math.max(minOffset, this.riwayatMonthOffset - 1);
+            this.riwayatDateFilter = null;
+            _jdwRenderStatusList();
+            _jdwRenderWeek();
+            _jdwSaveViewState();
+            return;
+        }
         const ref = new Date(this.calendarMonthRef || new Date());
         ref.setMonth(ref.getMonth() + (dir === 'older' ? -1 : 1));
         const now = new Date();
