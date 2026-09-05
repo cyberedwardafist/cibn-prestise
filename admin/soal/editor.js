@@ -720,6 +720,26 @@ function _ensureMathJaxLoaded() {
 }
 
 // MathQuill butuh jQuery dimuat lebih dulu, baru mathquill.js + CSS-nya.
+//
+// PENYEBAB ERROR "MathQuill is not defined" (walau script-nya berhasil ke-load,
+// tidak ada error jaringan): mathquill.min.js & jquery.min.js dibungkus format
+// UMD — kalau halaman admin ini kebetulan sudah punya AMD loader aktif (mis.
+// RequireJS, atau library lain yang mendaftarkan `window.define.amd`), UMD
+// akan mendaftar library itu sebagai *module AMD*, BUKAN menempel ke variabel
+// global `window.MathQuill` / `window.jQuery` — persis gejala di laporan ini.
+// Solusinya: matikan sementara penanda AMD selama kedua script ini dimuat,
+// supaya keduanya jatuh ke perilaku default (nempel ke window), lalu
+// kembalikan seperti semula setelah selesai supaya tidak mengganggu bagian
+// lain dari halaman admin yang mungkin memang butuh AMD loader tsb.
+function _withAmdDisabled(scriptEl, onDone) {
+    const hadAmdLoader = !!(window.define && window.define.amd);
+    const amdBackup = window.define;
+    if (hadAmdLoader) window.define = undefined;
+    const restore = () => { if (hadAmdLoader) window.define = amdBackup; };
+    scriptEl.addEventListener('load', () => { restore(); onDone(true); }, { once: true });
+    scriptEl.addEventListener('error', () => { restore(); onDone(false); }, { once: true });
+}
+
 function _ensureMathQuillLoaded() {
     if (window.MathQuill) return Promise.resolve();
     if (window._mathEd._mqReadyPromise) return window._mathEd._mqReadyPromise;
@@ -736,8 +756,11 @@ function _ensureMathQuillLoaded() {
             const mqScript = document.createElement('script');
             mqScript.id = 'mathquill-js';
             mqScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.9.1/mathquill.min.js';
-            mqScript.onload = () => resolve();
-            mqScript.onerror = () => reject(new Error('Gagal memuat papan rumus'));
+            _withAmdDisabled(mqScript, (ok) => {
+                if (!ok) { reject(new Error('Gagal memuat papan rumus')); return; }
+                if (window.MathQuill) resolve();
+                else reject(new Error('MathQuill dimuat tapi window.MathQuill tidak terbentuk (kemungkinan konflik AMD/RequireJS di halaman ini)'));
+            });
             document.head.appendChild(mqScript);
         };
         if (window.jQuery) { loadMathQuill(); return; }
@@ -750,8 +773,11 @@ function _ensureMathQuillLoaded() {
         const jq = document.createElement('script');
         jq.id = 'mathquill-jquery';
         jq.src = 'https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js';
-        jq.onload = loadMathQuill;
-        jq.onerror = () => reject(new Error('Gagal memuat jQuery untuk papan rumus'));
+        _withAmdDisabled(jq, (ok) => {
+            if (!ok) { reject(new Error('Gagal memuat jQuery untuk papan rumus')); return; }
+            if (window.jQuery) loadMathQuill();
+            else reject(new Error('jQuery dimuat tapi window.jQuery tidak terbentuk (kemungkinan konflik AMD/RequireJS di halaman ini)'));
+        });
         document.head.appendChild(jq);
     });
     // Sama seperti MathJax di atas: jangan simpan Promise gagal secara permanen,
@@ -764,6 +790,7 @@ function _ensureMathQuillLoaded() {
     window._mathEd._mqReadyPromise = promise;
     return promise;
 }
+
 
 // "%" adalah karakter komentar di LaTeX — escape otomatis biar orang tidak
 // perlu tahu soal itu, baik saat ketik manual maupun dari papan rumus.
