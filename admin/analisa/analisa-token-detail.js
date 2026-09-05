@@ -176,6 +176,76 @@ function _atdBuildLineChart(containerId, opts) {
         <div class="atd-legend" id="${containerId}-legend"></div>`;
 }
 
+// ── RENDER GRAFIK AREA MENUMPUK 100% (SVG murni) ───────────────────────────
+// Dipakai utk data komposisi (3 kategori yg totalnya tetap per kolom, mis.
+// Benar+Salah+Tidak Dijawab = seluruh kesempatan jawab). Skala Y selalu 0–100%
+// supaya antar kolom langsung bisa dibandingkan proporsinya, dan pola
+// pergeseran (mis. area "Benar" menyusut ke kolom belakang) langsung terlihat
+// sbg bentuk, bukan hrs dibandingkan dr 3 garis terpisah.
+// series: array berurutan dari BAWAH ke ATAS, mis. [Benar, Salah, Tidak].
+function _atdBuildStackedAreaChart(containerId, opts) {
+    const { title, sub, categories, series, kind } = opts;
+    const width = 680, height = 300, left = 34, right = 16, top = 16, bottom = 40;
+    const plotW = width - left - right, plotH = height - top - bottom;
+    const N = categories.length;
+    const slotW = plotW / N;
+    const cx = i => left + i * slotW + slotW / 2;
+    const yAt = lvl => top + plotH - (lvl / 100) * plotH;
+
+    const totals = categories.map((_, i) => series.reduce((sum, s) => sum + s.values[i], 0));
+    let cum = categories.map(() => 0);
+    const levels = [];
+    series.forEach(s => {
+        cum = cum.map((c, i) => c + (totals[i] ? (s.values[i] / totals[i]) * 100 : 0));
+        levels.push(cum.slice());
+    });
+
+    let svgParts = '';
+    const steps = 4;
+    for (let s = 0; s <= steps; s++) {
+        const val = Math.round(100 * s / steps);
+        const y = top + plotH - (plotH * s / steps);
+        svgParts += `<line class="atd-grid-line" x1="${left}" y1="${y}" x2="${left + plotW}" y2="${y}"></line>`;
+        svgParts += `<text class="atd-axis-label" x="${left - 6}" y="${y + 3}" text-anchor="end">${val}%</text>`;
+    }
+    svgParts += `<line class="atd-axis-line" x1="${left}" y1="${top}" x2="${left}" y2="${top + plotH}"></line>`;
+    svgParts += `<line class="atd-axis-line" x1="${left}" y1="${top + plotH}" x2="${left + plotW}" y2="${top + plotH}"></line>`;
+
+    // Pita area, dari bawah (level 0) ke atas (level ~100)
+    series.forEach((s, k) => {
+        const topLvl = levels[k];
+        const bottomLvl = k === 0 ? categories.map(() => 0) : levels[k - 1];
+        let d = '';
+        categories.forEach((_, i) => { d += (i === 0 ? 'M' : 'L') + `${cx(i).toFixed(1)},${yAt(topLvl[i]).toFixed(1)} `; });
+        for (let i = N - 1; i >= 0; i--) { d += `L${cx(i).toFixed(1)},${yAt(bottomLvl[i]).toFixed(1)} `; }
+        d += 'Z';
+        svgParts += `<path class="atd-area" d="${d}" fill="${s.color}"></path>`;
+        let lineD = '';
+        categories.forEach((_, i) => { lineD += (i === 0 ? 'M' : 'L') + `${cx(i).toFixed(1)},${yAt(topLvl[i]).toFixed(1)} `; });
+        svgParts += `<path class="atd-area-line" d="${lineD}" fill="none" stroke="${s.color}"></path>`;
+    });
+
+    // Garis bantu + area sentuh per kolom (grup tetap dipakai utk popup persentase)
+    categories.forEach((cat, i) => {
+        svgParts += `<g class="atd-chart-group" data-idx="${i}" data-kind="${kind}">
+            <rect class="atd-hit" x="${(left + i * slotW).toFixed(1)}" y="${top}" width="${slotW.toFixed(1)}" height="${plotH}"></rect>
+            <line class="atd-hover-guide" x1="${cx(i).toFixed(1)}" y1="${top}" x2="${cx(i).toFixed(1)}" y2="${top + plotH}"></line>
+            <text class="atd-x-label" x="${cx(i).toFixed(1)}" y="${top + plotH + 18}">${cat}</text>
+        </g>`;
+    });
+
+    const svg = `<svg class="atd-chart-svg" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">${svgParts}</svg>`;
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = `
+        <div class="atd-chart-head">
+            <div><div class="atd-chart-title">${title}</div><div class="atd-chart-sub">${sub}</div></div>
+            <div class="atd-chart-hint">Sentuh / arahkan kursor ke tiap kolom untuk lihat persentase</div>
+        </div>
+        <div class="atd-chart-svg-wrap">${svg}</div>
+        <div class="atd-legend" id="${containerId}-legend"></div>`;
+}
+
 // ── POPUP DIAGRAM LINGKARAN (donut, teknik stroke-dasharray) ────────────
 function _atdPieSvg(slices) {
     const r = 15.9155;
@@ -204,8 +274,9 @@ function _atdSlicesFor(kind, idx) {
     if (kind === 'sikap') {
         const s = _ATD_DUMMY_SIKAP[idx];
         const total = s.benar + s.salah + s.tidak;
+        const dijawab = s.benar + s.salah;
         return {
-            title: `Kolom ${s.kolom} · ${total} kesempatan jawab`,
+            title: `Kolom ${s.kolom} · ${dijawab} dijawab dari ${total} kesempatan`,
             slices: [
                 { label: 'Benar', value: s.benar, pct: total ? Math.round(s.benar / total * 100) : 0, color: '#16a34a' },
                 { label: 'Salah', value: s.salah, pct: total ? Math.round(s.salah / total * 100) : 0, color: '#dc2626' },
@@ -223,7 +294,7 @@ function _atdSlicesFor(kind, idx) {
 }
 
 function _atdRenderPiePopup(title, slices) {
-    const legend = slices.map(s => `<div class="atd-pie-pop-row"><span class="atd-legend-dot" style="background:${s.color}"></span><span>${s.label}</span><b>${s.pct}%</b></div>`).join('');
+    const legend = slices.map(s => `<div class="atd-pie-pop-row"><span class="atd-legend-dot" style="background:${s.color}"></span><span>${s.label}</span><b>${s.value} <span class="atd-pie-pop-pct">(${s.pct}%)</span></b></div>`).join('');
     const pop = _atdGetPiePopEl();
     if (!pop) return;
     pop.innerHTML = `<div class="atd-pie-pop-title">${title}</div><div class="atd-pie-pop-body">${_atdPieSvg(slices)}<div class="atd-pie-pop-legend">${legend}</div></div>`;
@@ -336,18 +407,20 @@ function _atdRenderDummyCharts() {
     if (legS) legS.innerHTML = _atdSkorLegendHtml(_atdSkorColorMap);
     _atdBindChartEvents('atd-chart-skor', 'skor');
 
-    // 3) Tipe Sikap Kerja — agregat seluruh peserta dalam grup, per kolom
+    // 3) Tipe Sikap Kerja — agregat seluruh peserta dalam grup, per kolom.
+    // Disajikan sbg area menumpuk 100% (bukan garis terpisah) krn Benar+Salah+
+    // Tidak Dijawab = total tetap tiap kolom -> ini data komposisi, jadi pola
+    // "area Benar menyusut ke kolom belakang" langsung kelihatan bentuknya.
     const catsK = _ATD_DUMMY_SIKAP.map(s => 'K' + s.kolom);
     const seriesK = [
         { label: 'Benar', color: '#16a34a', values: _ATD_DUMMY_SIKAP.map(s => s.benar) },
         { label: 'Salah', color: '#dc2626', values: _ATD_DUMMY_SIKAP.map(s => s.salah) },
         { label: 'Tidak Dijawab', color: '#94a3b8', values: _ATD_DUMMY_SIKAP.map(s => s.tidak) }
     ];
-    const yMaxK = _atdNiceMax(Math.max.apply(null, _ATD_DUMMY_SIKAP.flatMap(s => [s.benar, s.salah, s.tidak])));
-    _atdBuildLineChart('atd-chart-sikap', {
+    _atdBuildStackedAreaChart('atd-chart-sikap', {
         title: 'Grafik Sikap Kerja — Agregat Grup, Per Kolom (dummy)',
-        sub: 'Contoh: seluruh peserta digabung, terlihat pola makin banyak salah/dilewati di kolom belakang',
-        categories: catsK, series: seriesK, yMax: yMaxK, kind: 'sikap'
+        sub: 'Proporsi 100% tiap kolom, supaya pergeseran benar → salah/dilewati antar kolom terlihat jelas',
+        categories: catsK, series: seriesK, kind: 'sikap'
     });
     const legK = document.getElementById('atd-chart-sikap-legend');
     if (legK) legK.innerHTML = _atdSikapLegendHtml();

@@ -19,6 +19,12 @@
 .atd-chart-group:hover .atd-dot,
 .atd-chart-group.atd-active .atd-dot{r:5.5}
 
+.atd-area{opacity:.82;transition:opacity .12s ease}
+.atd-area-line{stroke-width:1.5}
+.atd-hover-guide{stroke:rgba(19,50,89,.4);stroke-width:1;stroke-dasharray:3 3;opacity:0;transition:opacity .12s ease;pointer-events:none}
+.atd-chart-group:hover .atd-hover-guide,
+.atd-chart-group.atd-active .atd-hover-guide{opacity:1}
+
 .atd-axis-line{stroke:rgba(19,50,89,.14);stroke-width:1}
 .atd-grid-line{stroke:rgba(19,50,89,.08);stroke-width:1;stroke-dasharray:3 3}
 .atd-axis-label{fill:var(--text-sub);font-size:9px;font-family:var(--font-body)}
@@ -37,6 +43,7 @@
 .atd-pie-pop-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-main)}
 .atd-pie-pop-row .atd-legend-dot{width:8px;height:8px;border-radius:50%}
 .atd-pie-pop-row b{margin-left:auto;color:var(--blue);font-weight:700;white-space:nowrap}
+.atd-pie-pop-pct{color:var(--text-sub);font-weight:500;font-size:10px}
 
 @media (max-width:520px){
     .atd-pie-pop{width:180px}
