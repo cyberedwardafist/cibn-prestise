@@ -186,7 +186,11 @@ function closeDockMore() { document.getElementById('dock-more-menu')?.classList.
 document.addEventListener('click', e=>{
     const btn=document.getElementById('btn-dock-more'), menu=document.getElementById('dock-more-menu');
     if(menu&&!menu.contains(e.target)&&btn&&!btn.contains(e.target)) closeDockMore();
-    if(e.target.classList.contains('overlay')&&e.target.id!=='leave-overlay'){
+    // math-editor-overlay dikecualikan: overlay itu punya listener backdrop-click
+    // sendiri di admin/soal/editor.js (_mathEditorRequestClose) yang juga menangani
+    // konfirmasi "rumus akan hilang" kalau lagi ada isinya — supaya tidak dobel
+    // handler yang saling berebut menutup modal yang sama.
+    if(e.target.classList.contains('overlay')&&e.target.id!=='leave-overlay'&&e.target.id!=='math-editor-overlay'){
         if (DIRTY_TRACKED_OVERLAYS.includes(e.target.id)) closeModalCheckDirty(e.target.id);
         else closeOverlay(e.target);
     }

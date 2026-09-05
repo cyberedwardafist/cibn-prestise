@@ -142,7 +142,7 @@
 <div class="overlay" id="math-editor-overlay"><div class="modal modal-lg">
   <div class="modal-header">
     <div class="modal-title">Sisipkan Rumus Matematika</div>
-    <button class="modal-close" onclick="closeMathEditor()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <button class="modal-close" onclick="_mathEditorRequestClose()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
   </div>
   <p style="font-size:12px;color:var(--text-sub);margin-bottom:14px">Klik tombol simbol, lalu isi angkanya langsung di kotak yang muncul di bawah. Gunakan tombol panah di keyboard untuk pindah antar bagian (pembilang/penyebut, dalam akar, dst) — tidak perlu mengetik kode apa pun.</p>
   <div class="form-group">
@@ -180,7 +180,7 @@
     </div>
   </div>
   <div class="modal-footer">
-    <button class="btn btn-secondary" onclick="closeMathEditor()">Batal</button>
+    <button class="btn btn-secondary" onclick="_mathEditorRequestClose()">Batal</button>
     <button class="btn btn-primary" onclick="mathEditorInsert()">Sisipkan Rumus</button>
   </div>
 </div></div>

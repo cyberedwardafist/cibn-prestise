@@ -891,18 +891,54 @@ function closeMathEditor() {
     window._mathEd.mathField = null;
 }
 
+// Rumus dianggap "ada isinya" kalau papan visual ATAU kotak Mode Lanjutan
+// sedang punya kode LaTeX apa pun saat ini — bukan berdasarkan riwayat
+// (pernah diisi lalu dikosongkan lagi = dianggap kosong, tidak perlu konfirmasi).
+function _mathEditorHasContent() {
+    const mf = window._mathEd.mathField;
+    const advTa = document.getElementById('math-latex-advanced');
+    const latex = (mf ? mf.latex() : (advTa ? advTa.value : '')) || '';
+    return latex.trim().length > 0;
+}
+
+// Titik masuk TUNGGAL untuk semua cara menutup modal math-editor (tombol X,
+// tombol Batal, klik di luar/backdrop, tombol Escape) — supaya perilakunya
+// konsisten: kalau papan rumus lagi kosong, langsung tutup; kalau ada isinya,
+// tanya dulu supaya tidak hilang tanpa sengaja.
+function _mathEditorRequestClose() {
+    if (_mathEditorHasContent()) {
+        showConfirm(
+            'Keluar dari Papan Rumus?',
+            'Rumus yang sedang diisi di sini akan hilang kalau keluar sekarang.',
+            'warning',
+            () => closeMathEditor(),
+            { yesLabel: 'Ya, Keluar', noLabel: 'Lanjut Isi' }
+        );
+    } else {
+        closeMathEditor();
+    }
+}
+
 // Jaring pengaman: kalau modal math-editor ditutup lewat cara lain (klik area
 // gelap di luar kotak modal, atau tombol Escape) dan bukan lewat tombol
-// Batal/Sisipkan, pastikan state di atas tetap ke-reset — supaya sesi buka
-// berikutnya tidak salah target (mis. malah mengedit rumus lama) atau nyangkut.
-document.addEventListener('mousedown', (e) => {
+// Batal/Sisipkan/X, tetap lewat _mathEditorRequestClose() yang sama supaya
+// konfirmasi "ada isinya" di atas juga berlaku, bukan cuma menutup mentah2 —
+// dan state di atas tetap ke-reset setelahnya lewat closeMathEditor() supaya
+// sesi buka berikutnya tidak salah target atau nyangkut.
+//
+// CATATAN: overlay ini SENGAJA dikecualikan dari listener backdrop-click umum
+// di js/app.js (lihat DIRTY_TRACKED_OVERLAYS/pengecualian di sana) — supaya
+// tidak ada 2 handler berbeda yang berebut menutup modal yang sama (satu lewat
+// closeOverlay() mentah tanpa cek isi, satu lewat sini) yang justru bisa bikin
+// hasilnya tidak konsisten/kelihatan "tidak menutup".
+document.addEventListener('click', (e) => {
     const ov = document.getElementById('math-editor-overlay');
-    if (ov && e.target === ov) closeMathEditor();
+    if (ov && e.target === ov) _mathEditorRequestClose();
 });
 document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     const ov = document.getElementById('math-editor-overlay');
-    if (ov && getComputedStyle(ov).display !== 'none') closeMathEditor();
+    if (ov && getComputedStyle(ov).display !== 'none' && ov.classList.contains('open')) _mathEditorRequestClose();
 });
 
 // Dipanggil oleh tombol-tombol simbol di modal. mode='write' untuk simbol
