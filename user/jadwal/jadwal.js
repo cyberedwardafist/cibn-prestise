@@ -627,6 +627,21 @@ function _jdwHasPastDaysThisWeek() {
 function _jdwMinRiwayatOffset() {
     return _jdwHasPastDaysThisWeek() ? 0 : 1;
 }
+// Batas paling "lama" (paling jauh ke belakang) yang boleh dinavigasi di
+// Riwayat: minggu yang berisi entri PALING LAMA di JadwalStore (mis. entri
+// pertama kali akun ini mengajukan jadwal). Tidak boleh navigasi lebih jauh
+// dari itu — kalau belum ada entri sama sekali, batasnya sama dengan
+// _jdwMinRiwayatOffset() (tidak bisa mundur sama sekali).
+function _jdwMaxRiwayatOffset() {
+    const minOffset = _jdwMinRiwayatOffset();
+    const all = JadwalStore.all();
+    if (!all.length) return minOffset;
+    const earliestIso = all.map(e => e.tanggal).sort()[0];
+    const earliestMonday = _jdwWeekDates(new Date(earliestIso + 'T00:00:00'))[0];
+    const thisMonday = _jdwWeekDates(new Date())[0];
+    const diffWeeks = Math.round((thisMonday - earliestMonday) / (7 * 24 * 60 * 60 * 1000));
+    return Math.max(minOffset, diffWeeks);
+}
 
 /* ══════════════════════════════════════════
    AUTO-TOLAK PENGAJUAN YANG KELEWATAN JAM
@@ -942,6 +957,22 @@ function _jdwStatusListEntriesForDate(iso) {
         .sort((a, b) => _jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId));
 }
 
+// Ambil 7 tanggal minggu yang lagi ditampilkan di Riwayat (sesuai
+// JadwalPage.riwayatWeekOffset saat ini, sudah di-clamp ke batas
+// min/max) -> dipakai bareng oleh _jdwRenderStatusList (daftar) DAN
+// _jdwRenderWeek (kalender strip di atas, biar keduanya selalu nunjukin
+// minggu yang SAMA persis waktu currentView === 'riwayat').
+function _jdwRiwayatWeekDates() {
+    const minOffset = _jdwMinRiwayatOffset();
+    const maxOffset = _jdwMaxRiwayatOffset();
+    if (JadwalPage.riwayatWeekOffset < minOffset) JadwalPage.riwayatWeekOffset = minOffset;
+    if (JadwalPage.riwayatWeekOffset > maxOffset) JadwalPage.riwayatWeekOffset = maxOffset;
+    if (JadwalPage.riwayatWeekOffset === 0) return _jdwWeekDates(new Date());
+    const ref = new Date();
+    ref.setDate(ref.getDate() - (JadwalPage.riwayatWeekOffset * 7));
+    return _jdwWeekDates(ref);
+}
+
 function _jdwRenderStatusList() {
     _jdwRenderKuota();
     const wrap = document.getElementById('jdw-status-list');
@@ -950,19 +981,24 @@ function _jdwRenderStatusList() {
     let weekDates;
     if (JadwalPage.currentView === 'riwayat') {
         const minOffset = _jdwMinRiwayatOffset();
-        if (JadwalPage.riwayatWeekOffset < minOffset) JadwalPage.riwayatWeekOffset = minOffset;
-        if (JadwalPage.riwayatWeekOffset === 0) {
-            // Offset 0 = "minggu ini, bagian yg sudah lewat" (belum genap 1 minggu).
-            weekDates = _jdwWeekDates(new Date());
-        } else {
-            const ref = new Date();
-            ref.setDate(ref.getDate() - (JadwalPage.riwayatWeekOffset * 7));
-            weekDates = _jdwWeekDates(ref);
-        }
+        const maxOffset = _jdwMaxRiwayatOffset();
+        weekDates = _jdwRiwayatWeekDates();
         const cap = document.getElementById('jdw-riwayat-caption');
         if (cap) cap.textContent = JadwalPage.riwayatWeekOffset === 0 ? `${_jdwFmtWeekRange(weekDates)} · berjalan` : _jdwFmtWeekRange(weekDates);
         const nextBtn = document.getElementById('jdw-riwayat-next-btn');
         if (nextBtn) nextBtn.disabled = JadwalPage.riwayatWeekOffset <= minOffset;
+        const prevBtn = document.getElementById('jdw-riwayat-prev-btn');
+        if (prevBtn) prevBtn.disabled = JadwalPage.riwayatWeekOffset >= maxOffset;
+        // Kalau lagi difilter ke 1 tanggal spesifik (tap tanggal di kalender
+        // atas, lihat JadwalPage.filterRiwayatDate) -> list di bawah cuma
+        // nampilin tanggal itu SAJA, bukan seluruh minggu. Kalau tanggal
+        // yang difilter ternyata sudah di luar minggu yang lagi ditampilkan
+        // (misal habis pindah minggu pakai tombol older/newer), filter-nya
+        // otomatis diabaikan di sini (tetap tampil 1 minggu penuh) —
+        // resetnya sendiri sudah ditangani riwayatNav().
+        if (JadwalPage.riwayatDateFilter && weekDates.some(d => _jdwToIso(d) === JadwalPage.riwayatDateFilter)) {
+            weekDates = weekDates.filter(d => _jdwToIso(d) === JadwalPage.riwayatDateFilter);
+        }
     } else {
         // Dulu cuma nampilin 7 hari minggu berjalan (_jdwWeekDates), jadi
         // entri di luar rentang itu (misal seed dummy yang tanggalnya
@@ -1009,6 +1045,36 @@ function _jdwRenderWeek() {
     const toggleBtn = document.getElementById('jdw-cal-toggle-btn');
     if (!strip) return;
     const todayIso = _jdwToIso(new Date());
+
+    // ── Mode Riwayat: kalender ikut minggu yang lagi dibuka di Riwayat
+    // (bukan selalu minggu berjalan), tanggal yang tidak punya riwayat
+    // tidak bisa diklik, dan tap tanggal yang punya riwayat memfilter
+    // daftar di bawah ke tanggal itu saja (tap lagi = batal filter).
+    // Grid-sebulan tidak dipakai di mode ini -> tombol "1 Bulan" disembunyikan.
+    if (JadwalPage.currentView === 'riwayat') {
+        if (monthGrid) monthGrid.style.display = 'none';
+        if (navWrap) navWrap.style.display = 'none';
+        if (caption) caption.style.display = '';
+        if (toggleBtn) toggleBtn.style.display = 'none';
+        strip.style.display = '';
+        const weekDates = _jdwRiwayatWeekDates();
+        if (caption) caption.textContent = _jdwFmtWeekRange(weekDates);
+        strip.innerHTML = weekDates.map(d => {
+            const iso = _jdwToIso(d);
+            const isToday = iso === todayIso;
+            const hasEntries = _jdwStatusListEntriesForDate(iso).length > 0;
+            const isSelected = JadwalPage.riwayatDateFilter === iso;
+            const onclick = hasEntries ? `JadwalPage.filterRiwayatDate('${iso}')` : '';
+            const cls = `jdw-day${isToday ? ' is-today' : ''}${hasEntries ? ' has-entries' : ''}${isSelected ? ' is-riwayat-selected' : ''}${hasEntries ? '' : ' is-riwayat-disabled'}`;
+            return `<div class="${cls}"${onclick ? ` onclick="${onclick}"` : ''}>
+                <div class="jdw-day-name">${JDW_DAY_SHORT[d.getDay()]}</div>
+                <div class="jdw-day-num-wrap"><span>${d.getDate()}</span></div>
+            </div>`;
+        }).join('');
+        return;
+    }
+    if (toggleBtn) toggleBtn.style.display = '';
+
     if (JadwalPage.calendarExpanded) {
         if (!JadwalPage.calendarMonthRef) JadwalPage.calendarMonthRef = new Date();
         const ref = JadwalPage.calendarMonthRef;
@@ -1069,6 +1135,7 @@ const JadwalPage = {
     _excludedTentorId: null,
     currentView: 'minggu',   // 'minggu' | 'riwayat' — toggle di atas list status
     riwayatWeekOffset: 1,    // dipakai saat currentView='riwayat': 0 = minggu ini (belum genap), 1 = minggu lalu, 2 = 2 minggu lalu, dst
+    riwayatDateFilter: null, // 'YYYY-MM-DD' kalau lagi difilter ke 1 tanggal spesifik (tap tanggal di kalender atas saat Riwayat), null = tampil 1 minggu penuh
 
     /* ── Kalender utama: toggle strip 1 minggu <-> grid 1 bulan ── */
     calendarExpanded: false, // true = lagi nampilin grid sebulan (bukan strip minggu)
@@ -1093,18 +1160,34 @@ const JadwalPage = {
     /* ── Toggle Minggu Ini / Riwayat (di bawah kalender) ── */
     setView(view) {
         this.currentView = view === 'riwayat' ? 'riwayat' : 'minggu';
+        this.riwayatDateFilter = null;
         document.querySelectorAll('#jdw-view-toggle .jdw-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === this.currentView));
         const nav = document.getElementById('jdw-riwayat-nav');
         if (nav) nav.style.display = this.currentView === 'riwayat' ? 'flex' : 'none';
         _jdwRenderStatusList();
+        _jdwRenderWeek();
         _jdwSaveViewState();
     },
     riwayatNav(dir) {
         const minOffset = _jdwMinRiwayatOffset();
-        if (dir === 'older') this.riwayatWeekOffset = Math.min(260, this.riwayatWeekOffset + 1);
+        const maxOffset = _jdwMaxRiwayatOffset();
+        if (dir === 'older') this.riwayatWeekOffset = Math.min(maxOffset, this.riwayatWeekOffset + 1);
         else if (dir === 'newer') this.riwayatWeekOffset = Math.max(minOffset, this.riwayatWeekOffset - 1);
+        // Pindah minggu -> filter tanggal spesifik (kalau ada) sudah tidak
+        // relevan lagi (tanggalnya bisa jadi di luar minggu yang baru).
+        this.riwayatDateFilter = null;
         _jdwRenderStatusList();
+        _jdwRenderWeek();
         _jdwSaveViewState();
+    },
+    // Tap tanggal di kalender atas SAAT currentView='riwayat' (lihat
+    // _jdwRenderWeek): kalau tanggal itu punya riwayat, tap pertama
+    // filter list di bawah jadi cuma tanggal itu saja; tap tanggal yang
+    // sama sekali lagi -> balikin lagi ke tampilan 1 minggu penuh.
+    filterRiwayatDate(iso) {
+        this.riwayatDateFilter = (this.riwayatDateFilter === iso) ? null : iso;
+        _jdwRenderStatusList();
+        _jdwRenderWeek();
     },
 
     /* ── Tap tanggal di kalender -> langsung ke halaman Ajukan Jadwal.
