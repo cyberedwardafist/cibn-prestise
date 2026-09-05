@@ -76,15 +76,24 @@ const _ATD_DUMMY_BINARY = [
 ];
 
 const _ATD_DUMMY_SKOR = [
-    { nomor: 1, breakdown: { 5:5, 4:7, 3:4, 2:2, 1:1, 0:1 } },
-    { nomor: 2, breakdown: { 5:2, 4:3, 3:8, 2:5, 1:1, 0:1 } },
-    { nomor: 3, breakdown: { 5:9, 4:6, 3:3, 2:1, 1:1, 0:0 } },
-    { nomor: 4, breakdown: { 5:1, 4:2, 3:5, 2:6, 1:4, 0:2 } },
-    { nomor: 5, breakdown: { 5:6, 4:5, 3:4, 2:3, 1:1, 0:1 } }
+    // Tiap soal: 5 pilihan (A-E), TIAP OPSI py nilai & jumlah pemilihnya sendiri.
+    // Skenario nyata: cuma 1 opsi yg bernilai (mis. 5), 4 opsi lain nilainya 0 —
+    // posisi opsi yg bernilai sengaja beda-beda tiap soal (spt soal asli, kunci
+    // jawaban tdk selalu di huruf yg sama).
+    { nomor: 1, opsi: [ {nilai:0,jumlah:3}, {nilai:0,jumlah:2}, {nilai:5,jumlah:8}, {nilai:0,jumlah:1}, {nilai:0,jumlah:1} ] },
+    { nomor: 2, opsi: [ {nilai:5,jumlah:5}, {nilai:0,jumlah:6}, {nilai:0,jumlah:2}, {nilai:0,jumlah:1}, {nilai:0,jumlah:1} ] },
+    { nomor: 3, opsi: [ {nilai:0,jumlah:2}, {nilai:5,jumlah:11}, {nilai:0,jumlah:1}, {nilai:0,jumlah:1}, {nilai:0,jumlah:0} ] },
+    { nomor: 4, opsi: [ {nilai:0,jumlah:4}, {nilai:0,jumlah:3}, {nilai:0,jumlah:2}, {nilai:5,jumlah:4}, {nilai:0,jumlah:2} ] },
+    { nomor: 5, opsi: [ {nilai:5,jumlah:9}, {nilai:0,jumlah:2}, {nilai:0,jumlah:2}, {nilai:0,jumlah:1}, {nilai:0,jumlah:1} ] }
 ];
 
-const _ATD_SKOR_PALETTE = ['#2666b8','#dc2626','#d97706','#16a34a','#9333ea','#0891b2','#db2777','#64748b'];
-let _atdSkorColorMap = {};
+// Warna "keluarga nilai 0" — dipakai bergantian saat lebih dari 1 opsi sama2
+// bernilai 0 di posisi (slot) berbeda, supaya opsi2 itu TETAP kebeda walau
+// labelnya sama2 "Nilai 0" (bukan digabung jadi 1 garis/1 warna).
+const _ATD_SKOR_ZERO_PALETTE = ['#dc2626','#f97316','#eab308','#a855f7','#0891b2','#db2777','#64748b'];
+const _ATD_SKOR_NONZERO_PALETTE = ['#2666b8','#16a34a','#9333ea','#0891b2','#d97706'];
+let _atdSkorSeriesMeta = [];      // [{label,color}] per slot, urut sesuai series grafik
+let _atdSkorSortedPerSoal = [];   // per soal: opsi diurutkan sesuai slot yg sama dgn series (utk popup)
 
 // Dummy: 10 kolom x 15 "peserta", per peserta { benar, salah } (dijawab =
 // benar+salah). Deterministic (seed tetap, bukan Math.random()) supaya hasil
@@ -181,13 +190,35 @@ function _atdNiceTicks(maxVal) {
     return { max: niceMax, ticks };
 }
 
-function _atdBuildNilaiColorMap(skorData) {
-    const set = new Set();
-    skorData.forEach(s => Object.entries(s.breakdown).forEach(([nilai, v]) => { if (v > 0) set.add(Number(nilai)); }));
-    const sorted = Array.from(set).sort((a, b) => b - a); // nilai tertinggi dapat warna pertama (biru)
-    const map = {};
-    sorted.forEach((n, i) => { map[n] = _ATD_SKOR_PALETTE[i % _ATD_SKOR_PALETTE.length]; });
-    return map;
+// Bangun SERIES grafik per SLOT OPSI (bukan per nilai unik). Tiap soal
+// diurutkan dulu dari nilai TERTINGGI ke TERENDAH (nilai sama -> jumlah
+// pemilih lebih banyak duluan), lalu posisi urutan (slot) itulah yg jadi 1
+// garis tetap di grafik. Efeknya: kalau 4 dari 5 opsi sama2 bernilai 0,
+// TETAP jadi 4 garis terpisah (bukan digabung/dijumlah jadi 1 garis "Nilai
+// 0"), masing2 warna beda — walau labelnya sama2 "Nilai 0", supaya dari
+// grafik tetap kebaca itu opsi yg berbeda-beda.
+function _atdBuildOpsiSeries(skorData) {
+    const maxSlot = Math.max.apply(null, skorData.map(s => s.opsi.length));
+    const sortedPerSoal = skorData.map(s => s.opsi.slice().sort((a, b) => b.nilai - a.nilai || b.jumlah - a.jumlah));
+    let zeroIdx = 0, nonZeroIdx = 0;
+    const series = [];
+    for (let slot = 0; slot < maxSlot; slot++) {
+        // Label slot ini pakai nilai yg paling sering muncul di slot tsb
+        // (dummy: konsisten sama di semua soal, jadi cukup ambil salah satu).
+        const nilaiCounts = {};
+        sortedPerSoal.forEach(arr => { if (arr[slot]) nilaiCounts[arr[slot].nilai] = (nilaiCounts[arr[slot].nilai] || 0) + 1; });
+        const nilaiLabel = Object.keys(nilaiCounts).sort((a, b) => nilaiCounts[b] - nilaiCounts[a])[0];
+        const isZero = Number(nilaiLabel) === 0;
+        const color = isZero
+            ? _ATD_SKOR_ZERO_PALETTE[zeroIdx++ % _ATD_SKOR_ZERO_PALETTE.length]
+            : _ATD_SKOR_NONZERO_PALETTE[nonZeroIdx++ % _ATD_SKOR_NONZERO_PALETTE.length];
+        series.push({
+            label: `Nilai ${nilaiLabel}`,
+            color,
+            values: sortedPerSoal.map(arr => arr[slot] ? arr[slot].jumlah : 0)
+        });
+    }
+    return { series, sortedPerSoal };
 }
 
 function _atdBinaryLegendHtml() {
@@ -195,10 +226,8 @@ function _atdBinaryLegendHtml() {
             <div class="atd-legend-item"><span class="atd-legend-dot" style="background:#dc2626"></span>Salah</div>`;
 }
 
-function _atdSkorLegendHtml(colorMap) {
-    return Object.keys(colorMap).sort((a, b) => b - a)
-        .map(n => `<div class="atd-legend-item"><span class="atd-legend-dot" style="background:${colorMap[n]}"></span>Nilai ${n}</div>`)
-        .join('');
+function _atdSkorLegendHtml(seriesList) {
+    return seriesList.map(s => `<div class="atd-legend-item"><span class="atd-legend-dot" style="background:${s.color}"></span>${s.label}</div>`).join('');
 }
 
 function _atdSikapLegendHtml() {
@@ -390,12 +419,14 @@ function _atdSlicesFor(kind, idx) {
             ]
         };
     }
-    const s = _ATD_DUMMY_SKOR[idx];
-    const entries = Object.entries(s.breakdown).filter(([, v]) => v > 0).sort((a, b) => b[0] - a[0]);
-    const total = entries.reduce((sum, [, v]) => sum + v, 0);
+    const sorted = _atdSkorSortedPerSoal[idx]; // opsi diurutkan sesuai slot yg sama dgn series (jadi warna/label match)
+    const total = sorted.reduce((sum, o) => sum + (o ? o.jumlah : 0), 0);
     return {
-        title: `Soal No. ${s.nomor} · ${total} jawaban`,
-        slices: entries.map(([nilai, v]) => ({ label: `Nilai ${nilai}`, value: v, pct: total ? Math.round(v / total * 100) : 0, color: _atdSkorColorMap[nilai] }))
+        title: `Soal No. ${_ATD_DUMMY_SKOR[idx].nomor} · ${total} jawaban`,
+        slices: sorted.map((o, slot) => {
+            const meta = _atdSkorSeriesMeta[slot] || {};
+            return { label: meta.label, value: o.jumlah, pct: total ? Math.round(o.jumlah / total * 100) : 0, color: meta.color };
+        }).filter(sl => sl.value > 0)
     };
 }
 
@@ -517,24 +548,22 @@ function _atdRenderDummyCharts() {
     if (legB) legB.innerHTML = _atdBinaryLegendHtml();
     _atdBindChartEvents('atd-chart-binary', 'binary');
 
-    // 2) Tipe Nilai/Skor Sendiri — 1 garis per nilai, titik 0 dipakai di soal
-    // yang tidak punya nilai itu supaya garis tetap menyambung antar soal.
-    _atdSkorColorMap = _atdBuildNilaiColorMap(_ATD_DUMMY_SKOR);
+    // 2) Tipe Nilai/Skor Sendiri — 1 garis per OPSI JAWABAN (bukan per nilai
+    // gabungan). Kalau beberapa opsi kebetulan sama2 bernilai 0, tetap jadi
+    // garis terpisah (lihat _atdBuildOpsiSeries), cuma labelnya sama2 "Nilai 0"
+    // dgn warna beda2 supaya kebedanya jelas.
+    const { series: seriesS, sortedPerSoal: sortedS } = _atdBuildOpsiSeries(_ATD_DUMMY_SKOR);
+    _atdSkorSeriesMeta = seriesS;
+    _atdSkorSortedPerSoal = sortedS;
     const catsS = _ATD_DUMMY_SKOR.map(s => s.nomor);
-    const nilaiKeys = Object.keys(_atdSkorColorMap).sort((a, b) => b - a);
-    const seriesS = nilaiKeys.map(nilai => ({
-        label: `Nilai ${nilai}`,
-        color: _atdSkorColorMap[nilai],
-        values: _ATD_DUMMY_SKOR.map(s => s.breakdown[nilai] || 0)
-    }));
-    const maxValS = Math.max.apply(null, _ATD_DUMMY_SKOR.flatMap(s => Object.values(s.breakdown)));
+    const maxValS = Math.max.apply(null, _ATD_DUMMY_SKOR.flatMap(s => s.opsi.map(o => o.jumlah)));
     _atdBuildLineChart('atd-chart-skor', {
         title: 'Grafik Per Soal — Tipe Nilai/Skor Sendiri (dummy)',
-        sub: 'Contoh: soal uraian/essay, dinilai reviewer skala 0–5',
+        sub: 'Contoh: soal pilihan A–E dgn nilai per opsi — opsi sesama nilai 0 tetap dipisah, bukan digabung',
         categories: catsS, series: seriesS, maxVal: maxValS, kind: 'skor'
     });
     const legS = document.getElementById('atd-chart-skor-legend');
-    if (legS) legS.innerHTML = _atdSkorLegendHtml(_atdSkorColorMap);
+    if (legS) legS.innerHTML = _atdSkorLegendHtml(seriesS);
     _atdBindChartEvents('atd-chart-skor', 'skor');
 
     // 3) Tipe Sikap Kerja — sebaran nilai antar peserta per kolom (Benar/
