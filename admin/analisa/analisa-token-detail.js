@@ -149,7 +149,29 @@ let _atdSikapDist = [];  // [{label,color,dist:[{nilai:jumlahOrang} per kolom]}]
 let _atdSikapCats = [];  // ['K1','K2',...]
 
 // ── HELPERS ──────────────────────────────────────────────────────────────
-function _atdNiceMax(v) { if (!isFinite(v) || v <= 5) return 5; return Math.ceil(v / 5) * 5; }
+// Hitung tick sumbu-Y yg "rapi" (kelipatan 1/2/5/10 dst, menyesuaikan skala
+// data) DAN posisinya persis di nilai aslinya — bukan dibagi rata jadi N
+// bagian lalu labelnya dibulatkan (itu bikin garis yg dilabeli "7" misalnya
+// bisa aja sebenarnya ada di nilai 7.5, jadi meleset kalau dibandingkan sama
+// titik data yg beneran di nilai 7). targetCount = kira-kira berapa garis
+// bantu yg diinginkan (bukan jumlah pasti, krn ikut dibulatkan ke kelipatan rapi).
+function _atdNiceTicks(maxVal, targetCount) {
+    targetCount = targetCount || 5;
+    if (!isFinite(maxVal) || maxVal <= 0) maxVal = targetCount;
+    const rawStep = maxVal / targetCount;
+    const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+    const norm = rawStep / mag;
+    let niceNorm;
+    if (norm <= 1) niceNorm = 1;
+    else if (norm <= 2) niceNorm = 2;
+    else if (norm <= 5) niceNorm = 5;
+    else niceNorm = 10;
+    const step = niceNorm * mag;
+    const niceMax = Math.ceil(maxVal / step) * step;
+    const ticks = [];
+    for (let v = 0; v <= niceMax + step * 0.001; v += step) ticks.push(Math.round(v * 100) / 100);
+    return { max: niceMax, ticks };
+}
 
 function _atdBuildNilaiColorMap(skorData) {
     const set = new Set();
@@ -180,22 +202,21 @@ function _atdSikapLegendHtml() {
 
 // ── RENDER GRAFIK GARIS (SVG murni) ────────────────────────────────────────
 function _atdBuildLineChart(containerId, opts) {
-    const { title, sub, categories, series, yMax, kind } = opts;
+    const { title, sub, categories, series, maxVal, kind } = opts;
     const width = 680, height = 300, left = 34, right = 16, top = 16, bottom = 40;
     const plotW = width - left - right, plotH = height - top - bottom;
     const N = categories.length;
     const slotW = plotW / N;
     const cx = i => left + i * slotW + slotW / 2;
+    const { max: yMax, ticks } = _atdNiceTicks(maxVal, 4);
     const cy = v => top + plotH - (yMax > 0 ? (v / yMax) * plotH : 0);
 
     let svgParts = '';
-    const steps = 4;
-    for (let s = 0; s <= steps; s++) {
-        const val = Math.round(yMax * s / steps);
-        const y = top + plotH - (plotH * s / steps);
+    ticks.forEach(val => {
+        const y = cy(val);
         svgParts += `<line class="atd-grid-line" x1="${left}" y1="${y}" x2="${left + plotW}" y2="${y}"></line>`;
         svgParts += `<text class="atd-axis-label" x="${left - 6}" y="${y + 3}" text-anchor="end">${val}</text>`;
-    }
+    });
     svgParts += `<line class="atd-axis-line" x1="${left}" y1="${top}" x2="${left}" y2="${top + plotH}"></line>`;
     svgParts += `<line class="atd-axis-line" x1="${left}" y1="${top + plotH}" x2="${left + plotW}" y2="${top + plotH}"></line>`;
 
@@ -248,17 +269,15 @@ function _atdBuildSikapMedianChart(containerId, opts) {
 
     let maxVal = 0;
     catData.forEach(c => c.dist.forEach(d => Object.keys(d).forEach(v => { if (d[v] > 0) maxVal = Math.max(maxVal, Number(v)); })));
-    const yMax = _atdNiceMax(maxVal);
+    const { max: yMax, ticks } = _atdNiceTicks(maxVal, 6);
     const cy = v => top + plotH - (yMax > 0 ? (v / yMax) * plotH : 0);
 
     let svgParts = '';
-    const steps = 5;
-    for (let s = 0; s <= steps; s++) {
-        const val = Math.round(yMax * s / steps);
-        const y = top + plotH - (plotH * s / steps);
+    ticks.forEach(val => {
+        const y = cy(val);
         svgParts += `<line class="atd-grid-line" x1="${left}" y1="${y}" x2="${left + plotW}" y2="${y}"></line>`;
         svgParts += `<text class="atd-axis-label" x="${left - 6}" y="${y + 3}" text-anchor="end">${val}</text>`;
-    }
+    });
     svgParts += `<line class="atd-axis-line" x1="${left}" y1="${top}" x2="${left}" y2="${top + plotH}"></line>`;
     svgParts += `<line class="atd-axis-line" x1="${left}" y1="${top + plotH}" x2="${left + plotW}" y2="${top + plotH}"></line>`;
 
@@ -457,11 +476,11 @@ function _atdRenderDummyCharts() {
         { label: 'Benar', color: '#16a34a', values: _ATD_DUMMY_BINARY.map(s => s.benar) },
         { label: 'Salah', color: '#dc2626', values: _ATD_DUMMY_BINARY.map(s => s.salah) }
     ];
-    const yMaxB = _atdNiceMax(Math.max.apply(null, _ATD_DUMMY_BINARY.flatMap(s => [s.benar, s.salah])));
+    const maxValB = Math.max.apply(null, _ATD_DUMMY_BINARY.flatMap(s => [s.benar, s.salah]));
     _atdBuildLineChart('atd-chart-binary', {
         title: 'Grafik Per Soal — Tipe Benar/Salah (dummy)',
         sub: 'Contoh: soal pilihan ganda, dinilai otomatis benar/salah',
-        categories: catsB, series: seriesB, yMax: yMaxB, kind: 'binary'
+        categories: catsB, series: seriesB, maxVal: maxValB, kind: 'binary'
     });
     const legB = document.getElementById('atd-chart-binary-legend');
     if (legB) legB.innerHTML = _atdBinaryLegendHtml();
@@ -477,11 +496,11 @@ function _atdRenderDummyCharts() {
         color: _atdSkorColorMap[nilai],
         values: _ATD_DUMMY_SKOR.map(s => s.breakdown[nilai] || 0)
     }));
-    const yMaxS = _atdNiceMax(Math.max.apply(null, _ATD_DUMMY_SKOR.flatMap(s => Object.values(s.breakdown))));
+    const maxValS = Math.max.apply(null, _ATD_DUMMY_SKOR.flatMap(s => Object.values(s.breakdown)));
     _atdBuildLineChart('atd-chart-skor', {
         title: 'Grafik Per Soal — Tipe Nilai/Skor Sendiri (dummy)',
         sub: 'Contoh: soal uraian/essay, dinilai reviewer skala 0–5',
-        categories: catsS, series: seriesS, yMax: yMaxS, kind: 'skor'
+        categories: catsS, series: seriesS, maxVal: maxValS, kind: 'skor'
     });
     const legS = document.getElementById('atd-chart-skor-legend');
     if (legS) legS.innerHTML = _atdSkorLegendHtml(_atdSkorColorMap);
