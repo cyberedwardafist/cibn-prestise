@@ -519,7 +519,12 @@
     .home-jadwal-next-dot { opacity:.5; }
 
     /* ─── PAGE: JADWAL ─── */
-    #page-jadwal { align-items:stretch; padding-top:24px; }
+    /* max(24px, calc((100% - 1400px)/2)) -> di layar lebar konten jadwal
+       dibatasi & dipusatkan (sama seperti pola .page-container di halaman
+       akun review), biar tabel/kalender tidak melebar penuh selayar & lebih
+       rapi dibaca. Di layar sempit otomatis balik jadi padding 24px biasa,
+       TIDAK mempengaruhi tab lain (cuma di-scope ke #page-jadwal). */
+    #page-jadwal { align-items:stretch; padding-top:24px; padding-left:max(24px, calc((100% - 1400px)/2)); padding-right:max(24px, calc((100% - 1400px)/2)); }
     .jadwal-header-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
     .jadwal-title { font-family:var(--font-head); font-size:22px; font-weight:700; color:var(--blue); }
     .jadwal-empty { text-align:center; padding:48px 24px; color:var(--text-sub); }
@@ -722,8 +727,9 @@
 
     /* ── JADWAL: tabel desktop untuk daftar pengajuan ── */
     .jdw-entry-table { width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed; }
-    .jdw-entry-table th { text-align:left; padding:9px 12px; font-size:11px; color:var(--text-sub); border-bottom:1.5px solid rgba(19,50,89,.08); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .jdw-entry-table td { padding:11px 12px; border-bottom:1px solid rgba(19,50,89,.06); vertical-align:middle; overflow-wrap:break-word; }
+    .jdw-entry-table th { text-align:left; padding:10px 14px; font-size:11px; font-weight:600; color:var(--text-sub); letter-spacing:.05em; text-transform:uppercase; background:rgba(19,50,89,.06); border-bottom:1.5px solid rgba(19,50,89,.08); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .jdw-entry-table td { padding:11px 14px; border-bottom:1px solid rgba(19,50,89,.06); vertical-align:middle; overflow-wrap:break-word; }
+    .jdw-entry-table tbody tr:hover { background:rgba(19,50,89,.025); }
     .jdw-entry-table tr:last-child td { border-bottom:none; }
     .jdw-entry-table th:nth-child(1), .jdw-entry-table td:nth-child(1) { width:13%; }
     .jdw-entry-table th:nth-child(2), .jdw-entry-table td:nth-child(2) { width:12%; }
