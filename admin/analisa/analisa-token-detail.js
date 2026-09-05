@@ -276,10 +276,14 @@ function _atdBuildSikapMedianChart(containerId, opts) {
     const cy = v => top + plotH - (yMax > 0 ? (v / yMax) * plotH : 0);
 
     let svgParts = '';
-    // Garis + label utama (skala rapi, kelipatan tetap) — jaraknya TIDAK diubah
+    // Garis + label utama (skala rapi, kelipatan tetap) — jaraknya TIDAK diubah.
+    // Tiap label utama juga dikasih tick pendek (garis putus2 kecil) persis di
+    // sebelah angkanya, sama kayak label data tambahan di bawah — biar semua
+    // angka di sumbu Y seragam gayanya, bukan cuma sebagian yg ada tick-nya.
     ticks.forEach(val => {
         const y = cy(val);
         svgParts += `<line class="atd-grid-line" x1="${left}" y1="${y}" x2="${left + plotW}" y2="${y}"></line>`;
+        svgParts += `<line class="atd-data-tick" x1="${(left - 4).toFixed(1)}" y1="${y.toFixed(1)}" x2="${left}" y2="${y.toFixed(1)}"></line>`;
         svgParts += `<text class="atd-axis-label" x="${left - 6}" y="${y + 3}" text-anchor="end">${val}</text>`;
     });
     // Label TAMBAHAN persis di tiap nilai yg beneran ada datanya (mis. 7 di
