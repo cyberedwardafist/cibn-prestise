@@ -18,6 +18,50 @@ function _persistAdminNav() {
     try { localStorage.setItem('cbn_admin_navstate', JSON.stringify({ page: AppState.currentPage, sub: AppState.currentSubPage })); } catch(e) {}
 }
 
+// ── PERSIST KONTEKS HALAMAN ANALISA (grup/kind/nomor yg lagi dibuka) ───────
+// Beda dgn _persistAdminNav() di atas (cuma nyimpen page/sub AKTIF), ini
+// nyimpen KONTEKS tambahan yg dititip lewat window._analisaTokenDetailGrup /
+// _analisaGrafikDetail* / _analisaSoalDetail* sebelum navigateTo() dipanggil
+// (lihat komentar di admin/analisa/analisa-token.js & analisa-token-detail.js).
+// Konteks ini SEBELUMNYA cuma hidup di memori (variabel window biasa) — hilang
+// total tiap kali halaman di-refresh/reload (F5 / Ctrl+Shift+R), jadi walau
+// _persistAdminNav sudah balikin user ke tab 'analisa-token-detail' /
+// 'analisa-grafik' / 'analisa-soal' yg terakhir dibuka, grup/data yg lagi
+// ditampilkan sebelumnya IKUT HILANG (balik ke '-' / kosong).
+// window._analisaTokenDetailItems SENGAJA TIDAK ikut disimpan di sini (bisa
+// berat & gampang basi) — pas restore, analisa-token-detail.js akan fetch
+// ulang token grup itu dari API pakai nama grup yg disimpan di sini
+// (lihat _atdRestoreCtxIfNeeded di analisa-token-detail.js).
+function _persistAnalisaCtx() {
+    try {
+        localStorage.setItem('cbn_analisa_ctx', JSON.stringify({
+            tokenDetailGrup: window._analisaTokenDetailGrup || null,
+            grafikDetailGrup: window._analisaGrafikDetailGrup || null,
+            grafikDetailKind: window._analisaGrafikDetailKind || null,
+            soalDetailGrup: window._analisaSoalDetailGrup || null,
+            soalDetailNomor: window._analisaSoalDetailNomor || null,
+            soalDetailKind: window._analisaSoalDetailKind || null
+        }));
+    } catch(e) {}
+}
+
+// Dipanggil SEKALI di awal (DOMContentLoaded, lihat paling bawah file ini)
+// SEBELUM _doNav(lastPage,...) jalan — supaya window._analisa*Detail* sudah
+// keisi lagi PERSIS spt sebelum refresh, saat renderAnalisaTokenDetail() /
+// renderAnalisaGrafik() / renderAnalisaSoal() pertama kali dipanggil.
+function _restoreAnalisaCtx() {
+    try {
+        const ctx = JSON.parse(localStorage.getItem('cbn_analisa_ctx') || 'null');
+        if (!ctx) return;
+        if (ctx.tokenDetailGrup) window._analisaTokenDetailGrup = ctx.tokenDetailGrup;
+        if (ctx.grafikDetailGrup) window._analisaGrafikDetailGrup = ctx.grafikDetailGrup;
+        if (ctx.grafikDetailKind) window._analisaGrafikDetailKind = ctx.grafikDetailKind;
+        if (ctx.soalDetailGrup) window._analisaSoalDetailGrup = ctx.soalDetailGrup;
+        if (ctx.soalDetailNomor) window._analisaSoalDetailNomor = ctx.soalDetailNomor;
+        if (ctx.soalDetailKind) window._analisaSoalDetailKind = ctx.soalDetailKind;
+    } catch(e) {}
+}
+
 function _doNav(pageId, subId) {
     if (pageId !== 'soal') { document.body.classList.remove('soal-building'); document.getElementById('page-soal')?.classList.remove('dock-avoid-center'); }
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -300,6 +344,11 @@ document.addEventListener('DOMContentLoaded', () => {
             lastSub = AppState.currentSubPage[lastPage] || null;
         }
     } catch(e) {}
+    // Balikin dulu konteks grup/kind/nomor Analisa (kalau ada) SEBELUM _doNav
+    // dipanggil, supaya kalau lastPage-nya 'analisa-token-detail' /
+    // 'analisa-grafik' / 'analisa-soal', halaman itu langsung tahu data apa
+    // yg harus ditampilkan lagi — bukan kosong/'-' spt sblm perbaikan ini.
+    _restoreAnalisaCtx();
     _doNav(lastPage, lastSub);
 });
 // ══════════════ GENERIC FILTER DROPDOWN (ikon corong, hemat tempat) ══════════════

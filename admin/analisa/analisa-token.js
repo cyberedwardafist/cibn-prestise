@@ -162,6 +162,7 @@ function _renderAnalisaTokenList() {
 function openAnalisaTokenDetail(grup) {
     window._analisaTokenDetailGrup = grup;
     window._analisaTokenDetailItems = (_atData || []).filter(t => t.grub_token === grup);
+    if (typeof _persistAnalisaCtx === 'function') _persistAnalisaCtx();
     navigateTo('analisa-token-detail');
 }
 

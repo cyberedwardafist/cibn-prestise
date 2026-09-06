@@ -55,9 +55,33 @@
 // nanti disambung ke data asli, cukup ganti _ATD_DUMMY_BINARY / _ATD_DUMMY_SKOR
 // / _ATD_DUMMY_SIKAP_RAW dengan hasil agregasi jawaban sungguhan per grup.
 
-function renderAnalisaTokenDetail() {
+// Dipanggil sekali di awal renderAnalisaTokenDetail(): kalau nama grup sudah
+// ada (baik dari klik normal di analisa-token.js MAUPUN hasil dipulihkan
+// _restoreAnalisaCtx() setelah refresh/reload) tapi window._analisaTokenDetailItems
+// belum keisi (khusus kasus refresh — lihat komentar _persistAnalisaCtx() di
+// js/app.js, item mentahnya SENGAJA tidak ikut disimpan ke localStorage),
+// ambil ulang seluruh token dari API lalu saring per grup itu — PERSIS logika
+// gabung token aktif+terpakai yg sama dgn renderAnalisaToken() di
+// analisa-token.js, supaya hasilnya identik walau file itu tidak ikut ke-load
+// (halaman ini bisa dibuka lazy SENDIRIAN tanpa analisa-token.js).
+async function _atdEnsureItemsLoaded(grup) {
+    if (!grup) return [];
+    if (window._analisaTokenDetailItems && window._analisaTokenDetailItems.length) return window._analisaTokenDetailItems;
+    const [tokens, used] = await Promise.all([
+        TokensAPI.getAll().catch(() => []),
+        TokensAPI.getUsed().catch(() => [])
+    ]);
+    const map = {};
+    (tokens || []).forEach(t => { map[t.kode] = t; });
+    (used || []).forEach(t => { map[t.kode] = Object.assign({}, map[t.kode] || {}, t, { _dipakai: true }); });
+    const items = Object.values(map).filter(t => t.grub_token === grup);
+    window._analisaTokenDetailItems = items;
+    return items;
+}
+
+async function renderAnalisaTokenDetail() {
     const grup = window._analisaTokenDetailGrup || null;
-    const items = window._analisaTokenDetailItems || [];
+    const items = await _atdEnsureItemsLoaded(grup);
     const sub = document.getElementById('atd-kode-sub');
     if (sub) sub.textContent = grup ? `Grup: ${grup} (${items.length} token)` : '-';
     _atdRenderRingkasan(grup, items);
@@ -193,6 +217,7 @@ function _atdGoToSoalDetail(evt, kind, nomor) {
     window._analisaSoalDetailGrup = window._analisaTokenDetailGrup || null;
     window._analisaSoalDetailNomor = nomor;
     window._analisaSoalDetailKind = kind;
+    if (typeof _persistAnalisaCtx === 'function') _persistAnalisaCtx();
     navigateTo('analisa-soal');
 }
 
@@ -205,6 +230,7 @@ function _atdGoToGrafikDetail(evt, kind) {
     if (evt) evt.stopPropagation();
     window._analisaGrafikDetailGrup = window._analisaTokenDetailGrup || null;
     window._analisaGrafikDetailKind = kind;
+    if (typeof _persistAnalisaCtx === 'function') _persistAnalisaCtx();
     navigateTo('analisa-grafik');
 }
 
