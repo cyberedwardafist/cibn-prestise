@@ -14,11 +14,12 @@
 
 .cal-widget {
     flex: 1 1 220px;
+    max-width: 260px;
     min-width: 210px;
     background: #fff;
     border: 1.5px solid rgba(19,50,89,0.1);
     border-radius: 14px;
-    padding: 12px;
+    padding: 10px;
 }
 
 .cal-widget-label {
@@ -61,7 +62,19 @@
 
 .cal-weekdays, .cal-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    /* PENTING (fix "kalender kegedean"): dulu kolomnya `1fr` — lebar tiap
+       kolom otomatis ngikutin lebar wadahnya (.cal-widget), dan .cal-day
+       pakai `aspect-ratio:1` jadi TINGGINYA ikut selebar kolom itu juga.
+       Di layar HP, .cal-widget lebar penuh (lihat media query di bawah) ->
+       tiap kotak tanggal jadi gede banget (lebar-layar/7), 6 baris jadi satu
+       kalender bisa ~300px+ sendiri, dan ada 2 kalender ditumpuk (Dari &
+       Sampai Tanggal) jadi total makan hampir 1 layar. Fix-nya: batasi lebar
+       tiap kolom pakai angka pasti (bukan 1fr) supaya ukuran kotak tanggal
+       TETAP KOMPAK berapa pun lebar wadahnya, lalu `justify-content:center`
+       biar grid-nya tetap di tengah wadah (bukan nempel kiri, nyisa
+       ruang kosong ganjil di kanan). */
+    grid-template-columns: repeat(7, minmax(0, 30px));
+    justify-content: center;
     gap: 2px;
 }
 
@@ -76,7 +89,7 @@
 .cal-day {
     aspect-ratio: 1;
     display: flex; align-items: center; justify-content: center;
-    font-size: 11px;
+    font-size: 10.5px;
     border-radius: 8px;
     cursor: pointer;
     color: var(--blue);
@@ -118,7 +131,13 @@
        220px jelas kurang buat grid 6 baris (~280px+), jadi baris terakhir
        kalender kepotong/tumpah ke luar box (lanjut nimpa field di bawahnya).
        Makanya di mode column ini flex-basis-nya wajib di-reset ke auto biar
-       tingginya balik ngikutin isi (content-based), bukan angka 220 itu. */
-    .cal-daterange-wrap { flex-direction: column; }
-    .cal-widget { flex: 1 1 auto; width: 100%; min-width: 0; }
+       tingginya balik ngikutin isi (content-based), bukan angka 220 itu.
+       `max-width` + `margin:0 auto` ditambah di sini juga (bukan cuma
+       `width:100%` spt sebelumnya) — walau kolom tanggalnya sekarang sudah
+       dibatasi ukurannya (lihat .cal-weekdays/.cal-grid di atas), TANPA ini
+       kotak putih .cal-widget-nya sendiri tetap melebar penuh layar dan
+       nyisa ruang kosong ganjil di kiri-kanan kalender yang sudah kompak
+       itu — jadi tetap dibikin pas & di tengah. */
+    .cal-daterange-wrap { flex-direction: column; align-items: center; }
+    .cal-widget { flex: 1 1 auto; width: 100%; max-width: 260px; min-width: 0; margin: 0 auto; }
 }
