@@ -65,7 +65,8 @@ function renderAnalisaGrafik() {
     // halaman ini dibuka ulang dari tombol "Analisa" di halaman asal, biar
     // tidak kebawa selection dari kunjungan sebelumnya.
     _agHideBubblePop();
-    _agSelectedUser = null;
+    _agSelectedUserId = null;
+    _agSelectedUserNama = null;
     _agShowUtama = { benar: true, salah: true, dijawab: true };
     _agShowUser = { benar: true, salah: true, dijawab: true };
     _agRenderContent(grup, kind);
@@ -118,7 +119,7 @@ function _agRenderSikap(el) {
     _atdSikapCats = cats;
     _atdSikapDist = catData;
 
-    const userOverlay = _agSelectedUser ? { nama: _agSelectedUser, series: _agUserSeries(_agSelectedUser) } : null;
+    const userOverlay = _agSelectedUserId ? { nama: _agSelectedUserNama, series: _agUserSeries(_agSelectedUserId) } : null;
 
     _atdBuildSikapMedianChart('ag-chart-sikap', {
         title: 'Grafik Sikap Kerja — Median & Sebaran, Per Kolom',
@@ -130,7 +131,7 @@ function _agRenderSikap(el) {
         showUserCats: _agShowUser
     });
     const leg = document.getElementById('ag-chart-sikap-legend');
-    if (leg) leg.innerHTML = _atdSikapLegendHtml() + (userOverlay ? _agUserLegendHtml(_agSelectedUser) : '');
+    if (leg) leg.innerHTML = _atdSikapLegendHtml() + (userOverlay ? _agUserLegendHtml(_agSelectedUserNama) : '');
 
     // Popup median/rentang biasa (hover/klik 1 kolom) — perilaku SAMA persis
     // dgn halaman asal, tidak diubah.
@@ -148,7 +149,17 @@ function _agUserLegendHtml(nama) {
 // ── STATE interaksi (khusus halaman ini) ───────────────────────────────────
 let _agActiveBubbleKey = null;  // "kolom|kategori|nilai" bola yg lagi buka popup-nya
 let _agActiveBubbleEl = null;   // elemen <g class="atd-bubble-hit"> yg lagi aktif
-let _agSelectedUser = null;     // nama akun yg lagi ditampilkan overlay-nya
+// PENTING: overlay 1 orang diidentifikasi lewat `id` (kode laporan = 1
+// pengerjaan/token), BUKAN `nama` — 1 akun bisa mengerjakan lebih dari 1
+// token/pengerjaan, jadi nama yg sama bisa muncul lebih dari sekali di
+// daftar member sebuah bola (masing2 pengerjaan beda, boleh jatuh di
+// bola/kolom yg beda pula). Kalau overlay dicocokkan cuma lewat nama, klik
+// salah satu kemunculan nama itu akan selalu mengambil pengerjaan PERTAMA
+// yg ketemu (lewat .find()) di tiap kolom — bukan pengerjaan spesifik yg
+// bolanya diklik. `_agSelectedUserNama` cuma dipakai utk LABEL (legend,
+// judul panel switch), pencarian data selalu lewat `_agSelectedUserId`.
+let _agSelectedUserId = null;
+let _agSelectedUserNama = null;
 // Status switch PER KATEGORI (Benar/Salah/Jumlah Dijawab), masing2 utk grup
 // "Utama" & grup "nama user" — BUKAN lagi 1 toggle besar per grup.
 let _agShowUtama = { benar: true, salah: true, dijawab: true };
@@ -195,15 +206,21 @@ function _agBindBubbleEvents(containerId) {
     });
 }
 
-// Daftar nama akun yg jatuh persis di kombinasi (kolom, kategori, nilai)
-// tertentu — diambil dari _ATD_DUMMY_SIKAP_RAW (analisa-token-detail.js),
-// yg tiap baris pesertanya kini py field `nama`. MASIH DUMMY.
+// Daftar member (nama + id pengerjaan) yg jatuh persis di kombinasi (kolom,
+// kategori, nilai) tertentu — diambil dari _ATD_DUMMY_SIKAP_RAW
+// (analisa-token-detail.js), yg tiap baris pesertanya kini py field `nama`
+// DAN `id` (kode laporan / 1 pengerjaan). `id` WAJIB dibawa (bukan cuma
+// nama) supaya kalau 1 akun ada di bola ini lebih dari sekali (mengerjakan
+// token ini/kolom ini beberapa kali dgn hasil sama persis), tiap baris tetap
+// bisa dibedakan & diklik sendiri2 — dan supaya klik salah satu nama nanti
+// (_agSelectUser) mengambil grafik pengerjaan yg BENAR, bukan sekadar
+// pengerjaan pertama yg namanya cocok.
 function _agMembersForBubble(colIdx, catKey, val) {
     const rows = (typeof _ATD_DUMMY_SIKAP_RAW !== 'undefined' && _ATD_DUMMY_SIKAP_RAW[colIdx]) || [];
     return rows.filter(r => {
         const v = catKey === 'benar' ? r.benar : catKey === 'salah' ? r.salah : (r.benar + r.salah);
         return v === val;
-    }).map(r => r.nama || 'Tanpa nama');
+    }).map(r => ({ nama: r.nama || 'Tanpa nama', id: r.id }));
 }
 
 // #ag-bubble-pop dibuat on-demand & dipindah ke <body> (sama alasannya dgn
@@ -244,7 +261,7 @@ function _agPositionBubblePop(evt) {
 function _agShowBubblePop(evt, groupEl, col, catKey, val, count) {
     _atdHidePie(); // sembunyikan dulu popup median/rentang biasa biar tidak tumpuk barengan
     const meta = _AG_CAT_META[catKey] || { label: catKey, color: '#64748b' };
-    const names = _agMembersForBubble(col, catKey, val);
+    const members = _agMembersForBubble(col, catKey, val);
     const kolomLabel = _atdSikapCats[col] || ('#' + (col + 1));
     // BUG (sudah diperbaiki): JSON.stringify(n) menghasilkan string yg
     // dibungkus DOUBLE QUOTE (mis. "Ahmad Fauzi"), lalu ditempel apa adanya
@@ -263,8 +280,13 @@ function _agShowBubblePop(evt, groupEl, col, catKey, val, count) {
         .replace(/'/g, '&#39;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-    const rows = names.length
-        ? names.map(n => `<div class="ag-bubble-pop-name" onclick="_agSelectUser(event,${_agAttrEsc(JSON.stringify(n))})">${_atdEsc(n)}</div>`).join('')
+    // Dikirim ke _agSelectUser(): `id` (kunci pencarian data, WAJIB unik per
+    // pengerjaan) DAN `nama` (cuma label tampilan) — bukan nama saja, supaya
+    // 2 baris dgn nama sama (akun yg sama, pengerjaan/token berbeda) tetap
+    // bisa diklik terpisah dan masing2 menampilkan grafik pengerjaannya
+    // sendiri, bukan selalu jatuh ke pengerjaan pertama yg namanya cocok.
+    const rows = members.length
+        ? members.map(m => `<div class="ag-bubble-pop-name" onclick="_agSelectUser(event,${_agAttrEsc(JSON.stringify(m.id))},${_agAttrEsc(JSON.stringify(m.nama))})">${_atdEsc(m.nama)}</div>`).join('')
         : '<div class="ag-bubble-pop-empty">Tidak ada data</div>';
     const pop = _agGetBubblePopEl();
     pop.innerHTML = `
@@ -289,23 +311,28 @@ function _agHideBubblePop() {
 }
 
 // ── KLIK NAMA -> overlay grafik 1 orang + panel switch ─────────────────────
-// Ambil Benar/Salah/Jumlah-Dijawab org itu SENDIRI di SEMUA kolom (bukan
-// median grup) — dipakai sbg garis overlay putus-putus. Kolom yg org itu
-// tidak ada datanya (mis. skenario data nyata nanti org itu belum sampai
-// kolom itu) -> null, dilompati saat digambar (lihat _atdBuildSikapMedianChart).
-function _agUserSeries(nama) {
+// Ambil Benar/Salah/Jumlah-Dijawab utk SATU PENGERJAAN SPESIFIK (dicari lewat
+// `id` = kode laporan, BUKAN `nama`) di SEMUA kolom — dipakai sbg garis
+// overlay putus-putus. `id` dipakai (bukan nama) krn 1 akun bisa mengerjakan
+// lebih dari 1 token; kalau dicari lewat nama, .find() akan selalu berhenti
+// di pengerjaan PERTAMA yg namanya cocok di tiap kolom, walau yg diklik di
+// popup bola adalah pengerjaan yg lain. Kolom yg pengerjaan ini tidak ada
+// datanya (mis. skenario data nyata nanti org itu belum sampai kolom itu)
+// -> null, dilompati saat digambar (lihat _atdBuildSikapMedianChart).
+function _agUserSeries(id) {
     const pick = key => _ATD_DUMMY_SIKAP_RAW.map(rows => {
-        const r = rows.find(x => x.nama === nama);
+        const r = rows.find(x => x.id === id);
         if (!r) return null;
         return key === 'benar' ? r.benar : key === 'salah' ? r.salah : (r.benar + r.salah);
     });
     return { benar: pick('benar'), salah: pick('salah'), dijawab: pick('dijawab') };
 }
 
-function _agSelectUser(evt, nama) {
+function _agSelectUser(evt, id, nama) {
     if (evt) evt.stopPropagation();
     _agHideBubblePop();
-    _agSelectedUser = nama;
+    _agSelectedUserId = id;
+    _agSelectedUserNama = nama;
     // Sesuai permintaan: begitu 1 nama dipilih, SEMUA switch ("Utama" & nama
     // org itu, ketiga kategorinya) otomatis nyala — grafik yg tampil =
     // median grup + SELURUH kategori org itu, bukan cuma kategori bola yg
@@ -323,7 +350,8 @@ function _agSelectUser(evt, nama) {
 // nya kebentuk ulang dgn status default (nyala semua) lewat _agSelectUser.
 function _agRemoveUserOverlay(evt) {
     if (evt) evt.stopPropagation();
-    _agSelectedUser = null;
+    _agSelectedUserId = null;
+    _agSelectedUserNama = null;
     const el = document.getElementById('ag-content');
     if (el) _agRenderSikap(el);
 }
@@ -382,9 +410,9 @@ function _agRenderSwitches() {
             <div class="ag-switch-group-title">Utama</div>
             ${_agCatSwitchRowsHtml('utama', _agShowUtama)}
         </div>
-        ${_agSelectedUser ? `<div class="ag-switch-group">
+        ${_agSelectedUserId ? `<div class="ag-switch-group">
             <div class="ag-switch-group-title">
-                <span>${_atdEsc(_agSelectedUser)}</span>
+                <span>${_atdEsc(_agSelectedUserNama)}</span>
                 <button type="button" class="ag-switch-group-close" onclick="_agRemoveUserOverlay(event)" title="Tutup data user ini">&times;</button>
             </div>
             ${_agCatSwitchRowsHtml('user', _agShowUser)}

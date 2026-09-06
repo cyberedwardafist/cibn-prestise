@@ -503,7 +503,16 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
                         if (ans) { const k = q.kunci_huruf || q.kunci; if (ans === k) benar++; else salah++; }
                     });
                     const namaPeserta = (laporanRows[pi] && laporanRows[pi].user_nama) || `Peserta ${pi + 1}`;
-                    sikapRaw[ki].push({ benar, salah, nama: namaPeserta });
+                    // `id` = kode laporan (1 baris = 1 pengerjaan/token, BUKAN 1 akun).
+                    // Kalau 1 akun mengerjakan token berbeda lebih dari sekali, nama
+                    // yg sama bisa muncul di beberapa baris `pi` yg berbeda di sini —
+                    // tanpa `id` ini, frontend (analisa-grafik.js) tidak bisa
+                    // membedakan pengerjaan mana yg diklik saat overlay grafik
+                    // per-orang dibangun, dan akan salah gabung data antar
+                    // pengerjaan yg berbeda hanya krn nama sama. `id` dipakai
+                    // frontend sbg kunci pencarian (bukan `nama`, yg boleh dobel).
+                    const idPengerjaan = (laporanRows[pi] && laporanRows[pi].laporan_kode) || ('idx:' + pi);
+                    sikapRaw[ki].push({ benar, salah, nama: namaPeserta, id: idPengerjaan });
                 });
             });
             continue;
