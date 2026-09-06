@@ -163,10 +163,25 @@ const _AG_CAT_META = {
 // default pointer-events:none (lihat komentar di sana) — di halaman ini
 // sengaja diaktifkan jadi "auto" supaya tiap bola bisa jadi target klik
 // SENDIRI-SENDIRI (bukan cuma 1 kolom penuh spt popup median biasa).
+//
+// BUG (sudah diperbaiki): dulu cuma `<g class="atd-bubble-hit">`-nya yg
+// di-set pointer-events:auto lewat style inline. Tapi circle-nya sendiri
+// (.atd-bubble) dan teks di dalamnya (.atd-bubble-label) punya rule CSS
+// SENDIRI di css/chart.css yg nembak pointer-events:none LANGSUNG ke
+// elemen itu (bukan cuma warisan dari induk). pointer-events memang
+// inherited, tapi rule yg nempel langsung ke elemen (class selector)
+// selalu menang dibanding nilai warisan dari <g> pembungkusnya — jadi
+// "auto" di <g> percuma, circle/teks tetap dianggap non-target, dan
+// klik nembus ke rect kolom di bawahnya (bukan ke handler bola).
+// Fix: paksa pointer-events:auto juga LANGSUNG (inline style, menang
+// atas class apa pun urutan CSS-nya) ke tiap circle & teks anak <g> ini.
 function _agBindBubbleEvents(containerId) {
     document.querySelectorAll(`#${containerId} .atd-bubble-hit`).forEach(g => {
         g.style.pointerEvents = 'auto';
         g.style.cursor = 'pointer';
+        g.querySelectorAll('.atd-bubble, .atd-bubble-label').forEach(child => {
+            child.style.pointerEvents = 'auto';
+        });
         g.addEventListener('click', e => {
             e.stopPropagation(); // jangan sampai ketangkep juga sama .atd-chart-group / document
             const col = +g.dataset.col, catKey = g.dataset.cat, val = +g.dataset.val, count = +g.dataset.count;
