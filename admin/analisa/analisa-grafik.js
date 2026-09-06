@@ -316,6 +316,18 @@ function _agSelectUser(evt, nama) {
     if (el) _agRenderSikap(el);
 }
 
+// Tombol "x" di sebelah nama user di panel switch (.ag-switch-group-title) —
+// menutup/menghapus overlay org itu dari grafik sepenuhnya (beda dgn switch
+// per-kategori yg cuma sembunyikan sementara): grup switch-nya ikut hilang
+// dari panel, dan kalau nanti user itu diklik lagi dari popup bola, switch-
+// nya kebentuk ulang dgn status default (nyala semua) lewat _agSelectUser.
+function _agRemoveUserOverlay(evt) {
+    if (evt) evt.stopPropagation();
+    _agSelectedUser = null;
+    const el = document.getElementById('ag-content');
+    if (el) _agRenderSikap(el);
+}
+
 // ── PANEL SWITCH "Utama" / nama user ───────────────────────────────────────
 // Tiap grup (Utama / nama user) sekarang py 3 switch SENDIRI2, satu per
 // kategori (Benar/Salah/Jumlah Dijawab) — bukan lagi 1 toggle besar yg
@@ -371,7 +383,10 @@ function _agRenderSwitches() {
             ${_agCatSwitchRowsHtml('utama', _agShowUtama)}
         </div>
         ${_agSelectedUser ? `<div class="ag-switch-group">
-            <div class="ag-switch-group-title">${_atdEsc(_agSelectedUser)}</div>
+            <div class="ag-switch-group-title">
+                <span>${_atdEsc(_agSelectedUser)}</span>
+                <button type="button" class="ag-switch-group-close" onclick="_agRemoveUserOverlay(event)" title="Tutup data user ini">&times;</button>
+            </div>
             ${_agCatSwitchRowsHtml('user', _agShowUser)}
         </div>` : ''}
     `;
