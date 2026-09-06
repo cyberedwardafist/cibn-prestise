@@ -462,7 +462,7 @@ function _analisaSoalButir(type, data) {
 
 async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
     const modul = await db.prepare('SELECT * FROM modul WHERE kode=?').get(modul_kode);
-    if (!modul) return { modul: null, binaryChart: [], skorChart: [], sikapRaw: [] };
+    if (!modul) return { modul: null, binaryChart: [], skorChart: [], sikapRaw: [], tipeSoal: { binary: false, skor: false, sikap: false } };
 
     let soal_list = []; try { soal_list = JSON.parse(modul.soal_list || '[]'); } catch (e) {}
     const soalRows = [];
@@ -484,7 +484,20 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
     const ringkasanSoal = [];
     const binaryChart = [];   // [{nomor, benar, salah}]
     const skorChart = [];     // [{nomor, opsi:[{nilai,jumlah}]}]
-    const sikapRaw = [];      // [kolomIdx] -> [{benar,salah,nama}] per peserta
+    const sikapRaw = [];      // [kolomIdx] -> [{benar,salah,nama,id}] per peserta
+
+    // Komposisi TIPE soal modul ini — dihitung dari `soalRows` (susunan modul
+    // itu sendiri), BUKAN dari isi binaryChart/skorChart/sikapRaw di bawah.
+    // Alasannya: binaryChart dkk bisa kosong walau modul MEMANG punya soal
+    // tipe itu (mis. belum ada satu pun peserta yang menyelesaikan ujian) —
+    // itu beda kasus dgn modul yg SUNGGUH-SUNGGUH tidak punya soal tipe itu
+    // sama sekali. Frontend (analisa-token-detail.js) pakai flag ini utk
+    // memutuskan apakah kartu grafik tipe tsb perlu ditampilkan sama sekali,
+    // terpisah dari soal isinya (kosong data vs kosong tipe). 1 modul bisa
+    // punya lebih dari 1 soal dgn tipe yg sama (mis. 3 soal Benar/Salah
+    // terpisah) — semuanya tetap digabung jadi SATU grafik per tipe seperti
+    // sebelumnya, flag ini cuma soal ADA/TIDAK-nya tipe itu di modul.
+    const tipeSoal = { binary: false, skor: false, sikap: false };
 
     let binNomor = 0, skorNomor = 0;
 
@@ -493,6 +506,7 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
         ringkasanSoal.push({ nama: s.nama, butir: _analisaSoalButir(s.type, data) });
 
         if (s.type === 'sikap_kerja') {
+            tipeSoal.sikap = true;
             data.forEach((kol, ki) => {
                 if (!sikapRaw[ki]) sikapRaw[ki] = [];
                 const kolSoal = Array.isArray(kol.soal) ? kol.soal : [];
@@ -519,6 +533,7 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
         }
 
         const isNilaiSendiri = s.skor_type === 'nilai_sendiri';
+        if (isNilaiSendiri) tipeSoal.skor = true; else tipeSoal.binary = true;
         data.forEach((q, qi) => {
             const jawabanOpsi = Array.isArray(q.jawaban) ? q.jawaban : [];
             const pertanyaan = q.soal || '';
@@ -572,7 +587,7 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
 
     return {
         modul: { kode: modul.kode, nama: modul.nama, soal: ringkasanSoal },
-        binaryChart, skorChart, sikapRaw
+        binaryChart, skorChart, sikapRaw, tipeSoal
     };
 }
 
@@ -1617,7 +1632,7 @@ app.get('/api/analisa/grup/:grubKey', auth(['admin','review']), ah(async (req, r
     `).all(isLegacy ? legacyNama : rawKey);
 
     if (!tokens.length) {
-        return res.json({ grub_key: rawKey, grub_token: legacyNama, ringkasan: { total: 0, used: 0, hangus: 0, modul: null }, peserta: [], charts: { binary: [], skor: [], sikap: [] }, multi_modul: false, modul_list: [] });
+        return res.json({ grub_key: rawKey, grub_token: legacyNama, ringkasan: { total: 0, used: 0, hangus: 0, modul: null }, peserta: [], charts: { binary: [], skor: [], sikap: [] }, tipe_soal: { binary: false, skor: false, sikap: false }, multi_modul: false, modul_list: [] });
     }
 
     const now = Date.now();
@@ -1642,7 +1657,7 @@ app.get('/api/analisa/grup/:grubKey', auth(['admin','review']), ah(async (req, r
         .sort((a, b) => new Date(b.laporan_created_at || 0) - new Date(a.laporan_created_at || 0))
         .map(r => ({ nama: r.user_nama || '-', skor: r.laporan_skor != null ? r.laporan_skor : null }));
 
-    let agg = { modul: null, binaryChart: [], skorChart: [], sikapRaw: [] };
+    let agg = { modul: null, binaryChart: [], skorChart: [], sikapRaw: [], tipeSoal: { binary: false, skor: false, sikap: false } };
     if (majorModul) {
         const laporanMajor = tokens.filter(t => t.laporan_kode && t.modul_kode === majorModul);
         agg = await computeAnalisaGrupAggregate(majorModul, laporanMajor);
@@ -1654,6 +1669,7 @@ app.get('/api/analisa/grup/:grubKey', auth(['admin','review']), ah(async (req, r
         ringkasan: { total, used, hangus, modul: agg.modul },
         peserta,
         charts: { binary: agg.binaryChart, skor: agg.skorChart, sikap: agg.sikapRaw },
+        tipe_soal: agg.tipeSoal || { binary: false, skor: false, sikap: false },
         multi_modul: multiModul,
         modul_list: modulKodes.map(k => ({ kode: k, nama: (tokens.find(t => t.modul_kode === k) || {}).modul_nama || k, jumlah_token: modulCount[k] }))
     });

@@ -750,16 +750,35 @@ function _atdBindChartEvents(containerId, kind) {
 
 function _atdEmptyChartCard(containerId, msg) {
     const el = document.getElementById(containerId);
-    if (el) el.innerHTML = `<div class="empty-state" style="padding:24px"><p>${_atdEsc(msg)}</p></div>`;
+    if (el) { el.style.display = ''; el.innerHTML = `<div class="empty-state" style="padding:24px"><p>${_atdEsc(msg)}</p></div>`; }
+}
+
+// Modul ini SUNGGUH-SUNGGUH tidak punya soal bertipe ini sama sekali (bukan
+// cuma "belum ada peserta selesai") — sembunyikan kartunya sepenuhnya
+// (display:none), jangan tampilkan kotak kosong sama sekali. Beda dgn
+// _atdEmptyChartCard() di atas, yg dipakai utk kasus tipe soal ADA di modul
+// tapi datanya masih kosong (mis. belum ada peserta menyelesaikan ujian) —
+// itu tetap tampil sbg kartu dgn pesan, karena grafiknya memang "akan ada"
+// begitu ada peserta yang selesai.
+function _atdHideChartCard(containerId) {
+    const el = document.getElementById(containerId);
+    if (el) { el.style.display = 'none'; el.innerHTML = ''; }
 }
 
 // ── ENTRY: bangun ketiga grafik per-soal dari hasil agregasi asli (agg.charts,
 // dari GET /api/analisa/grup/:grubToken) — lihat komentar keputusan produk
 // "multi-modul per grup" di server.js (computeAnalisaGrupAggregate) tentang
-// dari mana data ini berasal. Tiap chart punya empty-state sendiri kalau
-// modul grup ini memang tidak punya soal bertipe tsb (mis. modul cuma berisi
-// soal Sikap Kerja saja, jadi grafik Benar/Salah & Nilai/Skor kosong — itu
-// wajar, bukan bug).
+// dari mana data ini berasal. Tiap tipe grafik dibedakan 2 kondisi kosongnya:
+//  1) Modul grup ini MEMANG TIDAK PUNYA soal bertipe itu sama sekali (dicek
+//     lewat agg.tipe_soal, dihitung SERVER dari susunan modul-nya sendiri —
+//     BUKAN dari isi chart-nya) -> kartunya disembunyikan total
+//     (_atdHideChartCard), tidak ada kotak kosong sama sekali. Ini wajar,
+//     bukan bug — 1 modul boleh saja cuma berisi soal Sikap Kerja misalnya.
+//  2) Modul MEMANG PUNYA soal bertipe itu (boleh lebih dari 1 soal, mis. 3
+//     soal Benar/Salah terpisah — semuanya tetap digabung jadi SATU grafik
+//     per tipe seperti biasa) tapi datanya masih kosong krn belum ada
+//     peserta yang menyelesaikan ujian -> kartu TETAP tampil dgn pesan,
+//     karena grafiknya memang akan terisi begitu ada yang selesai.
 function _atdRenderCharts(agg) {
     if (!agg) {
         _atdEmptyChartCard('atd-chart-binary', 'Gagal memuat grafik, silakan coba lagi');
@@ -771,10 +790,24 @@ function _atdRenderCharts(agg) {
     _ATD_DUMMY_BINARY = (agg.charts && agg.charts.binary) || [];
     _ATD_DUMMY_SKOR = (agg.charts && agg.charts.skor) || [];
     _ATD_DUMMY_SIKAP_RAW = (agg.charts && agg.charts.sikap) || [];
+    const tipeSoal = agg.tipe_soal || { binary: false, skor: false, sikap: false };
+
+    // Pastikan ketiga kartu kembali terlihat dulu sebelum diputuskan
+    // disembunyikan atau tidak di bawah — kalau kunjungan sebelumnya (grup
+    // token lain) sempat menyembunyikan salah satu kartu (tipeSoal-nya false
+    // saat itu), tapi grup token yang ini justru punya tipe itu, kartunya
+    // harus muncul lagi. _atdBuildLineChart/_atdBuildSikapMedianChart di
+    // bawah cuma mengisi innerHTML, tidak pernah menyentuh style.display.
+    ['atd-chart-binary', 'atd-chart-skor', 'atd-chart-sikap'].forEach(id => {
+        const elX = document.getElementById(id);
+        if (elX) elX.style.display = '';
+    });
 
     // 1) Tipe Benar/Salah
-    if (!_ATD_DUMMY_BINARY.length) {
-        _atdEmptyChartCard('atd-chart-binary', 'Modul grup ini belum punya soal bertipe Benar/Salah, atau belum ada peserta yang menyelesaikan ujian');
+    if (!tipeSoal.binary) {
+        _atdHideChartCard('atd-chart-binary');
+    } else if (!_ATD_DUMMY_BINARY.length) {
+        _atdEmptyChartCard('atd-chart-binary', 'Belum ada peserta yang menyelesaikan ujian');
     } else {
         const catsB = _ATD_DUMMY_BINARY.map(s => s.nomor);
         const seriesB = [
@@ -796,8 +829,10 @@ function _atdRenderCharts(agg) {
     // gabungan). Kalau beberapa opsi kebetulan sama2 bernilai 0, tetap jadi
     // garis terpisah (lihat _atdBuildOpsiSeries), cuma labelnya sama2 "Nilai 0"
     // dgn warna beda2 supaya kebedanya jelas.
-    if (!_ATD_DUMMY_SKOR.length) {
-        _atdEmptyChartCard('atd-chart-skor', 'Modul grup ini belum punya soal bertipe Nilai/Skor Sendiri, atau belum ada peserta yang menyelesaikan ujian');
+    if (!tipeSoal.skor) {
+        _atdHideChartCard('atd-chart-skor');
+    } else if (!_ATD_DUMMY_SKOR.length) {
+        _atdEmptyChartCard('atd-chart-skor', 'Belum ada peserta yang menyelesaikan ujian');
     } else {
         const { series: seriesS, sortedPerSoal: sortedS } = _atdBuildOpsiSeries(_ATD_DUMMY_SKOR);
         _atdSkorSeriesMeta = seriesS;
@@ -817,8 +852,10 @@ function _atdRenderCharts(agg) {
     // 3) Tipe Sikap Kerja — sebaran nilai antar peserta per kolom (Benar/
     // Salah/Jumlah Dijawab), digambar sbg bola kecil + garis median per
     // kategori (lihat komentar _atdBuildSikapMedianChart).
-    if (!_ATD_DUMMY_SIKAP_RAW.length) {
-        _atdEmptyChartCard('atd-chart-sikap', 'Modul grup ini belum punya soal bertipe Sikap Kerja, atau belum ada peserta yang menyelesaikan ujian');
+    if (!tipeSoal.sikap) {
+        _atdHideChartCard('atd-chart-sikap');
+    } else if (!_ATD_DUMMY_SIKAP_RAW.length) {
+        _atdEmptyChartCard('atd-chart-sikap', 'Belum ada peserta yang menyelesaikan ujian');
     } else {
         const distBenar = _atdDistFromRaw(_ATD_DUMMY_SIKAP_RAW, r => r.benar);
         const distSalah = _atdDistFromRaw(_ATD_DUMMY_SIKAP_RAW, r => r.salah);
