@@ -566,7 +566,7 @@ body.soal-building #side-dock-wrap.side-dock-right{
     <div class="dock-sep" id="main-dock-sep"></div>
     <!-- Tombol titik tiga — hidden by default, JS munculkan saat ada overflow -->
     <div class="dock-more" id="dock-more-wrap" style="display:none">
-      <button class="dock-item" id="btn-dock-more" onclick="toggleDockMore()"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></div><span class="dock-label">LAGI</span></button>
+      <button class="dock-item" id="btn-dock-more" onclick="toggleDockMore()"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></div><span class="dock-label">MENU</span></button>
       <div class="dock-more-menu" id="dock-more-menu"></div>
     </div>
   </div>
@@ -749,11 +749,15 @@ function setupMainDockOverflow() {
       if (sep) sep.style.display = anyVisible ? '' : 'none';
 
       // Rebuild menu (urutan kiri ke kanan = urutan alami)
+      // PENTING: pakai ulang onclick ASLI tombolnya (bukan rekonstruksi dari data-page).
+      // Sebagian tombol dock (ANALISA, E-BOOK) pakai data-group, bukan data-page —
+      // kalau dibaca lewat data-page hasilnya undefined dan navigateTo('undefined')
+      // gagal total (halaman jadi kosong). onclick asli selalu benar utk semua jenis tombol.
       moreMenu.innerHTML = hiddenItems.map(btn => {
-        const page  = btn.dataset.page;
-        const label = btn.querySelector('.dock-label')?.textContent ?? page;
+        const onclickAttr = btn.getAttribute('onclick') || '';
+        const label = btn.querySelector('.dock-label')?.textContent ?? '';
         const svg   = btn.querySelector('.dock-icon svg')?.outerHTML ?? '';
-        return `<button class="dock-more-item" onclick="navigateTo('${page}');closeDockMore()">${svg}${label}</button>`;
+        return `<button class="dock-more-item" onclick="${onclickAttr};closeDockMore()">${svg}${label}</button>`;
       }).join('');
     }
   }
