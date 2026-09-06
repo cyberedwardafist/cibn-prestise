@@ -78,6 +78,51 @@
     .atd-pie-pop{width:180px}
 }
 
+/* ── admin/analisa/analisa-grafik.js — klik per-BOLA sebaran ──────────────
+   Fitur khusus halaman ini (bukan Analisa Token): tiap bola bisa diklik
+   sendiri2 (bukan cuma 1 kolom penuh) -> popup daftar nama (.ag-bubble-pop,
+   TETAP interaktif, beda dari .atd-pie-pop yg pointer-events:none) -> klik
+   nama -> overlay grafik 1 orang + panel switch (.ag-switches). */
+.atd-bubble-hit{transition:filter .1s ease}
+.atd-bubble-hit:hover circle.atd-bubble,
+.atd-bubble-hit.atd-bubble-active circle.atd-bubble{opacity:.7}
+.atd-bubble-hit.atd-bubble-active circle.atd-bubble{stroke:#134;stroke-width:1}
+
+/* Overlay garis 1 orang (dipilih lewat popup bola) — putus-putus, warna
+   kategori tetap sama (hijau/merah/biru) biar kebaca ke legenda yg sama. */
+.atd-user-line{stroke-width:2.2;fill:none;stroke-dasharray:5 4}
+.atd-user-dot{stroke-width:2}
+
+.ag-bubble-pop{position:fixed;z-index:950;width:220px;background:#fff;border-radius:14px;box-shadow:0 12px 32px rgba(19,50,89,.24);border:1px solid rgba(19,50,89,.1);padding:14px;pointer-events:auto;animation:atdPopIn .12s ease}
+.ag-bubble-pop-close{position:absolute;top:6px;right:8px;border:none;background:none;font-size:18px;line-height:1;color:var(--text-sub);cursor:pointer;padding:2px 6px;border-radius:6px}
+.ag-bubble-pop-close:hover{color:var(--blue);background:rgba(19,50,89,.06)}
+.ag-bubble-pop-sub{font-size:10px;color:var(--text-sub);margin:-4px 0 8px}
+.ag-bubble-pop-list{display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto}
+.ag-bubble-pop-name{font-size:12px;font-weight:600;color:var(--blue);padding:6px 8px;border-radius:8px;background:rgba(19,50,89,.04);cursor:pointer}
+.ag-bubble-pop-name:hover{background:rgba(38,102,184,.14)}
+.ag-bubble-pop-empty{font-size:11px;color:var(--text-sub);font-style:italic;padding:6px 2px}
+@media (max-width:520px){
+    .ag-bubble-pop{width:190px}
+}
+
+/* Layout #ag-content + panel switch "Utama"/nama-user — berdampingan di
+   layar lebar (desktop), ditumpuk (switch di bawah grafik) di layar sempit. */
+.ag-layout{display:flex;flex-direction:column;gap:16px}
+.ag-main{flex:1;min-width:0}
+.ag-switches{display:none;flex-direction:column;gap:12px;background:#fff;border:1px solid rgba(19,50,89,.08);border-radius:14px;padding:14px}
+.ag-switches-title{font-size:11px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:.03em}
+.ag-switch-row{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:600;color:var(--text-main)}
+.ag-switch{position:relative;display:inline-block;width:36px;height:20px;flex:none}
+.ag-switch input{opacity:0;width:0;height:0;position:absolute}
+.ag-switch-slider{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(19,50,89,.2);border-radius:20px;cursor:pointer;transition:background .15s ease}
+.ag-switch-slider:before{content:"";position:absolute;height:16px;width:16px;left:2px;bottom:2px;background:#fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s ease}
+.ag-switch input:checked + .ag-switch-slider{background:var(--accent2,#2666b8)}
+.ag-switch input:checked + .ag-switch-slider:before{transform:translateX(16px)}
+@media (min-width:900px){
+    .ag-layout{flex-direction:row;align-items:flex-start}
+    .ag-switches{width:190px;flex:none;position:sticky;top:8px}
+}
+
 /* ── admin/analisa/analisa-soal.js — detail 1 nomor soal ────────────────────
    Kartu soal/opsi/pembahasan pakai inline-style yg meniru persis
    review/riwayat/riwayat.js (renderRuvMC, "MODE REVIEW") — jadi cuma
