@@ -479,7 +479,7 @@ function _renderSikapDetail(idx){
       </div>`).join('')}
   </div>
   <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-    <div class="form-group" style="flex:1;min-width:120px;margin:0"><label class="form-label">Jumlah Soal Generate</label><input id="gen-jumlah" class="form-input" type="number" value="10" min="1" max="100"></div>
+    <div class="form-group" style="flex:1;min-width:120px;margin:0"><label class="form-label">Jumlah Soal Generate</label><input id="gen-jumlah" class="form-input" type="number" value="50" min="1" max="100"></div>
     <button class="btn btn-primary" onclick="generateKolomSoal(${idx})">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 .49-4.65"/></svg>
       Generate
