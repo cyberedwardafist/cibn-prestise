@@ -322,6 +322,14 @@ const TokensAPI = {
     async getGrubList() { return await apiGet('/tokens/grub-list') || []; }
 };
 
+// ── ANALISA API ── (agregasi 1 grup token — dock ANALISA, admin/analisa/)
+// `grupKey` = kunci grup (grub_id, atau "legacy:<nama>" utk data lama) —
+// LIHAT komentar _atGrupKey() di admin/analisa/analisa-token.js, BUKAN nama
+// grup yang bisa diulang antar batch berbeda.
+const AnalisaAPI = {
+    async getGrup(grupKey) { return await apiGet(`/analisa/grup/${encodeURIComponent(grupKey)}`); }
+};
+
 // ── LAPORAN API ──
 const LaporanAPI = {
     async getAll() { return await apiGet('/laporan'); },

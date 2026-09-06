@@ -36,6 +36,7 @@ function _persistAnalisaCtx() {
     try {
         localStorage.setItem('cbn_analisa_ctx', JSON.stringify({
             tokenDetailGrup: window._analisaTokenDetailGrup || null,
+            tokenDetailGrupNama: window._analisaTokenDetailGrupNama || null,
             grafikDetailGrup: window._analisaGrafikDetailGrup || null,
             grafikDetailKind: window._analisaGrafikDetailKind || null,
             soalDetailGrup: window._analisaSoalDetailGrup || null,
@@ -54,6 +55,7 @@ function _restoreAnalisaCtx() {
         const ctx = JSON.parse(localStorage.getItem('cbn_analisa_ctx') || 'null');
         if (!ctx) return;
         if (ctx.tokenDetailGrup) window._analisaTokenDetailGrup = ctx.tokenDetailGrup;
+        if (ctx.tokenDetailGrupNama) window._analisaTokenDetailGrupNama = ctx.tokenDetailGrupNama;
         if (ctx.grafikDetailGrup) window._analisaGrafikDetailGrup = ctx.grafikDetailGrup;
         if (ctx.grafikDetailKind) window._analisaGrafikDetailKind = ctx.grafikDetailKind;
         if (ctx.soalDetailGrup) window._analisaSoalDetailGrup = ctx.soalDetailGrup;

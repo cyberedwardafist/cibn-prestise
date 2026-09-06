@@ -170,6 +170,20 @@ CREATE TABLE IF NOT EXISTS tokens (
 -- ada dari sebelum kolom ini dibuat — aman dijalankan berkali-kali.
 ALTER TABLE tokens ADD COLUMN IF NOT EXISTS batas_keluar INTEGER;
 
+-- grub_id: ID UNIK per BATCH pembuatan token (1x klik "Generate Token" dgn
+-- Grup Token aktif = 1 grub_id baru), digenerate server (genGrubId() di
+-- server.js) — SELALU baru walau nama grup (grub_token) yang diketik admin
+-- SAMA PERSIS dgn grup yang sudah ada sebelumnya (mis. "SMA1" dibuat lagi
+-- bulan depan utk angkatan yg beda). grub_token tetap murni LABEL tampilan
+-- (boleh diulang bebas, dipakai jg utk datalist saran nama di halaman Buat
+-- Token) — grub_id lah yang jadi kunci pengelompokan sesungguhnya di mana pun
+-- statistik/analisa dihitung per grup (lihat computeAnalisaGrupAggregate &
+-- GET /api/analisa/grup/:grubKey), supaya 2 batch yang kebetulan senama TIDAK
+-- PERNAH tercampur datanya. Token yang dibuat SEBELUM kolom ini ada akan
+-- punya grub_id NULL — utk data lama itu, pengelompokan fallback ke
+-- grub_token (perilaku lama, satu-satunya cara yg tersedia utk data lama).
+ALTER TABLE tokens ADD COLUMN IF NOT EXISTS grub_id TEXT;
+
 -- Nama internal (opsional) untuk soal & modul — HANYA ditampilkan di admin
 -- (Library Soal dan saat menyusun Modul), tidak pernah dikirim ke peserta ujian.
 -- Ditampilkan sebagai "nama soal | nama internal soal" di UI admin.

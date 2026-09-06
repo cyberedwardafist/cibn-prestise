@@ -7,12 +7,17 @@
 // kembali di atas yang membawa balik ke page-analisa-token — yang otomatis
 // membuka lagi panel slide-dock-nya.
 //
-// window._analisaTokenDetailGrup = nama grup yang diklik.
+// window._analisaTokenDetailGrup = KUNCI grup yang diklik (grub_id, atau
+// "legacy:<nama>" utk token lama — lihat _atGrupKey() di analisa-token.js).
+// window._analisaTokenDetailGrupNama = NAMA tampilan grup itu (grub_token,
+// boleh sama dgn grup lain) — dipakai di subjudul & badge, terpisah dari
+// kunci di atas supaya 2 grup senama tidak pernah ketuker datanya.
 // window._analisaTokenDetailItems = seluruh token mentah dalam grup itu (siap
 // dipakai untuk analisa lebih lanjut per modul/per akun, dst).
 //
-// ── GRAFIK PER SOAL (bagian baru, MASIH DATA DUMMY — belum ditarik dari
-// jawaban asli) ──────────────────────────────────────────────────────────
+// ── GRAFIK PER SOAL — datanya diambil dari GET /api/analisa/grup/:grubToken
+// (agregasi jawaban asli, dihitung di server.js/computeAnalisaGrupAggregate)
+// ──────────────────────────────────────────────────────────────────────────
 // Prototipe grafik GARIS (line chart), murni SVG + CSS sendiri (css/chart.css),
 // tanpa library chart eksternal apapun:
 //
@@ -51,9 +56,9 @@
 // datanya sebaran per kategori, bukan proporsi dari 1 total yang sama).
 // Sentuh/klik di luar popup menutupnya.
 //
-// Data & pemetaan warna di bawah ini 100% dummy untuk contoh visual — saat
-// nanti disambung ke data asli, cukup ganti _ATD_DUMMY_BINARY / _ATD_DUMMY_SKOR
-// / _ATD_DUMMY_SIKAP_RAW dengan hasil agregasi jawaban sungguhan per grup.
+// _ATD_DUMMY_BINARY / _ATD_DUMMY_SKOR / _ATD_DUMMY_SIKAP_RAW (nama variabel
+// dipertahankan sengaja, lihat komentar di dekat deklarasinya) sekarang diisi
+// dari respons AnalisaAPI.getGrup() tiap kali grup dibuka — lihat _atdRenderCharts().
 
 // Dipanggil sekali di awal renderAnalisaTokenDetail(): kalau nama grup sudah
 // ada (baik dari klik normal di analisa-token.js MAUPUN hasil dipulihkan
@@ -74,61 +79,74 @@ async function _atdEnsureItemsLoaded(grup) {
     const map = {};
     (tokens || []).forEach(t => { map[t.kode] = t; });
     (used || []).forEach(t => { map[t.kode] = Object.assign({}, map[t.kode] || {}, t, { _dipakai: true }); });
-    const items = Object.values(map).filter(t => t.grub_token === grup);
+    // `grup` di sini adalah KUNCI GRUP (grub_id, atau "legacy:<nama>" utk data
+    // lama) — lihat _atGrupKey() di analisa-token.js. Fungsi yg sama dipakai
+    // di sini (bukan cuma filter t.grub_token === grup) supaya halaman ini
+    // tetap benar walau dibuka lazy sendirian (tanpa analisa-token.js ke-load).
+    const items = Object.values(map).filter(t => (t.grub_id ? t.grub_id : `legacy:${t.grub_token}`) === grup);
     window._analisaTokenDetailItems = items;
     return items;
 }
 
+// window._analisaTokenDetailAgg = hasil terakhir GET /api/analisa/grup/:grubToken
+// utk grup yg lagi dibuka — disimpan di window (bukan cuma variabel lokal)
+// supaya halaman lain yg dibuka dari sini (analisa-soal.js, analisa-grafik.js)
+// yang membaca _ATD_DUMMY_BINARY/_ATD_DUMMY_SKOR/_ATD_DUMMY_SIKAP_RAW tetap
+// dapat data yg sama persis tanpa perlu fetch ulang.
 async function renderAnalisaTokenDetail() {
     const grup = window._analisaTokenDetailGrup || null;
     const items = await _atdEnsureItemsLoaded(grup);
+    // Nama tampilan (grub_token) — beda dari `grup` (kunci/grub_id) di atas.
+    // Kalau belum keisi (mis. dibuka lewat _restoreAnalisaCtx setelah refresh,
+    // nama sempat tidak ikut disimpan), turunkan dari item pertama yang baru
+    // dimuat — fallback terakhir baru pakai `grup` mentah apa adanya.
+    if (!window._analisaTokenDetailGrupNama && items.length) window._analisaTokenDetailGrupNama = items[0].grub_token || grup;
+    const grupNama = window._analisaTokenDetailGrupNama || grup;
     const sub = document.getElementById('atd-kode-sub');
-    if (sub) sub.textContent = grup ? `Grup: ${grup} (${items.length} token)` : '-';
-    _atdRenderRingkasan(grup, items);
-    _atdRenderPeserta(grup, items);
-    _atdRenderDummyCharts();
+    if (sub) sub.textContent = grup ? `Grup: ${grupNama} (${items.length} token)` : '-';
+
+    if (!grup) {
+        _atdRenderRingkasan(grup, items, null);
+        _atdRenderPeserta(grup, items, null);
+        _atdRenderCharts(null);
+        return;
+    }
+
+    let agg = null;
+    try { agg = await AnalisaAPI.getGrup(grup); }
+    catch (e) {
+        console.error('Gagal memuat analisa grup:', e);
+        if (typeof showToast === 'function') showToast('Gagal memuat data analisa grup', 'danger');
+    }
+    window._analisaTokenDetailAgg = agg;
+    // Kalau server balikin nama (mis. akses langsung via context tersimpan
+    // tanpa `items` sama sekali), pakai itu supaya subjudul tetap akurat.
+    if (agg && agg.grub_token && !window._analisaTokenDetailGrupNama) {
+        window._analisaTokenDetailGrupNama = agg.grub_token;
+        if (sub) sub.textContent = `Grup: ${agg.grub_token} (${items.length} token)`;
+    }
+
+    _atdRenderRingkasan(grup, items, agg);
+    _atdRenderPeserta(grup, items, agg);
+    _atdRenderCharts(agg);
 }
 
 function _atdEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])); }
 
-// ── DATA DUMMY — Ringkasan Grup & Peserta ─────────────────────────────────
-// SAMA POLANYA dgn _ATD_DUMMY_BINARY/_ATD_DUMMY_SKOR/_ATD_DUMMY_SIKAP_RAW di
-// bawah (grafik per-soal): ini contoh visual saja, BELUM ditarik dari data
-// token/laporan asli. Nanti tinggal ganti isi 2 konstanta ini (atau computed
-// dari `items` yang beneran) dengan hasil agregasi sungguhan per grup.
-const _ATD_DUMMY_RINGKASAN = {
-    total: 25,
-    used: 18,
-    hangus: 3,
-    modul: {
-        nama: 'Tes Potensi Akademik',
-        soal: [
-            { nama: 'Sinonim & Antonim', butir: 20 },
-            { nama: 'Deret Angka', butir: 15 },
-            { nama: 'Analogi Verbal', butir: 20 },
-            { nama: 'Logika Matematika', butir: 25 },
-            { nama: 'Pemahaman Bacaan', butir: 10 }
-        ]
-    }
-};
-
-const _ATD_DUMMY_PESERTA = [
-    { nama: 'Ahmad Fauzi', skor: 88 },
-    { nama: 'Siti Nurhaliza', skor: 76 },
-    { nama: 'Budi Santoso', skor: 92 },
-    { nama: 'Dewi Lestari', skor: 65 },
-    { nama: 'Rizky Ramadhan', skor: 81 }
-];
-
 // ── RINGKASAN GRUP: jumlah token dibuat/terpakai/hangus + modul & soal yang
-// dipakai grup ini — ditaruh di #atd-content. MASIH DATA DUMMY (lihat
-// _ATD_DUMMY_RINGKASAN di atas) — belum dihitung dari `items` beneran.
-function _atdRenderRingkasan(grup, items) {
+// dipakai grup ini — ditaruh di #atd-content. Dihitung sungguhan lewat
+// GET /api/analisa/grup/:grubToken (lihat AnalisaAPI.getGrup) — server yang
+// filter & agregasi, bukan browser admin narik semua laporan lalu filter sendiri.
+function _atdRenderRingkasan(grup, items, agg) {
     const el = document.getElementById('atd-content');
     if (!el) return;
     if (!grup) { el.innerHTML = '<div class="empty-state"><p>Analisa untuk grup ini akan segera hadir</p></div>'; return; }
+    if (!agg) { el.innerHTML = '<div class="empty-state"><p>Gagal memuat ringkasan grup, silakan coba lagi</p></div>'; return; }
 
-    const { total, used, hangus, modul } = _ATD_DUMMY_RINGKASAN;
+    const { total, used, hangus, modul } = agg.ringkasan;
+    const multiModulNote = agg.multi_modul
+        ? `<div class="section-sub" style="margin-bottom:14px;color:#d97706">⚠️ Grup ini berisi token dari lebih dari 1 modul (${(agg.modul_list||[]).map(m=>_atdEsc(m.nama)).join(', ')}). Grafik di bawah hanya menghitung modul yang paling banyak dipakai (<b>${_atdEsc(modul ? modul.nama : '-')}</b>).</div>`
+        : '';
 
     const modulSoalHtml = modul
         ? (() => {
@@ -143,8 +161,8 @@ function _atdRenderRingkasan(grup, items) {
         : '<div class="empty-state" style="padding:16px"><p>Belum ada modul yang tertaut ke token grup ini</p></div>';
 
     el.innerHTML = `
-        <div class="section-title" style="font-size:16px;margin-bottom:2px">Ringkasan Grup (dummy)</div>
-        <div class="section-sub" style="margin-bottom:14px">Contoh tampilan — angka &amp; daftar di bawah ini belum ditarik dari data token/laporan asli</div>
+        <div class="section-title" style="font-size:16px;margin-bottom:2px">Ringkasan Grup</div>
+        ${multiModulNote}
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:18px">
             <div class="stat-card" style="cursor:default">
                 <div class="stat-icon accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
@@ -169,14 +187,19 @@ function _atdRenderRingkasan(grup, items) {
 
 // ── PESERTA: daftar akun yang memakai token di grup ini. Kartu ini bisa
 // diklik (header) untuk buka/tutup daftarnya ke bawah — tiap baris
-// menampilkan nama akun + grup asal tokennya. MASIH DATA DUMMY (lihat
-// _ATD_DUMMY_PESERTA di atas) — belum ditarik dari `items`/laporan beneran.
-function _atdRenderPeserta(grup, items) {
+// menampilkan nama akun + grup asal tokennya. Sumber: agg.peserta (dari
+// GET /api/analisa/grup/:grubToken), dihitung dari laporan token grup ini.
+function _atdRenderPeserta(grup, items, agg) {
     const el = document.getElementById('atd-peserta-card');
     if (!el) return;
     if (!grup) { el.innerHTML = '<div class="empty-state"><p>Data peserta akan segera hadir</p></div>'; return; }
+    if (!agg) { el.innerHTML = '<div class="empty-state"><p>Gagal memuat data peserta, silakan coba lagi</p></div>'; return; }
 
-    const peserta = _ATD_DUMMY_PESERTA.map(p => Object.assign({ grup }, p));
+    // Badge "grup asal token" per baris pakai NAMA tampilan (grub_token),
+    // bukan `grup` yang sekarang isinya kunci grub_id — lihat komentar
+    // _atGrupKey() di analisa-token.js soal kenapa keduanya sengaja dipisah.
+    const grupNama = window._analisaTokenDetailGrupNama || agg.grub_token || grup;
+    const peserta = (agg.peserta || []).map(p => Object.assign({ grup: grupNama }, p));
 
     const rows = peserta.length
         ? peserta.map(p => `<div class="atd-peserta-row">
@@ -189,7 +212,7 @@ function _atdRenderPeserta(grup, items) {
     el.innerHTML = `
         <div class="atd-peserta-header" onclick="_atdTogglePeserta()">
             <div>
-                <div class="section-title" style="font-size:16px;margin-bottom:2px">Peserta (dummy)</div>
+                <div class="section-title" style="font-size:16px;margin-bottom:2px">Peserta</div>
                 <div class="section-sub" style="margin-bottom:0">${peserta.length} akun menggunakan token grup ini</div>
             </div>
             <svg class="atd-peserta-chevron" id="atd-peserta-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>
@@ -235,27 +258,17 @@ function _atdGoToGrafikDetail(evt, kind) {
 }
 
 
-// ── DATA DUMMY ──────────────────────────────────────────────────────────
-const _ATD_DUMMY_BINARY = [
-    { nomor: 1, benar: 15, salah: 5 },
-    { nomor: 2, benar: 8,  salah: 12 },
-    { nomor: 3, benar: 18, salah: 2 },
-    { nomor: 4, benar: 10, salah: 10 },
-    { nomor: 5, benar: 4,  salah: 16 },
-    { nomor: 6, benar: 13, salah: 7 }
-];
-
-const _ATD_DUMMY_SKOR = [
-    // Tiap soal: 5 pilihan (A-E), TIAP OPSI py nilai & jumlah pemilihnya sendiri.
-    // Skenario nyata: cuma 1 opsi yg bernilai (mis. 5), 4 opsi lain nilainya 0 —
-    // posisi opsi yg bernilai sengaja beda-beda tiap soal (spt soal asli, kunci
-    // jawaban tdk selalu di huruf yg sama).
-    { nomor: 1, opsi: [ {nilai:0,jumlah:3}, {nilai:0,jumlah:2}, {nilai:5,jumlah:8}, {nilai:0,jumlah:1}, {nilai:0,jumlah:1} ] },
-    { nomor: 2, opsi: [ {nilai:5,jumlah:5}, {nilai:0,jumlah:6}, {nilai:0,jumlah:2}, {nilai:0,jumlah:1}, {nilai:0,jumlah:1} ] },
-    { nomor: 3, opsi: [ {nilai:0,jumlah:2}, {nilai:5,jumlah:11}, {nilai:0,jumlah:1}, {nilai:0,jumlah:1}, {nilai:0,jumlah:0} ] },
-    { nomor: 4, opsi: [ {nilai:0,jumlah:4}, {nilai:0,jumlah:3}, {nilai:0,jumlah:2}, {nilai:5,jumlah:4}, {nilai:0,jumlah:2} ] },
-    { nomor: 5, opsi: [ {nilai:5,jumlah:9}, {nilai:0,jumlah:2}, {nilai:0,jumlah:2}, {nilai:0,jumlah:1}, {nilai:0,jumlah:1} ] }
-];
+// ── DATA GRAFIK (diisi dari hasil GET /api/analisa/grup/:grubToken) ──────
+// SENGAJA masih dipertahankan dgn nama variabel yang sama seperti sebelumnya
+// (_ATD_DUMMY_BINARY / _ATD_DUMMY_SKOR / _ATD_DUMMY_SIKAP_RAW) — dan sengaja
+// TIDAK di-scope lokal (tetap global) — karena admin/analisa/analisa-soal.js
+// dan admin/analisa/analisa-grafik.js membaca variabel2 ini secara langsung
+// (lihat komentar di kedua file itu). Sekarang jadi `let` supaya bisa diisi
+// ulang dgn data asli tiap kali grup baru dibuka; default array kosong
+// (bukan lagi berisi data contoh) sebelum grup manapun pernah dibuka.
+let _ATD_DUMMY_BINARY = [];
+let _ATD_DUMMY_SKOR = [];
+let _ATD_DUMMY_SIKAP_RAW = [];
 
 // Warna "keluarga nilai 0" — dipakai bergantian saat lebih dari 1 opsi sama2
 // bernilai 0 di posisi (slot) berbeda, supaya opsi2 itu TETAP kebeda walau
@@ -264,48 +277,6 @@ const _ATD_SKOR_ZERO_PALETTE = ['#dc2626','#f97316','#eab308','#a855f7','#0891b2
 const _ATD_SKOR_NONZERO_PALETTE = ['#2666b8','#16a34a','#9333ea','#0891b2','#d97706'];
 let _atdSkorSeriesMeta = [];      // [{label,color}] per slot, urut sesuai series grafik
 let _atdSkorSortedPerSoal = [];   // per soal: opsi diurutkan sesuai slot yg sama dgn series (utk popup)
-
-// Dummy: 10 kolom x 15 "peserta", per peserta { benar, salah } (dijawab =
-// benar+salah). Deterministic (seed tetap, bukan Math.random()) supaya hasil
-// sama tiap reload — cuma demo visual, BUKAN data acak sungguhan. Dipola makin
-// ke kolom belakang makin banyak Salah (rasio benar turun) — demo pola
-// kelelahan kolektif grup.
-// Nama akun dummy per PESERTA (index p konsisten dipakai di semua kolom —
-// lihat _atdGenSikapRaw: raw[k][p] selalu peserta yg sama, cuma beda kolom).
-// Dipakai popup daftar nama saat bola sebaran diklik (lihat
-// admin/analisa/analisa-grafik.js _agMembersForBubble) — MASIH DUMMY, nanti
-// tinggal diganti nama akun asli per baris jawaban sungguhan.
-const _ATD_DUMMY_NAMA_PESERTA = [
-    'Ahmad Fauzi', 'Siti Nurhaliza', 'Budi Santoso', 'Dewi Lestari', 'Rizky Ramadhan',
-    'Nabil Ramadhan', 'Alex Albon', 'Putri Ayu', 'Fajar Nugroho', 'Indah Permata',
-    'Yusuf Hidayat', 'Maya Sari', 'Bagas Wirawan', 'Citra Kirana', 'Doni Saputra'
-];
-
-function _atdGenSikapRaw() {
-    const N_PESERTA = 15, N_KOLOM = 10, ITEM_PER_KOLOM = 12; // skala nilai 0–12 per kolom
-    let seed = 7;
-    const rnd = () => { seed = (seed * 48271) % 2147483647; return seed / 2147483647; };
-    const raw = [];
-    for (let k = 0; k < N_KOLOM; k++) {
-        const fatigue = k / (N_KOLOM - 1); // 0 (kolom awal) → 1 (kolom akhir)
-        const benarRatioBase = 0.9 - fatigue * 0.5; // makin belakang makin banyak salah
-        const dijawabBase = ITEM_PER_KOLOM - Math.round(fatigue * 2); // sedikit makin jarang dijawab penuh
-        const rows = [];
-        for (let p = 0; p < N_PESERTA; p++) {
-            const dijawab = Math.max(4, dijawabBase - Math.round(rnd() * 3));
-            const ratio = Math.min(1, Math.max(0, benarRatioBase + (rnd() - 0.5) * 0.35));
-            const benar = Math.round(dijawab * ratio);
-            rows.push({ benar, salah: dijawab - benar, nama: _ATD_DUMMY_NAMA_PESERTA[p] || ('Peserta ' + (p + 1)) });
-        }
-        raw.push(rows);
-    }
-    // Kolom 8 (indeks 7): suntik 1 outlier rendah — contoh "median tahan
-    // outlier" (kebanyakan peserta lain tetap tinggi, 1 orang jatuh jauh,
-    // garis median tidak ikut terseret turun spt kalau pakai rata-rata).
-    raw[7][0] = { benar: 2, salah: 8, nama: _ATD_DUMMY_NAMA_PESERTA[0] || 'Peserta 1' };
-    return raw;
-}
-const _ATD_DUMMY_SIKAP_RAW = _atdGenSikapRaw();
 
 function _atdDistFromRaw(raw, pick) {
     return raw.map(rows => {
@@ -777,60 +748,94 @@ function _atdBindChartEvents(containerId, kind) {
     }
 }
 
-// ── ENTRY: bangun ketiga contoh grafik dummy ──────────────────────────────
-function _atdRenderDummyCharts() {
+function _atdEmptyChartCard(containerId, msg) {
+    const el = document.getElementById(containerId);
+    if (el) el.innerHTML = `<div class="empty-state" style="padding:24px"><p>${_atdEsc(msg)}</p></div>`;
+}
+
+// ── ENTRY: bangun ketiga grafik per-soal dari hasil agregasi asli (agg.charts,
+// dari GET /api/analisa/grup/:grubToken) — lihat komentar keputusan produk
+// "multi-modul per grup" di server.js (computeAnalisaGrupAggregate) tentang
+// dari mana data ini berasal. Tiap chart punya empty-state sendiri kalau
+// modul grup ini memang tidak punya soal bertipe tsb (mis. modul cuma berisi
+// soal Sikap Kerja saja, jadi grafik Benar/Salah & Nilai/Skor kosong — itu
+// wajar, bukan bug).
+function _atdRenderCharts(agg) {
+    if (!agg) {
+        _atdEmptyChartCard('atd-chart-binary', 'Gagal memuat grafik, silakan coba lagi');
+        _atdEmptyChartCard('atd-chart-skor', 'Gagal memuat grafik, silakan coba lagi');
+        _atdEmptyChartCard('atd-chart-sikap', 'Gagal memuat grafik, silakan coba lagi');
+        return;
+    }
+
+    _ATD_DUMMY_BINARY = (agg.charts && agg.charts.binary) || [];
+    _ATD_DUMMY_SKOR = (agg.charts && agg.charts.skor) || [];
+    _ATD_DUMMY_SIKAP_RAW = (agg.charts && agg.charts.sikap) || [];
+
     // 1) Tipe Benar/Salah
-    const catsB = _ATD_DUMMY_BINARY.map(s => s.nomor);
-    const seriesB = [
-        { label: 'Benar', color: '#16a34a', values: _ATD_DUMMY_BINARY.map(s => s.benar) },
-        { label: 'Salah', color: '#dc2626', values: _ATD_DUMMY_BINARY.map(s => s.salah) }
-    ];
-    const maxValB = Math.max.apply(null, _ATD_DUMMY_BINARY.flatMap(s => [s.benar, s.salah]));
-    _atdBuildLineChart('atd-chart-binary', {
-        title: 'Grafik Per Soal — Tipe Benar/Salah (dummy)',
-        sub: 'Contoh: soal pilihan ganda, dinilai otomatis benar/salah',
-        categories: catsB, series: seriesB, maxVal: maxValB, kind: 'binary'
-    });
-    const legB = document.getElementById('atd-chart-binary-legend');
-    if (legB) legB.innerHTML = _atdBinaryLegendHtml();
-    _atdBindChartEvents('atd-chart-binary', 'binary');
+    if (!_ATD_DUMMY_BINARY.length) {
+        _atdEmptyChartCard('atd-chart-binary', 'Modul grup ini belum punya soal bertipe Benar/Salah, atau belum ada peserta yang menyelesaikan ujian');
+    } else {
+        const catsB = _ATD_DUMMY_BINARY.map(s => s.nomor);
+        const seriesB = [
+            { label: 'Benar', color: '#16a34a', values: _ATD_DUMMY_BINARY.map(s => s.benar) },
+            { label: 'Salah', color: '#dc2626', values: _ATD_DUMMY_BINARY.map(s => s.salah) }
+        ];
+        const maxValB = Math.max.apply(null, _ATD_DUMMY_BINARY.flatMap(s => [s.benar, s.salah]));
+        _atdBuildLineChart('atd-chart-binary', {
+            title: 'Grafik Per Soal — Tipe Benar/Salah',
+            sub: 'Jumlah peserta yang menjawab Benar / Salah, per nomor soal',
+            categories: catsB, series: seriesB, maxVal: maxValB, kind: 'binary'
+        });
+        const legB = document.getElementById('atd-chart-binary-legend');
+        if (legB) legB.innerHTML = _atdBinaryLegendHtml();
+        _atdBindChartEvents('atd-chart-binary', 'binary');
+    }
 
     // 2) Tipe Nilai/Skor Sendiri — 1 garis per OPSI JAWABAN (bukan per nilai
     // gabungan). Kalau beberapa opsi kebetulan sama2 bernilai 0, tetap jadi
     // garis terpisah (lihat _atdBuildOpsiSeries), cuma labelnya sama2 "Nilai 0"
     // dgn warna beda2 supaya kebedanya jelas.
-    const { series: seriesS, sortedPerSoal: sortedS } = _atdBuildOpsiSeries(_ATD_DUMMY_SKOR);
-    _atdSkorSeriesMeta = seriesS;
-    _atdSkorSortedPerSoal = sortedS;
-    const catsS = _ATD_DUMMY_SKOR.map(s => s.nomor);
-    const maxValS = Math.max.apply(null, _ATD_DUMMY_SKOR.flatMap(s => s.opsi.map(o => o.jumlah)));
-    _atdBuildLineChart('atd-chart-skor', {
-        title: 'Grafik Per Soal — Tipe Nilai/Skor Sendiri (dummy)',
-        sub: 'Contoh: soal pilihan A–E dgn nilai per opsi — opsi sesama nilai 0 tetap dipisah, bukan digabung',
-        categories: catsS, series: seriesS, maxVal: maxValS, kind: 'skor'
-    });
-    const legS = document.getElementById('atd-chart-skor-legend');
-    if (legS) legS.innerHTML = _atdSkorLegendHtml(seriesS);
-    _atdBindChartEvents('atd-chart-skor', 'skor');
+    if (!_ATD_DUMMY_SKOR.length) {
+        _atdEmptyChartCard('atd-chart-skor', 'Modul grup ini belum punya soal bertipe Nilai/Skor Sendiri, atau belum ada peserta yang menyelesaikan ujian');
+    } else {
+        const { series: seriesS, sortedPerSoal: sortedS } = _atdBuildOpsiSeries(_ATD_DUMMY_SKOR);
+        _atdSkorSeriesMeta = seriesS;
+        _atdSkorSortedPerSoal = sortedS;
+        const catsS = _ATD_DUMMY_SKOR.map(s => s.nomor);
+        const maxValS = Math.max.apply(null, _ATD_DUMMY_SKOR.flatMap(s => s.opsi.map(o => o.jumlah)));
+        _atdBuildLineChart('atd-chart-skor', {
+            title: 'Grafik Per Soal — Tipe Nilai/Skor Sendiri',
+            sub: 'Jumlah peserta yang memilih tiap opsi jawaban, per nomor soal — opsi sesama nilai 0 tetap dipisah, bukan digabung',
+            categories: catsS, series: seriesS, maxVal: maxValS, kind: 'skor'
+        });
+        const legS = document.getElementById('atd-chart-skor-legend');
+        if (legS) legS.innerHTML = _atdSkorLegendHtml(seriesS);
+        _atdBindChartEvents('atd-chart-skor', 'skor');
+    }
 
     // 3) Tipe Sikap Kerja — sebaran nilai antar peserta per kolom (Benar/
     // Salah/Jumlah Dijawab), digambar sbg bola kecil + garis median per
     // kategori (lihat komentar _atdBuildSikapMedianChart).
-    const distBenar = _atdDistFromRaw(_ATD_DUMMY_SIKAP_RAW, r => r.benar);
-    const distSalah = _atdDistFromRaw(_ATD_DUMMY_SIKAP_RAW, r => r.salah);
-    const distDijawab = _atdDistFromRaw(_ATD_DUMMY_SIKAP_RAW, r => r.benar + r.salah);
-    _atdSikapCats = _ATD_DUMMY_SIKAP_RAW.map((_, i) => 'K' + (i + 1));
-    _atdSikapDist = [
-        { label: 'Benar', color: '#16a34a', key: 'benar', dist: distBenar },
-        { label: 'Salah', color: '#dc2626', key: 'salah', dist: distSalah },
-        { label: 'Jumlah Dijawab', color: '#2666b8', key: 'dijawab', dist: distDijawab }
-    ];
-    _atdBuildSikapMedianChart('atd-chart-sikap', {
-        title: 'Grafik Sikap Kerja — Median & Sebaran, Per Kolom (dummy)',
-        sub: 'Tiap bola = jumlah orang yang dapat nilai itu; garis = median (bukan rata-rata) tiap kategori per kolom',
-        categories: _atdSikapCats, catData: _atdSikapDist, kind: 'sikap'
-    });
-    const legK = document.getElementById('atd-chart-sikap-legend');
-    if (legK) legK.innerHTML = _atdSikapLegendHtml();
-    _atdBindChartEvents('atd-chart-sikap', 'sikap');
+    if (!_ATD_DUMMY_SIKAP_RAW.length) {
+        _atdEmptyChartCard('atd-chart-sikap', 'Modul grup ini belum punya soal bertipe Sikap Kerja, atau belum ada peserta yang menyelesaikan ujian');
+    } else {
+        const distBenar = _atdDistFromRaw(_ATD_DUMMY_SIKAP_RAW, r => r.benar);
+        const distSalah = _atdDistFromRaw(_ATD_DUMMY_SIKAP_RAW, r => r.salah);
+        const distDijawab = _atdDistFromRaw(_ATD_DUMMY_SIKAP_RAW, r => r.benar + r.salah);
+        _atdSikapCats = _ATD_DUMMY_SIKAP_RAW.map((_, i) => 'K' + (i + 1));
+        _atdSikapDist = [
+            { label: 'Benar', color: '#16a34a', key: 'benar', dist: distBenar },
+            { label: 'Salah', color: '#dc2626', key: 'salah', dist: distSalah },
+            { label: 'Jumlah Dijawab', color: '#2666b8', key: 'dijawab', dist: distDijawab }
+        ];
+        _atdBuildSikapMedianChart('atd-chart-sikap', {
+            title: 'Grafik Sikap Kerja — Median & Sebaran, Per Kolom',
+            sub: 'Tiap bola = jumlah orang yang dapat nilai itu; garis = median (bukan rata-rata) tiap kategori per kolom',
+            categories: _atdSikapCats, catData: _atdSikapDist, kind: 'sikap'
+        });
+        const legK = document.getElementById('atd-chart-sikap-legend');
+        if (legK) legK.innerHTML = _atdSikapLegendHtml();
+        _atdBindChartEvents('atd-chart-sikap', 'sikap');
+    }
 }

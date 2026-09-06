@@ -92,7 +92,7 @@ function _agRenderContent(grup, kind) {
 }
 
 function _agRenderSikap(el) {
-    if (typeof _atdBuildSikapMedianChart !== 'function' || typeof _ATD_DUMMY_SIKAP_RAW === 'undefined') {
+    if (typeof _atdBuildSikapMedianChart !== 'function' || typeof _ATD_DUMMY_SIKAP_RAW === 'undefined' || !_ATD_DUMMY_SIKAP_RAW.length) {
         el.innerHTML = '<div class="card"><div class="empty-state"><p>Data grafik belum tersedia</p></div></div>';
         _agShowSwitchesPanel(false);
         return;
@@ -121,7 +121,7 @@ function _agRenderSikap(el) {
     const userOverlay = _agSelectedUser ? { nama: _agSelectedUser, series: _agUserSeries(_agSelectedUser) } : null;
 
     _atdBuildSikapMedianChart('ag-chart-sikap', {
-        title: 'Grafik Sikap Kerja — Median & Sebaran, Per Kolom (dummy)',
+        title: 'Grafik Sikap Kerja — Median & Sebaran, Per Kolom',
         sub: 'Tiap bola = jumlah orang yang dapat nilai itu; garis = median (bukan rata-rata) tiap kategori per kolom',
         categories: cats, catData, kind: 'sikap',
         hideAnalisaBtn: true,

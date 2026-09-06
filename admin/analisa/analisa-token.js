@@ -6,7 +6,10 @@
 // grup menampilkan: nama grup, jumlah token digenerate, jumlah token
 // terpakai, masa aktivasi (tanggal awal - tanggal akhir), modul, dan status
 // grup. Sumber datanya digabung (token aktif + token terpakai) lalu
-// difilter grub_token saja, sama seperti sebelumnya.
+// dikelompokkan per KUNCI GRUP SESUNGGUHNYA (_atGrupKey — grub_id), BUKAN per
+// nama tampilan (grub_token) — 2 batch beda yang kebetulan diberi nama sama
+// (mis. "SMA1" dibuat lagi bulan depan utk angkatan lain) tetap jadi 2
+// baris/kartu terpisah, tidak pernah tercampur. Lihat komentar _atGrupKey().
 //
 // Klik salah satu grup akan pindah ke halaman detail
 // (admin/analisa/analisa-token-detail.js) — file terpisah, isinya masih
@@ -90,14 +93,31 @@ function _atModulLabel(items) {
 
 function _atEsc(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
 
+// Kunci pengelompokan grup yang SESUNGGUHNYA — HARUS sama persis dgn
+// grupKeyOf() versi server (server.js). grub_token (nama) BOLEH diulang antar
+// batch berbeda (mis. "SMA1" dibuat lagi bulan depan) — itu cuma label, BUKAN
+// identitas grup. grub_id (dibuat server tiap kali generate token dgn Grup
+// Token aktif) yang menjamin 2 batch senama TIDAK PERNAH dianggap 1 grup yang
+// sama, walau modul & peserta yang mengerjakan kebetulan sama. Token lama
+// (dibuat sebelum kolom grub_id ada) fallback ke "legacy:<nama>" — masih
+// dikelompokkan by nama spt sebelumnya (satu2nya cara yg tersedia utk data lama).
+function _atGrupKey(t) { return t.grub_id ? t.grub_id : `legacy:${t.grub_token}`; }
+
 // 1 grup = 1 baris/kartu ringkasan: nama grup, jumlah digenerate, jumlah
 // terpakai, masa aktivasi, modul, status — bukan daftar semua token di grup itu.
-function _atGroupSummary(name, items) {
+// `key` (bukan `name`) yang dipakai utk klik-buka detail (lihat _atGrupKey) —
+// `name` cuma label tampilan, BISA sama antar baris (2 grup beda tapi
+// kebetulan dinamai sama) — makanya `dibuat` (tanggal batch ini dibuat)
+// ditampilkan sbg sub-teks kecil di bawah nama, supaya admin tetap bisa
+// bedakan sekilas tanpa perlu buka detail dulu.
+function _atGroupSummary(key, items) {
     const total = items.length;
     const used = items.filter(t => t._dipakai).length;
     const st = _atStatusBadge(items);
+    const createdTimes = items.map(t => new Date(t.created_at || t.token_created_at || 0).getTime()).filter(n => n);
+    const dibuat = createdTimes.length ? _atFmt(new Date(Math.min.apply(null, createdTimes))) : '-';
     return {
-        name, total, used,
+        key, name: items[0].grub_token, total, used, dibuat,
         masa: _atMasaAktivasi(items),
         modul: _atModulLabel(items),
         badge: `<span class="history-badge" style="${st.style}">${st.label}</span>`
@@ -129,18 +149,25 @@ function _renderAnalisaTokenList() {
     if (!wrap) return;
     if (!data.length) { wrap.innerHTML = '<div class="empty-state"><p>Tidak ada token bergrup ditemukan</p></div>'; return; }
 
-    // Kelompokkan berdasarkan NAMA GRUP (grub_token), bukan tanggal — setiap
-    // grup diringkas jadi 1 baris/kartu, walau isinya puluhan token.
+    // Kelompokkan berdasarkan KUNCI GRUP SESUNGGUHNYA (_atGrupKey — grub_id,
+    // BUKAN nama) — 2 grup boleh senama tampilannya, tetap jadi 2
+    // baris/kartu terpisah kalau grub_id-nya beda (lihat komentar _atGrupKey).
     const groupsMap = {};
-    data.forEach(t => { const k = t.grub_token; (groupsMap[k] = groupsMap[k] || []).push(t); });
+    data.forEach(t => { const k = _atGrupKey(t); (groupsMap[k] = groupsMap[k] || []).push(t); });
     const latestOf = items => Math.max.apply(null, items.map(t => new Date(t.created_at || t.token_created_at || 0).getTime() || 0));
-    const groupNames = Object.keys(groupsMap).sort((a, b) => latestOf(groupsMap[b]) - latestOf(groupsMap[a]));
+    const groupKeys = Object.keys(groupsMap).sort((a, b) => latestOf(groupsMap[b]) - latestOf(groupsMap[a]));
 
-    const summaries = groupNames.map(name => _atGroupSummary(name, groupsMap[name]));
+    const summaries = groupKeys.map(key => _atGroupSummary(key, groupsMap[key]));
 
-    const rows = summaries.map((g, i) => `<tr style="cursor:pointer" onclick="openAnalisaTokenDetail('${_atEsc(g.name)}')">
+    // Nama yang muncul di >1 grup (beda grub_id) — cuma baris2 ini yang perlu
+    // tampilkan tanggal dibuat sbg sub-teks pembeda; kalau namanya unik,
+    // tanggal tidak perlu ditampilkan (bikin ramai tanpa guna).
+    const nameCount = {};
+    summaries.forEach(g => { nameCount[g.name] = (nameCount[g.name] || 0) + 1; });
+
+    const rows = summaries.map((g, i) => `<tr style="cursor:pointer" onclick="openAnalisaTokenDetail('${_atEsc(g.key)}','${_atEsc(g.name)}')">
         <td>${i+1}</td>
-        <td style="font-size:12px;font-weight:700;color:var(--blue)">${g.name}</td>
+        <td style="font-size:12px;font-weight:700;color:var(--blue)">${g.name}${nameCount[g.name] > 1 ? `<div style="font-size:10px;font-weight:500;color:var(--text-sub)">dibuat ${g.dibuat}</div>` : ''}</td>
         <td style="font-size:12px">${g.total}</td>
         <td style="font-size:12px">${g.used}</td>
         <td class="hide-mobile" style="font-size:11px">${g.masa}</td>
@@ -149,19 +176,20 @@ function _renderAnalisaTokenList() {
     </tr>`).join('');
 
     const cards = summaries.map(g => SwipeCards.buildSwipeCardHtml({
-        title: g.name,
+        title: nameCount[g.name] > 1 ? `${g.name} · ${g.dibuat}` : g.name,
         sub: `${g.used}/${g.total} terpakai · ${g.modul} · ${g.masa}`,
         sideHtml: g.badge,
-        onTapAttr: `onclick="openAnalisaTokenDetail('${_atEsc(g.name)}')"`
+        onTapAttr: `onclick="openAnalisaTokenDetail('${_atEsc(g.key)}','${_atEsc(g.name)}')"`
     })).join('');
 
     wrap.innerHTML = `<div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap"><table><thead><tr><th>#</th><th>Nama Grup</th><th>Digenerate</th><th>Terpakai</th><th class="hide-mobile">Masa Aktivasi</th><th class="hide-mobile">Modul</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div><div class="swipe-list">${cards}</div></div>`;
     wrap.querySelectorAll('.swipe-list').forEach(el => { if (window.SwipeCards) SwipeCards.bindSwipeList(el); });
 }
 
-function openAnalisaTokenDetail(grup) {
-    window._analisaTokenDetailGrup = grup;
-    window._analisaTokenDetailItems = (_atData || []).filter(t => t.grub_token === grup);
+function openAnalisaTokenDetail(grupKey, grupNama) {
+    window._analisaTokenDetailGrup = grupKey;
+    window._analisaTokenDetailGrupNama = grupNama || grupKey;
+    window._analisaTokenDetailItems = (_atData || []).filter(t => _atGrupKey(t) === grupKey);
     if (typeof _persistAnalisaCtx === 'function') _persistAnalisaCtx();
     navigateTo('analisa-token-detail');
 }

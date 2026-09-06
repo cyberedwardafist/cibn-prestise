@@ -13,9 +13,15 @@
 // detail grup token yang tadi dibuka (analisa-token-detail). Kalau dibuka
 // langsung dari slide-dock, balik ke daftar grup (analisa-token).
 //
-// ── ISI HALAMAN (MASIH DATA DUMMY, sama pola-nya dgn _ATD_DUMMY_* di
-// analisa-token-detail.js — nanti tinggal diganti hasil fetch pertanyaan +
-// jawaban asli per soal dari server) ────────────────────────────────────────
+// ── ISI HALAMAN — datanya diambil dari _ATD_DUMMY_BINARY / _ATD_DUMMY_SKOR
+// (nama variabel dipertahankan, lihat analisa-token-detail.js) yang sekarang
+// sudah membawa detail penuh per nomor soal (pertanyaan, pembahasan, & tiap
+// opsi lengkap dgn teks/kunci/jumlah pemilih/nama pemilih) — dihitung sekali
+// oleh server saat grup dibuka (GET /api/analisa/grup/:grubToken), BUKAN
+// fabrikasi/dummy lagi. Kalau grup belum pernah dibuka sebelum halaman ini
+// diakses (harusnya tidak mungkin lewat alur normal, karena satu2nya jalan
+// masuk kesini adalah klik grafik di halaman itu), _asBuildOpsiData()
+// otomatis balik null dan halaman ini nampilin empty-state.
 //   - Kartu Soal, kartu Pilihan Jawaban, dan kartu Pembahasan didesain SAMA
 //     PERSIS spt tampilan "MODE REVIEW" (review/riwayat/riwayat.js ->
 //     renderRuvMC) — kotak huruf opsi 36x36, warna & badge kunci/nilai
@@ -23,9 +29,8 @@
 //     (bukan hasil 1 peserta), jadi tiap opsi SELALU tampil jumlah orang yg
 //     memilihnya di kanan.
 //   - Jumlah pilihan jawaban TIDAK dipatok A-E — bisa lebih atau kurang,
-//     sesuai jumlah opsi asli soal tsb (lihat _AS_DUMMY_BINARY_DETAIL utk
-//     tipe Benar/Salah, dan panjang array `opsi` di _ATD_DUMMY_SKOR utk
-//     tipe Nilai/Skor). Urutan opsi persis urutan aslinya, tidak diacak.
+//     sesuai jumlah opsi asli soal tsb (persis array `options`/`opsi` yang
+//     dikirim server). Urutan opsi persis urutan aslinya, tidak diacak.
 //   - Tipe "Benar/Salah": opsi kunci ditandai badge kuning "Kunci" (gaya yg
 //     sama dgn kunci-tapi-tidak-dipilih di mode-review).
 //   - Tipe "Nilai/Skor Sendiri": tiap opsi tampil "Nilai X"-nya; opsi
@@ -63,146 +68,34 @@ function _asBack() {
 
 function _asEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])); }
 
-// ── DATA DUMMY: pertanyaan, pembahasan & teks opsi per nomor ───────────────
 // Huruf opsi TIDAK dipatok A-E: sama seperti admin/soal/soal.js (jawaban
 // minimal 2 pilihan, jumlahnya bebas — huruf cuma hasil String.fromCharCode
 // dari posisi asli array jawaban, bukan array label tetap).
 function _asHuruf(idx) { return String.fromCharCode(65 + idx); }
 
-const _AS_DUMMY_PERTANYAAN = {
-    1: 'Manakah kata yang paling tepat menjadi SINONIM dari kata "cermat"?',
-    2: 'Deret angka: 2, 6, 12, 20, 30, ... Angka selanjutnya adalah?',
-    3: 'AIR : HAUS = MAKANAN : ...?',
-    4: 'Jika 3x + 7 = 22, maka nilai x adalah?',
-    5: 'Berdasarkan bacaan di atas, gagasan utama paragraf kedua adalah?',
-    6: 'Manakah kata yang paling tepat menjadi ANTONIM dari kata "optimis"?'
-};
-
-const _AS_DUMMY_PEMBAHASAN = {
-    1: 'Kata "cermat" berarti teliti dan penuh perhatian dalam melakukan sesuatu, sehingga jawaban yang tepat adalah opsi yang bermakna paling dekat dengan itu.',
-    2: 'Selisih antar suku bertambah 2 setiap langkah (4, 6, 8, 10, ...), sehingga suku berikutnya = 30 + 12 = 42.',
-    3: 'Pola hubungan sebab-akibat: rasa haus diatasi dengan AIR, maka rasa lapar diatasi dengan MAKANAN.',
-    4: 'Dari 3x + 7 = 22, maka 3x = 15, sehingga x = 5.',
-    5: 'Gagasan utama biasanya terletak pada kalimat topik di awal atau akhir paragraf.',
-    6: 'Antonim dari "optimis" (penuh harapan/yakin) adalah kata yang bermakna berkebalikan, yaitu pesimis.'
-};
-
-function _asOpsiTextFor(nomor, idx) {
-    return `Pilihan jawaban ${_asHuruf(idx)} untuk soal No. ${nomor}`;
-}
-
-// ── DATA DUMMY: nama peserta per opsi — deterministik (seed tetap) supaya
-// hasil sama tiap reload/toggle filter, BUKAN data akun asli. Nanti tinggal
-// diganti daftar akun sungguhan yg jawabannya = opsi tsb.
-const _AS_NAME_POOL = [
-    'Ahmad Fauzi', 'Siti Nurhaliza', 'Budi Santoso', 'Dewi Lestari', 'Rizky Ramadhan',
-    'Putri Anggraini', 'Andi Wijaya', 'Rina Marlina', 'Fajar Nugroho', 'Indah Permata',
-    'Yusuf Hidayat', 'Nur Aisyah', 'Bayu Saputra', 'Melati Sari', 'Hendra Gunawan',
-    'Wulan Suci', 'Agus Setiawan', 'Lestari Ningsih', 'Dian Purnama', 'Eko Prasetyo',
-    'Ratna Sari', 'Taufik Hidayat', 'Sri Wahyuni', 'Arif Rahman', 'Nova Anggraeni',
-    'Iman Santoso', 'Yuni Astuti', 'Doni Kurniawan', 'Sari Handayani', 'Rudi Hartono'
-];
-
-function _asSeededShuffle(seed, arr) {
-    let s = seed || 1;
-    const rnd = () => { s = (s * 48271) % 2147483647; return s / 2147483647; };
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(rnd() * (i + 1));
-        const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
-    }
-    return a;
-}
-
-function _asPickNames(seedBase, count) {
-    if (!count) return [];
-    const shuffled = _asSeededShuffle(seedBase, _AS_NAME_POOL);
-    const names = [];
-    for (let i = 0; i < count; i++) {
-        const base = shuffled[i % shuffled.length];
-        const round = Math.floor(i / shuffled.length);
-        names.push(round > 0 ? `${base} (${round + 1})` : base);
-    }
-    return names;
-}
-
-function _asNamesForOption(nomor, kind, optIdx, count) {
-    const seed = nomor * 97 + optIdx * 13 + (kind === 'skor' ? 500 : 0) + 3;
-    return _asPickNames(seed, count);
-}
-
-// Jumlah opsi & posisi kunci per nomor (tipe Benar/Salah) — DIISI EKSPLISIT
-// per soal (bukan rumus/rotasi otomatis), sama spt data asli di admin/soal
-// (q.jawaban = array bebas panjangnya, minimal 2 pilihan; q.kunci = id salah
-// satu elemen array itu, ditentukan langsung, bukan dihitung dari nomor
-// soal). Jumlah opsi SENGAJA dibuat variatif (3-5) supaya konsisten dgn
-// aturan asli "Kolom Pilihan C, D, E boleh dikosongkan jika soal hanya
-// punya 2-3 pilihan" — bukan semua soal pasti 5 opsi A-E.
-const _AS_DUMMY_BINARY_DETAIL = {
-    1: { jumlahOpsi: 4, kunciIdx: 2 },   // A B [C=kunci] D
-    2: { jumlahOpsi: 5, kunciIdx: 0 },   // [A=kunci] B C D E
-    3: { jumlahOpsi: 3, kunciIdx: 1 },   // A [B=kunci] C
-    4: { jumlahOpsi: 5, kunciIdx: 3 },   // A B C [D=kunci] E
-    5: { jumlahOpsi: 4, kunciIdx: 0 },   // [A=kunci] B C D
-    6: { jumlahOpsi: 5, kunciIdx: 4 }    // A B C D [E=kunci]
-};
-
-// Pecah total benar/salah dari _ATD_DUMMY_BINARY (analisa-token-detail.js)
-// ke opsi-opsi di _AS_DUMMY_BINARY_DETAIL: kunci dapat semua "benar", opsi
-// lain berbagi "salah" dgn pola tetap MENURUN sesuai urutan aslinya (opsi
-// yg lebih dekat ke kunci dapat porsi lebih besar) — bukan diacak, urutan
-// opsi persis urutan aslinya (index 0..n-1 = A..seterusnya).
+// Ambil detail 1 nomor soal (pertanyaan, pembahasan, tiap opsi + nama
+// pemilihnya) dari data yang sudah diisi server saat grup dibuka — lihat
+// _atdRenderCharts() di analisa-token-detail.js. `pertanyaan`/`pembahasan`/
+// `teks` opsi SENGAJA TIDAK di-escape (dirender apa adanya) karena isinya
+// HTML dari rich-text editor admin/soal/soal.js — sama persis perlakuannya
+// dgn q.soal/q.pembahasan/j.teks di halaman review lain (review/riwayat.js,
+// user/riwayat.js, dst). Hanya nama peserta yang di-escape (_asEsc), karena
+// itu teks polos, bukan HTML.
 function _asBuildOpsiData(nomor, kind) {
-    if (kind === 'binary') {
-        const src = (typeof _ATD_DUMMY_BINARY !== 'undefined') ? _ATD_DUMMY_BINARY.find(s => s.nomor === nomor) : null;
-        if (!src) return null;
-        const detail = _AS_DUMMY_BINARY_DETAIL[nomor] || { jumlahOpsi: 4, kunciIdx: 0 };
-        const n = Math.max(2, detail.jumlahOpsi);
-        const kunciIdx = Math.min(Math.max(0, detail.kunciIdx), n - 1);
-        const others = [];
-        for (let i = 0; i < n; i++) if (i !== kunciIdx) others.push(i);
-        const weights = others.map((_, i) => others.length - i); // menurun tetap: n-1, n-2, ..., 1 — TIDAK acak
-        const totalW = weights.reduce((a, b) => a + b, 0);
-        let remaining = src.salah;
-        const counts = new Array(n).fill(0);
-        counts[kunciIdx] = src.benar;
-        others.forEach((optIdx, i) => {
-            const isLast = i === others.length - 1;
-            let share = isLast ? remaining : Math.round(src.salah * weights[i] / totalW);
-            share = Math.max(0, Math.min(remaining, share));
-            counts[optIdx] = share;
-            remaining -= share;
-        });
-        const options = counts.map((count, idx) => ({
-            huruf: _asHuruf(idx), idx,
-            text: _asOpsiTextFor(nomor, idx),
-            count,
-            isKunci: idx === kunciIdx,
-            names: _asNamesForOption(nomor, kind, idx, count)
-        }));
-        return {
-            pertanyaan: _AS_DUMMY_PERTANYAAN[nomor] || `Contoh teks soal nomor ${nomor} (dummy, belum ditarik dari data asli).`,
-            pembahasan: _AS_DUMMY_PEMBAHASAN[nomor] || 'Pembahasan untuk soal ini akan ditampilkan di sini (dummy).',
-            options
-        };
-    }
-
-    // kind === 'skor' — jumlah opsi & urutannya ikut persis panjang/urutan
-    // array `opsi` di _ATD_DUMMY_SKOR (analisa-token-detail.js), TIDAK
-    // dipatok 5 dan TIDAK diacak.
-    const src = (typeof _ATD_DUMMY_SKOR !== 'undefined') ? _ATD_DUMMY_SKOR.find(s => s.nomor === nomor) : null;
-    if (!src) return null;
-    const options = src.opsi.map((o, idx) => ({
+    const arr = kind === 'skor' ? _ATD_DUMMY_SKOR : _ATD_DUMMY_BINARY;
+    const src = (typeof arr !== 'undefined' && Array.isArray(arr)) ? arr.find(s => s.nomor === nomor) : null;
+    if (!src || !Array.isArray(src.options)) return null;
+    const options = src.options.map((o, idx) => ({
         huruf: _asHuruf(idx), idx,
-        text: _asOpsiTextFor(nomor, idx),
-        count: o.jumlah,
+        text: o.teks || `<em>Opsi ${_asHuruf(idx)} (kosong)</em>`,
+        count: o.count || 0,
         nilai: o.nilai,
-        isKunci: o.nilai > 0,
-        names: _asNamesForOption(nomor, kind, idx, o.jumlah)
+        isKunci: !!o.isKunci,
+        names: o.names || []
     }));
     return {
-        pertanyaan: _AS_DUMMY_PERTANYAAN[nomor] || `Contoh teks soal nomor ${nomor} (dummy, belum ditarik dari data asli).`,
-        pembahasan: _AS_DUMMY_PEMBAHASAN[nomor] || 'Pembahasan untuk soal ini akan ditampilkan di sini (dummy).',
+        pertanyaan: src.pertanyaan || '<em>Teks soal ini belum diisi</em>',
+        pembahasan: src.pembahasan || '',
         options
     };
 }
@@ -262,7 +155,7 @@ function _asOpsiRowHtml(o, kind) {
     return `
     <div style="display:flex;align-items:center;gap:13px;padding:14px 16px;border-radius:12px;border:1.5px solid ${borderColor};background:${bgColor};min-height:52px;cursor:pointer;${activeOutline}" onclick="_asToggleFilter(${o.idx})" title="Klik untuk memfilter daftar peserta yang memilih opsi ${o.huruf}">
       <div style="width:36px;height:36px;flex-shrink:0;border-radius:9px;border:1.5px solid rgba(19,50,89,0.12);background:${letterBg};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:${letterColor};">${o.huruf}</div>
-      <div style="flex:1;min-width:0;font-size:15px;line-height:1.5;color:var(--text-main);overflow-wrap:break-word;">${_asEsc(o.text)}</div>
+      <div style="flex:1;min-width:0;font-size:15px;line-height:1.5;color:var(--text-main);overflow-wrap:break-word;">${o.text}</div>
       <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0;">${leftBadge}${countBadge}</div>
     </div>`;
 }
@@ -311,14 +204,14 @@ function _asLayoutHtml(nomor, kind, data) {
       <div class="as-col-main">
         <div style="background:rgba(255,255,255,0.72);border:1.5px solid rgba(255,255,255,0.9);border-radius:16px;padding:22px 24px;box-shadow:0 4px 16px rgba(19,50,89,0.06);margin-bottom:16px;">
           <div style="font-size:11px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Soal No. ${nomor}</div>
-          <div style="font-size:16px;line-height:1.8;color:var(--text-main);overflow-wrap:break-word;">${_asEsc(data.pertanyaan)}</div>
+          <div style="font-size:16px;line-height:1.8;color:var(--text-main);overflow-wrap:break-word;">${data.pertanyaan}</div>
         </div>
         <div style="background:rgba(255,255,255,0.6);border:1.5px solid rgba(255,255,255,0.85);border-radius:16px;padding:18px 20px;box-shadow:0 4px 14px rgba(19,50,89,0.05);display:flex;flex-direction:column;gap:9px;overflow-wrap:break-word;margin-bottom:8px;">${opsiRows}</div>
         <div class="as-opsi-hint">Klik salah satu pilihan untuk memfilter daftar peserta; klik lagi untuk menampilkan semua</div>
-        <div style="background:rgba(26,90,160,0.06);border:1.5px solid rgba(26,90,160,0.12);border-radius:12px;padding:14px;overflow-wrap:break-word;margin-top:14px;">
+        ${data.pembahasan ? `<div style="background:rgba(26,90,160,0.06);border:1.5px solid rgba(26,90,160,0.12);border-radius:12px;padding:14px;overflow-wrap:break-word;margin-top:14px;">
           <div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;">💡 Pembahasan</div>
-          <div style="font-size:14px;line-height:1.7;color:var(--text-main);">${_asEsc(data.pembahasan)}</div>
-        </div>
+          <div style="font-size:14px;line-height:1.7;color:var(--text-main);">${data.pembahasan}</div>
+        </div>` : ''}
       </div>
       <div class="as-col-side">
         <div class="card as-user-card">

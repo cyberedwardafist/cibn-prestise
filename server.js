@@ -135,6 +135,25 @@ function genTokenKode() {
     const seg   = () => Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
     return `${seg()}-${seg()}-${seg()}`;
 }
+// ID unik per BATCH generate token (grup) — lihat komentar kolom `grub_id` di
+// db/schema.sql. Timestamp (base36) + acak: praktis tidak pernah tabrakan
+// tanpa perlu cek unik ke DB (beda dgn genTokenKode() yg di-retry oleh
+// pemanggilnya kalau bentrok — grub_id tidak perlu itu, ini bukan constraint
+// UNIQUE, cuma nilai pengelompokan).
+function genGrubId() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const seg   = () => Array.from({length:6}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+    return `GB${Date.now().toString(36).toUpperCase()}${seg()}`;
+}
+// Kunci grup yang dipakai di seluruh dock ANALISA (frontend & backend harus
+// SEPAKAT konvensi yang sama persis — lihat _atGrupKey() di
+// admin/analisa/analisa-token.js untuk versi frontend-nya):
+//   - kalau token itu punya grub_id (dibuat setelah kolom ini ada) -> pakai grub_id itu apa adanya
+//   - kalau tidak (token lama, grub_id NULL) -> fallback "legacy:<grub_token>",
+//     supaya data lama tetap bisa diakses (dikelompokkan spt sebelumnya,
+//     berdasarkan nama), tanpa bisa collide dgn grub_id asli manapun (grub_id
+//     asli selalu diawali "GB", tidak pernah "legacy:").
+function grupKeyOf(t) { return t.grub_id ? t.grub_id : `legacy:${t.grub_token}`; }
 
 // ── AUTH MIDDLEWARE ───────────────────────────────────────────────────────────
 function auth(roles = []) {
@@ -385,6 +404,154 @@ async function hitungSkorUjianServer(modul_kode, jawaban) {
     }
 
     return totalBobot > 0 ? Math.round(totalTerbobot / totalBobot) : 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// AGREGASI ANALISA GRUP — dipakai oleh GET /api/analisa/grup/:grubToken
+// ─────────────────────────────────────────────────────────────────────────────
+// Porting dari logika hitungHasil() di ujian/hasil.js (yang sebelumnya cuma
+// jalan di browser peserta, untuk 1 orang), supaya bisa dipakai di server utk
+// menghitung BANYAK peserta sekaligus dari laporan.jawaban yang tersimpan.
+// Konvensi key jawaban PERSIS sama dgn yang dipakai hitungSkorUjianServer():
+//   - soal biasa (benar_salah / nilai_sendiri): `${soal_kode}_${qIdx}`
+//   - soal sikap_kerja: `${soal_kode}_${kolomIdx}_${qIdxDalamKolom}`
+// (Ini sudah dipakai konsisten sejak submit ujian — lihat ujian/ujian.html —
+// jadi aman dipakai ulang di sini tanpa migrasi data apapun.)
+//
+// KEPUTUSAN PRODUK (multi-modul per grup): analisa-token.js sendiri sudah
+// mengasumsikan 1 grup BISA berisi token dari beberapa modul berbeda
+// (_atModulLabel menggabung nama modul kalau lebih dari 1). Tapi grafik
+// per-nomor-soal & per-kolom Sikap Kerja di halaman detail cuma make sense
+// kalau strukturnya 1 modul yang konsisten. Supaya tidak memblokir/mengubah
+// perilaku Ringkasan Grup yang sudah menghitung SEMUA token apa adanya,
+// keputusan pragmatis yang diambil di sini: 3 grafik (Benar/Salah, Nilai/
+// Skor Sendiri, Sikap Kerja) dihitung HANYA dari modul yang paling banyak
+// dipakai token dalam grup itu (mayoritas) — modul lain diabaikan utk grafik,
+// tapi tetap terhitung di Ringkasan (total/terpakai/hangus) & daftar Modul.
+// Kalau ternyata grup memang campur modul, field `multi_modul` dikirim ke
+// frontend supaya bisa ditandai jelas ke admin (bukan disembunyikan diam2).
+// Ini BISA direvisit nanti (mis. grafik terpisah per modul) tanpa perlu
+// migrasi data apapun — murni perubahan agregasi di endpoint ini.
+//
+// CATATAN (setelah kolom grub_id ada): 1 grup (per grub_id) sekarang SELALU
+// 1 modul murni by design — POST /api/tokens/generate cuma menerima 1
+// modul_kode per request, dan grub_id baru dibuat sekali per request itu
+// (lihat genGrubId()). Jadi utk grup BARU (grub_id terisi), "mayoritas" di
+// atas otomatis = satu-satunya modul yang ada, tidak akan pernah ambigu.
+// Logika mayoritas ini sekarang murni jaring pengaman utk grup LAMA (fallback
+// "legacy:<nama>", grub_id NULL, dikelompokkan by nama) yang mungkin memang
+// campur modul dari sebelum kolom ini ada.
+function _analisaSoalButir(type, data) {
+    if (!Array.isArray(data)) return 0;
+    if (type === 'sikap_kerja') return data.reduce((a, kol) => a + ((kol && Array.isArray(kol.soal)) ? kol.soal.length : 0), 0);
+    return data.length;
+}
+
+async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
+    const modul = await db.prepare('SELECT * FROM modul WHERE kode=?').get(modul_kode);
+    if (!modul) return { modul: null, binaryChart: [], skorChart: [], sikapRaw: [] };
+
+    let soal_list = []; try { soal_list = JSON.parse(modul.soal_list || '[]'); } catch (e) {}
+    const soalRows = [];
+    for (const sl of soal_list) {
+        const s = await db.prepare('SELECT * FROM soal WHERE kode=?').get(sl.soal_kode);
+        if (!s) continue;
+        let data = null; try { data = JSON.parse(s.data || 'null'); } catch (e) {}
+        data = expandSikapKerja(s.type, data);
+        soalRows.push({ kode: s.kode, nama: s.nama, type: s.type, skor_type: s.skor_type, data });
+    }
+
+    // Jawaban semua peserta (parse sekali di awal, urutan sejajar dgn laporanRows)
+    const jawabanList = laporanRows.map(l => {
+        try { return typeof l.jawaban === 'string' ? JSON.parse(l.jawaban || '{}') : (l.jawaban || {}); }
+        catch (e) { return {}; }
+    });
+    const totalPeserta = jawabanList.length;
+
+    const ringkasanSoal = [];
+    const binaryChart = [];   // [{nomor, benar, salah}]
+    const skorChart = [];     // [{nomor, opsi:[{nilai,jumlah}]}]
+    const sikapRaw = [];      // [kolomIdx] -> [{benar,salah,nama}] per peserta
+
+    let binNomor = 0, skorNomor = 0;
+
+    for (const s of soalRows) {
+        const data = Array.isArray(s.data) ? s.data : [];
+        ringkasanSoal.push({ nama: s.nama, butir: _analisaSoalButir(s.type, data) });
+
+        if (s.type === 'sikap_kerja') {
+            data.forEach((kol, ki) => {
+                if (!sikapRaw[ki]) sikapRaw[ki] = [];
+                const kolSoal = Array.isArray(kol.soal) ? kol.soal : [];
+                jawabanList.forEach((jw, pi) => {
+                    let benar = 0, salah = 0;
+                    kolSoal.forEach((q, qi) => {
+                        const ans = jw[`${s.kode}_${ki}_${qi}`];
+                        if (ans) { const k = q.kunci_huruf || q.kunci; if (ans === k) benar++; else salah++; }
+                    });
+                    const namaPeserta = (laporanRows[pi] && laporanRows[pi].user_nama) || `Peserta ${pi + 1}`;
+                    sikapRaw[ki].push({ benar, salah, nama: namaPeserta });
+                });
+            });
+            continue;
+        }
+
+        const isNilaiSendiri = s.skor_type === 'nilai_sendiri';
+        data.forEach((q, qi) => {
+            const jawabanOpsi = Array.isArray(q.jawaban) ? q.jawaban : [];
+            const pertanyaan = q.soal || '';
+            const pembahasan = q.pembahasan || '';
+
+            // Nama peserta yang memilih tiap opsi — dipakai halaman detail soal
+            // (admin/analisa/analisa-soal.js). Dihitung sekali per opsi di sini
+            // (bukan dikirim ulang jawaban mentah ke frontend), jadi tetap sesuai
+            // prinsip "server yang agregasi" walau detailnya cukup dalam.
+            const pemilihOpsi = (optId) => {
+                const names = [];
+                jawabanList.forEach((jw, pi) => {
+                    const ans = jw[`${s.kode}_${qi}`];
+                    if (ans == null || ans === '') return;
+                    const ids = Array.isArray(ans) ? ans : [ans];
+                    if (ids.some(pid => String(pid) === String(optId))) {
+                        names.push((laporanRows[pi] && laporanRows[pi].user_nama) || `Peserta ${pi + 1}`);
+                    }
+                });
+                return names;
+            };
+
+            if (isNilaiSendiri) {
+                skorNomor++;
+                const options = jawabanOpsi.map(j => {
+                    const names = pemilihOpsi(j.id);
+                    return { id: j.id, teks: j.teks || '', nilai: parseFloat(j.nilai) || 0, isKunci: (parseFloat(j.nilai) || 0) > 0, count: names.length, jumlah: names.length, names };
+                });
+                skorChart.push({ nomor: skorNomor, pertanyaan, pembahasan, opsi: options.map(o => ({ nilai: o.nilai, jumlah: o.jumlah })), options });
+            } else {
+                binNomor++;
+                const kunciRaw = q.kunci;
+                const kunci = Array.isArray(kunciRaw) ? kunciRaw.map(String) : (kunciRaw != null ? [String(kunciRaw)] : []);
+                let benar = 0;
+                jawabanList.forEach(jw => {
+                    const ans = jw[`${s.kode}_${qi}`];
+                    if (ans == null || ans === '') return;
+                    let isBenar;
+                    if (Array.isArray(ans)) isBenar = ans.length === kunci.length && ans.every(a => kunci.includes(String(a)));
+                    else isBenar = kunci.includes(String(ans));
+                    if (isBenar) benar++;
+                });
+                const options = jawabanOpsi.map(j => {
+                    const names = pemilihOpsi(j.id);
+                    return { id: j.id, teks: j.teks || '', isKunci: kunci.includes(String(j.id)), count: names.length, names };
+                });
+                binaryChart.push({ nomor: binNomor, benar, salah: totalPeserta - benar, pertanyaan, pembahasan, options });
+            }
+        });
+    }
+
+    return {
+        modul: { kode: modul.kode, nama: modul.nama, soal: ringkasanSoal },
+        binaryChart, skorChart, sikapRaw
+    };
 }
 
 
@@ -1341,7 +1508,7 @@ app.delete('/api/ebook-modul/:kode', auth(['admin']), ah(async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 app.get('/api/tokens', auth(['admin']), ah(async (req, res) => res.json(await db.prepare("SELECT * FROM tokens WHERE digunakan=0 ORDER BY created_at DESC").all())));
 app.get('/api/tokens/used', auth(['admin']), ah(async (req, res) => {
-    const rows = await db.prepare(`SELECT t.kode, t.modul_kode, t.aktivasi, t.expired, t.digunakan_oleh, t.izinkan_review, t.grub_token, t.created_at as token_created_at, l.kode as laporan_kode, l.tgl_selesai, l.waktu_pengerjaan, l.skor, l.created_at as laporan_created_at, u.nama as user_nama, m.nama as modul_nama, m.nama_internal as modul_nama_internal FROM tokens t LEFT JOIN laporan l ON l.token_kode = t.kode LEFT JOIN users u ON t.digunakan_oleh = u.kode LEFT JOIN modul m ON t.modul_kode = m.kode WHERE t.digunakan = 1 ORDER BY COALESCE(l.tgl_selesai, l.created_at::text, t.created_at::text) DESC`).all();
+    const rows = await db.prepare(`SELECT t.kode, t.modul_kode, t.aktivasi, t.expired, t.digunakan_oleh, t.izinkan_review, t.grub_token, t.grub_id, t.created_at as token_created_at, l.kode as laporan_kode, l.tgl_selesai, l.waktu_pengerjaan, l.skor, l.created_at as laporan_created_at, u.nama as user_nama, m.nama as modul_nama, m.nama_internal as modul_nama_internal FROM tokens t LEFT JOIN laporan l ON l.token_kode = t.kode LEFT JOIN users u ON t.digunakan_oleh = u.kode LEFT JOIN modul m ON t.modul_kode = m.kode WHERE t.digunakan = 1 ORDER BY COALESCE(l.tgl_selesai, l.created_at::text, t.created_at::text) DESC`).all();
     res.json(rows);
 }));
 app.get('/api/tokens/grub-list', auth(['admin','review']), ah(async (req, res) => { res.json(await db.prepare(`SELECT grub_token, COUNT(*) as jumlah_token FROM tokens WHERE grub_token IS NOT NULL AND TRIM(grub_token) <> '' GROUP BY grub_token ORDER BY LOWER(grub_token)`).all()); }));
@@ -1349,6 +1516,11 @@ app.post('/api/tokens/generate', auth(['admin']), ah(async (req, res) => {
     const { modul_kode, jumlah, mode, aktivasi, expired, izinkan_review, grub_token, batas_keluar } = req.body;
     const izinReview = izinkan_review ? 1 : 0;
     const grubToken = (grub_token && String(grub_token).trim()) ? String(grub_token).trim() : null;
+    // grub_id: SELALU digenerate baru per batch (per klik "Generate Token"),
+    // walau `grubToken` (nama) yang diketik admin sama persis dgn grup yang
+    // sudah ada — lihat komentar genGrubId()/grupKeyOf() & kolom grub_id di
+    // db/schema.sql. Ini yg jadi kunci pengelompokan sesungguhnya, BUKAN nama.
+    const grubId = grubToken ? genGrubId() : null;
     // batas_keluar: null/undefined = perlindungan keluar DIMATIKAN. Angka = batas maksimal
     // pelanggaran (keluar dari ujian) yang ditoleransi sebelum ujian otomatis diselesaikan.
     const batasKeluar = (batas_keluar === null || batas_keluar === undefined || batas_keluar === '') ? null : Math.max(1, parseInt(batas_keluar) || 3);
@@ -1357,12 +1529,12 @@ app.post('/api/tokens/generate', auth(['admin']), ah(async (req, res) => {
     else if (mode === 'custom' && aktivasi && expired) { akt = new Date(aktivasi).toISOString(); exp = new Date(expired).toISOString(); }
     try {
         const tokens = await transaction(async (tdb) => {
-            const insert = tdb.prepare('INSERT INTO tokens (kode,modul_kode,aktivasi,expired,izinkan_review,grub_token,batas_keluar) VALUES (?,?,?,?,?,?,?)');
+            const insert = tdb.prepare('INSERT INTO tokens (kode,modul_kode,aktivasi,expired,izinkan_review,grub_token,batas_keluar,grub_id) VALUES (?,?,?,?,?,?,?,?)');
             const checkExist = tdb.prepare('SELECT id FROM tokens WHERE kode=?');
             const count = Math.min(jumlah, 200); const result = [];
             for (let i = 0; i < count; i++) {
                 let kode, tries = 0; do { kode = genTokenKode(); tries++; } while ((await checkExist.get(kode)) && tries < 10);
-                await insert.run(kode, modul_kode, akt, exp, izinReview, grubToken, batasKeluar); result.push({ kode, modul_kode, aktivasi: akt, expired: exp, izinkan_review: izinReview, grub_token: grubToken, batas_keluar: batasKeluar });
+                await insert.run(kode, modul_kode, akt, exp, izinReview, grubToken, batasKeluar, grubId); result.push({ kode, modul_kode, aktivasi: akt, expired: exp, izinkan_review: izinReview, grub_token: grubToken, batas_keluar: batasKeluar, grub_id: grubId });
             }
             return result;
         });
@@ -1390,6 +1562,79 @@ app.get('/api/laporan/:kode', auth(['admin','review']), ah(async (req, res) => {
         if (s) { let data = null; try { data = JSON.parse(s.data || 'null'); } catch (e) {} data = expandSikapKerja(s.type, data); if (req.user.role !== 'admin') delete s.nama_internal; soalDetail.push({ ...s, data }); }
     }
     lap.soal_detail = soalDetail; res.json(lap);
+}));
+
+// GET /api/analisa/grup/:grubKey — endpoint agregasi khusus dock ANALISA
+// (admin/analisa/analisa-token-detail.js). SEMUA filter & perhitungan jalan
+// DI SERVER (bukan browser admin narik seluruh /api/laporan lalu filter
+// sendiri) — supaya jawaban mentah peserta di luar grup ini tidak pernah
+// terkirim ke browser admin, dan supaya perhitungan Benar/Salah/Nilai/Sikap
+// Kerja konsisten dgn rumus otoritatif yang sama dgn hitungSkorUjianServer().
+//
+// `grubKey` di sini BUKAN nama grup (grub_token) — itu cuma label yang BOLEH
+// diulang (mis. 2 batch beda tanggal/modul sama2 dinamai "SMA1"). Kuncinya
+// grub_id (lihat genGrubId()/grupKeyOf() & komentar kolom grub_id di
+// db/schema.sql), supaya 2 grup senama TIDAK PERNAH tercampur hasil
+// analisanya walau modulnya kebetulan sama & peserta yg mengerjakan kebetulan
+// orang yang sama — datanya tetap harus ditarik HANYA dari grup yang diklik,
+// bukan grup lain. Prefix "legacy:" = fallback utk token yang dibuat SEBELUM
+// kolom grub_id ada (grub_id NULL), dikelompokkan spt sebelumnya (by nama).
+app.get('/api/analisa/grup/:grubKey', auth(['admin','review']), ah(async (req, res) => {
+    const rawKey = req.params.grubKey;
+    const isLegacy = rawKey.startsWith('legacy:');
+    const legacyNama = isLegacy ? rawKey.slice('legacy:'.length) : null;
+    const tokens = await db.prepare(`
+        SELECT t.kode, t.modul_kode, t.digunakan, t.expired, t.grub_id, t.grub_token,
+               l.kode as laporan_kode, l.jawaban, l.skor as laporan_skor, l.created_at as laporan_created_at,
+               u.nama as user_nama, m.nama as modul_nama
+        FROM tokens t
+        LEFT JOIN laporan l ON l.token_kode = t.kode
+        LEFT JOIN users u ON t.digunakan_oleh = u.kode
+        LEFT JOIN modul m ON t.modul_kode = m.kode
+        WHERE ${isLegacy ? '(t.grub_id IS NULL AND t.grub_token = ?)' : 't.grub_id = ?'}
+    `).all(isLegacy ? legacyNama : rawKey);
+
+    if (!tokens.length) {
+        return res.json({ grub_key: rawKey, grub_token: legacyNama, ringkasan: { total: 0, used: 0, hangus: 0, modul: null }, peserta: [], charts: { binary: [], skor: [], sikap: [] }, multi_modul: false, modul_list: [] });
+    }
+
+    const now = Date.now();
+    const total = tokens.length;
+    const used = tokens.filter(t => t.digunakan).length;
+    const hangus = tokens.filter(t => !t.digunakan && t.expired && new Date(t.expired).getTime() < now).length;
+
+    // Tentukan modul mayoritas dalam grup ini (lihat komentar keputusan produk
+    // di computeAnalisaGrupAggregate) — dipakai KHUSUS utk 3 grafik per-soal.
+    const modulCount = {};
+    tokens.forEach(t => { if (t.modul_kode) modulCount[t.modul_kode] = (modulCount[t.modul_kode] || 0) + 1; });
+    const modulKodes = Object.keys(modulCount).sort((a, b) => modulCount[b] - modulCount[a]);
+    const majorModul = modulKodes[0] || null;
+    const multiModul = modulKodes.length > 1;
+
+    // Peserta = token yang SUDAH dipakai & sudah ada laporannya. Sengaja
+    // dihitung dari SEMUA modul (bukan cuma mayoritas) supaya daftar Peserta
+    // tetap lengkap merepresentasikan grup, walau grafik per-soal cuma dari 1 modul.
+    const laporanAllRows = tokens.filter(t => t.laporan_kode);
+    const peserta = laporanAllRows
+        .slice()
+        .sort((a, b) => new Date(b.laporan_created_at || 0) - new Date(a.laporan_created_at || 0))
+        .map(r => ({ nama: r.user_nama || '-', skor: r.laporan_skor != null ? r.laporan_skor : null }));
+
+    let agg = { modul: null, binaryChart: [], skorChart: [], sikapRaw: [] };
+    if (majorModul) {
+        const laporanMajor = tokens.filter(t => t.laporan_kode && t.modul_kode === majorModul);
+        agg = await computeAnalisaGrupAggregate(majorModul, laporanMajor);
+    }
+
+    res.json({
+        grub_key: rawKey,
+        grub_token: (tokens[0] && tokens[0].grub_token) || legacyNama,
+        ringkasan: { total, used, hangus, modul: agg.modul },
+        peserta,
+        charts: { binary: agg.binaryChart, skor: agg.skorChart, sikap: agg.sikapRaw },
+        multi_modul: multiModul,
+        modul_list: modulKodes.map(k => ({ kode: k, nama: (tokens.find(t => t.modul_kode === k) || {}).modul_nama || k, jumlah_token: modulCount[k] }))
+    });
 }));
 
 app.post('/api/exam/validate-token', auth(['user','admin','review']), ah(async (req, res) => {
