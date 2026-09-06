@@ -196,6 +196,18 @@ function _atdGoToSoalDetail(evt, kind, nomor) {
     navigateTo('analisa-soal');
 }
 
+// Tombol "Analisa" di bawah legenda grafik "Sikap Kerja — Median & Sebaran,
+// Per Kolom" -> pindah ke halaman admin/analisa/analisa-grafik.js (SENGAJA
+// masih kosong, cuma ada tombol kembali — isinya menyusul instruksi
+// berikutnya). Konteks (grup asal + jenis grafik) dititip lewat window var,
+// sama polanya dgn _atdGoToSoalDetail() di atas.
+function _atdGoToGrafikDetail(evt, kind) {
+    if (evt) evt.stopPropagation();
+    window._analisaGrafikDetailGrup = window._analisaTokenDetailGrup || null;
+    window._analisaGrafikDetailKind = kind;
+    navigateTo('analisa-grafik');
+}
+
 
 // ── DATA DUMMY ──────────────────────────────────────────────────────────
 const _ATD_DUMMY_BINARY = [
@@ -521,7 +533,11 @@ function _atdBuildSikapMedianChart(containerId, opts) {
             <div class="atd-chart-hint">Sentuh / arahkan kursor ke tiap kolom untuk lihat median & sebarannya</div>
         </div>
         <div class="atd-chart-svg-wrap">${svg}</div>
-        <div class="atd-legend" id="${containerId}-legend"></div>`;
+        <div class="atd-legend" id="${containerId}-legend"></div>
+        <button class="atd-btn-analisa-grafik" onclick="_atdGoToGrafikDetail(event,'${kind}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+            Analisa
+        </button>`;
 }
 
 // ── POPUP DIAGRAM LINGKARAN (donut, teknik stroke-dasharray) ────────────
