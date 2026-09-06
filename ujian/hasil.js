@@ -196,7 +196,16 @@ function hitungHasil(){
     else{totB+=s.benar;totT+=s.total;}
   });
 
-  return{perSoal:arr,skData,skorAkhir,totalBenar:totB,totalSoal:totT,totNilaiDapat,totNilaiMaks};
+  // Total soal & jumlah dijawab KHUSUS Sikap Kerja (dihitung dari kolom yg sudah
+  // diagregasi di skData di atas) — dipakai tampilHasil() saat modul HANYA berisi
+  // soal Sikap Kerja (tidak ada MC/nilai_sendiri sama sekali), supaya kartu "Total
+  // Soal"/"Tidak Dijawab" tidak selalu tampil 0/0 (lihat komentar di tampilHasil()).
+  let skTotalSoal=0, skTotalDijawab=0;
+  Object.values(skData).forEach(sk=>{
+    sk.kolom.forEach(k=>{ skTotalSoal+=k.totalSoal; skTotalDijawab+=k.total; });
+  });
+
+  return{perSoal:arr,skData,skorAkhir,totalBenar:totB,totalSoal:totT,totNilaiDapat,totNilaiMaks,skTotalSoal,skTotalDijawab};
 }
 
 function tampilHasil(h){
@@ -221,20 +230,36 @@ function tampilHasil(h){
   // dan angka yang sama persis yang dikirim ke server saat submit).
   const skorMCLin=h.skorAkhir;
 
-  document.getElementById('h-skor-big').textContent=skorMCLin;
-  // Info KKM (nilai minimum lulus)
-  const nilaiMin=st.examData.modul?.nilai_minimum!=null?st.examData.modul.nilai_minimum:null;
-  const kkm=document.getElementById('h-skor-big');
-  if(nilaiMin!=null){
-    const lulus=skorMCLin>=nilaiMin;
-    kkm.style.color=lulus?'var(--success)':'var(--danger)';
-    const hasilSkorLbl=document.querySelector('.hasil-skor-lbl');
-    if(hasilSkorLbl)hasilSkorLbl.innerHTML=`Skor Akhir &nbsp;·&nbsp; KKM: ${nilaiMin} &nbsp;<span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:${lulus?'rgba(22,163,74,0.12)':'rgba(220,38,38,0.12)'};color:${lulus?'var(--success)':'var(--danger)'}">${lulus?'✓ LULUS':'✗ TIDAK LULUS'}</span>`;
+  // MODUL SIKAP KERJA MURNI (tidak ada soal MC/nilai_sendiri sama sekali): tidak
+  // ada konsep "skor akhir" berupa persentase benar-salah untuk tipe ini (lihat
+  // hitungHasil() — Sikap Kerja sengaja tidak ikut dihitung ke skorAkhir), jadi
+  // hero "Skor Akhir" disembunyikan supaya tidak menampilkan angka 0 raksasa yang
+  // menyesatkan seolah peserta gagal total, padahal semua kolom sudah dikerjakan
+  // (hasil per kolomnya sendiri sudah tampil lengkap di Grafik Sikap Kerja di bawah).
+  // Kartu "Tidak Dijawab"/"Total Soal" pun dihitung dari sub-soal Sikap Kerja
+  // (skTotalSoal/skTotalDijawab), BUKAN dari soal MC (yang jumlahnya nol di sini) —
+  // sebelumnya selalu tampil 0/0 walau peserta sudah menjawab puluhan soal.
+  const adaSoalScored = perSoalMCLin.length > 0;
+  const skorBigEl=document.getElementById('h-skor-big');
+  const skorLblEl=document.querySelector('.hasil-skor-lbl');
+  if(adaSoalScored){
+    if(skorBigEl){ skorBigEl.style.display=''; skorBigEl.textContent=skorMCLin; }
+    if(skorLblEl) skorLblEl.style.display='';
+    // Info KKM (nilai minimum lulus)
+    const nilaiMin=st.examData.modul?.nilai_minimum!=null?st.examData.modul.nilai_minimum:null;
+    if(nilaiMin!=null && skorBigEl){
+      const lulus=skorMCLin>=nilaiMin;
+      skorBigEl.style.color=lulus?'var(--success)':'var(--danger)';
+      if(skorLblEl)skorLblEl.innerHTML=`Skor Akhir &nbsp;·&nbsp; KKM: ${nilaiMin} &nbsp;<span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:${lulus?'rgba(22,163,74,0.12)':'rgba(220,38,38,0.12)'};color:${lulus?'var(--success)':'var(--danger)'}">${lulus?'✓ LULUS':'✗ TIDAK LULUS'}</span>`;
+    }
+  } else {
+    if(skorBigEl) skorBigEl.style.display='none';
+    if(skorLblEl) skorLblEl.style.display='none';
   }
 
   // Stat grid — pisahkan benar/salah (hanya benar_salah) dan nilai (nilai_sendiri)
-  const totalMCFlat=st.flat.filter(f=>f.type!=='sikap_kerja').length;
-  const totalDijawab=st.flat.filter(f=>f.type!=='sikap_kerja'&&!!st.jawaban[`${f.soalKode}_${f.qIdx}`]).length;
+  const totalMCFlat=adaSoalScored ? st.flat.filter(f=>f.type!=='sikap_kerja').length : h.skTotalSoal;
+  const totalDijawab=adaSoalScored ? st.flat.filter(f=>f.type!=='sikap_kerja'&&!!st.jawaban[`${f.soalKode}_${f.qIdx}`]).length : h.skTotalDijawab;
   const adaNilaiSendiri=perSoalMCLin.some(s=>s.skor_type==='nilai_sendiri');
   const adaBenarSalah=perSoalMCLin.some(s=>s.skor_type!=='nilai_sendiri');
 

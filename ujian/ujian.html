@@ -1036,40 +1036,12 @@ function renderSK(item) {
   renderSKKolom(_skKolom);
 }
 
-function renderSKKolom(ki) {
-  _skKolom = ki;
-  const token = st.examData.token.kode;
-  localStorage.setItem('cbn_sk_kolom_' + token, ki); 
-
-  const item = _skItem, kolom = item.kolom[ki];
-  if (!kolom) { finishSK(); return; }
-
-  // TIMER PERSISTENCE: Ambil sisa waktu dari storage
-  const savedT = localStorage.getItem('cbn_sk_timer_' + token);
-  st.skTimerSec = (savedT !== null && parseInt(savedT) > 0) ? parseInt(savedT) : (item.timerSek || 60);
-
-  document.getElementById('sk-kolom-lbl').textContent = `Kolom ${ki + 1} dari ${item.kolom.length}`;
-  
-  clearInterval(st.skTimerInterval);
-  updateSKTimer();
-  st.skTimerInterval = setInterval(() => {
-    st.skTimerSec--;
-    // Simpan timer setiap detik
-    localStorage.setItem('cbn_sk_timer_' + token, st.skTimerSec);
-    
-    updateSKTimer();
-    if (st.skTimerSec <= 0) {
-      localStorage.removeItem('cbn_sk_timer_' + token); 
-      nextSKKolom();
-    }
-  }, 1000);
-
-  // NOMOR SUB-SOAL PERSISTENCE: Ambil nomor terakhir di kolom ini
-  const savedQi = localStorage.getItem('cbn_sk_q_' + token);
-  _skQ = savedQi !== null ? parseInt(savedQi) : 0;
-  renderSKQ(ki, _skQ);
-}
-
+// CATATAN: dulu ada DUA definisi renderSKKolom() di sini — duplikat function
+// declaration di JS membuat yang kedua diam-diam menggantikan yang pertama
+// sepenuhnya (dead code, tidak pernah benar-benar jalan). Definisi lama itu
+// (hitung mundur "kurangi 1 detik per tick", tanpa deadline) sudah dihapus;
+// yang dipakai sekarang murni versi berbasis deadline di bawah, konsisten
+// dengan timer bagian soal lain (lihat catatan di tickGroupTimer()).
 function renderSKKolom(ki) {
   _skKolom = ki;
   const token = st.examData.token.kode;
@@ -1128,9 +1100,18 @@ function valToEl(v){
 }
 
 function renderSKQ(ki,qi){
-  _skKolom=ki;_skQ=qi;
   const item=_skItem,kolom=item.kolom[ki],soal=(kolom?.soal||[]);
-  if(qi>=soal.length){nextSKKolom();return;}
+  // Kalau index yang mau ditampilkan sudah melewati batas soal kolom ini
+  // (mis. dari index tersimpan sesi lama), KUNCI ke soal TERAKHIR kolom
+  // ini — jangan ulangi dari soal pertama lagi. Peserta akan diam di soal
+  // terakhir sambil menunggu waktu kolom benar-benar habis; pindah kolom
+  // HANYA boleh terjadi karena waktu benar-benar habis (lihat tickSK() di
+  // renderSKKolom(), satu-satunya tempat lain yang memanggil nextSKKolom()
+  // untuk kasus ini, dan pilihSK() yang menyimpan posisi diam di soal
+  // terakhir).
+  if(!soal.length){ nextSKKolom(); return; }
+  if(qi>=soal.length){ qi = soal.length-1; }
+  _skKolom=ki;_skQ=qi;
   const q=soal[qi],stk=`${item.soalKode}_${ki}`;
   document.getElementById('sk-item-lbl-row').innerHTML=(kolom.items||[]).map((_,i)=>`<div class="sk-item-lbl">${String.fromCharCode(65+i)}</div>`).join('');
   document.getElementById('sk-items-row').innerHTML=(kolom.items||[]).map(it=>`<div class="sk-item-box">${valToEl(it.nilai??it.value??it)}</div>`).join('');
@@ -1139,7 +1120,7 @@ function renderSKQ(ki,qi){
   
   document.getElementById('sk-choices').innerHTML=(kolom.items||[]).map((it,i)=>{
     const letter=String.fromCharCode(65+i),sel=userAns===letter;
-    return `<div class="sk-choice${sel?' sel':''}" onclick="pilihSK('${item.soalKode}',${ki},${qi},'${letter}')">
+    return `<div class="sk-choice${sel?' sel':''}" onclick="pilihSK(this,'${item.soalKode}',${ki},${qi},'${letter}')">
       <div class="sk-ch-letter">${letter}</div>
     </div>`;
   }).join('');
@@ -1149,21 +1130,41 @@ function renderSKQ(ki,qi){
   document.getElementById('sk-prog-txt').textContent=`${qi+1} / ${soal.length}`;
 }
 
-function pilihSK(sk, ki, qi, letter) {
-  const token = st.examData.token.kode;
-  st.jawaban[`${sk}_${ki}_${qi}`] = letter;
-  localStorage.setItem('cbn_progress_jawaban_' + token, JSON.stringify(st.jawaban));
-  
-  const kolom = _skItem.kolom[ki];
-  if (qi + 1 >= (kolom?.soal || []).length) {
-    localStorage.removeItem('cbn_sk_q_' + token);
-    nextSKKolom();
-  } else {
-    _skQ = qi + 1;
-    // Simpan nomor sub-soal yang sedang aktif
-    localStorage.setItem('cbn_sk_q_' + token, _skQ);
-    renderSKQ(ki, _skQ);
-  }
+function pilihSK(el, sk, ki, qi, letter) {
+  // Kedip biru sesaat di opsi yang baru diklik sebagai konfirmasi visual —
+  // soal sikap kerja tidak punya tombol "lanjut" terpisah, jadi tanpa ini
+  // klik langsung diganti soal berikutnya tanpa kelihatan sempat terpilih.
+  // Klik lain dikunci sebentar (pointer-events) supaya tidak dobel-klik
+  // selagi kedipan berlangsung.
+  document.querySelectorAll('#sk-choices .sk-choice').forEach(c=>c.classList.remove('sel'));
+  if (el) el.classList.add('sel');
+  const wrap = document.getElementById('sk-choices');
+  if (wrap) wrap.style.pointerEvents = 'none';
+
+  setTimeout(() => {
+    if (wrap) wrap.style.pointerEvents = '';
+    const token = st.examData.token.kode;
+    st.jawaban[`${sk}_${ki}_${qi}`] = letter;
+    localStorage.setItem('cbn_progress_jawaban_' + token, JSON.stringify(st.jawaban));
+
+    const kolom = _skItem.kolom[ki];
+    const totalSoalKolom = (kolom?.soal || []).length;
+    if (qi + 1 >= totalSoalKolom) {
+      // Sudah di soal TERAKHIR kolom ini. Kalau waktu kolom MASIH ADA, JANGAN
+      // ulangi dari soal pertama — diam saja di soal terakhir ini sambil
+      // menunggu waktu kolom benar-benar habis (nextSKKolom() otomatis
+      // dipanggil oleh tickSK() di renderSKKolom() saat waktu = 0). Simpan qi
+      // (bukan dihapus) supaya kalau halaman di-reload, posisi tetap di soal
+      // terakhir ini, bukan balik ke soal pertama.
+      localStorage.setItem('cbn_sk_q_' + token, qi);
+      if (st.skTimerSec <= 0) nextSKKolom();
+    } else {
+      _skQ = qi + 1;
+      // Simpan nomor sub-soal yang sedang aktif
+      localStorage.setItem('cbn_sk_q_' + token, _skQ);
+      renderSKQ(ki, _skQ);
+    }
+  }, 180);
 }
 
 function nextSKKolom() {

@@ -554,16 +554,63 @@ function _refreshItemBox(kIdx,iIdx){
     if(box) box.innerHTML=_itemContent(SoalState.kolom[kIdx].items[iIdx]);
 }
 
+// Kocok array (Fisher-Yates) — dipakai _genSikapSoalBatch() untuk mengacak
+// URUTAN item yang ditampilkan tiap soal Sikap Kerja.
+function _shuffleArr(arr){
+    const a=arr.slice();
+    for(let i=a.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1));
+        [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+}
+
+// Generate `jumlah` soal Sikap Kerja dari 5 item kolom. Tiap soal: 1 item acak
+// jadi kunci (yang "hilang"/tidak ditampilkan), sisanya ditampilkan dalam URUTAN
+// ACAK — dan urutan tampil itu DIJAMIN BEDA dari soal SEBELUMNYA (baik soal
+// terakhir di kolom yang sudah ada, lewat `prevOrder`, maupun antar soal yang
+// baru digenerate di batch ini), walau kuncinya kebetulan sama persis. Ini
+// penting karena Sikap Kerja lazim digenerate puluhan soal dari cuma 5 item, jadi
+// kunci yang sama PASTI berulang berkali-kali — yang tidak boleh berulang IDENTIK
+// adalah urutan 4 item yang ditampilkan, supaya peserta tidak bisa hafal pola
+// posisi tanpa benar-benar membandingkan tiap item satu-satu.
+function _genSikapSoalBatch(items, jumlah, idxPrefix, prevOrder){
+    const n = items.length;
+    const out = [];
+    let prev = prevOrder || null;
+    for (let i = 0; i < jumlah; i++) {
+        let kIdx, order;
+        do {
+            kIdx = Math.floor(Math.random() * n);
+            const remainingIdx = [];
+            for (let j = 0; j < n; j++) if (j !== kIdx) remainingIdx.push(j);
+            order = _shuffleArr(remainingIdx);
+        } while (prev && order.length === prev.length && order.every((v, j) => v === prev[j]));
+        prev = order;
+        out.push({
+            id: `SK_${idxPrefix}_${Date.now()}_${i}`,
+            semua: items.map(it => it.nilai),
+            tampil: order.map(j => items[j].nilai),
+            kunci: items[kIdx].nilai,
+            kunci_idx: kIdx,
+            kunci_huruf: String.fromCharCode(65 + kIdx),
+            urutan: order
+        });
+    }
+    return out;
+}
+
 function generateKolomSoal(idx){
     const kolom=SoalState.kolom[idx];
     const jumlah=parseInt(document.getElementById('gen-jumlah')?.value)||10;
     const items=kolom.items;
     if(items.filter(i=>i.nilai?.trim()).length<5){showToast('Isi semua 5 item terlebih dahulu','danger');return;}
-    const newSoal=[];
-    for(let i=0;i<jumlah;i++){
-        const kIdx=Math.floor(Math.random()*5);
-        newSoal.push({id:`SK_${idx}_${Date.now()}_${i}`,semua:items.map(it=>it.nilai),tampil:items.filter((_,j)=>j!==kIdx).map(it=>it.nilai),kunci:items[kIdx].nilai,kunci_idx:kIdx,kunci_huruf:String.fromCharCode(65+kIdx)});
-    }
+    // Soal terakhir yang SUDAH ADA di kolom ini (kalau ada) dipakai sebagai
+    // pembanding "sebelumnya", supaya batch generate baru tidak kebetulan mulai
+    // dengan urutan yang sama persis dengan soal terakhir sebelumnya.
+    const lastExisting=kolom.soal[kolom.soal.length-1];
+    const prevOrder=lastExisting&&Array.isArray(lastExisting.urutan)?lastExisting.urutan:null;
+    const newSoal=_genSikapSoalBatch(items,jumlah,idx,prevOrder);
     kolom.soal.push(...newSoal);
     const el=document.getElementById('kolom-soal-list');
     if(el){el.style.opacity='0';setTimeout(()=>{el.innerHTML=_kolomSoalTable(kolom);el.style.transition='opacity 0.25s';el.style.opacity='1';},150);}
@@ -631,7 +678,7 @@ function backToEdit(){SoalState._editors={};_animateTo(_renderMCHtml);}
 // mengembalikan bentuk lengkap saat dibaca lagi). Ini menghemat ukuran data
 // yang dikirim tanpa mengubah hasil maupun tampilan sama sekali.
 function _compactSikapKolom(kolom){
-    return (kolom||[]).map(k=>({...k,soal:(k.soal||[]).map(s=>({id:s.id,kunci_idx:s.kunci_idx}))}));
+    return (kolom||[]).map(k=>({...k,soal:(k.soal||[]).map(s=>({id:s.id,kunci_idx:s.kunci_idx,urutan:s.urutan}))}));
 }
 async function simpanSoal(){
     syncEditors();
@@ -1008,13 +1055,7 @@ async function _importSoalFromWorkbook(wb, imageMap) {
         kolom.forEach((k, idx) => {
             const filled = k.items.filter(it => it.nilai).length;
             if (filled === 5) {
-                const generated = [];
-                for (let g = 0; g < 10; g++) {
-                    const kIdx = Math.floor(Math.random() * 5);
-                    const items = k.items;
-                    generated.push({ id: `SK_${idx}_${Date.now()}_${g}`, semua: items.map(it => it.nilai), tampil: items.filter((_, j) => j !== kIdx).map(it => it.nilai), kunci: items[kIdx].nilai, kunci_idx: kIdx, kunci_huruf: String.fromCharCode(65 + kIdx) });
-                }
-                k.soal = generated;
+                k.soal = _genSikapSoalBatch(k.items, 10, idx, null);
             }
         });
         SoalState.kolom = kolom; SoalState.pertanyaan = [];

@@ -299,12 +299,19 @@ function stripKunci(node) {
     return node;
 }
 
-// Soal Sikap Kerja: tiap soal yang digenerate cukup menyimpan {id, kunci_idx} —
-// field semua/tampil/kunci/kunci_huruf bisa dihitung ulang dari 5 item kolomnya,
-// jadi tidak perlu disalin berulang ke tiap soal (dulu ini penyebab payload
-// membengkak dan gagal simpan / HTTP 413). Fungsi ini mengembalikan bentuk
-// lengkap seperti sebelumnya, supaya semua kode yang sudah ada (ujian, laporan,
-// export, review) tetap jalan tanpa perlu diubah sama sekali.
+// Soal Sikap Kerja: tiap soal yang digenerate cukup menyimpan {id, kunci_idx,
+// urutan} — field semua/tampil/kunci/kunci_huruf bisa dihitung ulang dari 5 item
+// kolomnya, jadi tidak perlu disalin berulang ke tiap soal (dulu ini penyebab
+// payload membengkak dan gagal simpan / HTTP 413). `urutan` = urutan index item
+// asli (selain kunci_idx) yang dipakai untuk menyusun `tampil` — WAJIB disimpan
+// (tidak bisa dihitung ulang cuma dari kunci_idx) karena sejak perbaikan generator
+// (lihat admin/soal/soal.js: _genSikapSoalBatch), urutan tampilnya diacak dan
+// dijamin beda dari soal sebelumnya di kolom yang sama (dulu urutannya SELALU
+// sama persis tiap kali kunci yang sama muncul lagi, karena cuma difilter dari
+// urutan asli items — celah ini bikin peserta bisa hafal pola tanpa benar-benar
+// membandingkan tiap item). Fungsi ini mengembalikan bentuk lengkap seperti
+// sebelumnya, supaya semua kode yang sudah ada (ujian, laporan, export, review)
+// tetap jalan tanpa perlu diubah sama sekali.
 function expandSikapKerja(type, data) {
     if (type !== 'sikap_kerja' || !Array.isArray(data)) return data;
     return data.map(kolom => {
@@ -314,10 +321,16 @@ function expandSikapKerja(type, data) {
             if (s && s.tampil !== undefined) return s; // data lama/format lengkap, biarkan apa adanya
             const kIdx = s ? s.kunci_idx : undefined;
             if (kIdx === undefined || kIdx === null || !items[kIdx]) return s;
+            // Data lama (sebelum ada `urutan`) tidak punya info urutan acak — fallback
+            // ke urutan asli minus kunci_idx, persis perilaku sebelumnya, supaya soal
+            // lama yang sudah pernah digenerate tidak berubah/rusak tampilannya.
+            const urutan = Array.isArray(s.urutan) && s.urutan.length === items.length - 1
+                ? s.urutan
+                : items.map((_, j) => j).filter(j => j !== kIdx);
             return {
                 id: s.id,
                 semua: items.map(it => it.nilai),
-                tampil: items.filter((_, j) => j !== kIdx).map(it => it.nilai),
+                tampil: urutan.map(j => items[j] ? items[j].nilai : undefined),
                 kunci: items[kIdx].nilai,
                 kunci_idx: kIdx,
                 kunci_huruf: String.fromCharCode(65 + kIdx)
@@ -1657,8 +1670,32 @@ app.post('/api/exam/submit', auth(['user','admin','review']), ah(async (req, res
     const { token_kode, modul_kode, waktu_pengerjaan, jawaban, skor_detail, urutan_tampil } = req.body;
     const user_kode = req.user.kode;
     const token = await db.prepare('SELECT * FROM tokens WHERE kode=?').get(token_kode);
-    if (!token)          return res.status(404).json({ error: 'Token tidak ditemukan' });
-    if (token.digunakan) return res.status(400).json({ error: 'Token sudah digunakan' });
+    if (!token) return res.status(404).json({ error: 'Token tidak ditemukan' });
+    if (token.digunakan) {
+        // IDEMPOTENSI SUBMIT: kalau token ini SUDAH dipakai oleh user yang SAMA yang
+        // sedang submit sekarang, jangan langsung tolak dengan error. Ini terjadi kalau
+        // submit SEBELUMNYA sebenarnya sukses tersimpan di server, tapi responsnya tidak
+        // sempat sampai ke browser (koneksi putus di tengah jalan) — kirimHasilUjian()
+        // di client lalu otomatis retry (lihat ujian/hasil.js) memakai token yang sama,
+        // dan SELALU akan gagal 400 di sini walau ujiannya sudah resmi tersimpan. Ini
+        // paling sering kena pada ujian panjang seperti Sikap Kerja (durasi lama, banyak
+        // kolom, koneksi lebih rentan putus di tengah). Solusinya: kalau ownernya cocok,
+        // kembalikan laporan yang SUDAH ada apa adanya (bukan generate baru), supaya
+        // peserta tetap bisa melihat hasil ujiannya alih-alih terjebak selamanya di
+        // banner "Hasil ujian ini belum berhasil terkirim".
+        if (token.digunakan_oleh === user_kode) {
+            const existing = await db.prepare('SELECT * FROM laporan WHERE token_kode=? ORDER BY created_at DESC LIMIT 1').get(token_kode);
+            if (existing) {
+                let soalDenganKunci = [];
+                try {
+                    const modulExisting = await db.prepare('SELECT * FROM modul WHERE kode=?').get(existing.modul_kode);
+                    if (modulExisting) soalDenganKunci = await buildSoalDetail(modulExisting, { withKunci: true });
+                } catch (e) {}
+                return res.json({ kode: existing.kode, skor: existing.skor, soal: soalDenganKunci, message: 'Ujian berhasil disimpan' });
+            }
+        }
+        return res.status(400).json({ error: 'Token sudah digunakan' });
+    }
 
     let skor = 0;
     try { skor = await hitungSkorUjianServer(modul_kode, jawaban); } 
