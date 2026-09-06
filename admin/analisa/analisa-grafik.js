@@ -244,8 +244,25 @@ function _agShowBubblePop(evt, groupEl, col, catKey, val, count) {
     const meta = _AG_CAT_META[catKey] || { label: catKey, color: '#64748b' };
     const names = _agMembersForBubble(col, catKey, val);
     const kolomLabel = _atdSikapCats[col] || ('#' + (col + 1));
+    // BUG (sudah diperbaiki): JSON.stringify(n) menghasilkan string yg
+    // dibungkus DOUBLE QUOTE (mis. "Ahmad Fauzi"), lalu ditempel apa adanya
+    // ke dalam atribut onclick="..." yg JUGA dibungkus double quote ->
+    // HTML-nya jadi onclick="_agSelectUser(event,"Ahmad Fauzi")" dan
+    // browser berhenti mem-parse atribut itu tepat di kutip pertama setelah
+    // "event,". Sisa JS-nya ("Ahmad Fauzi")) kebuang jadi teks biasa di luar
+    // tag, jadi pas diklik browser cuma dapat potongan
+    // "_agSelectUser(event," -> SyntaxError: Unexpected end of input.
+    // Fix: escape dulu tiap karakter yg bisa mecahin attribute HTML (", ',
+    // <, >, &) sebelum ditempel ke onclick, jadi JSON string-nya aman apa
+    // pun isi namanya.
+    const _agAttrEsc = s => String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
     const rows = names.length
-        ? names.map(n => `<div class="ag-bubble-pop-name" onclick="_agSelectUser(event,${JSON.stringify(n)})">${_atdEsc(n)}</div>`).join('')
+        ? names.map(n => `<div class="ag-bubble-pop-name" onclick="_agSelectUser(event,${_agAttrEsc(JSON.stringify(n))})">${_atdEsc(n)}</div>`).join('')
         : '<div class="ag-bubble-pop-empty">Tidak ada data</div>';
     const pop = _agGetBubblePopEl();
     pop.innerHTML = `
