@@ -2,10 +2,14 @@
     <button class="btn-icon" onclick="navigateTo('analisa-token')" title="Kembali ke daftar token">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
     </button>
-    <div>
+    <div style="flex:1">
       <div class="section-title" style="margin-bottom:0">Analisa Token</div>
       <div class="section-sub" id="atd-kode-sub" style="margin-bottom:0">-</div>
     </div>
+    <button class="btn btn-primary" id="atd-btn-ekstrak" onclick="_atdHandleEkstrak()" title="Unduh data & grafik grup ini sebagai file Excel">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Ekstrak
+    </button>
   </div>
 
   <div class="card" id="atd-content" style="margin-bottom:18px">

@@ -137,7 +137,8 @@ const ADMIN_PAGE_MODULES = {
     'ebook-modul':   { html: 'admin/ebook/ebook-modul.html',    js: ['admin/ebook/ebook.js'], modals: 'admin/ebook/ebook-modals.html' },
     landing:         { html: 'admin/landing/landing.html',      js: ['admin/landing/landing.js'], modals: 'admin/landing/landing-modals.html' },
     'analisa-token':        { html: 'admin/analisa/analisa-token.html',        js: ['admin/analisa/analisa-token.js'] },
-    'analisa-token-detail': { html: 'admin/analisa/analisa-token-detail.html', js: ['admin/analisa/analisa-token-detail.js'] },
+    // + analisa-export.js: logika tombol "Ekstrak" (bangun .xlsx + suntik grafik native via JSZip) — lihat komentar di file itu.
+    'analisa-token-detail': { html: 'admin/analisa/analisa-token-detail.html', js: ['admin/analisa/analisa-export.js', 'admin/analisa/analisa-token-detail.js'] },
     'analisa-soal':         { html: 'admin/analisa/analisa-soal.html',         js: ['admin/analisa/analisa-soal.js'] },
     'analisa-grafik':       { html: 'admin/analisa/analisa-grafik.html',       js: ['admin/analisa/analisa-grafik.js'] },
     // Form Tambah/Edit Paket dipisah dari keuangan.js/keuangan-modals.html jadi

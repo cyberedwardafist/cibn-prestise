@@ -133,6 +133,32 @@ async function renderAnalisaTokenDetail() {
 
 function _atdEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])); }
 
+// ── TOMBOL "EKSTRAK" — unduh data+grafik grup ini sbg file Excel ──────────
+// Logika bangun workbook + suntik grafik native ada di admin/analisa/
+// analisa-export.js (lazy-load bareng file ini — lihat ADMIN_PAGE_MODULES di
+// js/app.js). Dipakai ulang window._analisaTokenDetailAgg yg sudah dimuat
+// renderAnalisaTokenDetail() (via AnalisaAPI.getGrup()), jadi tombol ini
+// TIDAK fetch API lagi — cukup olah data yg sudah ada di browser.
+async function _atdHandleEkstrak() {
+    const agg = window._analisaTokenDetailAgg;
+    if (!agg) { if (typeof showToast === 'function') showToast('Data belum termuat, coba lagi', 'danger'); return; }
+    if (typeof AnalisaExport === 'undefined') { if (typeof showToast === 'function') showToast('Modul ekspor belum termuat, coba lagi', 'danger'); return; }
+    const btn = document.getElementById('atd-btn-ekstrak');
+    if (btn) btn.disabled = true;
+    if (typeof showToast === 'function') showToast('Menyiapkan file Excel…', '');
+    try {
+        const grupNama = window._analisaTokenDetailGrupNama || agg.grub_token || window._analisaTokenDetailGrup || 'Grup';
+        const blob = await AnalisaExport.build(agg, grupNama);
+        AnalisaExport.downloadBlob(blob, `Analisa_${AnalisaExport.sanitizeFilename(grupNama)}.xlsx`);
+        if (typeof showToast === 'function') showToast('File Excel berhasil diunduh', 'success');
+    } catch (e) {
+        console.error('Gagal ekstrak Excel analisa:', e);
+        if (typeof showToast === 'function') showToast('Gagal membuat file Excel: ' + e.message, 'danger');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
 // ── RINGKASAN GRUP: jumlah token dibuat/terpakai/hangus + modul & soal yang
 // dipakai grup ini — ditaruh di #atd-content. Dihitung sungguhan lewat
 // GET /api/analisa/grup/:grubToken (lihat AnalisaAPI.getGrup) — server yang
