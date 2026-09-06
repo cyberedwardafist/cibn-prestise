@@ -9,6 +9,7 @@
     display: flex;
     gap: 14px;
     flex-wrap: wrap;
+    justify-content: flex-end;
     margin-top: 8px;
 }
 
@@ -137,7 +138,11 @@
        dibatasi ukurannya (lihat .cal-weekdays/.cal-grid di atas), TANPA ini
        kotak putih .cal-widget-nya sendiri tetap melebar penuh layar dan
        nyisa ruang kosong ganjil di kiri-kanan kalender yang sudah kompak
-       itu — jadi tetap dibikin pas & di tengah. */
-    .cal-daterange-wrap { flex-direction: column; align-items: center; }
-    .cal-widget { flex: 1 1 auto; width: 100%; max-width: 260px; min-width: 0; margin: 0 auto; }
+       itu — jadi tetap dibikin pas & di tengah. `align-items:flex-end`
+       (bukan `center`) supaya kalender tetap RATA KANAN di layar sempit
+       juga, konsisten sama posisi rata-kanan di layar lebar
+       (`justify-content:flex-end` di .cal-daterange-wrap di atas) — bukan
+       ditengahkan atau rata kiri. */
+    .cal-daterange-wrap { flex-direction: column; align-items: flex-end; }
+    .cal-widget { flex: 1 1 auto; width: 100%; max-width: 260px; min-width: 0; margin: 0 0 0 auto; }
 }

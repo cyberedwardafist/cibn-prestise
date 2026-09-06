@@ -54,6 +54,17 @@ async function renderAnalisaToken() {
 }
 
 function _setAtRange(range) {
+    // Klik "Custom" padahal Custom SUDAH aktif (filter custom-nya sudah
+    // jalan, kalendernya lagi kebuka) -> ini toggle TUTUP/BUKA tampilan
+    // kalender doang, JANGAN ubah _atRange atau render ulang list. Kalau
+    // sampai _atRange direset atau list di-render ulang di sini, filter
+    // custom yang sudah dipilih user ikut hilang/ke-reset padahal user cuma
+    // mau nyembunyiin kalendernya, bukan batalin filternya.
+    if (range === 'custom' && _atRange === 'custom') {
+        const w = document.getElementById('at-custom-wrap');
+        if (w) w.style.display = (w.style.display === 'none') ? 'block' : 'none';
+        return;
+    }
     _atRange = range;
     document.querySelectorAll('#page-analisa-token [data-range]').forEach(b => b.classList.toggle('active', b.dataset.range === range));
     const w = document.getElementById('at-custom-wrap');
