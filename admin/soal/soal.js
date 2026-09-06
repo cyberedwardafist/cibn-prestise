@@ -426,6 +426,9 @@ function toggleNavSide(){
 
 // ══════════════ SIKAP KERJA ══════════════
 let _sikapView='list'; let _sikapKolIdx=0; let _editingItem=null;
+// Set index soal (dalam kolom aktif) yang dicentang untuk hapus massal.
+// Direset tiap kali pindah/buka kolom, generate soal baru, atau habis hapus.
+let _skSelected=new Set();
 
 function _renderSikapList(){
     document.getElementById('page-soal')?.classList.remove('dock-avoid-center');
@@ -450,7 +453,7 @@ function _renderSikapList(){
 </div>`;
 }
 
-function openKolom(idx){_sikapView='detail';_sikapKolIdx=idx;_animateTo(()=>_renderSikapDetail(idx));}
+function openKolom(idx){_sikapView='detail';_sikapKolIdx=idx;_skSelected=new Set();_animateTo(()=>_renderSikapDetail(idx));}
 
 function _renderSikapDetail(idx){
     document.getElementById('page-soal')?.classList.remove('dock-avoid-center');
@@ -619,10 +622,25 @@ function generateKolomSoal(idx){
 }
 
 function _kolomSoalTable(kolom){
-    return `<div class="table-wrap"><table>
-        <thead><tr><th>#</th><th>4 Item Ditampilkan</th><th>Kunci</th><th></th></tr></thead>
+    const total=kolom.soal.length;
+    const nSel=_skSelected.size;
+    const allChecked=total>0&&nSel===total;
+    return `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--text-sub);cursor:pointer;user-select:none">
+            <input type="checkbox" id="sk-check-all" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer" ${allChecked?'checked':''} onchange="toggleSkSoalAll(this.checked)">
+            Pilih Semua
+        </label>
+        <button class="btn btn-secondary btn-sm" style="color:var(--danger,#dc2626);border-color:rgba(220,38,38,0.25)" ${nSel===0?'disabled':''} onclick="hapusKolomSoalTerpilih(${_sikapKolIdx})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="vertical-align:-2px;margin-right:4px"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+            Hapus Terpilih${nSel?` (${nSel})`:''}
+        </button>
+    </div>
+    <div class="table-wrap"><table>
+        <thead><tr><th style="width:34px"></th><th>#</th><th>4 Item Ditampilkan</th><th>Kunci</th><th></th></tr></thead>
         <tbody>${kolom.soal.map((s,i)=>`
             <tr>
+                <td><input type="checkbox" class="sk-check-row" data-idx="${i}" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer" ${_skSelected.has(i)?'checked':''} onchange="toggleSkSoalOne(${i},this.checked)"></td>
                 <td>${i+1}</td>
                 <td>${s.tampil.map(v=>v&&(v.startsWith('data:')||v.startsWith('/'))?`<img src="${v}" style="height:24px;border-radius:4px;vertical-align:middle;margin:2px">`:`<span style="margin-right:6px">${v}</span>`).join('')}</td>
                 <td>${s.kunci&&(s.kunci.startsWith('data:')||s.kunci.startsWith('/'))?`<img src="${s.kunci}" style="height:24px;border-radius:4px;vertical-align:middle"> (${s.kunci_huruf})`:`<strong style="color:var(--accent)">${s.kunci} (${s.kunci_huruf})</strong>`}</td>
@@ -632,11 +650,52 @@ function _kolomSoalTable(kolom){
     </table></div>`;
 }
 
+// Re-render tabel kolom aktif tanpa mengubah view lain (dipakai setelah toggle
+// checkbox/hapus massal supaya tombol "Hapus Terpilih (n)" & centang "Pilih
+// Semua" langsung sinkron ulang dengan _skSelected terbaru).
+function _refreshKolomSoalTable(){
+    const el=document.getElementById('kolom-soal-list');
+    if(el) el.innerHTML=_kolomSoalTable(SoalState.kolom[_sikapKolIdx]);
+}
+
+function toggleSkSoalOne(idx,checked){
+    if(checked) _skSelected.add(idx); else _skSelected.delete(idx);
+    _refreshKolomSoalTable();
+}
+
+function toggleSkSoalAll(checked){
+    const total=SoalState.kolom[_sikapKolIdx]?.soal.length||0;
+    _skSelected=checked?new Set(Array.from({length:total},(_,i)=>i)):new Set();
+    _refreshKolomSoalTable();
+}
+
 function hapusKolomSoal(kIdx,sIdx){
     showConfirm('Hapus Soal','Yakin hapus soal ini?','danger',()=>{
         SoalState.kolom[kIdx].soal.splice(sIdx,1);
+        // Indeks-indeks di _skSelected geser setelah 1 baris dihapus — buang
+        // yang dihapus, dan turunkan (-1) yang posisinya di bawah baris itu,
+        // supaya centang pada soal lain tidak ikut salah sasaran.
+        const next=new Set();
+        _skSelected.forEach(i=>{ if(i<sIdx) next.add(i); else if(i>sIdx) next.add(i-1); });
+        _skSelected=next;
         const el=document.getElementById('kolom-soal-list');
         if(el) el.innerHTML=_kolomSoalTable(SoalState.kolom[kIdx]);
+        _soalQueueAutoSave();
+    });
+}
+
+function hapusKolomSoalTerpilih(kIdx){
+    const n=_skSelected.size;
+    if(!n) return;
+    showConfirm('Hapus Soal Terpilih',`Yakin hapus ${n} soal yang dicentang?`,'danger',()=>{
+        // Hapus dari indeks terbesar ke terkecil supaya indeks yang belum
+        // diproses tidak ikut bergeser di tengah proses splice.
+        const idxs=Array.from(_skSelected).sort((a,b)=>b-a);
+        idxs.forEach(i=>SoalState.kolom[kIdx].soal.splice(i,1));
+        _skSelected=new Set();
+        const el=document.getElementById('kolom-soal-list');
+        if(el) el.innerHTML=_kolomSoalTable(SoalState.kolom[kIdx]);
+        showToast(`${n} soal dihapus`,'success');
         _soalQueueAutoSave();
     });
 }

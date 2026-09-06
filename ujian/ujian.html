@@ -1174,6 +1174,17 @@ function nextSKKolom() {
   const token = st.examData.token.kode;
   localStorage.removeItem('cbn_sk_timer_' + token); // Hapus sisa waktu kolom lama
   localStorage.removeItem('cbn_sk_deadline_' + token);
+  // PENTING: hapus juga posisi sub-soal (cbn_sk_q_) kolom LAMA di sini. Kalau
+  // tidak, renderSKKolom() kolom BARU akan membaca ulang qi terakhir kolom
+  // sebelumnya (mis. qi=4 dari kolom 1 yang isi 5 soal) sebagai posisi awal
+  // kolom baru. renderSKQ() lalu meng-clamp qi itu ke soal TERAKHIR kolom
+  // baru (kalau qi sudah >= panjang kolom baru) — akibatnya begitu masuk
+  // kolom 2 dst, peserta langsung "dianggap" sudah di soal terakhir kolom
+  // itu, sehingga tiap klik opsi cuma tersimpan diam di situ (kondisi
+  // "qi+1 >= totalSoalKolom" di pilihSK()) dan TIDAK pernah pindah ke soal
+  // berikutnya — persis gejala "macet/diam" yang dilaporkan mulai kolom 2.
+  // Timer tetap jalan normal karena itu logikanya terpisah (lihat di atas).
+  localStorage.removeItem('cbn_sk_q_' + token);
   
   if (_skKolom + 1 < _skItem.kolom.length) {
     renderSKKolom(_skKolom + 1);
