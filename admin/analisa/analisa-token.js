@@ -155,7 +155,7 @@ function _renderAnalisaTokenList() {
         onTapAttr: `onclick="openAnalisaTokenDetail('${_atEsc(g.name)}')"`
     })).join('');
 
-    wrap.innerHTML = `<div class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table><thead><tr><th>#</th><th>Nama Grup</th><th>Digenerate</th><th>Terpakai</th><th class="hide-mobile">Masa Aktivasi</th><th class="hide-mobile">Modul</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div><div class="swipe-list">${cards}</div></div>`;
+    wrap.innerHTML = `<div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap"><table><thead><tr><th>#</th><th>Nama Grup</th><th>Digenerate</th><th>Terpakai</th><th class="hide-mobile">Masa Aktivasi</th><th class="hide-mobile">Modul</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div><div class="swipe-list">${cards}</div></div>`;
     wrap.querySelectorAll('.swipe-list').forEach(el => { if (window.SwipeCards) SwipeCards.bindSwipeList(el); });
 }
 
