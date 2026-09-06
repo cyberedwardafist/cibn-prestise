@@ -16,23 +16,29 @@
 // ── ISI HALAMAN (MASIH DATA DUMMY, sama pola-nya dgn _ATD_DUMMY_* di
 // analisa-token-detail.js — nanti tinggal diganti hasil fetch pertanyaan +
 // jawaban asli per soal dari server) ────────────────────────────────────────
-//   - Teks pertanyaan + daftar pilihan jawaban A-E.
-//   - Tipe "Benar/Salah": pilihan yg jadi kunci ditandai badge hijau "Kunci
-//     Jawaban"; tiap pilihan menampilkan jumlah peserta yg memilihnya di
-//     kanan. Sebaran salah per soal ditarik dari _ATD_DUMMY_BINARY (yg cuma
-//     simpan total benar/salah) lalu dipecah ke 4 opsi selain kunci dgn pola
-//     tetap (lihat _asBuildOpsiData) — murni supaya ada 5 opsi utk didemokan,
-//     BUKAN pecahan asli per opsi (itu baru ada kalau sudah nyambung ke data
-//     jawaban sungguhan).
-//   - Tipe "Nilai/Skor Sendiri": nilai tiap opsi diambil langsung dari
-//     _ATD_DUMMY_SKOR (posisi array opsi = urutan A-E), lalu di sebelahnya
-//     ditampilkan jumlah peserta yg memilih opsi itu. Opsi bernilai (nilai>0)
-//     ditandai serupa "kunci" (hijau) sbg penanda visual opsi yg dapat poin.
-//   - Setelah "Pembahasan": daftar peserta dikelompokkan per opsi A-E. Warna
-//     kotak nama: hijau kalau opsi itu kunci/bernilai, merah kalau bukan.
-//   - Klik salah satu baris opsi di atas -> daftar peserta di bawah/kanan
-//     terfilter cuma opsi itu. Klik opsi yg sama lagi -> filter mati (tampil
-//     semua lagi).
+//   - Kartu Soal, kartu Pilihan Jawaban, dan kartu Pembahasan didesain SAMA
+//     PERSIS spt tampilan "MODE REVIEW" (review/riwayat/riwayat.js ->
+//     renderRuvMC) — kotak huruf opsi 36x36, warna & badge kunci/nilai
+//     mengikuti gaya yg sama, cuma di sini datanya agregat semua peserta
+//     (bukan hasil 1 peserta), jadi tiap opsi SELALU tampil jumlah orang yg
+//     memilihnya di kanan.
+//   - Jumlah pilihan jawaban TIDAK dipatok A-E — bisa lebih atau kurang,
+//     sesuai jumlah opsi asli soal tsb (lihat _AS_DUMMY_BINARY_DETAIL utk
+//     tipe Benar/Salah, dan panjang array `opsi` di _ATD_DUMMY_SKOR utk
+//     tipe Nilai/Skor). Urutan opsi persis urutan aslinya, tidak diacak.
+//   - Tipe "Benar/Salah": opsi kunci ditandai badge kuning "Kunci" (gaya yg
+//     sama dgn kunci-tapi-tidak-dipilih di mode-review).
+//   - Tipe "Nilai/Skor Sendiri": tiap opsi tampil "Nilai X"-nya; opsi
+//     bernilai tertinggi (nilai>0) ditandai warna aksen biru.
+//   - Setelah "Pembahasan": daftar peserta — BUKAN grup ber-header per opsi,
+//     tapi baris per PESERTA (kotak kecil huruf opsi + nama), diurut per
+//     opsi dari yg pertama ke yg terakhir. Opsi yg tidak ada pemilihnya
+//     TIDAK dibuatkan baris/kotak sama sekali. Warna kotak: hijau kalau opsi
+//     itu kunci/bernilai, merah kalau bukan.
+//   - Klik salah satu kartu opsi di atas -> daftar peserta di bawah/kanan
+//     terfilter cuma opsi itu; kalau opsi itu tidak ada pemilihnya, cukup
+//     tampil teks "Tidak ada yang memilih opsi ini". Klik opsi yg sama lagi
+//     -> filter mati (tampil semua lagi), sama spt tombol "Tampilkan semua".
 //   - Layout: mobile (≤768px) daftar peserta ditumpuk di BAWAH (lihat urutan
 //     DOM as-col-main lalu as-col-side); desktop (>768px) daftar peserta
 //     pindah ke KANAN lewat flex-direction:row (lihat css/chart.css).
@@ -231,60 +237,87 @@ function _asRenderContent(grup, nomor, kind) {
 }
 
 function _asOpsiRowHtml(o, kind) {
-    const activeCls = _asActiveFilter === o.idx ? ' as-active' : '';
-    const kunciCls = o.isKunci ? ' as-kunci' : '';
-    const kunciBadge = kind === 'binary' && o.isKunci ? '<span class="as-kunci-badge">Kunci Jawaban</span>' : '';
-    const nilaiBadge = kind === 'skor' ? `<span class="as-nilai-badge${o.isKunci ? ' as-nilai-badge-top' : ''}">Nilai ${o.nilai}</span>` : '';
+    // Meniru persis gaya kartu pilihan jawaban di MODE REVIEW
+    // (review/riwayat/riwayat.js -> renderRuvMC): kotak huruf 36x36 + teks +
+    // badge di kanan. Bedanya di sini tidak ada "jawaban peserta tunggal" yg
+    // dipilih (ini agregat semua peserta), jadi setiap opsi SELALU tampil
+    // jumlah orangnya, dan pewarnaan cuma menandai kunci/opsi bernilai —
+    // bukan status benar/salah 1 orang.
+    let borderColor = 'rgba(19,50,89,0.09)', bgColor = 'rgba(255,255,255,0.5)', letterBg = 'rgba(255,255,255,0.8)', letterColor = 'var(--text-sub)';
+    let leftBadge = '';
+    if (kind === 'binary') {
+        if (o.isKunci) {
+            borderColor = '#d97706'; bgColor = 'rgba(217,119,6,0.07)'; letterBg = '#d97706'; letterColor = '#fff';
+            leftBadge = '<span style="font-size:10px;color:#d97706;font-weight:700;white-space:nowrap;">Kunci</span>';
+        }
+    } else {
+        leftBadge = `<span style="font-size:11px;font-weight:700;color:var(--text-sub);background:rgba(19,50,89,0.06);padding:3px 8px;border-radius:6px;white-space:nowrap;">Nilai ${o.nilai}</span>`;
+        if (o.isKunci) {
+            borderColor = 'var(--accent)'; bgColor = 'rgba(26,90,160,0.08)'; letterBg = 'var(--accent)'; letterColor = '#fff';
+            leftBadge = `<span style="font-size:11px;font-weight:800;color:var(--accent);background:rgba(26,90,160,0.15);padding:3px 8px;border-radius:6px;white-space:nowrap;">Nilai ${o.nilai}</span>`;
+        }
+    }
+    const activeOutline = _asActiveFilter === o.idx ? 'outline:2.5px solid var(--accent2);outline-offset:1px;' : '';
+    const countBadge = `<span style="font-size:11px;font-weight:700;color:var(--blue);white-space:nowrap;">${o.count} orang</span>`;
     return `
-    <div class="as-opsi-row${kunciCls}${activeCls}" onclick="_asToggleFilter(${o.idx})" title="Klik untuk memfilter daftar peserta yang memilih opsi ${o.huruf}">
-        <div class="as-opsi-huruf">${o.huruf}</div>
-        <div class="as-opsi-body">
-            <div class="as-opsi-teks">${_asEsc(o.text)}</div>
-            ${kunciBadge}${nilaiBadge}
-        </div>
-        <div class="as-opsi-count">${o.count}<span>orang</span></div>
+    <div style="display:flex;align-items:center;gap:13px;padding:14px 16px;border-radius:12px;border:1.5px solid ${borderColor};background:${bgColor};min-height:52px;cursor:pointer;${activeOutline}" onclick="_asToggleFilter(${o.idx})" title="Klik untuk memfilter daftar peserta yang memilih opsi ${o.huruf}">
+      <div style="width:36px;height:36px;flex-shrink:0;border-radius:9px;border:1.5px solid rgba(19,50,89,0.12);background:${letterBg};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:${letterColor};">${o.huruf}</div>
+      <div style="flex:1;min-width:0;font-size:15px;line-height:1.5;color:var(--text-main);overflow-wrap:break-word;">${_asEsc(o.text)}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0;">${leftBadge}${countBadge}</div>
     </div>`;
 }
 
-function _asUserGroupHtml(o) {
-    const hiddenCls = (_asActiveFilter !== null && _asActiveFilter !== o.idx) ? ' as-hidden' : '';
-    const chipCls = o.isKunci ? ' correct' : ' wrong';
-    const chips = o.names.length
-        ? o.names.map(n => `<div class="as-user-chip${chipCls}">${_asEsc(n)}</div>`).join('')
-        : '<div class="as-user-empty">Belum ada peserta yang memilih opsi ini</div>';
+// Daftar peserta: BUKAN grup ber-header per opsi, tapi baris per PESERTA —
+// tiap baris = kotak kecil berisi huruf opsi yang dipilih peserta itu +
+// namanya, ditata mirip kartu opsi di atas (kotak huruf + isi). Diurut per
+// opsi (A -> opsi terakhir, sesuai urutan asli array opsi soal, BUKAN
+// diacak); opsi yang tidak ada pemilihnya otomatis TIDAK menghasilkan baris
+// sama sekali (tidak dibuatkan kotak kosong). Warna: hijau kalau opsi itu
+// kunci/bernilai, merah kalau bukan.
+function _asUserRowHtml(o, name) {
+    const isCorrect = o.isKunci;
+    const borderColor = isCorrect ? 'var(--success)' : 'var(--danger)';
+    const bgColor = isCorrect ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.07)';
+    const letterBg = isCorrect ? 'var(--success)' : 'var(--danger)';
     return `
-    <div class="as-user-group${hiddenCls}" data-opt="${o.idx}">
-        <div class="as-user-group-head">
-            <span class="as-opsi-huruf small${o.isKunci ? ' as-kunci' : ''}">${o.huruf}</span>
-            <span class="as-user-group-count">${o.count} orang</span>
-        </div>
-        <div class="as-user-group-list">${chips}</div>
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;border:1.5px solid ${borderColor};background:${bgColor};">
+      <div style="width:26px;height:26px;flex-shrink:0;border-radius:7px;border:1.5px solid rgba(19,50,89,0.12);background:${letterBg};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:#fff;">${o.huruf}</div>
+      <div style="flex:1;min-width:0;font-size:13px;color:var(--text-main);overflow-wrap:break-word;">${_asEsc(name)}</div>
     </div>`;
+}
+
+function _asUserListHtml(data) {
+    let rows = [];
+    data.options.forEach(o => { o.names.forEach(name => rows.push({ o, name })); });
+    if (_asActiveFilter !== null) {
+        rows = rows.filter(r => r.o.idx === _asActiveFilter);
+        if (!rows.length) return '<div class="as-user-empty-msg">Tidak ada yang memilih opsi ini</div>';
+    }
+    return `<div class="as-user-rows">${rows.map(r => _asUserRowHtml(r.o, r.name)).join('')}</div>`;
 }
 
 function _asLayoutHtml(nomor, kind, data) {
     const opsiRows = data.options.map(o => _asOpsiRowHtml(o, kind)).join('');
-    const userGroups = data.options.map(o => _asUserGroupHtml(o)).join('');
     const filterActive = _asActiveFilter !== null;
     const clearBtn = filterActive
         ? `<button class="as-clear-filter" onclick="_asClearFilter()">Tampilkan semua &times;</button>`
         : '';
     const userSub = filterActive
         ? `Menampilkan peserta yang memilih opsi <b>${_asHuruf(_asActiveFilter)}</b> saja`
-        : 'Semua peserta, dikelompokkan per pilihan jawaban';
+        : 'Semua peserta, diurut per pilihan jawaban';
 
     return `
     <div class="as-layout">
       <div class="as-col-main">
-        <div class="card as-soal-card">
-          <div class="as-soal-label">Soal No. ${nomor}</div>
-          <div class="as-soal-text">${_asEsc(data.pertanyaan)}</div>
-          <div class="as-opsi-list">${opsiRows}</div>
-          <div class="as-opsi-hint">Klik salah satu pilihan untuk memfilter daftar peserta; klik lagi untuk menampilkan semua</div>
+        <div style="background:rgba(255,255,255,0.72);border:1.5px solid rgba(255,255,255,0.9);border-radius:16px;padding:22px 24px;box-shadow:0 4px 16px rgba(19,50,89,0.06);margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Soal No. ${nomor}</div>
+          <div style="font-size:16px;line-height:1.8;color:var(--text-main);overflow-wrap:break-word;">${_asEsc(data.pertanyaan)}</div>
         </div>
-        <div class="card as-pembahasan-card">
-          <div class="as-pembahasan-title">Pembahasan</div>
-          <div class="as-pembahasan-text">${_asEsc(data.pembahasan)}</div>
+        <div style="background:rgba(255,255,255,0.6);border:1.5px solid rgba(255,255,255,0.85);border-radius:16px;padding:18px 20px;box-shadow:0 4px 14px rgba(19,50,89,0.05);display:flex;flex-direction:column;gap:9px;overflow-wrap:break-word;margin-bottom:8px;">${opsiRows}</div>
+        <div class="as-opsi-hint">Klik salah satu pilihan untuk memfilter daftar peserta; klik lagi untuk menampilkan semua</div>
+        <div style="background:rgba(26,90,160,0.06);border:1.5px solid rgba(26,90,160,0.12);border-radius:12px;padding:14px;overflow-wrap:break-word;margin-top:14px;">
+          <div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;">💡 Pembahasan</div>
+          <div style="font-size:14px;line-height:1.7;color:var(--text-main);">${_asEsc(data.pembahasan)}</div>
         </div>
       </div>
       <div class="as-col-side">
@@ -294,7 +327,7 @@ function _asLayoutHtml(nomor, kind, data) {
             ${clearBtn}
           </div>
           <div class="section-sub" style="margin-bottom:12px">${userSub}</div>
-          <div class="as-user-groups">${userGroups}</div>
+          ${_asUserListHtml(data)}
         </div>
       </div>
     </div>`;
