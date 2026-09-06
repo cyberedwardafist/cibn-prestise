@@ -455,7 +455,7 @@ function _atdBuildLineChart(containerId, opts) {
 // yang jadi fokus utama (digambar di atas bola2 sebaran) supaya pola/tren
 // kolektifnya langsung terlihat jelas tanpa tertarik outlier.
 function _atdBuildSikapMedianChart(containerId, opts) {
-    const { title, sub, categories, catData, kind, hideAnalisaBtn, userOverlay, showUtama, showUser } = opts;
+    const { title, sub, categories, catData, kind, hideAnalisaBtn, userOverlay, showUtamaCats, showUserCats } = opts;
     const width = 680, height = 300, left = 34, right = 16, top = 16, bottom = 40;
     const plotW = width - left - right, plotH = height - top - bottom;
     const N = categories.length;
@@ -529,10 +529,16 @@ function _atdBuildSikapMedianChart(containerId, opts) {
         </g>`;
     });
 
-    // 2) Grup "UTAMA" — bola sebaran + garis median SELURUH GRUP. Dibungkus
-    // <g id="{containerId}-g-utama"> supaya bisa disembunyikan/ditampilkan
-    // lewat switch "Utama" (lihat _agToggleGroup di analisa-grafik.js) tanpa
-    // mengubah rect/label kolom di atas maupun overlay 1 akun di bawah.
+    // 2) Grup "UTAMA" — bola sebaran + garis median SELURUH GRUP, per
+    // KATEGORI (Benar/Salah/Jumlah Dijawab) masing2 dibungkus <g> SENDIRI:
+    // <g id="{containerId}-g-utama-{catKey}"> — supaya tiap kategori bisa
+    // disembunyikan/ditampilkan SATU-SATU lewat switch-nya sendiri di panel
+    // #ag-switches (lihat _agToggleGroup di analisa-grafik.js), bukan cuma
+    // 1 toggle besar utk seluruh grup "Utama" sekaligus.
+    // showUtamaCats: objek opsional { [catKey]: boolean }. Kalau kunci
+    // katerogi tsb tidak ada / undefined, DIANGGAP TAMPIL (default true) —
+    // jadi halaman asal (Analisa Token, yg tidak pernah mengirim opsi ini)
+    // otomatis tetap menggambar semuanya spt biasa, tidak berubah.
     // Tiap bola dibungkus <g class="atd-bubble-hit" data-col data-cat
     // data-val data-count>, default pointer-events:none (lewat inline style)
     // supaya TIDAK mengubah perilaku lama di halaman asal (Analisa Token —
@@ -540,44 +546,44 @@ function _atdBuildSikapMedianChart(containerId, opts) {
     // baru betulan aktif kalau pointer-events-nya sengaja diubah jadi "auto"
     // — itu cuma dilakukan di admin/analisa/analisa-grafik.js
     // (_agBindBubbleEvents), khusus halaman Analisa Grafik.
-    let utamaSvg = '';
+    const medians = catData.map(c => c.dist.map(d => _atdWeightedMedian(d)));
     catData.forEach((c, k) => {
+        const catKey = c.key || c.label;
+        let catSvg = '';
         c.dist.forEach((d, i) => {
             Object.entries(d).forEach(([val, count]) => {
                 if (!count) return;
                 const r = Math.min(9, 2.6 + Math.sqrt(count) * 1.6);
                 const px = cx(i) + offsets[k];
                 const py = cy(Number(val));
-                utamaSvg += `<g class="atd-bubble-hit" data-col="${i}" data-cat="${c.key || c.label}" data-val="${val}" data-count="${count}" style="pointer-events:none">
+                catSvg += `<g class="atd-bubble-hit" data-col="${i}" data-cat="${catKey}" data-val="${val}" data-count="${count}" style="pointer-events:none">
                     <circle class="atd-bubble" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${r.toFixed(1)}" fill="${c.color}"></circle>
                     <text class="atd-bubble-label" x="${px.toFixed(1)}" y="${(py + 2.5).toFixed(1)}">${count}</text>
                 </g>`;
             });
         });
-    });
-    const medians = catData.map(c => c.dist.map(d => _atdWeightedMedian(d)));
-    catData.forEach((c, k) => {
         const pts = medians[k].map((m, i) => `${(cx(i) + offsets[k]).toFixed(1)},${cy(m).toFixed(1)}`).join(' ');
-        utamaSvg += `<polyline class="atd-median-line" points="${pts}" stroke="${c.color}" fill="none"></polyline>`;
+        catSvg += `<polyline class="atd-median-line" points="${pts}" stroke="${c.color}" fill="none"></polyline>`;
         medians[k].forEach((m, i) => {
-            utamaSvg += `<circle class="atd-median-dot" cx="${(cx(i) + offsets[k]).toFixed(1)}" cy="${cy(m).toFixed(1)}" r="4" fill="#fff" stroke="${c.color}"></circle>`;
+            catSvg += `<circle class="atd-median-dot" cx="${(cx(i) + offsets[k]).toFixed(1)}" cy="${cy(m).toFixed(1)}" r="4" fill="#fff" stroke="${c.color}"></circle>`;
         });
+        const visible = !(showUtamaCats && showUtamaCats[catKey] === false);
+        svgParts += `<g id="${containerId}-g-utama-${catKey}" style="display:${visible ? 'block' : 'none'}">${catSvg}</g>`;
     });
-    svgParts += `<g id="${containerId}-g-utama" style="display:${showUtama === false ? 'none' : 'block'}">${utamaSvg}</g>`;
 
     // 3) Grup "NAMA USER" — overlay 1 akun yg dipilih lewat popup bola
-    // sebaran (lihat analisa-grafik.js _agSelectUser). Garis PUTUS-PUTUS
-    // (beda dari garis median yg solid) tapi tetap pakai warna kategori yg
-    // sama (hijau/merah/biru) biar gampang dikaitkan ke legenda yg sama.
-    // SELALU digambar utk KETIGA kategori (Benar/Salah/Jumlah Dijawab)
-    // sekaligus, bukan cuma kategori bola yg diklik — sesuai permintaan.
+    // sebaran (lihat analisa-grafik.js _agSelectUser), per KATEGORI juga
+    // dibungkus <g> sendiri (sama alasannya dgn grup "Utama" di atas):
+    // <g id="{containerId}-g-user-{catKey}">. Garis PUTUS-PUTUS (beda dari
+    // garis median yg solid) tapi tetap pakai warna kategori yg sama
+    // (hijau/merah/biru) biar gampang dikaitkan ke legenda yg sama.
     // Titik yg nilainya null (org itu tdk ada datanya di kolom itu)
     // dilompati, bukan digambar sbg 0.
     if (userOverlay && userOverlay.series) {
         const colorMap = { benar: '#16a34a', salah: '#dc2626', dijawab: '#2666b8' };
-        let userSvg = '';
         ['benar', 'salah', 'dijawab'].forEach(k => {
             const vals = userOverlay.series[k] || [];
+            let userSvg = '';
             const ptsArr = [];
             vals.forEach((v, i) => { if (v != null) ptsArr.push(`${cx(i).toFixed(1)},${cy(v).toFixed(1)}`); });
             if (ptsArr.length) userSvg += `<polyline class="atd-user-line" points="${ptsArr.join(' ')}" stroke="${colorMap[k]}" fill="none"></polyline>`;
@@ -586,8 +592,9 @@ function _atdBuildSikapMedianChart(containerId, opts) {
                 const px = cx(i), py = cy(v);
                 userSvg += `<rect class="atd-user-dot" x="${(px - 3.5).toFixed(1)}" y="${(py - 3.5).toFixed(1)}" width="7" height="7" fill="#fff" stroke="${colorMap[k]}"></rect>`;
             });
+            const visible = !(showUserCats && showUserCats[k] === false);
+            svgParts += `<g id="${containerId}-g-user-${k}" style="display:${visible ? 'block' : 'none'}">${userSvg}</g>`;
         });
-        svgParts += `<g id="${containerId}-g-user" style="display:${showUser === false ? 'none' : 'block'}">${userSvg}</g>`;
     }
 
     const svg = `<svg class="atd-chart-svg" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">${svgParts}</svg>`;

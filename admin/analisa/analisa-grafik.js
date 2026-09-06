@@ -66,8 +66,8 @@ function renderAnalisaGrafik() {
     // tidak kebawa selection dari kunjungan sebelumnya.
     _agHideBubblePop();
     _agSelectedUser = null;
-    _agShowUtama = true;
-    _agShowUser = true;
+    _agShowUtama = { benar: true, salah: true, dijawab: true };
+    _agShowUser = { benar: true, salah: true, dijawab: true };
     _agRenderContent(grup, kind);
 }
 
@@ -126,8 +126,8 @@ function _agRenderSikap(el) {
         categories: cats, catData, kind: 'sikap',
         hideAnalisaBtn: true,
         userOverlay,
-        showUtama: _agShowUtama !== false,
-        showUser: _agShowUser !== false
+        showUtamaCats: _agShowUtama,
+        showUserCats: _agShowUser
     });
     const leg = document.getElementById('ag-chart-sikap-legend');
     if (leg) leg.innerHTML = _atdSikapLegendHtml() + (userOverlay ? _agUserLegendHtml(_agSelectedUser) : '');
@@ -149,8 +149,10 @@ function _agUserLegendHtml(nama) {
 let _agActiveBubbleKey = null;  // "kolom|kategori|nilai" bola yg lagi buka popup-nya
 let _agActiveBubbleEl = null;   // elemen <g class="atd-bubble-hit"> yg lagi aktif
 let _agSelectedUser = null;     // nama akun yg lagi ditampilkan overlay-nya
-let _agShowUtama = true;        // status switch "Utama"
-let _agShowUser = true;         // status switch "nama user"
+// Status switch PER KATEGORI (Benar/Salah/Jumlah Dijawab), masing2 utk grup
+// "Utama" & grup "nama user" — BUKAN lagi 1 toggle besar per grup.
+let _agShowUtama = { benar: true, salah: true, dijawab: true };
+let _agShowUser = { benar: true, salah: true, dijawab: true };
 
 const _AG_CAT_META = {
     benar: { label: 'Benar', color: '#16a34a' },
@@ -304,20 +306,38 @@ function _agSelectUser(evt, nama) {
     if (evt) evt.stopPropagation();
     _agHideBubblePop();
     _agSelectedUser = nama;
-    // Sesuai permintaan: begitu 1 nama dipilih, KEDUA switch ("Utama" & nama
-    // org itu) otomatis nyala — grafik yg tampil = median grup + SELURUH
-    // kategori org itu, bukan cuma kategori bola yg tadi diklik.
-    _agShowUtama = true;
-    _agShowUser = true;
+    // Sesuai permintaan: begitu 1 nama dipilih, SEMUA switch ("Utama" & nama
+    // org itu, ketiga kategorinya) otomatis nyala — grafik yg tampil =
+    // median grup + SELURUH kategori org itu, bukan cuma kategori bola yg
+    // tadi diklik.
+    _agShowUtama = { benar: true, salah: true, dijawab: true };
+    _agShowUser = { benar: true, salah: true, dijawab: true };
     const el = document.getElementById('ag-content');
     if (el) _agRenderSikap(el);
 }
 
 // ── PANEL SWITCH "Utama" / nama user ───────────────────────────────────────
-function _agToggleGroup(which, checked) {
-    if (which === 'utama') _agShowUtama = checked; else _agShowUser = checked;
-    const g = document.getElementById('ag-chart-sikap-g-' + which);
+// Tiap grup (Utama / nama user) sekarang py 3 switch SENDIRI2, satu per
+// kategori (Benar/Salah/Jumlah Dijawab) — bukan lagi 1 toggle besar yg
+// nyalain/matiin seluruh grup sekaligus. `which` = 'utama' | 'user',
+// `catKey` = 'benar' | 'salah' | 'dijawab'.
+function _agToggleGroup(which, catKey, checked) {
+    const store = which === 'utama' ? _agShowUtama : _agShowUser;
+    store[catKey] = checked;
+    const g = document.getElementById('ag-chart-sikap-g-' + which + '-' + catKey);
     if (g) g.style.display = checked ? 'block' : 'none';
+}
+
+// Urutan & label kategori dipakai bareng utk grup "Utama" maupun grup nama
+// user (sama persis dgn _AG_CAT_META) — 1 baris switch per kategori.
+function _agCatSwitchRowsHtml(which, state) {
+    return ['benar', 'salah', 'dijawab'].map(catKey => {
+        const meta = _AG_CAT_META[catKey];
+        return `<div class="ag-switch-row">
+            <label class="ag-switch"><input type="checkbox" ${state[catKey] ? 'checked' : ''} onchange="_agToggleGroup('${which}','${catKey}', this.checked)"><span class="ag-switch-slider"></span></label>
+            <span>${_atdEsc(meta.label)}</span>
+        </div>`;
+    }).join('');
 }
 
 function _agRenderSwitches() {
@@ -346,13 +366,13 @@ function _agRenderSwitches() {
     }
     panel.innerHTML = `
         <div class="ag-switches-title">Tampilkan</div>
-        <div class="ag-switch-row">
-            <label class="ag-switch"><input type="checkbox" ${_agShowUtama ? 'checked' : ''} onchange="_agToggleGroup('utama', this.checked)"><span class="ag-switch-slider"></span></label>
-            <span>Utama</span>
+        <div class="ag-switch-group">
+            <div class="ag-switch-group-title">Utama</div>
+            ${_agCatSwitchRowsHtml('utama', _agShowUtama)}
         </div>
-        ${_agSelectedUser ? `<div class="ag-switch-row">
-            <label class="ag-switch"><input type="checkbox" ${_agShowUser ? 'checked' : ''} onchange="_agToggleGroup('user', this.checked)"><span class="ag-switch-slider"></span></label>
-            <span>${_atdEsc(_agSelectedUser)}</span>
+        ${_agSelectedUser ? `<div class="ag-switch-group">
+            <div class="ag-switch-group-title">${_atdEsc(_agSelectedUser)}</div>
+            ${_agCatSwitchRowsHtml('user', _agShowUser)}
         </div>` : ''}
     `;
     panel.style.display = 'flex';

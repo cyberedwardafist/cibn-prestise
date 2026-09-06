@@ -111,6 +111,11 @@
 .ag-main{flex:1;min-width:0}
 .ag-switches{display:none;flex-direction:column;gap:12px;background:#fff;border:1px solid rgba(19,50,89,.08);border-radius:14px;padding:14px}
 .ag-switches-title{font-size:11px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:.03em}
+/* Tiap grup (Utama / nama user terpilih) py heading sendiri + 3 baris switch
+   (Benar/Salah/Jumlah Dijawab) di bawahnya — dipisah garis tipis antar grup. */
+.ag-switch-group{display:flex;flex-direction:column;gap:8px}
+.ag-switch-group + .ag-switch-group{padding-top:12px;border-top:1px solid rgba(19,50,89,.08)}
+.ag-switch-group-title{font-size:12px;font-weight:700;color:var(--text-main)}
 .ag-switch-row{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:600;color:var(--text-main)}
 .ag-switch{position:relative;display:inline-block;width:36px;height:20px;flex:none}
 .ag-switch input{opacity:0;width:0;height:0;position:absolute}
