@@ -444,7 +444,7 @@ function _atdBuildLineChart(containerId, opts) {
 // yang jadi fokus utama (digambar di atas bola2 sebaran) supaya pola/tren
 // kolektifnya langsung terlihat jelas tanpa tertarik outlier.
 function _atdBuildSikapMedianChart(containerId, opts) {
-    const { title, sub, categories, catData, kind } = opts;
+    const { title, sub, categories, catData, kind, hideAnalisaBtn } = opts;
     const width = 680, height = 300, left = 34, right = 16, top = 16, bottom = 40;
     const plotW = width - left - right, plotH = height - top - bottom;
     const N = categories.length;
@@ -534,10 +534,10 @@ function _atdBuildSikapMedianChart(containerId, opts) {
         </div>
         <div class="atd-chart-svg-wrap">${svg}</div>
         <div class="atd-legend" id="${containerId}-legend"></div>
-        <button class="atd-btn-analisa-grafik" onclick="_atdGoToGrafikDetail(event,'${kind}')">
+        ${hideAnalisaBtn ? '' : `<button class="atd-btn-analisa-grafik" onclick="_atdGoToGrafikDetail(event,'${kind}')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
             Analisa
-        </button>`;
+        </button>`}`;
 }
 
 // ── POPUP DIAGRAM LINGKARAN (donut, teknik stroke-dasharray) ────────────
