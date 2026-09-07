@@ -21,11 +21,16 @@
 // STRUKTUR FILE:
 //   Sheet 1 "ANALISA"   = ringkasan grup (token, modul, daftar soal) + grafik
 //                         ringkasan per tipe (Benar/Salah, Nilai/Skor, Sikap Kerja).
-//   Sheet 2, 3, dst "Soal N" = 1 sheet PER SOAL/KOLOM (urut: semua soal
-//                         Benar/Salah dulu, lalu Nilai/Skor, lalu tiap kolom
-//                         Sikap Kerja) — isinya pertanyaan lengkap, opsi/kunci/
-//                         nilai, jumlah & nama peserta per opsi, + grafik
-//                         distribusi jawaban soal itu.
+//   Sheet 2, 3, dst "Soal N" = 1 sheet PER SOAL (urut: semua soal
+//                         Benar/Salah dulu, lalu Nilai/Skor) — isinya
+//                         pertanyaan lengkap, opsi/kunci/nilai, jumlah & nama
+//                         peserta per opsi, + grafik distribusi jawaban soal
+//                         itu. Kalau modul ada soal Sikap Kerja, SEMUA
+//                         kolomnya (K1, K2, dst) digabung jadi 1 sheet
+//                         terakhir, isinya per PENGERJAAN (bukan per akun) —
+//                         1 blok grafik per pengerjaan ditumpuk ke bawah;
+//                         pengerjaan berulang dgn nama sama TETAP jadi blok
+//                         terpisah (dibedakan via id laporan, bukan nama).
 
 const AnalisaExport = (() => {
 
@@ -48,7 +53,7 @@ const AnalisaExport = (() => {
         return String(s || 'Grup').replace(/[\\/:*?"<>|]+/g, '_').trim().substring(0, 60) || 'Grup';
     }
 
-    // ── OOXML CHART BUILDER (native <c:barChart>, data literal) ───────────
+    // ── OOXML CHART BUILDER (native <c:lineChart>, data literal) ───────────
     function _numLit(values) {
         const pts = values.map((v, i) => `<c:pt idx="${i}"><c:v>${Number(v) || 0}</c:v></c:pt>`).join('');
         return `<c:numLit><c:formatCode>General</c:formatCode><c:ptCount val="${values.length}"/>${pts}</c:numLit>`;
@@ -61,9 +66,11 @@ const AnalisaExport = (() => {
         return `<c:ser>
             <c:idx val="${idx}"/><c:order val="${idx}"/>
             <c:tx><c:v>${_esc(ser.name)}</c:v></c:tx>
-            <c:spPr><a:solidFill><a:srgbClr val="${ser.color}"/></a:solidFill></c:spPr>
+            <c:spPr><a:ln w="28575"><a:solidFill><a:srgbClr val="${ser.color}"/></a:solidFill></a:ln></c:spPr>
+            <c:marker><c:symbol val="circle"/><c:size val="5"/><c:spPr><a:solidFill><a:srgbClr val="${ser.color}"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="${ser.color}"/></a:solidFill></a:ln></c:spPr></c:marker>
             <c:cat>${_strLit(categories)}</c:cat>
             <c:val>${_numLit(ser.values)}</c:val>
+            <c:smooth val="0"/>
         </c:ser>`;
     }
     function _buildChartXml({ title, categories, series }) {
@@ -76,7 +83,7 @@ const AnalisaExport = (() => {
 <c:chart>
 ${titleXml}
 <c:plotArea><c:layout/>
-<c:barChart><c:barDir val="col"/><c:grouping val="clustered"/><c:varyColors val="0"/>${seriesAll}<c:axId val="111111111"/><c:axId val="222222222"/></c:barChart>
+<c:lineChart><c:grouping val="standard"/><c:varyColors val="0"/>${seriesAll}<c:marker val="1"/><c:axId val="111111111"/><c:axId val="222222222"/></c:lineChart>
 <c:catAx><c:axId val="111111111"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:txPr><a:bodyPr rot="-2700000" vert="horz"/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="800"/></a:pPr><a:endParaRPr lang="en-US"/></a:p></c:txPr><c:crossAx val="222222222"/></c:catAx>
 <c:valAx><c:axId val="222222222"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:majorGridlines/><c:crossAx val="111111111"/></c:valAx>
 </c:plotArea>
@@ -85,6 +92,7 @@ ${titleXml}
 </c:chart>
 </c:chartSpace>`;
     }
+
     function _buildDrawingXml(anchors) {
         let id = 2;
         const xml = anchors.map(a => {
@@ -245,22 +253,35 @@ ${titleXml}
         }
 
         if (tipeSoal.sikap && charts.sikap.length) {
-            rows.push(['GRAFIK SIKAP KERJA — MEDIAN PER KOLOM']);
-            rows.push(['KOLOM', 'MEDIAN BENAR', 'MEDIAN SALAH', 'MEDIAN DIJAWAB']);
+            rows.push(['GRAFIK SIKAP KERJA — MEDIAN & SD PER KOLOM']);
+            rows.push(['KOLOM', 'MEDIAN BENAR', 'SD BENAR', 'MEDIAN SALAH', 'SD SALAH', 'MEDIAN DIJAWAB', 'SD DIJAWAB']);
             const median = arr => {
                 if (!arr.length) return 0;
                 const s = arr.slice().sort((a, b) => a - b);
                 const n = s.length;
                 return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
             };
-            const medBenar = [], medSalah = [], medDijawab = [], catKolom = [];
+            // Standar deviasi POPULASI (bagi n) — sama persis rumusnya dgn
+            // _atdWeightedStdDev di analisa-token-detail.js (popup "Kolom K1"
+            // di halaman on-screen), cuma di sini inputnya array nilai
+            // mentah per peserta, bukan peta distribusi tertimbang.
+            const stdDev = arr => {
+                if (!arr.length) return 0;
+                const mean = arr.reduce((a, v) => a + v, 0) / arr.length;
+                const variance = arr.reduce((a, v) => a + Math.pow(v - mean, 2), 0) / arr.length;
+                return Math.round(Math.sqrt(variance) * 100) / 100;
+            };
+            const medBenar = [], sdBenar = [], medSalah = [], sdSalah = [], medDijawab = [], sdDijawab = [], catKolom = [];
             charts.sikap.forEach((kolom, ki) => {
                 catKolom.push('K' + (ki + 1));
-                medBenar.push(median(kolom.map(p => p.benar)));
-                medSalah.push(median(kolom.map(p => p.salah)));
-                medDijawab.push(median(kolom.map(p => p.benar + p.salah)));
+                const arrBenar = kolom.map(p => p.benar);
+                const arrSalah = kolom.map(p => p.salah);
+                const arrDijawab = kolom.map(p => p.benar + p.salah);
+                medBenar.push(median(arrBenar)); sdBenar.push(stdDev(arrBenar));
+                medSalah.push(median(arrSalah)); sdSalah.push(stdDev(arrSalah));
+                medDijawab.push(median(arrDijawab)); sdDijawab.push(stdDev(arrDijawab));
             });
-            catKolom.forEach((k, i) => rows.push([k, medBenar[i], medSalah[i], medDijawab[i]]));
+            catKolom.forEach((k, i) => rows.push([k, medBenar[i], sdBenar[i], medSalah[i], sdSalah[i], medDijawab[i], sdDijawab[i]]));
             chartSpecs.push({
                 title: 'Grafik Median Sikap Kerja per Kolom',
                 categories: catKolom,
@@ -314,28 +335,51 @@ ${titleXml}
         return { rows, merges, chart };
     }
 
-    // ── SUSUN ISI SHEET "Soal N" (1 kolom Sikap Kerja) ─────────────────────
-    function _buildSheetSikapKolom(globalIdx, kolomIdx, peserta) {
+    // ── SUSUN ISI SHEET "Soal N" (SEMUA kolom Sikap Kerja jadi 1 sheet) ────
+    // Per PERMINTAAN: bukan 1 sheet per kolom (K1, K2, ...), tapi 1 sheet utk
+    // seluruh soal tipe Sikap Kerja, isinya per PENGERJAAN (bukan per akun/
+    // nama) — 1 blok grafik utk 1 pengerjaan, ditumpuk ke bawah utk
+    // pengerjaan berikutnya. Kalau 1 nama/akun yg sama mengerjakan token
+    // lain lagi, itu TETAP masuk sbg blok baru terpisah (dibedakan pakai
+    // `id` = kode laporan per baris sikapRaw, bukan `nama` — lihat komentar
+    // di server.js computeAnalisaGrupAggregate soal ini), tidak digabung
+    // jadi satu walau namanya sama.
+    function _buildSheetSikapKerja(globalIdx, sikapRaw) {
         const rows = [];
         rows.push(['SOAL', globalIdx]);
-        rows.push(['TIPE', `Sikap Kerja — Kolom K${kolomIdx + 1}`]);
-        rows.push([]);
-        rows.push(['NAMA PESERTA', 'BENAR', 'SALAH', 'JUMLAH DIJAWAB']);
-        (peserta || []).forEach(p => rows.push([p.nama, p.benar, p.salah, p.benar + p.salah]));
+        rows.push(['TIPE', 'Sikap Kerja (semua kolom, per pengerjaan)']);
         rows.push([]);
 
-        // Grafik dibatasi 30 peserta pertama biar tetap terbaca (tabel di atas tetap lengkap semua peserta)
-        const capped = (peserta || []).slice(0, 30);
-        const chart = {
-            title: `Sebaran Benar/Salah — Kolom K${kolomIdx + 1}`,
-            categories: capped.map(p => p.nama),
-            series: [
-                { name: 'Benar', color: '16A34A', values: capped.map(p => p.benar) },
-                { name: 'Salah', color: 'DC2626', values: capped.map(p => p.salah) }
-            ],
-            fromCol: 0, fromRow: rows.length + 1, toCol: 8, toRow: rows.length + 1 + 16
-        };
-        return { rows, chart };
+        const chartSpecs = [];
+        const nKolom = sikapRaw.length;
+        const nPengerjaan = (sikapRaw[0] || []).length;
+        const PAD_ROWS = 16;
+
+        for (let pi = 0; pi < nPengerjaan; pi++) {
+            const first = sikapRaw[0][pi] || {};
+            rows.push(['PESERTA', first.nama || '-', 'ID PENGERJAAN', first.id || '-']);
+            rows.push(['KOLOM', 'BENAR', 'SALAH', 'JUMLAH DIJAWAB']);
+            const cats = [], benarArr = [], salahArr = [];
+            for (let ki = 0; ki < nKolom; ki++) {
+                const p = (sikapRaw[ki] && sikapRaw[ki][pi]) || { benar: 0, salah: 0 };
+                rows.push([`K${ki + 1}`, p.benar, p.salah, p.benar + p.salah]);
+                cats.push(`K${ki + 1}`);
+                benarArr.push(p.benar);
+                salahArr.push(p.salah);
+            }
+            chartSpecs.push({
+                title: `Sikap Kerja — ${first.nama || '-'} (${first.id || '-'})`,
+                categories: cats,
+                series: [
+                    { name: 'Benar', color: '16A34A', values: benarArr },
+                    { name: 'Salah', color: 'DC2626', values: salahArr }
+                ],
+                fromCol: 0, fromRow: rows.length + 1, toCol: 7, toRow: rows.length + 1 + 14
+            });
+            for (let i = 0; i < PAD_ROWS; i++) rows.push([]);
+        }
+
+        return { rows, chartSpecs };
     }
 
     // ── ENTRY POINT ─────────────────────────────────────────────────────────
@@ -348,7 +392,7 @@ ${titleXml}
 
         const { rows: rowsAnalisa, chartSpecs: chartsAnalisa } = _buildSheetAnalisa(grupNama, agg);
         const wsAnalisa = XLSX.utils.aoa_to_sheet(rowsAnalisa);
-        wsAnalisa['!cols'] = [{ wch: 34 }, { wch: 20 }, { wch: 16 }, { wch: 16 }];
+        wsAnalisa['!cols'] = [{ wch: 34 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 14 }];
         XLSX.utils.book_append_sheet(wb, wsAnalisa, 'ANALISA');
         if (chartsAnalisa.length) sheetChartsMap['ANALISA'] = chartsAnalisa;
 
@@ -377,15 +421,15 @@ ${titleXml}
             sheetChartsMap[sheetName] = [chart];
         });
 
-        (charts.sikap || []).forEach((peserta, ki) => {
+        if (charts.sikap && charts.sikap.length) {
             globalIdx++;
             const sheetName = `Soal ${globalIdx}`;
-            const { rows, chart } = _buildSheetSikapKolom(globalIdx, ki, peserta);
+            const { rows, chartSpecs: sikapCharts } = _buildSheetSikapKerja(globalIdx, charts.sikap);
             const ws = XLSX.utils.aoa_to_sheet(rows);
-            ws['!cols'] = [{ wch: 30 }, { wch: 10 }, { wch: 10 }, { wch: 16 }];
+            ws['!cols'] = [{ wch: 22 }, { wch: 16 }, { wch: 16 }, { wch: 24 }];
             XLSX.utils.book_append_sheet(wb, ws, sheetName);
-            sheetChartsMap[sheetName] = [chart];
-        });
+            sheetChartsMap[sheetName] = sikapCharts;
+        }
 
         const xlsxBytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
         return _injectCharts(xlsxBytes, sheetChartsMap);

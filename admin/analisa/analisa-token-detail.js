@@ -681,6 +681,20 @@ function _atdRenderPiePopup(title, slices) {
     pop.innerHTML = `<div class="atd-pie-pop-title">${title}</div><div class="atd-pie-pop-body">${_atdPieSvg(slices)}<div class="atd-pie-pop-legend">${legend}</div></div>`;
 }
 
+// Varian & standar deviasi POPULASI (bagi n, bukan n-1) dari peta distribusi
+// tertimbang {nilai: jumlah_orang} yang sama dgn input _atdWeightedMedian —
+// dipakai supaya "SD" di popup konsisten dgn "n=... orang" & rentang yg
+// sudah ditampilkan (semua dihitung dari populasi peserta grup ini, bukan
+// sampel/estimasi thd populasi lebih besar).
+function _atdWeightedStdDev(dist) {
+    const entries = Object.entries(dist).map(([v, cnt]) => [Number(v), cnt]).filter(([, cnt]) => cnt > 0);
+    const n = entries.reduce((s, [, cnt]) => s + cnt, 0);
+    if (!n) return 0;
+    const mean = entries.reduce((s, [v, cnt]) => s + v * cnt, 0) / n;
+    const variance = entries.reduce((s, [v, cnt]) => s + cnt * Math.pow(v - mean, 2), 0) / n;
+    return Math.sqrt(variance);
+}
+
 // ── POPUP STAT (median/rentang/jumlah orang) — khusus Sikap Kerja ─────────
 // Bukan pie krn di sini tiap kategori punya sebaran & skala sendiri2, bukan
 // proporsi dari 1 total yang sama, jadi disajikan sbg ringkasan per kategori.
@@ -693,7 +707,8 @@ function _atdRenderSikapStatPopup(idx) {
         const min = entries.length ? entries[0][0] : 0;
         const max = entries.length ? entries[entries.length - 1][0] : 0;
         const median = _atdWeightedMedian(dist);
-        return `<div class="atd-pie-pop-row"><span class="atd-legend-dot" style="background:${c.color}"></span><span>${c.label}</span><b>Median ${median}</b></div>
+        const sd = _atdWeightedStdDev(dist);
+        return `<div class="atd-pie-pop-row"><span class="atd-legend-dot" style="background:${c.color}"></span><span>${c.label}</span><b>Median ${median} <span class="atd-pie-pop-sd">· SD ${sd.toFixed(2)}</span></b></div>
                 <div class="atd-pie-pop-sub">Rentang ${min}–${max} · n=${n} orang</div>`;
     }).join('');
     const pop = _atdGetPiePopEl();

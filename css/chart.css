@@ -55,6 +55,7 @@
 .atd-pie-pop-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-main)}
 .atd-pie-pop-row .atd-legend-dot{width:8px;height:8px;border-radius:50%}
 .atd-pie-pop-row b{margin-left:auto;color:var(--blue);font-weight:700;white-space:nowrap}
+.atd-pie-pop-sd{color:var(--text-sub);font-weight:500}
 .atd-pie-pop-pct{color:var(--text-sub);font-weight:500;font-size:10px}
 
 /* ── RINGKASAN GRUP (stat token + modul/soal) & PESERTA — admin/analisa/analisa-token-detail.js ── */
