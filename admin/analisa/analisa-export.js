@@ -1,7 +1,16 @@
 // admin/analisa/analisa-export.js
-// Tombol "Ekstrak" di admin/analisa/analisa-token-detail.js — mengubah data
-// analisa 1 grup token (window._analisaTokenDetailAgg, hasil GET
-// /api/analisa/grup/:grubKey) jadi 1 file .xlsx yang bisa diunduh admin.
+// Dipakai oleh 2 tombol "Ekstrak":
+//   1) admin/analisa/analisa-token-detail.js (AnalisaExport.build) — data
+//      analisa 1 GRUP TOKEN (window._analisaTokenDetailAgg, hasil GET
+//      /api/analisa/grup/:grubKey).
+//   2) admin/analisa/analisa-soal-detail.js (AnalisaExport.buildSoal) — data
+//      analisa 1 SOAL TUNGGAL lewat Sampel manual (window.
+//      _analisaSoalDetailHasil, hasil POST /api/analisa/soal/:kode/hitung).
+// Keduanya jadi 1 file .xlsx yang bisa diunduh admin, strukturnya sama
+// persis (lihat _appendChartSummaryBlocks/_appendSoalSheets) — cuma beda
+// header ringkasan di sheet "ANALISA" (_buildSheetAnalisa vs
+// _buildSheetAnalisaSoal), karena versi soal tunggal tidak punya info
+// token/modul grup.
 //
 // SEMUA proses jalan di BROWSER (tidak ada endpoint server baru) — pakai 2
 // library yang SUDAH dimuat eager di shell admin (lihat admin/index_admin.html):
@@ -200,21 +209,17 @@ ${titleXml}
         return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     }
 
-    // ── SUSUN ISI SHEET "ANALISA" (ringkasan grup + grafik ringkasan) ─────
-    function _buildSheetAnalisa(grupNama, agg) {
-        const { ringkasan, tipe_soal: tipeSoal, charts } = agg;
-        const modul = ringkasan.modul;
-        const rows = [];
-        rows.push(['NAMA GRUP', grupNama]);
-        rows.push(['TOKEN DIBUAT', ringkasan.total]);
-        rows.push(['TOKEN TERPAKAI', ringkasan.used]);
-        rows.push(['TOKEN HANGUS', ringkasan.hangus]);
-        rows.push(['NAMA MODUL', modul ? modul.nama : '-']);
-        rows.push([]);
-        rows.push(['DAFTAR SOAL / KOLOM']);
-        (modul && modul.soal || []).forEach((s, i) => rows.push([`${i + 1}. ${s.nama}`, `${s.butir} pertanyaan`]));
-        rows.push([]);
-
+    // ── BLOK GRAFIK RINGKASAN (Benar/Salah, Nilai/Skor, Sikap Kerja) ──────
+    // Dipakai bareng oleh sheet "ANALISA" versi grup TOKEN (_buildSheetAnalisa)
+    // MAUPUN versi 1 SOAL tunggal (_buildSheetAnalisaSoal, dipakai tombol
+    // Ekstrak di admin/analisa/analisa-soal-detail.js) — isinya sama sekali
+    // tidak bergantung pada info grup/token/modul, murni dari `tipeSoal` +
+    // `charts` (bentuknya identik persis di kedua konteks, lihat
+    // computeAnalisaGrupAggregate() vs computeAnalisaSoalAggregate() di
+    // server.js), jadi aman dipakai ulang tanpa modifikasi. `rows` di-MUTASI
+    // langsung (push) supaya posisi baris grafik (fromRow) tetap akurat
+    // relatif terhadap baris header yang sudah ditaruh pemanggil sebelumnya.
+    function _appendChartSummaryBlocks(rows, tipeSoal, charts) {
         const chartSpecs = [];
         const PAD_ROWS = 18; // baris kosong pencadang ruang visual grafik (drawing melayang, tidak mendorong sel)
 
@@ -294,7 +299,81 @@ ${titleXml}
             });
         }
 
+        return chartSpecs;
+    }
+
+    // ── SUSUN ISI SHEET "ANALISA" (ringkasan grup + grafik ringkasan) ─────
+    function _buildSheetAnalisa(grupNama, agg) {
+        const { ringkasan, tipe_soal: tipeSoal, charts } = agg;
+        const modul = ringkasan.modul;
+        const rows = [];
+        rows.push(['NAMA GRUP', grupNama]);
+        rows.push(['TOKEN DIBUAT', ringkasan.total]);
+        rows.push(['TOKEN TERPAKAI', ringkasan.used]);
+        rows.push(['TOKEN HANGUS', ringkasan.hangus]);
+        rows.push(['NAMA MODUL', modul ? modul.nama : '-']);
+        rows.push([]);
+        rows.push(['DAFTAR SOAL / KOLOM']);
+        (modul && modul.soal || []).forEach((s, i) => rows.push([`${i + 1}. ${s.nama}`, `${s.butir} pertanyaan`]));
+        rows.push([]);
+
+        const chartSpecs = _appendChartSummaryBlocks(rows, tipeSoal, charts);
         return { rows, chartSpecs };
+    }
+
+    // ── SUSUN ISI SHEET "ANALISA" versi 1 SOAL TUNGGAL — dipakai tombol
+    // "Ekstrak" di admin/analisa/analisa-soal-detail.js (kartu "Grafik",
+    // sumber datanya SAMPEL manual, bukan grup token). Header ringkasannya
+    // sengaja beda dari versi grup (tidak ada token/modul, cuma soal + jumlah
+    // peserta sampel) — blok grafik di bawahnya sama persis (_appendChartSummaryBlocks).
+    function _buildSheetAnalisaSoal(soalNama, jumlahPeserta, tipeSoal, charts) {
+        const rows = [];
+        rows.push(['NAMA SOAL', soalNama]);
+        rows.push(['JUMLAH PESERTA (SAMPEL)', jumlahPeserta]);
+        rows.push([]);
+
+        const chartSpecs = _appendChartSummaryBlocks(rows, tipeSoal, charts);
+        return { rows, chartSpecs };
+    }
+
+    // ── SUSUN SEMUA SHEET "Soal N" (per butir) KE DALAM WORKBOOK ──────────
+    // Dipakai bareng oleh build() (grup token) & buildSoal() (1 soal tunggal
+    // lewat Sampel) — logikanya identik, `charts.binary`/`charts.skor`/
+    // `charts.sikap` bentuknya sama persis di kedua konteks.
+    function _appendSoalSheets(wb, sheetChartsMap, charts) {
+        let globalIdx = 0;
+
+        (charts.binary || []).forEach(item => {
+            globalIdx++;
+            const sheetName = `Soal ${globalIdx}`;
+            const { rows, merges, chart } = _buildSheetSoalItem(globalIdx, item, 'binary');
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            ws['!cols'] = [{ wch: 45 }, { wch: 14 }, { wch: 16 }, { wch: 55 }];
+            ws['!merges'] = merges;
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            sheetChartsMap[sheetName] = [chart];
+        });
+
+        (charts.skor || []).forEach(item => {
+            globalIdx++;
+            const sheetName = `Soal ${globalIdx}`;
+            const { rows, merges, chart } = _buildSheetSoalItem(globalIdx, item, 'skor');
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            ws['!cols'] = [{ wch: 45 }, { wch: 14 }, { wch: 16 }, { wch: 55 }];
+            ws['!merges'] = merges;
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            sheetChartsMap[sheetName] = [chart];
+        });
+
+        if (charts.sikap && charts.sikap.length) {
+            globalIdx++;
+            const sheetName = `Soal ${globalIdx}`;
+            const { rows, chartSpecs: sikapCharts } = _buildSheetSikapKerja(globalIdx, charts.sikap);
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            ws['!cols'] = [{ wch: 22 }, { wch: 16 }, { wch: 16 }, { wch: 24 }];
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            sheetChartsMap[sheetName] = sikapCharts;
+        }
     }
 
     // ── SUSUN ISI SHEET "Soal N" (tipe Benar/Salah atau Nilai/Skor Sendiri) ─
@@ -396,40 +475,40 @@ ${titleXml}
         XLSX.utils.book_append_sheet(wb, wsAnalisa, 'ANALISA');
         if (chartsAnalisa.length) sheetChartsMap['ANALISA'] = chartsAnalisa;
 
-        let globalIdx = 0;
         const charts = agg.charts || { binary: [], skor: [], sikap: [] };
+        _appendSoalSheets(wb, sheetChartsMap, charts);
 
-        (charts.binary || []).forEach(item => {
-            globalIdx++;
-            const sheetName = `Soal ${globalIdx}`;
-            const { rows, merges, chart } = _buildSheetSoalItem(globalIdx, item, 'binary');
-            const ws = XLSX.utils.aoa_to_sheet(rows);
-            ws['!cols'] = [{ wch: 45 }, { wch: 14 }, { wch: 16 }, { wch: 55 }];
-            ws['!merges'] = merges;
-            XLSX.utils.book_append_sheet(wb, ws, sheetName);
-            sheetChartsMap[sheetName] = [chart];
-        });
+        const xlsxBytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+        return _injectCharts(xlsxBytes, sheetChartsMap);
+    }
 
-        (charts.skor || []).forEach(item => {
-            globalIdx++;
-            const sheetName = `Soal ${globalIdx}`;
-            const { rows, merges, chart } = _buildSheetSoalItem(globalIdx, item, 'skor');
-            const ws = XLSX.utils.aoa_to_sheet(rows);
-            ws['!cols'] = [{ wch: 45 }, { wch: 14 }, { wch: 16 }, { wch: 55 }];
-            ws['!merges'] = merges;
-            XLSX.utils.book_append_sheet(wb, ws, sheetName);
-            sheetChartsMap[sheetName] = [chart];
-        });
-
-        if (charts.sikap && charts.sikap.length) {
-            globalIdx++;
-            const sheetName = `Soal ${globalIdx}`;
-            const { rows, chartSpecs: sikapCharts } = _buildSheetSikapKerja(globalIdx, charts.sikap);
-            const ws = XLSX.utils.aoa_to_sheet(rows);
-            ws['!cols'] = [{ wch: 22 }, { wch: 16 }, { wch: 16 }, { wch: 24 }];
-            XLSX.utils.book_append_sheet(wb, ws, sheetName);
-            sheetChartsMap[sheetName] = sikapCharts;
+    // ── ENTRY POINT — 1 SOAL TUNGGAL (tombol "Ekstrak" di admin/analisa/
+    // analisa-soal-detail.js, kartu "Grafik") ──────────────────────────────
+    // `hasil` = respons POST /api/analisa/soal/:kode/hitung apa adanya
+    // ({ jumlah_peserta, charts:{binary,skor,sikap}, tipe_soal }) — TIDAK
+    // perlu fetch API lagi di sini, dipakai ulang dari data yang sudah
+    // dimuat _asdRenderChart() di halaman itu (sama pola dgn build()/agg
+    // di atas). Struktur file .xlsx yang dihasilkan SAMA PERSIS dgn build()
+    // (sheet "ANALISA" + 1 sheet "Soal N" per butir, grafik native Excel),
+    // cuma sheet "ANALISA"-nya pakai header ringkas 1 soal (bukan ringkasan
+    // grup/token) — lihat _buildSheetAnalisaSoal().
+    async function buildSoal(soalNama, jumlahPeserta, hasil) {
+        if (typeof XLSX === 'undefined' || typeof JSZip === 'undefined') {
+            throw new Error('Library XLSX/JSZip tidak termuat');
         }
+        const wb = XLSX.utils.book_new();
+        const sheetChartsMap = {};
+
+        const tipeSoal = hasil.tipe_soal || { binary: false, skor: false, sikap: false };
+        const charts = hasil.charts || { binary: [], skor: [], sikap: [] };
+
+        const { rows: rowsAnalisa, chartSpecs: chartsAnalisa } = _buildSheetAnalisaSoal(soalNama, jumlahPeserta, tipeSoal, charts);
+        const wsAnalisa = XLSX.utils.aoa_to_sheet(rowsAnalisa);
+        wsAnalisa['!cols'] = [{ wch: 34 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 14 }];
+        XLSX.utils.book_append_sheet(wb, wsAnalisa, 'ANALISA');
+        if (chartsAnalisa.length) sheetChartsMap['ANALISA'] = chartsAnalisa;
+
+        _appendSoalSheets(wb, sheetChartsMap, charts);
 
         const xlsxBytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
         return _injectCharts(xlsxBytes, sheetChartsMap);
@@ -443,5 +522,5 @@ ${titleXml}
         setTimeout(() => URL.revokeObjectURL(url), 2000);
     }
 
-    return { build, downloadBlob, sanitizeFilename: _sanitizeFilename };
+    return { build, buildSoal, downloadBlob, sanitizeFilename: _sanitizeFilename };
 })();

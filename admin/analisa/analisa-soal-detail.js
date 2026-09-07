@@ -297,6 +297,36 @@ function _asdOpenSampel(mode) {
     navigateTo('analisa-soal-sampel');
 }
 
+// ── TOMBOL "EKSTRAK" — unduh data+grafik soal ini sbg file Excel ──────────
+// Sama persis pola & tampilannya dgn _atdHandleEkstrak() di
+// analisa-token-detail.js, cuma sumber datanya window._analisaSoalDetailHasil
+// (diisi _asdRenderChart() di atas dari POST /api/analisa/soal/:kode/hitung
+// berdasarkan Sampel manual yang sedang aktif) — jadi tombol ini TIDAK fetch
+// API lagi, cukup olah data yang sudah ada di browser. Logika bangun
+// workbook + suntik grafik native ada di AnalisaExport.buildSoal() (admin/
+// analisa/analisa-export.js, lazy-load bareng file ini — lihat
+// ADMIN_PAGE_MODULES di js/app.js).
+async function _asdHandleEkstrak() {
+    const hasil = window._analisaSoalDetailHasil;
+    if (!hasil) { if (typeof showToast === 'function') showToast('Pilih Sampel (Tester Individu/Grup) dulu, lalu tunggu grafik termuat', 'danger'); return; }
+    if (typeof AnalisaExport === 'undefined') { if (typeof showToast === 'function') showToast('Modul ekspor belum termuat, coba lagi', 'danger'); return; }
+    const btn = document.getElementById('asd-btn-ekstrak');
+    if (btn) btn.disabled = true;
+    if (typeof showToast === 'function') showToast('Menyiapkan file Excel…', '');
+    try {
+        const soalNama = window._analisaSoalDetailHasilNama || _asdKode || 'Soal';
+        const jumlahPeserta = hasil.jumlah_peserta != null ? hasil.jumlah_peserta : 0;
+        const blob = await AnalisaExport.buildSoal(soalNama, jumlahPeserta, hasil);
+        AnalisaExport.downloadBlob(blob, `Analisa_Soal_${AnalisaExport.sanitizeFilename(soalNama)}.xlsx`);
+        if (typeof showToast === 'function') showToast('File Excel berhasil diunduh', 'success');
+    } catch (e) {
+        console.error('Gagal ekstrak Excel analisa soal:', e);
+        if (typeof showToast === 'function') showToast('Gagal membuat file Excel: ' + e.message, 'danger');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
 // Klik nomor butir (sumbu-X) pada grafik "Benar/Salah" atau "Nilai/Skor
 // Sendiri" di kartu "Grafik" halaman ini -> pindah ke admin/analisa/
 // analisa-soal.js MODE DETAIL PER-NOMOR (kartu pertanyaan+opsi+pembahasan+
@@ -337,6 +367,16 @@ async function _asdRenderChart() {
     const el = document.getElementById('asd-chart-container');
     if (!el) return;
 
+    // window._analisaSoalDetailHasil = respons GRAFIK terakhir yang berhasil
+    // dimuat (hasil POST /api/analisa/soal/:kode/hitung), dipakai tombol
+    // "Ekstrak" (_asdHandleEkstrak) supaya tidak perlu fetch API lagi — pola
+    // sama persis dgn window._analisaTokenDetailAgg di analisa-token-detail.js.
+    // Dikosongkan dulu di awal tiap render supaya tombol Ekstrak tidak pernah
+    // memakai data dari soal/sampel SEBELUMNYA kalau render kali ini gagal/
+    // belum sampai ke fetch (mis. Sampel masih kosong).
+    window._analisaSoalDetailHasil = null;
+    window._analisaSoalDetailHasilNama = null;
+
     if (!_asdKode || !_asdSoal) { el.style.display = 'none'; el.innerHTML = ''; return; }
 
     const sampel = _asdLoadSampel(_asdKode);
@@ -357,6 +397,9 @@ async function _asdRenderChart() {
         _atdEmptyChartCard('asd-chart-container', 'Gagal memuat grafik, silakan coba lagi');
         return;
     }
+
+    window._analisaSoalDetailHasil = hasil;
+    window._analisaSoalDetailHasilNama = (_asdSoal.nama_internal ? `${_asdSoal.nama} (${_asdSoal.nama_internal})` : _asdSoal.nama) || _asdKode;
 
     const tipeSoal = hasil.tipe_soal || { binary: false, skor: false, sikap: false };
     const charts = hasil.charts || { binary: [], skor: [], sikap: [] };

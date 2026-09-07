@@ -156,7 +156,10 @@ const ADMIN_PAGE_MODULES = {
     // biar konsisten dgn pola 'analisa-token' -> 'analisa-token-detail' (nav-history,
     // side-dock auto-close, dst). Kartu "Grafik"-nya pakai ulang
     // analisa-chart-shared.js yg sama dgn 'analisa-token-detail' di atas.
-    'analisa-soal-detail':  { html: 'admin/analisa/analisa-soal-detail.html',  js: ['admin/analisa/analisa-chart-shared.js', 'admin/analisa/analisa-soal-detail.js'] },
+    // + analisa-export.js: sama seperti 'analisa-token-detail', tombol "Ekstrak"
+    // di sini pakai AnalisaExport.buildSoal() (lihat komentar _asdHandleEkstrak()
+    // di analisa-soal-detail.js).
+    'analisa-soal-detail':  { html: 'admin/analisa/analisa-soal-detail.html',  js: ['admin/analisa/analisa-export.js', 'admin/analisa/analisa-chart-shared.js', 'admin/analisa/analisa-soal-detail.js'] },
     // Halaman pemilihan tester manual (individu/grup) utk kartu "Sampel" di
     // analisa-soal-detail.js — lihat komentar _asdOpenSampel() di file itu &
     // header admin/analisa/analisa-soal-sampel.js utk alurnya.
