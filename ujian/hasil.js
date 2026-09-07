@@ -321,7 +321,7 @@ function drawChart(id,kolom){
   const all=kolom.flatMap(k=>[k.total,k.benar,k.salah]),maxV=Math.max(...all,1),sx=pw/(n-1||1);
   ctx.clearRect(0,0,W,H);
   for(let i=0;i<=4;i++){const y=pad.t+ph-(i/4)*ph;ctx.strokeStyle='rgba(19,50,89,0.06)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+pw,y);ctx.stroke();ctx.fillStyle='rgba(19,50,89,0.35)';ctx.font='9px DM Sans';ctx.fillText(Math.round(maxV*i/4),2,y+3);}
-  [['total','#1a5aa0','Dijawab'],['benar','#16a34a','Benar'],['salah','#dc2626','Salah']].forEach(([k,col])=>{
+  [['benar','#16a34a','Benar'],['salah','#dc2626','Salah'],['total','#1a5aa0','Dijawab']].forEach(([k,col])=>{
     ctx.beginPath();ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.lineJoin='round';
     kolom.forEach((kl,i)=>{const x=pad.l+i*sx,y=pad.t+ph-(kl[k]/maxV)*ph;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
     ctx.stroke();

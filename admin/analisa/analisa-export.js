@@ -438,20 +438,22 @@ ${titleXml}
             const first = sikapRaw[0][pi] || {};
             rows.push(['PESERTA', first.nama || '-', 'ID PENGERJAAN', first.id || '-']);
             rows.push(['KOLOM', 'BENAR', 'SALAH', 'JUMLAH DIJAWAB']);
-            const cats = [], benarArr = [], salahArr = [];
+            const cats = [], benarArr = [], salahArr = [], dijawabArr = [];
             for (let ki = 0; ki < nKolom; ki++) {
                 const p = (sikapRaw[ki] && sikapRaw[ki][pi]) || { benar: 0, salah: 0 };
                 rows.push([`K${ki + 1}`, p.benar, p.salah, p.benar + p.salah]);
                 cats.push(`K${ki + 1}`);
                 benarArr.push(p.benar);
                 salahArr.push(p.salah);
+                dijawabArr.push(p.benar + p.salah);
             }
             chartSpecs.push({
                 title: `Sikap Kerja — ${first.nama || '-'} (${first.id || '-'})`,
                 categories: cats,
                 series: [
                     { name: 'Benar', color: '16A34A', values: benarArr },
-                    { name: 'Salah', color: 'DC2626', values: salahArr }
+                    { name: 'Salah', color: 'DC2626', values: salahArr },
+                    { name: 'Jumlah Dijawab', color: '2666B8', values: dijawabArr }
                 ],
                 fromCol: 0, fromRow: rows.length + 1, toCol: 7, toRow: rows.length + 1 + 14
             });
