@@ -42,6 +42,7 @@ function _persistAnalisaCtx() {
             soalDetailGrup: window._analisaSoalDetailGrup || null,
             soalDetailNomor: window._analisaSoalDetailNomor || null,
             soalDetailKind: window._analisaSoalDetailKind || null,
+            soalDetailBackKode: window._analisaSoalDetailBackKode || null,
             soalListDetailKode: window._analisaSoalListDetailKode || null,
             soalSampelKode: window._analisaSoalSampelKode || null,
             soalSampelMode: window._analisaSoalSampelMode || null
@@ -64,6 +65,7 @@ function _restoreAnalisaCtx() {
         if (ctx.soalDetailGrup) window._analisaSoalDetailGrup = ctx.soalDetailGrup;
         if (ctx.soalDetailNomor) window._analisaSoalDetailNomor = ctx.soalDetailNomor;
         if (ctx.soalDetailKind) window._analisaSoalDetailKind = ctx.soalDetailKind;
+        if (ctx.soalDetailBackKode) window._analisaSoalDetailBackKode = ctx.soalDetailBackKode;
         if (ctx.soalListDetailKode) window._analisaSoalListDetailKode = ctx.soalListDetailKode;
         if (ctx.soalSampelKode) window._analisaSoalSampelKode = ctx.soalSampelKode;
         if (ctx.soalSampelMode) window._analisaSoalSampelMode = ctx.soalSampelMode;

@@ -61,7 +61,7 @@ function renderAnalisaSoal() {
     const listWrap = document.getElementById('as-list-wrap');
     const detailWrap = document.getElementById('as-detail-wrap');
 
-    if (!grup || !nomor || !kind) {
+    if (!nomor || !kind) {
         // Tidak ada konteks grafik yg dititip -> dibuka langsung dari
         // slide-dock ANALISA. Tampilkan MODE LIST (daftar semua soal).
         if (detailWrap) detailWrap.style.display = 'none';
@@ -70,11 +70,15 @@ function renderAnalisaSoal() {
         return;
     }
 
-    // Ada konteks grafik -> MODE DETAIL PER-NOMOR (perilaku lama).
+    // Ada konteks grafik -> MODE DETAIL PER-NOMOR (perilaku lama). `grup`
+    // BOLEH kosong sekarang — kosong berarti datang dari klik grafik di
+    // Analisa > Soal (analisa-soal-detail.js -> _asdGoToButirDetail()),
+    // bukan dari grup token (lihat window._analisaSoalDetailBackKode di
+    // bawah & _asBack()).
     if (listWrap) listWrap.style.display = 'none';
     if (detailWrap) detailWrap.style.display = '';
     const sub = document.getElementById('as-sub');
-    if (sub) sub.textContent = `Soal No. ${nomor} · Grup: ${grup}${kind ? ' · Tipe: ' + (kind === 'skor' ? 'Nilai/Skor Sendiri' : 'Benar/Salah') : ''}`;
+    if (sub) sub.textContent = `Soal No. ${nomor}${kind ? ' · Tipe: ' + (kind === 'skor' ? 'Nilai/Skor Sendiri' : 'Benar/Salah') : ''}${grup ? ' · Grup: ' + grup : ''}`;
     _asActiveFilter = null; // reset filter tiap kali halaman ini dibuka ulang dari luar (klik grafik baru / kembali lalu masuk lagi)
     _asRenderContent(grup, nomor, kind);
 }
@@ -193,6 +197,14 @@ function _aslOpenDetail(kode) {
 }
 
 function _asBack() {
+    // Datang dari klik grafik di Analisa > Soal (analisa-soal-detail.js,
+    // TANPA grup token) -> balik ke halaman detail soal itu, bukan ke
+    // alur token. Lihat _asdGoToButirDetail() di analisa-soal-detail.js.
+    if (window._analisaSoalDetailBackKode) {
+        window._analisaSoalListDetailKode = window._analisaSoalDetailBackKode;
+        navigateTo('analisa-soal-detail');
+        return;
+    }
     navigateTo(window._analisaSoalDetailGrup ? 'analisa-token-detail' : 'analisa-token');
 }
 
@@ -247,7 +259,7 @@ function _asClearFilter() {
 function _asRenderContent(grup, nomor, kind) {
     const el = document.getElementById('as-content');
     if (!el) return;
-    if (!grup || !nomor || !kind) {
+    if (!nomor || !kind) {
         el.innerHTML = '<div class="card"><div class="empty-state"><p>Analisa per-soal akan segera hadir</p></div></div>';
         return;
     }

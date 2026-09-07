@@ -297,6 +297,30 @@ function _asdOpenSampel(mode) {
     navigateTo('analisa-soal-sampel');
 }
 
+// Klik nomor butir (sumbu-X) pada grafik "Benar/Salah" atau "Nilai/Skor
+// Sendiri" di kartu "Grafik" halaman ini -> pindah ke admin/analisa/
+// analisa-soal.js MODE DETAIL PER-NOMOR (kartu pertanyaan+opsi+pembahasan+
+// daftar peserta) — TAMPILAN & LOGIKANYA SAMA PERSIS dgn yg dipakai alur
+// Token (lihat _atdGoToSoalDetail() di analisa-token-detail.js), karena
+// _ATD_DUMMY_BINARY/_ATD_DUMMY_SKOR yg dibaca analisa-soal.js sudah diisi
+// data soal INI (lengkap pertanyaan/opsi/pembahasan per butir) oleh
+// _asdRenderChart() di atas, tepat sebelum grafik ini digambar.
+// BEDA dgn alur Token: di sini TIDAK ADA grup token, jadi
+// window._analisaSoalDetailGrup SENGAJA dikosongkan (bukan diwarisi dari
+// kunjungan token sebelumnya) — lalu window._analisaSoalDetailBackKode
+// (kode soal ini) dititip supaya tombol kembali di analisa-soal.js
+// (_asBack()) tahu harus balik ke halaman detail soal ini, BUKAN ke
+// analisa-token-detail/analisa-token.
+function _asdGoToButirDetail(evt, kind, nomor) {
+    if (evt) evt.stopPropagation();
+    window._analisaSoalDetailGrup = null;
+    window._analisaSoalDetailNomor = nomor;
+    window._analisaSoalDetailKind = kind;
+    window._analisaSoalDetailBackKode = _asdKode;
+    if (typeof _persistAnalisaCtx === 'function') _persistAnalisaCtx();
+    navigateTo('analisa-soal');
+}
+
 // ── GRAFIK: 1 grafik, disesuaikan dgn TIPE soal ini sendiri ────────────────
 // Beda dgn 3 grafik sekaligus di analisa-token-detail.js (yang menggabung
 // SEMUA soal dalam 1 modul/grup) — di sini cuma ADA 1 soal, jadi cuma
@@ -373,7 +397,7 @@ async function _asdRenderChart() {
         _atdBuildLineChart('asd-chart-container', {
             title: 'Grafik — Tipe Nilai/Skor Sendiri',
             sub: 'Jumlah peserta (dari sampel) yang memilih tiap opsi jawaban, per nomor butir — opsi sesama nilai 0 tetap dipisah, bukan digabung',
-            categories: cats, series, maxVal, kind: 'skor'
+            categories: cats, series, maxVal, kind: 'skor', xClickFn: '_asdGoToButirDetail'
         });
         const leg = document.getElementById('asd-chart-container-legend');
         if (leg) leg.innerHTML = _atdSkorLegendHtml(series);
@@ -394,7 +418,7 @@ async function _asdRenderChart() {
         _atdBuildLineChart('asd-chart-container', {
             title: 'Grafik — Tipe Benar/Salah',
             sub: 'Jumlah peserta (dari sampel) yang menjawab Benar / Salah, per nomor butir',
-            categories: cats, series, maxVal, kind: 'binary'
+            categories: cats, series, maxVal, kind: 'binary', xClickFn: '_asdGoToButirDetail'
         });
         const leg = document.getElementById('asd-chart-container-legend');
         if (leg) leg.innerHTML = _atdBinaryLegendHtml();

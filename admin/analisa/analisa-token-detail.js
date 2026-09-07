@@ -266,6 +266,11 @@ function _atdGoToSoalDetail(evt, kind, nomor) {
     window._analisaSoalDetailGrup = window._analisaTokenDetailGrup || null;
     window._analisaSoalDetailNomor = nomor;
     window._analisaSoalDetailKind = kind;
+    // Bersihkan sisa konteks alur "klik grafik di Analisa > Soal" (kalau ada
+    // dari kunjungan sebelumnya) — lihat _asdGoToButirDetail() di
+    // analisa-soal-detail.js — supaya tombol kembali di analisa-soal.js
+    // (_asBack()) tidak salah balik ke halaman detail soal itu.
+    window._analisaSoalDetailBackKode = null;
     if (typeof _persistAnalisaCtx === 'function') _persistAnalisaCtx();
     navigateTo('analisa-soal');
 }
