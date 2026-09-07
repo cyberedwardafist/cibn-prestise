@@ -20,6 +20,16 @@
 //      terpisah admin/analisa/analisa-soal-sampel.html/.js (lihat komentar
 //      di file itu utk alur pemilihannya). Begitu ada data, tombolnya
 //      berubah jadi "Ubah" dan ringkasan pilihan tampil di sini.
+//      Kartu ini bisa diklik (header) utk buka/tutup isinya, gaya PERSIS
+//      sama dgn kartu "Modul" (_asdRenderModul) di atas & kartu "Peserta"
+//      di analisa-token-detail.js — chevron ikut berputar, isi (rows +
+//      tombol aksi) ditaruh dlm #asd-sampel-list yg default TERTUTUP tiap
+//      halaman ini dibuka dari nol (_asdSampelOpen direset di
+//      renderAnalisaSoalDetail), tapi status buka/tutupnya DIPERTAHANKAN
+//      lewat _asdSampelOpen kalau cuma _asdRenderSampel() dipanggil ulang
+//      tanpa reload halaman (mis. abis hapus 1 tester dari _asdHapusIndividu/
+//      _asdHapusGrup) — supaya panel tidak tiba-tiba nutup sendiri abis
+//      user klik hapus.
 //   4) Kartu "Grafik" (asd-chart-container): SATU grafik yang disesuaikan
 //      dgn TIPE soal ini sendiri (Benar/Salah, Nilai/Skor Sendiri, atau
 //      Sikap Kerja) — dibangun ulang lewat fungsi shared yang SAMA dgn 3
@@ -39,9 +49,15 @@
 //   peserta tidak pernah keluar dari server.
 
 let _asdKode = null, _asdSoal = null, _asdKelompokList = [], _asdModulList = [];
+// Status buka/tutup kartu "Sampel" (lihat _asdRenderSampel/_asdToggleSampel
+// di bawah) — direset ke tertutup tiap halaman ini dibuka dari nol, tapi
+// dipertahankan kalau cuma _asdRenderSampel() dipanggil ulang di halaman yg
+// sama (mis. abis hapus tester).
+let _asdSampelOpen = false;
 
 async function renderAnalisaSoalDetail() {
     _asdKode = window._analisaSoalListDetailKode || null;
+    _asdSampelOpen = false;
     const sub = document.getElementById('asd-kode-sub');
     if (sub) sub.textContent = _asdKode ? `Kode: ${_asdKode}` : '-';
 
@@ -222,6 +238,9 @@ function _asdSampelUserKodes(sampel) {
     return Array.from(kodes);
 }
 
+// Kartu bisa diklik (header) utk buka/tutup isinya — pola sama persis dgn
+// _asdRenderModul() di atas: judul+sub di luar (selalu tampil), rows+tombol
+// aksi ditaruh dlm #asd-sampel-list yg di-toggle _asdToggleSampel().
 function _asdRenderSampel() {
     const el = document.getElementById('asd-sampel-card');
     if (!el) return;
@@ -229,6 +248,7 @@ function _asdRenderSampel() {
 
     const sampel = _asdLoadSampel(_asdKode);
     const adaData = (sampel.individu && sampel.individu.length) || (sampel.grup && sampel.grup.length);
+    const totalTester = _asdSampelUserKodes(sampel).length;
 
     const tombolAksi = `
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:${adaData ? '14px' : '0'}">
@@ -242,47 +262,61 @@ function _asdRenderSampel() {
             </button>
         </div>`;
 
+    let bodyHtml;
     if (!adaData) {
-        el.innerHTML = `
-            <div class="section-title" style="font-size:16px;margin-bottom:2px">Sampel</div>
-            <div class="section-sub" style="margin-bottom:0">Belum ada tester manual yang dipilih untuk soal ini</div>
-            ${tombolAksi}`;
-        return;
-    }
-
-    const individuRows = (sampel.individu || []).map((u, i) => `
-        <div class="atd-peserta-row">
-            <div class="atd-peserta-nama">${_asdEsc(u.nama)}</div>
-            <button class="btn-icon danger" style="width:26px;height:26px" onclick="_asdHapusIndividu(${i})" title="Hapus dari sampel">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-        </div>`).join('');
-
-    const grupBlocks = (sampel.grup || []).map((g, i) => {
-        const included = (g.members || []).filter(m => m.included);
-        const memberRows = (g.members || []).map(m => `
-            <div class="atd-peserta-row" style="${m.included ? '' : 'opacity:.5'}">
-                <div class="atd-peserta-nama">${_asdEsc(m.nama)}</div>
-                <div class="atd-peserta-skor">${m.included ? 'Diikutkan' : 'Dikeluarkan'}</div>
-            </div>`).join('');
-        return `
-        <div class="atd-modul-block" style="margin-bottom:10px">
-            <div class="atd-modul-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-                <span>${_asdEsc(g.grub_nama)} <span style="font-weight:500;color:var(--text-sub);font-size:11px">(${included.length}/${(g.members || []).length} orang)</span></span>
-                <button class="btn-icon danger" style="width:26px;height:26px" onclick="_asdHapusGrup(${i})" title="Hapus grup ini dari sampel">
+        bodyHtml = tombolAksi;
+    } else {
+        const individuRows = (sampel.individu || []).map((u, i) => `
+            <div class="atd-peserta-row">
+                <div class="atd-peserta-nama">${_asdEsc(u.nama)}</div>
+                <button class="btn-icon danger" style="width:26px;height:26px" onclick="_asdHapusIndividu(${i})" title="Hapus dari sampel">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
-            </div>
-            <div class="atd-soal-list">${memberRows}</div>
-        </div>`;
-    }).join('');
+            </div>`).join('');
+
+        const grupBlocks = (sampel.grup || []).map((g, i) => {
+            const included = (g.members || []).filter(m => m.included);
+            const memberRows = (g.members || []).map(m => `
+                <div class="atd-peserta-row" style="${m.included ? '' : 'opacity:.5'}">
+                    <div class="atd-peserta-nama">${_asdEsc(m.nama)}</div>
+                    <div class="atd-peserta-skor">${m.included ? 'Diikutkan' : 'Dikeluarkan'}</div>
+                </div>`).join('');
+            return `
+            <div class="atd-modul-block" style="margin-bottom:10px">
+                <div class="atd-modul-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <span>${_asdEsc(g.grub_nama)} <span style="font-weight:500;color:var(--text-sub);font-size:11px">(${included.length}/${(g.members || []).length} orang)</span></span>
+                    <button class="btn-icon danger" style="width:26px;height:26px" onclick="_asdHapusGrup(${i})" title="Hapus grup ini dari sampel">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <div class="atd-soal-list">${memberRows}</div>
+            </div>`;
+        }).join('');
+
+        bodyHtml = `
+            ${sampel.individu.length ? `<div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:8px">Tester Individu (${sampel.individu.length})</div><div style="margin-bottom:14px">${individuRows}</div>` : ''}
+            ${sampel.grup.length ? `<div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:8px">Tester Grup</div>${grupBlocks}` : ''}
+            ${tombolAksi}`;
+    }
 
     el.innerHTML = `
-        <div class="section-title" style="font-size:16px;margin-bottom:2px">Sampel</div>
-        <div class="section-sub" style="margin-bottom:12px">Tester manual yang dipakai untuk analisa soal ini</div>
-        ${sampel.individu.length ? `<div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:8px">Tester Individu (${sampel.individu.length})</div><div style="margin-bottom:14px">${individuRows}</div>` : ''}
-        ${sampel.grup.length ? `<div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:8px">Tester Grup</div>${grupBlocks}` : ''}
-        ${tombolAksi}`;
+        <div class="atd-peserta-header" onclick="_asdToggleSampel()">
+            <div>
+                <div class="section-title" style="font-size:16px;margin-bottom:2px">Sampel</div>
+                <div class="section-sub" style="margin-bottom:0">${adaData ? `${totalTester} tester dipilih untuk soal ini` : 'Belum ada tester manual yang dipilih untuk soal ini'}</div>
+            </div>
+            <svg class="atd-peserta-chevron" id="asd-sampel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="transition:transform .2s${_asdSampelOpen ? ';transform:rotate(180deg)' : ''}"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="atd-peserta-list" id="asd-sampel-list" style="display:${_asdSampelOpen ? 'block' : 'none'}">${bodyHtml}</div>`;
+}
+
+function _asdToggleSampel() {
+    const list = document.getElementById('asd-sampel-list');
+    const chev = document.getElementById('asd-sampel-chevron');
+    if (!list) return;
+    _asdSampelOpen = list.style.display === 'none';
+    list.style.display = _asdSampelOpen ? 'block' : 'none';
+    if (chev) chev.style.transform = _asdSampelOpen ? 'rotate(180deg)' : '';
 }
 
 // Pindah ke halaman pemilihan tester (file baru, lihat admin/analisa/

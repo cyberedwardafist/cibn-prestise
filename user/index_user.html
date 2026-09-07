@@ -1449,7 +1449,7 @@ function ensureUserPageModule(pageId) {
     // baru fragmen overlay (spec.htmlAppend) di-APPEND sesudahnya — kalau
     // dijalanin bareng (Promise.all), ada resiko innerHTML shell nimpa balik
     // fragmen overlay yang keburu di-append duluan (race condition).
-    const mainLoad = container 
+    const mainLoad = container
         ? LazyLoader.loadMany([{ url: '/' + spec.html, container }])
         : Promise.resolve();
     return mainLoad.then(async () => {
