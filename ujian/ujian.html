@@ -199,9 +199,7 @@ html.vp-resizing *, html.vp-resizing *::before, html.vp-resizing *::after {
   border:1.5px solid rgba(19,50,89,0.09);background:rgba(255,255,255,0.55);
   cursor:pointer;transition:all 0.18s;min-height:56px;
 }
-@media(hover:hover) and (pointer:fine){
 .sk-choice:hover{border-color:var(--accent);background:rgba(26,90,160,0.07);}
-}
 .sk-choice.sel{border-color:var(--accent);background:rgba(26,90,160,0.13);}
 .sk-ch-letter{
   width:34px;height:34px;border-radius:9px;border:1.5px solid rgba(19,50,89,0.12);
@@ -311,7 +309,11 @@ html.vp-resizing *, html.vp-resizing *::before, html.vp-resizing *::after {
   .btn-open-nav-mobile{display:flex;}
   #h-nav-bar-inlaid{display:none!important;}
   .uj-logo-txt{display:none;}
-  .mc-timer-top{display:block;}
+  .mc-timer-top{display:block;padding:6px 12px;margin-bottom:2px;}
+  .mc-timer-top .timer-lbl{font-size:8px;margin-bottom:1px;}
+  .mc-timer-top .timer-val{font-size:15px;}
+  .sk-timer{margin-bottom:8px;}
+  .sk-timer-val{font-size:20px;}
   .mc-left{padding:10px;}
   .q-box{padding:16px 16px;}
   .a-box{padding:14px 14px;}
@@ -340,7 +342,8 @@ html.vp-resizing *, html.vp-resizing *::before, html.vp-resizing *::after {
   .sk-item-box,.sk-q-item{min-height:64px;height:64px;font-size:12px;padding:2px;}
   .sk-choice{min-height:42px;padding:8px 2px;}
   .sk-ch-letter{width:26px;height:26px;font-size:11px;}
-  .sk-timer-val{font-size:24px;}
+  .sk-timer-val{font-size:17px;}
+  .mc-timer-top .timer-val{font-size:14px;}
   .a-letter{width:30px;height:30px;font-size:12px;}
   .a-txt{font-size:13.5px;}
   .q-text{font-size:14.5px;}
@@ -1174,17 +1177,6 @@ function nextSKKolom() {
   const token = st.examData.token.kode;
   localStorage.removeItem('cbn_sk_timer_' + token); // Hapus sisa waktu kolom lama
   localStorage.removeItem('cbn_sk_deadline_' + token);
-  // PENTING: hapus juga posisi sub-soal (cbn_sk_q_) kolom LAMA di sini. Kalau
-  // tidak, renderSKKolom() kolom BARU akan membaca ulang qi terakhir kolom
-  // sebelumnya (mis. qi=4 dari kolom 1 yang isi 5 soal) sebagai posisi awal
-  // kolom baru. renderSKQ() lalu meng-clamp qi itu ke soal TERAKHIR kolom
-  // baru (kalau qi sudah >= panjang kolom baru) — akibatnya begitu masuk
-  // kolom 2 dst, peserta langsung "dianggap" sudah di soal terakhir kolom
-  // itu, sehingga tiap klik opsi cuma tersimpan diam di situ (kondisi
-  // "qi+1 >= totalSoalKolom" di pilihSK()) dan TIDAK pernah pindah ke soal
-  // berikutnya — persis gejala "macet/diam" yang dilaporkan mulai kolom 2.
-  // Timer tetap jalan normal karena itu logikanya terpisah (lihat di atas).
-  localStorage.removeItem('cbn_sk_q_' + token);
   
   if (_skKolom + 1 < _skItem.kolom.length) {
     renderSKKolom(_skKolom + 1);
