@@ -102,31 +102,106 @@ function renderAnalisaSoal() {
 let _aslData = null, _aslKelompokList = [], _aslSearch = '', _aslType = 'all', _aslKelompokFilter = 'all';
 const _aslTypeOptions = [{ value: 'all', label: 'Semua Tipe' }, { value: 'multiple_choice', label: 'Multiple Choice' }, { value: 'linier', label: 'Linier' }, { value: 'sikap_kerja', label: 'Sikap Kerja' }];
 
+// ── OPTIMASI: cache in-memory + index pencarian ─────────────────────────────
+// Sebelumnya SoalAPI.getAll()/SoalKelompokAPI.getAll() ditarik ulang dari
+// server SETIAP KALI slide-dock ANALISA > SOAL dibuka (termasuk kalau baru
+// saja ditutup lalu dibuka lagi tanpa ada perubahan data sama sekali), dan
+// halaman selalu nampilin "Memuat daftar soal…" dari nol. Sekarang: begitu
+// data pernah diambil sekali (_aslLoaded=true), buka ulang halaman ini
+// langsung render dari cache (_aslData/_aslKelompokList) TANPA nunggu network
+// -> instan, tidak ada flicker "Memuat...". Data tetap disegarkan di
+// belakang layar tiap dibuka (stale-while-revalidate) supaya kalau ada soal
+// baru/berubah dari tab lain, list ikut update begitu fetch selesai — jadi
+// tidak ada fungsi yg hilang, cuma pengguna tidak perlu nunggu spinner tiap
+// kali pindah-pindah tab.
+let _aslLoaded = false;
+let _aslKelompokMap = new Map(); // kode -> nama, O(1) lookup (dulu Array.find tiap panggil)
+let _aslSearchTimer = null;
+
 async function _aslLoadAndRender() {
     const wrap = document.getElementById('as-list-wrap');
     if (!wrap) return;
+
+    if (_aslLoaded) {
+        // Cache sudah ada -> render instan, lalu refresh diam-diam di belakang.
+        _aslEnsureShell(wrap);
+        _aslRenderFilters();
+        _aslRenderList();
+        _aslFetchData().catch(() => {}); // silent background refresh
+        return;
+    }
+
+    _aslEnsureShell(wrap, true);
+    await _aslFetchData();
+    _aslRenderFilters();
+    _aslRenderList();
+}
+
+// Bangun shell (search bar + filter + kontainer list) sekali saja. Dipanggil
+// tiap _aslLoadAndRender supaya aman kalau DOM #as-list-wrap sempat dikosongkan
+// navigasi lain, tapi tidak menimpa isi #as-list-groups kalau sudah ada isinya
+// (mencegah kedip "Memuat..." saat data sudah di-cache).
+function _aslEnsureShell(wrap, showLoading) {
+    const already = wrap.querySelector('#as-list-groups');
+    if (already && !showLoading) return; // shell sudah ada & kita punya cache -> tidak perlu dibangun ulang
     wrap.innerHTML = `
       <div class="section-title">Analisa · Soal</div>
       <div class="section-sub">Pilih salah satu soal untuk melihat analisanya</div>
       <div class="search-bar" style="flex-wrap:wrap;gap:8px;margin-top:10px">
-        <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari nama / tipe..." oninput="_aslSearch=this.value;_aslRenderList()"></div>
+        <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari nama / tipe..." value="${_asEsc(_aslSearch)}" oninput="_aslOnSearchInput(this.value)"></div>
         <div id="as-list-filters"></div>
       </div>
       <div id="as-list-groups"><div class="empty-state"><p>Memuat daftar soal…</p></div></div>`;
+}
+
+async function _aslFetchData() {
     const [data, kelompok] = await Promise.all([
         SoalAPI.getAll().catch(() => []),
         SoalKelompokAPI.getAll().catch(() => [])
     ]);
     _aslData = data;
     _aslKelompokList = kelompok;
-    _aslRenderFilters();
-    _aslRenderList();
+    _aslLoaded = true;
+    _aslBuildIndex();
+    // Kalau halaman ini masih terbuka saat refresh belakang-layar selesai,
+    // render ulang supaya data terbaru langsung tampil (mis. soal baru dari
+    // tab lain). Aman dipanggil berulang — cuma menimpa innerHTML kontainer
+    // yg relevan, bukan seluruh halaman.
+    if (document.getElementById('as-list-groups')) {
+        _aslRenderFilters();
+        _aslRenderList();
+    }
+}
+
+// Index pencarian: hitung SEKALI per item (bukan tiap keystroke) gabungan
+// nama+nama_internal+type+nama kelompok yg sudah di-lowercase, dipakai
+// _aslRenderList() supaya filter pencarian tinggal 1x .includes() per item
+// alih-alih 4x toLowerCase()+lookup kelompok (Array.find) per item per huruf
+// yg diketik. _aslKelompokMap juga dibangun di sini (Map, O(1)) mengganti
+// Array.find yg dipakai _aslKelompokNama sebelumnya (O(n) tiap panggil).
+function _aslBuildIndex() {
+    _aslKelompokMap = new Map((_aslKelompokList || []).map(k => [k.kode, k.nama]));
+    (_aslData || []).forEach(s => {
+        const kelompokNama = s.kelompok ? (_aslKelompokMap.get(s.kelompok) || '') : '';
+        s._aslSearchIdx = [s.nama, s.nama_internal, s.type, kelompokNama].filter(Boolean).join(' ').toLowerCase();
+    });
+}
+
+// Debounce input pencarian (150ms) — ketikan tetap terasa instan (nilai
+// input dikontrol native oleh browser), tapi filter+render ulang daftar
+// (yg jauh lebih berat utk library soal besar) ditunda sampai user berhenti
+// mengetik sejenak, bukan dieksekusi tiap 1 huruf.
+function _aslOnSearchInput(val) {
+    _aslSearch = val;
+    clearTimeout(_aslSearchTimer);
+    _aslSearchTimer = setTimeout(_aslRenderList, 150);
 }
 
 function _aslKelompokNama(kode) {
     if (!kode) return null;
-    const k = _aslKelompokList.find(x => x.kode === kode);
-    return k ? k.nama : null;
+    // O(1) via Map (dibangun di _aslBuildIndex) — dulu Array.find, O(n) tiap
+    // panggil, dipanggil berulang kali tiap render grup.
+    return _aslKelompokMap.get(kode) || null;
 }
 
 function _aslRenderFilters() {
@@ -169,11 +244,10 @@ function _aslRenderList() {
     let data = _aslData || [];
     if (_aslSearch) {
         const q = _aslSearch.toLowerCase();
-        data = data.filter(s =>
-            (s.nama || '').toLowerCase().includes(q) ||
-            (s.nama_internal || '').toLowerCase().includes(q) ||
-            (s.type || '').toLowerCase().includes(q) ||
-            (_aslKelompokNama(s.kelompok) || '').toLowerCase().includes(q));
+        // Pakai index yg sudah disiapkan di _aslBuildIndex (1x .includes() per
+        // item) alih-alih 4x toLowerCase()+lookup kelompok per item tiap kali
+        // fungsi ini jalan (yaitu tiap keystroke sebelum di-debounce).
+        data = data.filter(s => (s._aslSearchIdx || '').includes(q));
     }
     if (_aslType !== 'all') data = data.filter(s => s.type === _aslType);
     if (_aslKelompokFilter === 'none') data = data.filter(s => !s.kelompok);
