@@ -81,17 +81,22 @@ function renderAnalisaSoal() {
 
 // ── MODE LIST ────────────────────────────────────────────────────────────────
 // Dibuka langsung dari slide-dock ANALISA > SOAL, tanpa konteks grup/nomor
-// tertentu. Menampilkan daftar SEMUA soal yang ada — data sumbernya SAMA
-// dengan Library Soal (SoalAPI.getAll() + SoalKelompokAPI.getAll(), keduanya
-// didefinisikan global di js/api.js), TAPI file ini sengaja TIDAK ikut
-// nge-load admin/soal/soal.js / library.js supaya modul Analisa tetap ringan &
-// berdiri sendiri — makanya semua state & helper di bawah dipakai nama sendiri
+// tertentu. Menampilkan daftar SEMUA soal yang ada — data & pola tampilannya
+// SAMA PERSIS dengan Library Soal (dikelompokkan per kelompok soal + filter
+// dropdown Tipe/Kelompok, lihat _renderLibFilters/_renderLibList di
+// admin/soal/library.js), sumber datanya juga sama (SoalAPI.getAll() +
+// SoalKelompokAPI.getAll(), keduanya didefinisikan global di js/api.js).
+// Bedanya cuma di kartunya: di sini read-only (tanpa checkbox/aksi Preview-
+// Edit-Export-Hapus), dan file ini sengaja TIDAK ikut nge-load
+// admin/soal/soal.js / library.js supaya modul Analisa tetap ringan & berdiri
+// sendiri — makanya semua state & helper di bawah dipakai nama sendiri
 // (prefix _asl), bukan pinjam punya soal.js (_libData/_soalKelompokList dst,
 // yg belum tentu sudah termuat kalau tab Soal/Library belum pernah dibuka).
 // Klik satu kartu soal DI SINI *tidak* membuka editor soal (beda dgn Library
 // Soal) — melainkan membuka tab 'analisa-soal-detail' yang untuk saat ini
 // masih MOCKUP (lihat admin/analisa/analisa-soal-detail.html/.js).
-let _aslData = null, _aslKelompokList = [], _aslSearch = '';
+let _aslData = null, _aslKelompokList = [], _aslSearch = '', _aslType = 'all', _aslKelompokFilter = 'all';
+const _aslTypeOptions = [{ value: 'all', label: 'Semua Tipe' }, { value: 'multiple_choice', label: 'Multiple Choice' }, { value: 'linier', label: 'Linier' }, { value: 'sikap_kerja', label: 'Sikap Kerja' }];
 
 async function _aslLoadAndRender() {
     const wrap = document.getElementById('as-list-wrap');
@@ -99,8 +104,9 @@ async function _aslLoadAndRender() {
     wrap.innerHTML = `
       <div class="section-title">Analisa · Soal</div>
       <div class="section-sub">Pilih salah satu soal untuk melihat analisanya</div>
-      <div class="form-group" style="margin-bottom:10px">
-        <input id="as-list-search" class="form-input" type="text" placeholder="Cari nama / tipe soal..." oninput="_aslSearch=this.value;_aslRenderList()">
+      <div class="search-bar" style="flex-wrap:wrap;gap:8px;margin-top:10px">
+        <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" placeholder="Cari nama / tipe..." oninput="_aslSearch=this.value;_aslRenderList()"></div>
+        <div id="as-list-filters"></div>
       </div>
       <div id="as-list-groups"><div class="empty-state"><p>Memuat daftar soal…</p></div></div>`;
     const [data, kelompok] = await Promise.all([
@@ -109,6 +115,7 @@ async function _aslLoadAndRender() {
     ]);
     _aslData = data;
     _aslKelompokList = kelompok;
+    _aslRenderFilters();
     _aslRenderList();
 }
 
@@ -118,9 +125,19 @@ function _aslKelompokNama(kode) {
     return k ? k.nama : null;
 }
 
+function _aslRenderFilters() {
+    if (!document.getElementById('as-list-filters')) return;
+    const kelompokOptions = [{ value: 'all', label: 'Semua Kelompok' }, { value: 'none', label: 'Tanpa Kelompok' }, ..._aslKelompokList.map(k => ({ value: k.kode, label: k.nama }))];
+    renderFilterDropdown('as-list-filters', {
+        title: 'Filter', groups: [
+            { title: 'Tipe Soal', options: _aslTypeOptions, current: _aslType, onSelect: v => { _aslType = v; _aslRenderFilters(); _aslRenderList(); } },
+            { title: 'Kelompok', options: kelompokOptions, current: _aslKelompokFilter, onSelect: v => { _aslKelompokFilter = v; _aslRenderFilters(); _aslRenderList(); } }
+        ]
+    });
+}
+
 function _aslCardHtml(s) {
     const kode = s.kode || s.id;
-    const kelNama = _aslKelompokNama(s.kelompok);
     const namaTampil = _asEsc(s.nama_internal ? `${s.nama} | ${s.nama_internal}` : s.nama);
     return `
     <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;border:1.5px solid rgba(19,50,89,0.09);background:rgba(255,255,255,0.55);cursor:pointer;margin-bottom:8px" onclick="_aslOpenDetail('${kode}')">
@@ -128,12 +145,19 @@ function _aslCardHtml(s) {
         <div style="font-weight:700;font-size:14px;color:var(--blue);margin-bottom:6px;overflow-wrap:break-word">${namaTampil}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <span class="badge" style="background:rgba(26,90,160,0.1);color:var(--accent)">${_asEsc((s.type || '').replace(/_/g, ' '))}</span>
-          ${kelNama ? `<span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue)">${_asEsc(kelNama)}</span>` : ''}
           <span style="font-size:11px;color:var(--text-sub)">${_asEsc(kode)}</span>
         </div>
       </div>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-sub);flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
     </div>`;
+}
+
+// Header per grup kelompok — pola sama seperti _libGroupHtml di library.js
+// (nama kelompok + jumlah soal di dalamnya, urutan sesuai _aslKelompokList,
+// grup "Tanpa Kelompok" selalu diletakkan paling akhir).
+function _aslGroupHtml(group) {
+    return `<div class="section-sub" style="font-weight:700;color:var(--blue);text-transform:none;margin:18px 0 8px">${_asEsc(group.label)} <span style="font-weight:500;color:var(--text-sub);font-size:11px">(${group.items.length} soal)</span></div>
+    ${group.items.map(_aslCardHtml).join('')}`;
 }
 
 function _aslRenderList() {
@@ -147,8 +171,16 @@ function _aslRenderList() {
             (s.type || '').toLowerCase().includes(q) ||
             (_aslKelompokNama(s.kelompok) || '').toLowerCase().includes(q));
     }
+    if (_aslType !== 'all') data = data.filter(s => s.type === _aslType);
+    if (_aslKelompokFilter === 'none') data = data.filter(s => !s.kelompok);
+    else if (_aslKelompokFilter !== 'all') data = data.filter(s => s.kelompok === _aslKelompokFilter);
     if (!data.length) { el.innerHTML = '<div class="empty-state"><p>Belum ada soal di library</p></div>'; return; }
-    el.innerHTML = data.map(_aslCardHtml).join('');
+    // Kelompokkan per kelompok soal — pola sama persis seperti Library Soal.
+    const groups = {};
+    data.forEach(s => { const k = s.kelompok || '__none__'; (groups[k] = groups[k] || []).push(s); });
+    const orderedKeys = [..._aslKelompokList.map(k => k.kode).filter(k => groups[k]), ...(groups.__none__ ? ['__none__'] : [])];
+    const groupList = orderedKeys.map(k => ({ key: k, label: k === '__none__' ? 'Tanpa Kelompok' : _aslKelompokNama(k), items: groups[k] }));
+    el.innerHTML = groupList.map(_aslGroupHtml).join('');
 }
 
 // Buka tab 'analisa-soal-detail' untuk 1 soal yang diklik dari daftar.

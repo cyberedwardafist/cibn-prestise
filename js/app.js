@@ -41,7 +41,10 @@ function _persistAnalisaCtx() {
             grafikDetailKind: window._analisaGrafikDetailKind || null,
             soalDetailGrup: window._analisaSoalDetailGrup || null,
             soalDetailNomor: window._analisaSoalDetailNomor || null,
-            soalDetailKind: window._analisaSoalDetailKind || null
+            soalDetailKind: window._analisaSoalDetailKind || null,
+            soalListDetailKode: window._analisaSoalListDetailKode || null,
+            soalSampelKode: window._analisaSoalSampelKode || null,
+            soalSampelMode: window._analisaSoalSampelMode || null
         }));
     } catch(e) {}
 }
@@ -61,6 +64,9 @@ function _restoreAnalisaCtx() {
         if (ctx.soalDetailGrup) window._analisaSoalDetailGrup = ctx.soalDetailGrup;
         if (ctx.soalDetailNomor) window._analisaSoalDetailNomor = ctx.soalDetailNomor;
         if (ctx.soalDetailKind) window._analisaSoalDetailKind = ctx.soalDetailKind;
+        if (ctx.soalListDetailKode) window._analisaSoalListDetailKode = ctx.soalListDetailKode;
+        if (ctx.soalSampelKode) window._analisaSoalSampelKode = ctx.soalSampelKode;
+        if (ctx.soalSampelMode) window._analisaSoalSampelMode = ctx.soalSampelMode;
     } catch(e) {}
 }
 
@@ -93,7 +99,7 @@ function renderPage(id, subId) {
         // jadi langsung ReferenceError sebelum sempat cek map[id]. Dengan string +
         // window[...], cuma nama fungsi utk id yang sedang aktif yang di-resolve,
         // dan modul-nya sudah pasti sudah dimuat oleh ensureAdminPageModule di atas.
-        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-grafik':'renderAnalisaGrafik' };
+        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-grafik':'renderAnalisaGrafik' };
         const fn = map[id] && window[map[id]];
         if (typeof fn === 'function') fn();
         if (subId) switchSubPage(id, subId);
@@ -145,6 +151,10 @@ const ADMIN_PAGE_MODULES = {
     // biar konsisten dgn pola 'analisa-token' -> 'analisa-token-detail' (nav-history,
     // side-dock auto-close, dst). SEMENTARA MASIH MOCKUP, lihat komentar di file-nya.
     'analisa-soal-detail':  { html: 'admin/analisa/analisa-soal-detail.html',  js: ['admin/analisa/analisa-soal-detail.js'] },
+    // Halaman pemilihan tester manual (individu/grup) utk kartu "Sampel" di
+    // analisa-soal-detail.js — lihat komentar _asdOpenSampel() di file itu &
+    // header admin/analisa/analisa-soal-sampel.js utk alurnya.
+    'analisa-soal-sampel':  { html: 'admin/analisa/analisa-soal-sampel.html',  js: ['admin/analisa/analisa-soal-sampel.js'] },
     'analisa-grafik':       { html: 'admin/analisa/analisa-grafik.html',       js: ['admin/analisa/analisa-grafik.js'] },
     // Form Tambah/Edit Paket dipisah dari keuangan.js/keuangan-modals.html jadi
     // admin/keuangan/paket-form.js + admin/keuangan/paket-form.html (tampil
