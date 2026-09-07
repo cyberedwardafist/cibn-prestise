@@ -79,19 +79,44 @@ function _asdWaktuTampil(s) {
     return parts.join(' ');
 }
 
-// ── RINGKASAN: Nama, Waktu, Tipe, Kelompok — 4 blok label/nilai, pola sama
-// seperti detail token-copy-overlay/token-used-data-overlay (admin/cat/
-// token-modals.html), cuma di sini datanya soal, bukan token.
+// Jumlah butir pertanyaan dalam 1 soal — SAMA PERSIS logikanya dgn
+// _analisaSoalButir() di server.js: tipe sikap_kerja dihitung dari total
+// pertanyaan di SELURUH kolom (kol.soal.length dijumlah per kolom), tipe
+// lain (multiple_choice/linier) tinggal jumlah elemen array `data`.
+function _asdJumlahButir(soal) {
+    const data = soal.data;
+    if (!Array.isArray(data)) return 0;
+    if (soal.type === 'sikap_kerja') return data.reduce((a, kol) => a + ((kol && Array.isArray(kol.soal)) ? kol.soal.length : 0), 0);
+    return data.length;
+}
+
+// Tipe penilaian (skor_type) HANYA berlaku utk multiple_choice/linier (radio
+// "Benar/Salah" vs "Nilai per Jawaban" di admin/soal/soal.js) — soal tipe
+// sikap_kerja tidak punya field ini sama sekali (dinilai lewat kunci per
+// kolom, bukan skor_type), jadi baris ini disembunyikan total kalau tipenya
+// sikap_kerja (bukan ditampilkan "-").
+function _asdSkorTypeLabel(soal) {
+    if (soal.type === 'sikap_kerja') return null;
+    return soal.skor_type === 'nilai_sendiri' ? 'Nilai Sendiri' : 'Benar/Salah';
+}
+
+// ── RINGKASAN: Nama, Waktu, Tipe, Jumlah Soal, Tipe Penilaian (kalau ada),
+// Kelompok — blok label/nilai, pola sama seperti detail token-copy-overlay/
+// token-used-data-overlay (admin/cat/token-modals.html), cuma di sini
+// datanya soal, bukan token.
 function _asdRenderRingkasan(soal) {
     const el = document.getElementById('asd-content');
     if (!el) return;
     if (!_asdKode) { el.innerHTML = '<div class="empty-state"><p>Soal tidak ditemukan</p></div>'; return; }
     if (!soal) { el.innerHTML = '<div class="empty-state"><p>Gagal memuat data soal, silakan coba lagi</p></div>'; return; }
 
+    const skorTypeLabel = _asdSkorTypeLabel(soal);
     const fields = [
         ['Nama', _asdEsc(soal.nama_internal ? `${soal.nama} (${soal.nama_internal})` : soal.nama)],
         ['Waktu', _asdEsc(_asdWaktuTampil(soal))],
         ['Tipe', _asdEsc(_asdTypeLabel[soal.type] || soal.type || '-')],
+        ['Jumlah Soal', `${_asdJumlahButir(soal)} nomor`],
+        ...(skorTypeLabel ? [['Tipe Penilaian', _asdEsc(skorTypeLabel)]] : []),
         ['Kelompok', _asdEsc(_asdKelompokNama(soal.kelompok) || 'Tanpa Kelompok')]
     ];
     el.innerHTML = `
