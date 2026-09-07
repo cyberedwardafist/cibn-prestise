@@ -327,7 +327,11 @@ const TokensAPI = {
 // LIHAT komentar _atGrupKey() di admin/analisa/analisa-token.js, BUKAN nama
 // grup yang bisa diulang antar batch berbeda.
 const AnalisaAPI = {
-    async getGrup(grupKey) { return await apiGet(`/analisa/grup/${encodeURIComponent(grupKey)}`); }
+    async getGrup(grupKey) { return await apiGet(`/analisa/grup/${encodeURIComponent(grupKey)}`); },
+    // `userKodes` = daftar kode akun FINAL (individu + anggota grup yg tidak
+    // dikeluarkan) — lihat komentar endpoint di server.js & _asdSampelUserKodes()
+    // di admin/analisa/analisa-soal-detail.js.
+    async hitungSoal(soalKode, userKodes) { return await apiPost(`/analisa/soal/${encodeURIComponent(soalKode)}/hitung`, { user_kodes: userKodes }); }
 };
 
 // ── LAPORAN API ──

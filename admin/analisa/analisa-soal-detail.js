@@ -20,11 +20,23 @@
 //      terpisah admin/analisa/analisa-soal-sampel.html/.js (lihat komentar
 //      di file itu utk alur pemilihannya). Begitu ada data, tombolnya
 //      berubah jadi "Ubah" dan ringkasan pilihan tampil di sini.
-//   SEMENTARA sampel disimpan di localStorage per kode soal (_asdLoadSampel/
-//   _asdSaveSampel) — BELUM dikirim ke server & BELUM dipakai menghitung
-//   analisa asli (beda dgn alur token yg datanya dari grub_id token yg
-//   dipilih, lihat komentar penutup di analisa-soal-sampel.js) — penarikan
-//   data jawaban asli dari sampel ini menyusul di instruksi berikutnya.
+//   4) Kartu "Grafik" (asd-chart-container): SATU grafik yang disesuaikan
+//      dgn TIPE soal ini sendiri (Benar/Salah, Nilai/Skor Sendiri, atau
+//      Sikap Kerja) — dibangun ulang lewat fungsi shared yang SAMA dgn 3
+//      grafik di admin/analisa/analisa-token-detail.js (lihat admin/analisa/
+//      analisa-chart-shared.js). Datanya dari POST /api/analisa/soal/:kode/
+//      hitung, dihitung SERVER dari jawaban ASLI peserta yg kode akunnya
+//      ada di Sampel (bukan dari localStorage) — lihat _asdSampelUserKodes()
+//      & computeAnalisaSoalAggregate() di server.js. Kosong/belum ada
+//      Sampel -> kartu tampil dgn pesan minta isi Sampel dulu, bukan grafik
+//      kosong.
+//   Sampel sendiri MASIH disimpan di localStorage per kode soal
+//   (_asdLoadSampel/_asdSaveSampel) — beda dgn alur token yg datanya dari
+//   grub_id token yg dipilih (lihat komentar penutup di
+//   analisa-soal-sampel.js) — TAPI daftar kode akun finalnya (individu +
+//   anggota grup yg tak dikeluarkan) tetap dikirim ke server tiap kali
+//   grafik dihitung ulang (_asdSampelUserKodes), supaya jawaban mentah
+//   peserta tidak pernah keluar dari server.
 
 let _asdKode = null, _asdSoal = null, _asdKelompokList = [], _asdModulList = [];
 
@@ -37,6 +49,7 @@ async function renderAnalisaSoalDetail() {
         _asdRenderRingkasan(null);
         _asdRenderModul(null);
         _asdRenderSampel();
+        _asdRenderChart();
         return;
     }
 
@@ -57,6 +70,7 @@ async function renderAnalisaSoalDetail() {
     _asdRenderRingkasan(soal);
     _asdRenderModul(soal);
     _asdRenderSampel();
+    _asdRenderChart();
 }
 
 function _asdEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -185,6 +199,7 @@ function _asdHapusIndividu(idx) {
     sampel.individu.splice(idx, 1);
     _asdSaveSampel(_asdKode, sampel);
     _asdRenderSampel();
+    _asdRenderChart();
 }
 function _asdHapusGrup(idx) {
     if (!_asdKode) return;
@@ -192,6 +207,19 @@ function _asdHapusGrup(idx) {
     sampel.grup.splice(idx, 1);
     _asdSaveSampel(_asdKode, sampel);
     _asdRenderSampel();
+    _asdRenderChart();
+}
+
+// Daftar kode akun FINAL dari sampel (individu + anggota grup yang TIDAK
+// dikeluarkan/exclude) — inilah yang dikirim ke server (AnalisaAPI.hitungSoal)
+// supaya server menghitung ulang jawaban ASLI cuma dari akun-akun ini.
+// Digabung jadi 1 Set supaya kalau kebetulan 1 akun muncul dobel (mis. dipilih
+// individu SEKALIGUS anggota grup yang ditambahkan), tetap dihitung 1x saja.
+function _asdSampelUserKodes(sampel) {
+    const kodes = new Set();
+    (sampel.individu || []).forEach(u => { if (u.kode) kodes.add(u.kode); });
+    (sampel.grup || []).forEach(g => (g.members || []).forEach(m => { if (m.included && m.kode) kodes.add(m.kode); }));
+    return Array.from(kodes);
 }
 
 function _asdRenderSampel() {
@@ -267,4 +295,115 @@ function _asdOpenSampel(mode) {
     window._analisaSoalSampelMode = mode;
     if (typeof _persistAnalisaCtx === 'function') _persistAnalisaCtx();
     navigateTo('analisa-soal-sampel');
+}
+
+// ── GRAFIK: 1 grafik, disesuaikan dgn TIPE soal ini sendiri ────────────────
+// Beda dgn 3 grafik sekaligus di analisa-token-detail.js (yang menggabung
+// SEMUA soal dalam 1 modul/grup) — di sini cuma ADA 1 soal, jadi cuma
+// dibutuhkan/ditampilkan SATU grafik yang cocok dgn tipe soal ini:
+//   - multiple_choice/linier + skor_type Benar/Salah -> line chart Benar/Salah
+//   - multiple_choice/linier + skor_type Nilai Sendiri -> line chart Nilai/Skor
+//   - sikap_kerja -> grafik median & sebaran per kolom (sama persis dgn versi
+//     token, dibangun ulang lewat fungsi shared yg sama)
+// Datanya ditarik dari POST /api/analisa/soal/:kode/hitung, berdasarkan
+// sampel manual (individu/grup) yang sedang tersimpan di kartu "Sampel" —
+// lihat _asdSampelUserKodes(). Server yg menghitung ulang dari jawaban ASLI
+// (bukan localStorage) — lihat computeAnalisaSoalAggregate() di server.js.
+async function _asdRenderChart() {
+    const el = document.getElementById('asd-chart-container');
+    if (!el) return;
+
+    if (!_asdKode || !_asdSoal) { el.style.display = 'none'; el.innerHTML = ''; return; }
+
+    const sampel = _asdLoadSampel(_asdKode);
+    const userKodes = _asdSampelUserKodes(sampel);
+    if (!userKodes.length) {
+        el.style.display = '';
+        el.innerHTML = '<div class="empty-state" style="padding:24px"><p>Pilih Sampel (Tester Individu/Grup) dulu di atas untuk melihat grafik soal ini</p></div>';
+        return;
+    }
+
+    el.style.display = '';
+    el.innerHTML = '<div class="empty-state" style="padding:24px"><p>Memuat grafik…</p></div>';
+
+    let hasil = null;
+    try { hasil = await AnalisaAPI.hitungSoal(_asdKode, userKodes); }
+    catch (e) {
+        console.error('Gagal memuat grafik analisa soal:', e);
+        _atdEmptyChartCard('asd-chart-container', 'Gagal memuat grafik, silakan coba lagi');
+        return;
+    }
+
+    const tipeSoal = hasil.tipe_soal || { binary: false, skor: false, sikap: false };
+    const charts = hasil.charts || { binary: [], skor: [], sikap: [] };
+
+    if (tipeSoal.sikap) {
+        const raw = charts.sikap || [];
+        if (!raw.length) { _atdEmptyChartCard('asd-chart-container', 'Belum ada peserta (dari sampel) yang menyelesaikan ujian utk soal ini'); return; }
+        _ATD_DUMMY_SIKAP_RAW = raw;
+        const distBenar = _atdDistFromRaw(raw, r => r.benar);
+        const distSalah = _atdDistFromRaw(raw, r => r.salah);
+        const distDijawab = _atdDistFromRaw(raw, r => r.benar + r.salah);
+        _atdSikapCats = raw.map((_, i) => 'K' + (i + 1));
+        _atdSikapDist = [
+            { label: 'Benar', color: '#16a34a', key: 'benar', dist: distBenar },
+            { label: 'Salah', color: '#dc2626', key: 'salah', dist: distSalah },
+            { label: 'Jumlah Dijawab', color: '#2666b8', key: 'dijawab', dist: distDijawab }
+        ];
+        _atdBuildSikapMedianChart('asd-chart-container', {
+            title: 'Grafik Sikap Kerja — Median & Sebaran, Per Kolom',
+            sub: 'Tiap bola = jumlah orang yang dapat nilai itu; garis = median (bukan rata-rata) tiap kategori per kolom',
+            categories: _atdSikapCats, catData: _atdSikapDist, kind: 'sikap', hideAnalisaBtn: true
+        });
+        const leg = document.getElementById('asd-chart-container-legend');
+        if (leg) leg.innerHTML = _atdSikapLegendHtml();
+        _atdBindChartEvents('asd-chart-container', 'sikap');
+        return;
+    }
+
+    if (tipeSoal.skor) {
+        const data = charts.skor || [];
+        if (!data.length) { _atdEmptyChartCard('asd-chart-container', 'Belum ada peserta (dari sampel) yang menyelesaikan ujian utk soal ini'); return; }
+        _ATD_DUMMY_SKOR = data;
+        const { series, sortedPerSoal } = _atdBuildOpsiSeries(data);
+        _atdSkorSeriesMeta = series;
+        _atdSkorSortedPerSoal = sortedPerSoal;
+        const cats = data.map(s => s.nomor);
+        const maxVal = Math.max.apply(null, data.flatMap(s => s.opsi.map(o => o.jumlah)));
+        _atdBuildLineChart('asd-chart-container', {
+            title: 'Grafik — Tipe Nilai/Skor Sendiri',
+            sub: 'Jumlah peserta (dari sampel) yang memilih tiap opsi jawaban, per nomor butir — opsi sesama nilai 0 tetap dipisah, bukan digabung',
+            categories: cats, series, maxVal, kind: 'skor'
+        });
+        const leg = document.getElementById('asd-chart-container-legend');
+        if (leg) leg.innerHTML = _atdSkorLegendHtml(series);
+        _atdBindChartEvents('asd-chart-container', 'skor');
+        return;
+    }
+
+    if (tipeSoal.binary) {
+        const data = charts.binary || [];
+        if (!data.length) { _atdEmptyChartCard('asd-chart-container', 'Belum ada peserta (dari sampel) yang menyelesaikan ujian utk soal ini'); return; }
+        _ATD_DUMMY_BINARY = data;
+        const cats = data.map(s => s.nomor);
+        const series = [
+            { label: 'Benar', color: '#16a34a', values: data.map(s => s.benar) },
+            { label: 'Salah', color: '#dc2626', values: data.map(s => s.salah) }
+        ];
+        const maxVal = Math.max.apply(null, data.flatMap(s => [s.benar, s.salah]));
+        _atdBuildLineChart('asd-chart-container', {
+            title: 'Grafik — Tipe Benar/Salah',
+            sub: 'Jumlah peserta (dari sampel) yang menjawab Benar / Salah, per nomor butir',
+            categories: cats, series, maxVal, kind: 'binary'
+        });
+        const leg = document.getElementById('asd-chart-container-legend');
+        if (leg) leg.innerHTML = _atdBinaryLegendHtml();
+        _atdBindChartEvents('asd-chart-container', 'binary');
+        return;
+    }
+
+    // Tipe soal ini tidak menghasilkan grafik apapun (kasusnya seharusnya
+    // tidak pernah terjadi selama soal.type valid — jaring pengaman saja).
+    el.style.display = 'none';
+    el.innerHTML = '';
 }

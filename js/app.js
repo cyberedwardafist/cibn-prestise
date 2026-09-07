@@ -144,13 +144,17 @@ const ADMIN_PAGE_MODULES = {
     landing:         { html: 'admin/landing/landing.html',      js: ['admin/landing/landing.js'], modals: 'admin/landing/landing-modals.html' },
     'analisa-token':        { html: 'admin/analisa/analisa-token.html',        js: ['admin/analisa/analisa-token.js'] },
     // + analisa-export.js: logika tombol "Ekstrak" (bangun .xlsx + suntik grafik native via JSZip) — lihat komentar di file itu.
-    'analisa-token-detail': { html: 'admin/analisa/analisa-token-detail.html', js: ['admin/analisa/analisa-export.js', 'admin/analisa/analisa-token-detail.js'] },
+    // + analisa-chart-shared.js: kode grafik SVG (line chart + median/sebaran
+    // Sikap Kerja) yang dipakai bersama oleh halaman ini & 'analisa-soal-detail'
+    // di bawah — lihat komentar header file itu.
+    'analisa-token-detail': { html: 'admin/analisa/analisa-token-detail.html', js: ['admin/analisa/analisa-export.js', 'admin/analisa/analisa-chart-shared.js', 'admin/analisa/analisa-token-detail.js'] },
     'analisa-soal':         { html: 'admin/analisa/analisa-soal.html',         js: ['admin/analisa/analisa-soal.js'] },
     // Halaman detail 1 soal (dibuka dari klik kartu di daftar Analisa > Soal) —
     // sengaja dipisah jadi file/tab sendiri (bukan cuma toggle div di analisa-soal.js)
     // biar konsisten dgn pola 'analisa-token' -> 'analisa-token-detail' (nav-history,
-    // side-dock auto-close, dst). SEMENTARA MASIH MOCKUP, lihat komentar di file-nya.
-    'analisa-soal-detail':  { html: 'admin/analisa/analisa-soal-detail.html',  js: ['admin/analisa/analisa-soal-detail.js'] },
+    // side-dock auto-close, dst). Kartu "Grafik"-nya pakai ulang
+    // analisa-chart-shared.js yg sama dgn 'analisa-token-detail' di atas.
+    'analisa-soal-detail':  { html: 'admin/analisa/analisa-soal-detail.html',  js: ['admin/analisa/analisa-chart-shared.js', 'admin/analisa/analisa-soal-detail.js'] },
     // Halaman pemilihan tester manual (individu/grup) utk kartu "Sampel" di
     // analisa-soal-detail.js — lihat komentar _asdOpenSampel() di file itu &
     // header admin/analisa/analisa-soal-sampel.js utk alurnya.

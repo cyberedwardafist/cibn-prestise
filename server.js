@@ -591,6 +591,113 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
     };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// AGREGASI ANALISA SOAL TUNGGAL (ITEM DATA) — dipakai oleh
+// POST /api/analisa/soal/:kode/hitung (admin/analisa/analisa-soal-detail.js,
+// kartu "Grafik"). BEDA dengan computeAnalisaGrupAggregate() di atas:
+//   - Sumber pesertanya BUKAN 1 grup token, tapi SAMPEL MANUAL (individu/grup)
+//     yang dipilih admin di kartu "Sampel" halaman itu — daftar user_kode
+//     final (individu + anggota grup yang tidak dikeluarkan) dikirim FE lewat
+//     body request, lalu di sini ditarik ULANG laporannya dari DB (bukan
+//     percaya jawaban mentah dari client) supaya tetap 1 sumber kebenaran.
+//   - Hanya 1 soal (bukan seluruh soal_list 1 modul), jadi tidak perlu loop
+//     banyak soal / hitung modul mayoritas — nomor grafik SELALU mulai dari 1
+//     lagi khusus utk soal ini (butir-butir DALAM soal ini saja, kalau
+//     tipenya multiple_choice/linier dengan lebih dari 1 butir).
+//   - Sengaja DIPISAH dari computeAnalisaGrupAggregate (bukan dipanggil dari
+//     situ dengan soal_list 1 elemen) supaya perubahan/perbaikan salah satu
+//     tidak berisiko mengubah perilaku yang lain tanpa sengaja — sedikit
+//     duplikasi logika per-butir, tapi 2 sumber data (grup token vs sampel
+//     manual per-soal) memang berbeda konteks & lebih aman dijaga terpisah.
+async function computeAnalisaSoalAggregate(soalKode, laporanRows) {
+    const s = await db.prepare('SELECT * FROM soal WHERE kode=?').get(soalKode);
+    if (!s) return { binaryChart: [], skorChart: [], sikapRaw: [], tipeSoal: { binary: false, skor: false, sikap: false } };
+
+    let data = null; try { data = JSON.parse(s.data || 'null'); } catch (e) {}
+    data = expandSikapKerja(s.type, data);
+    data = Array.isArray(data) ? data : [];
+
+    const jawabanList = laporanRows.map(l => {
+        try { return typeof l.jawaban === 'string' ? JSON.parse(l.jawaban || '{}') : (l.jawaban || {}); }
+        catch (e) { return {}; }
+    });
+    const totalPeserta = jawabanList.length;
+
+    const binaryChart = [], skorChart = [], sikapRaw = [];
+    const tipeSoal = { binary: false, skor: false, sikap: false };
+    let binNomor = 0, skorNomor = 0;
+
+    if (s.type === 'sikap_kerja') {
+        tipeSoal.sikap = true;
+        data.forEach((kol, ki) => {
+            sikapRaw[ki] = [];
+            const kolSoal = Array.isArray(kol.soal) ? kol.soal : [];
+            jawabanList.forEach((jw, pi) => {
+                let benar = 0, salah = 0;
+                kolSoal.forEach((q, qi) => {
+                    const ans = jw[`${s.kode}_${ki}_${qi}`];
+                    if (ans) { const k = q.kunci_huruf || q.kunci; if (ans === k) benar++; else salah++; }
+                });
+                const namaPeserta = (laporanRows[pi] && laporanRows[pi].user_nama) || `Peserta ${pi + 1}`;
+                const idPengerjaan = (laporanRows[pi] && laporanRows[pi].laporan_kode) || ('idx:' + pi);
+                sikapRaw[ki].push({ benar, salah, nama: namaPeserta, id: idPengerjaan });
+            });
+        });
+        return { binaryChart, skorChart, sikapRaw, tipeSoal };
+    }
+
+    const isNilaiSendiri = s.skor_type === 'nilai_sendiri';
+    if (isNilaiSendiri) tipeSoal.skor = true; else tipeSoal.binary = true;
+
+    data.forEach((q, qi) => {
+        const jawabanOpsi = Array.isArray(q.jawaban) ? q.jawaban : [];
+        const pertanyaan = q.soal || '';
+        const pembahasan = q.pembahasan || '';
+
+        const pemilihOpsi = (optId) => {
+            const names = [];
+            jawabanList.forEach((jw, pi) => {
+                const ans = jw[`${s.kode}_${qi}`];
+                if (ans == null || ans === '') return;
+                const ids = Array.isArray(ans) ? ans : [ans];
+                if (ids.some(pid => String(pid) === String(optId))) {
+                    names.push((laporanRows[pi] && laporanRows[pi].user_nama) || `Peserta ${pi + 1}`);
+                }
+            });
+            return names;
+        };
+
+        if (isNilaiSendiri) {
+            skorNomor++;
+            const options = jawabanOpsi.map(j => {
+                const names = pemilihOpsi(j.id);
+                return { id: j.id, teks: j.teks || '', nilai: parseFloat(j.nilai) || 0, isKunci: (parseFloat(j.nilai) || 0) > 0, count: names.length, jumlah: names.length, names };
+            });
+            skorChart.push({ nomor: skorNomor, pertanyaan, pembahasan, opsi: options.map(o => ({ nilai: o.nilai, jumlah: o.jumlah })), options });
+        } else {
+            binNomor++;
+            const kunciRaw = q.kunci;
+            const kunci = Array.isArray(kunciRaw) ? kunciRaw.map(String) : (kunciRaw != null ? [String(kunciRaw)] : []);
+            let benar = 0;
+            jawabanList.forEach(jw => {
+                const ans = jw[`${s.kode}_${qi}`];
+                if (ans == null || ans === '') return;
+                let isBenar;
+                if (Array.isArray(ans)) isBenar = ans.length === kunci.length && ans.every(a => kunci.includes(String(a)));
+                else isBenar = kunci.includes(String(ans));
+                if (isBenar) benar++;
+            });
+            const options = jawabanOpsi.map(j => {
+                const names = pemilihOpsi(j.id);
+                return { id: j.id, teks: j.teks || '', isKunci: kunci.includes(String(j.id)), count: names.length, names };
+            });
+            binaryChart.push({ nomor: binNomor, benar, salah: totalPeserta - benar, pertanyaan, pembahasan, options });
+        }
+    });
+
+    return { binaryChart, skorChart, sikapRaw, tipeSoal };
+}
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ROUTES: AUTH & USERS
@@ -1672,6 +1779,53 @@ app.get('/api/analisa/grup/:grubKey', auth(['admin','review']), ah(async (req, r
         tipe_soal: agg.tipeSoal || { binary: false, skor: false, sikap: false },
         multi_modul: multiModul,
         modul_list: modulKodes.map(k => ({ kode: k, nama: (tokens.find(t => t.modul_kode === k) || {}).modul_nama || k, jumlah_token: modulCount[k] }))
+    });
+}));
+
+// POST /api/analisa/soal/:kode/hitung — endpoint agregasi khusus kartu
+// "Grafik" di admin/analisa/analisa-soal-detail.js (halaman ITEM DATA 1
+// soal, dibuka dari slide-dock ANALISA > SOAL). Polanya sama dengan
+// GET /api/analisa/grup/:grubKey di atas (SEMUA filter & hitungan jalan DI
+// SERVER, jawaban mentah peserta tidak pernah dikirim ke browser admin),
+// tapi sumber pesertanya beda: bukan 1 grup token, melainkan sampel manual
+// (individu/grup) yang dipilih admin — dikirim FE sbg daftar `user_kodes`
+// yang SUDAH final (individu + anggota grup yang tidak dikeluarkan/exclude).
+// Body: { user_kodes: string[] }.
+app.post('/api/analisa/soal/:kode/hitung', auth(['admin','review']), ah(async (req, res) => {
+    const kode = req.params.kode;
+    const soal = await db.prepare('SELECT kode FROM soal WHERE kode=?').get(kode);
+    if (!soal) return res.status(404).json({ error: 'Soal tidak ditemukan' });
+
+    const userKodes = Array.isArray(req.body.user_kodes) ? [...new Set(req.body.user_kodes.filter(Boolean))] : [];
+    if (!userKodes.length) {
+        return res.json({ jumlah_peserta: 0, charts: { binary: [], skor: [], sikap: [] }, tipe_soal: { binary: false, skor: false, sikap: false } });
+    }
+
+    // Cari semua modul yang memuat soal ini (logika sama dgn kartu "Modul" di
+    // analisa-soal-detail.js) — laporan ujian tersimpan per modul_kode, jadi
+    // jawaban utk soal ini bisa muncul di laporan modul manapun yang
+    // menyertakan soal ini.
+    const semuaModul = await db.prepare('SELECT kode FROM modul WHERE soal_list LIKE ?').all(`%"soal_kode":"${kode}"%`);
+    const modulKodes = semuaModul.map(m => m.kode);
+    if (!modulKodes.length) {
+        return res.json({ jumlah_peserta: 0, charts: { binary: [], skor: [], sikap: [] }, tipe_soal: { binary: false, skor: false, sikap: false } });
+    }
+
+    const placeholdersUser = userKodes.map(() => '?').join(',');
+    const placeholdersModul = modulKodes.map(() => '?').join(',');
+    const laporanRows = await db.prepare(`
+        SELECT l.kode as laporan_kode, l.jawaban, u.nama as user_nama
+        FROM laporan l
+        LEFT JOIN users u ON l.user_kode = u.kode
+        WHERE l.user_kode IN (${placeholdersUser}) AND l.modul_kode IN (${placeholdersModul})
+        ORDER BY l.created_at DESC
+    `).all(...userKodes, ...modulKodes);
+
+    const agg = await computeAnalisaSoalAggregate(kode, laporanRows);
+    res.json({
+        jumlah_peserta: laporanRows.length,
+        charts: { binary: agg.binaryChart, skor: agg.skorChart, sikap: agg.sikapRaw },
+        tipe_soal: agg.tipeSoal
     });
 }));
 
