@@ -815,7 +815,7 @@ const SIDE_DOCK_GROUPS = {
     items: [
       { page:'analisa-token', label:'TOKEN',
         icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>' },
-      { page:'analisa-soal',  label:'SOAL',
+      { page:'analisa-soal',  label:'SOAL', onclick:'openAnalisaSoalList()',
         icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' },
       { page:'analisa-modul', label:'MODUL',
         icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>' },
@@ -840,7 +840,7 @@ function openSideDock(group) {
   if (!def || !wrap || !items) return;
 
   items.innerHTML = def.items.map(it => `
-    <button class="dock-item${AppState.currentPage === it.page ? ' active-tab' : ''}" data-page="${it.page}" onclick="navigateTo('${it.page}')">
+    <button class="dock-item${AppState.currentPage === it.page ? ' active-tab' : ''}" data-page="${it.page}" onclick="${it.onclick || `navigateTo('${it.page}')`}">
       <div class="dock-icon">${it.icon}</div>
       <span class="dock-label">${it.label}</span>
     </button>`).join('');
@@ -857,6 +857,25 @@ function closeSideDock() {
   _sideDockOpenGroup = null;
   markSideDockGroupButtons(null);
   _syncDockLayoutOffset();
+}
+
+// Tombol "SOAL" di side-dock ANALISA -> selalu buka MODE LIST (daftar semua
+// soal), BUKAN navigateTo('analisa-soal') polos. Alasan: window.
+// _analisaSoalDetailNomor/_analisaSoalDetailKind (dipakai analisa-soal.js
+// utk memutuskan MODE LIST vs MODE DETAIL PER-NOMOR) BISA MASIH TERISI dari
+// kunjungan sebelumnya (klik grafik nomor soal di Analisa > Token ATAU di
+// Analisa > Soal sendiri — lihat _atdGoToSoalDetail()/_asdGoToButirDetail())
+// dan TIDAK PERNAH otomatis kosong lagi cuma krn pindah halaman lain. Tanpa
+// dibersihkan dulu di sini, klik tombol "SOAL" ini setelah pernah membuka
+// salah satu rincian nomor soal akan salah langsung nyangkut ke MODE DETAIL
+// nomor yg lama itu, bukan menampilkan daftar soal spt seharusnya.
+function openAnalisaSoalList() {
+  window._analisaSoalDetailGrup = null;
+  window._analisaSoalDetailNomor = null;
+  window._analisaSoalDetailKind = null;
+  window._analisaSoalDetailBackKode = null;
+  if (typeof _persistAnalisaCtx === 'function') _persistAnalisaCtx();
+  navigateTo('analisa-soal');
 }
 
 /* ── Aturan tampilan-menyesuaikan-dock ──
