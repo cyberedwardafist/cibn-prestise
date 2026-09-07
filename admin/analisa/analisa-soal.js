@@ -1,17 +1,23 @@
 // admin/analisa/analisa-soal.js
-// Halaman ANALISA > SOAL. Dibuka dari 2 arah:
+// Halaman ANALISA > SOAL. Dibuka dari 2 arah, masing-masing render mode yang
+// beda (toggle #as-list-wrap / #as-detail-wrap di analisa-soal.html):
 //   1) Lewat panel slide-dock ANALISA (tombol "SOAL") — langsung, tanpa konteks
-//      grup/soal tertentu -> tampil empty-state (tidak tahu soal mana yg mau
-//      dianalisa).
+//      grup/soal tertentu -> MODE LIST: tampilkan daftar semua soal yang ada
+//      (data sama dgn Library Soal, lihat _aslLoadAndRender di bawah). Klik
+//      salah satu kartu soal di daftar ini TIDAK membuka editor soal (beda dgn
+//      Library Soal) — malah membuka tab baru 'analisa-soal-detail'
+//      (admin/analisa/analisa-soal-detail.html/.js). Untuk saat ini halaman
+//      itu masih MOCKUP (cuma tombol kembali), isi detailnya menyusul.
 //   2) Lewat klik nomor soal (sumbu-X) di grafik "Benar/Salah" atau "Nilai/
 //      Skor Sendiri" pada admin/analisa/analisa-token-detail.js — lihat
 //      _atdGoToSoalDetail() di sana. Konteksnya (grup asal + nomor + tipe
 //      grafik yg diklik) dititip di window._analisaSoalDetail* sebelum
-//      navigateTo('analisa-soal') dipanggil.
+//      navigateTo('analisa-soal') dipanggil -> MODE DETAIL PER-NOMOR (perilaku
+//      lama, tidak berubah).
 //
-// Tombol panah kembali di atas: kalau dibuka dari grafik, balik ke halaman
-// detail grup token yang tadi dibuka (analisa-token-detail). Kalau dibuka
-// langsung dari slide-dock, balik ke daftar grup (analisa-token).
+// Tombol panah kembali di mode detail per-nomor: balik ke halaman detail grup
+// token yang tadi dibuka (analisa-token-detail) — halaman ini cuma dicapai
+// lewat jalur itu, jadi tidak pernah balik ke daftar grup (analisa-token).
 //
 // ── ISI HALAMAN — datanya diambil dari _ATD_DUMMY_BINARY / _ATD_DUMMY_SKOR
 // (nama variabel dipertahankan, lihat analisa-token-detail.js) yang sekarang
@@ -52,14 +58,106 @@ function renderAnalisaSoal() {
     const grup = window._analisaSoalDetailGrup || null;
     const nomor = window._analisaSoalDetailNomor || null;
     const kind = window._analisaSoalDetailKind || null;
-    const sub = document.getElementById('as-sub');
-    if (sub) {
-        sub.textContent = (grup && nomor)
-            ? `Soal No. ${nomor} · Grup: ${grup}${kind ? ' · Tipe: ' + (kind === 'skor' ? 'Nilai/Skor Sendiri' : 'Benar/Salah') : ''}`
-            : '-';
+    const listWrap = document.getElementById('as-list-wrap');
+    const detailWrap = document.getElementById('as-detail-wrap');
+
+    if (!grup || !nomor || !kind) {
+        // Tidak ada konteks grafik yg dititip -> dibuka langsung dari
+        // slide-dock ANALISA. Tampilkan MODE LIST (daftar semua soal).
+        if (detailWrap) detailWrap.style.display = 'none';
+        if (listWrap) listWrap.style.display = '';
+        _aslLoadAndRender();
+        return;
     }
+
+    // Ada konteks grafik -> MODE DETAIL PER-NOMOR (perilaku lama).
+    if (listWrap) listWrap.style.display = 'none';
+    if (detailWrap) detailWrap.style.display = '';
+    const sub = document.getElementById('as-sub');
+    if (sub) sub.textContent = `Soal No. ${nomor} · Grup: ${grup}${kind ? ' · Tipe: ' + (kind === 'skor' ? 'Nilai/Skor Sendiri' : 'Benar/Salah') : ''}`;
     _asActiveFilter = null; // reset filter tiap kali halaman ini dibuka ulang dari luar (klik grafik baru / kembali lalu masuk lagi)
     _asRenderContent(grup, nomor, kind);
+}
+
+// ── MODE LIST ────────────────────────────────────────────────────────────────
+// Dibuka langsung dari slide-dock ANALISA > SOAL, tanpa konteks grup/nomor
+// tertentu. Menampilkan daftar SEMUA soal yang ada — data sumbernya SAMA
+// dengan Library Soal (SoalAPI.getAll() + SoalKelompokAPI.getAll(), keduanya
+// didefinisikan global di js/api.js), TAPI file ini sengaja TIDAK ikut
+// nge-load admin/soal/soal.js / library.js supaya modul Analisa tetap ringan &
+// berdiri sendiri — makanya semua state & helper di bawah dipakai nama sendiri
+// (prefix _asl), bukan pinjam punya soal.js (_libData/_soalKelompokList dst,
+// yg belum tentu sudah termuat kalau tab Soal/Library belum pernah dibuka).
+// Klik satu kartu soal DI SINI *tidak* membuka editor soal (beda dgn Library
+// Soal) — melainkan membuka tab 'analisa-soal-detail' yang untuk saat ini
+// masih MOCKUP (lihat admin/analisa/analisa-soal-detail.html/.js).
+let _aslData = null, _aslKelompokList = [], _aslSearch = '';
+
+async function _aslLoadAndRender() {
+    const wrap = document.getElementById('as-list-wrap');
+    if (!wrap) return;
+    wrap.innerHTML = `
+      <div class="section-title">Analisa · Soal</div>
+      <div class="section-sub">Pilih salah satu soal untuk melihat analisanya</div>
+      <div class="form-group" style="margin-bottom:10px">
+        <input id="as-list-search" class="form-input" type="text" placeholder="Cari nama / tipe soal..." oninput="_aslSearch=this.value;_aslRenderList()">
+      </div>
+      <div id="as-list-groups"><div class="empty-state"><p>Memuat daftar soal…</p></div></div>`;
+    const [data, kelompok] = await Promise.all([
+        SoalAPI.getAll().catch(() => []),
+        SoalKelompokAPI.getAll().catch(() => [])
+    ]);
+    _aslData = data;
+    _aslKelompokList = kelompok;
+    _aslRenderList();
+}
+
+function _aslKelompokNama(kode) {
+    if (!kode) return null;
+    const k = _aslKelompokList.find(x => x.kode === kode);
+    return k ? k.nama : null;
+}
+
+function _aslCardHtml(s) {
+    const kode = s.kode || s.id;
+    const kelNama = _aslKelompokNama(s.kelompok);
+    const namaTampil = _asEsc(s.nama_internal ? `${s.nama} | ${s.nama_internal}` : s.nama);
+    return `
+    <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;border:1.5px solid rgba(19,50,89,0.09);background:rgba(255,255,255,0.55);cursor:pointer;margin-bottom:8px" onclick="_aslOpenDetail('${kode}')">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:14px;color:var(--blue);margin-bottom:6px;overflow-wrap:break-word">${namaTampil}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <span class="badge" style="background:rgba(26,90,160,0.1);color:var(--accent)">${_asEsc((s.type || '').replace(/_/g, ' '))}</span>
+          ${kelNama ? `<span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue)">${_asEsc(kelNama)}</span>` : ''}
+          <span style="font-size:11px;color:var(--text-sub)">${_asEsc(kode)}</span>
+        </div>
+      </div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-sub);flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>`;
+}
+
+function _aslRenderList() {
+    const el = document.getElementById('as-list-groups'); if (!el) return;
+    let data = _aslData || [];
+    if (_aslSearch) {
+        const q = _aslSearch.toLowerCase();
+        data = data.filter(s =>
+            (s.nama || '').toLowerCase().includes(q) ||
+            (s.nama_internal || '').toLowerCase().includes(q) ||
+            (s.type || '').toLowerCase().includes(q) ||
+            (_aslKelompokNama(s.kelompok) || '').toLowerCase().includes(q));
+    }
+    if (!data.length) { el.innerHTML = '<div class="empty-state"><p>Belum ada soal di library</p></div>'; return; }
+    el.innerHTML = data.map(_aslCardHtml).join('');
+}
+
+// Buka tab 'analisa-soal-detail' untuk 1 soal yang diklik dari daftar.
+// Kodenya dititip lewat window (pola sama dgn window._analisaSoalDetail* di
+// atas), dipakai nanti oleh analisa-soal-detail.js begitu isinya dibangun —
+// untuk saat ini halaman itu masih mockup (cuma tombol kembali).
+function _aslOpenDetail(kode) {
+    window._analisaSoalListDetailKode = kode;
+    navigateTo('analisa-soal-detail');
 }
 
 function _asBack() {

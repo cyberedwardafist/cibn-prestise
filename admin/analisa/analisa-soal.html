@@ -1,13 +1,22 @@
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-    <button class="btn-icon" onclick="_asBack()" title="Kembali">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-    </button>
-    <div>
-      <div class="section-title" style="margin-bottom:0">Analisa Soal</div>
-      <div class="section-sub" id="as-sub" style="margin-bottom:0">-</div>
-    </div>
-  </div>
+  <!-- Mode LIST — tampil saat halaman ini dibuka langsung dari slide-dock
+       ANALISA (tombol "SOAL"), tanpa konteks grup/nomor soal tertentu.
+       Isinya dibangun sepenuhnya lewat JS (_aslLoadAndRender di analisa-soal.js). -->
+  <div id="as-list-wrap"></div>
 
-  <div id="as-content">
-    <div class="card"><div class="empty-state"><p>Analisa per-soal akan segera hadir</p></div></div>
+  <!-- Mode DETAIL PER-NOMOR — tampil saat halaman ini dibuka dari klik grafik
+       "Benar/Salah" / "Nilai Skor Sendiri" di analisa-token-detail.js. -->
+  <div id="as-detail-wrap" style="display:none">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <button class="btn-icon" onclick="_asBack()" title="Kembali">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      </button>
+      <div>
+        <div class="section-title" style="margin-bottom:0">Analisa Soal</div>
+        <div class="section-sub" id="as-sub" style="margin-bottom:0">-</div>
+      </div>
+    </div>
+
+    <div id="as-content">
+      <div class="card"><div class="empty-state"><p>Analisa per-soal akan segera hadir</p></div></div>
+    </div>
   </div>

@@ -93,7 +93,7 @@ function renderPage(id, subId) {
         // jadi langsung ReferenceError sebelum sempat cek map[id]. Dengan string +
         // window[...], cuma nama fungsi utk id yang sedang aktif yang di-resolve,
         // dan modul-nya sudah pasti sudah dimuat oleh ensureAdminPageModule di atas.
-        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-grafik':'renderAnalisaGrafik' };
+        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-grafik':'renderAnalisaGrafik' };
         const fn = map[id] && window[map[id]];
         if (typeof fn === 'function') fn();
         if (subId) switchSubPage(id, subId);
@@ -140,6 +140,11 @@ const ADMIN_PAGE_MODULES = {
     // + analisa-export.js: logika tombol "Ekstrak" (bangun .xlsx + suntik grafik native via JSZip) — lihat komentar di file itu.
     'analisa-token-detail': { html: 'admin/analisa/analisa-token-detail.html', js: ['admin/analisa/analisa-export.js', 'admin/analisa/analisa-token-detail.js'] },
     'analisa-soal':         { html: 'admin/analisa/analisa-soal.html',         js: ['admin/analisa/analisa-soal.js'] },
+    // Halaman detail 1 soal (dibuka dari klik kartu di daftar Analisa > Soal) —
+    // sengaja dipisah jadi file/tab sendiri (bukan cuma toggle div di analisa-soal.js)
+    // biar konsisten dgn pola 'analisa-token' -> 'analisa-token-detail' (nav-history,
+    // side-dock auto-close, dst). SEMENTARA MASIH MOCKUP, lihat komentar di file-nya.
+    'analisa-soal-detail':  { html: 'admin/analisa/analisa-soal-detail.html',  js: ['admin/analisa/analisa-soal-detail.js'] },
     'analisa-grafik':       { html: 'admin/analisa/analisa-grafik.html',       js: ['admin/analisa/analisa-grafik.js'] },
     // Form Tambah/Edit Paket dipisah dari keuangan.js/keuangan-modals.html jadi
     // admin/keuangan/paket-form.js + admin/keuangan/paket-form.html (tampil
