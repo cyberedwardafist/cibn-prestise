@@ -16,6 +16,7 @@ async function _initBuatToken(){
     const sw0=document.getElementById('token-generated-swipe-list');if(sw0)sw0.innerHTML='';
     const pg0=document.getElementById('token-generated-pagination');if(pg0)pg0.innerHTML='';
     _genTokens=[];document.getElementById('token-dl-section').style.display='none';
+    _renderGrupMasterCard(null);
     const irChk=document.getElementById('token-izinkan-review');if(irChk)irChk.checked=false;
     const grChk=document.getElementById('token-grub-aktif');if(grChk)grChk.checked=false;
     const grInp=document.getElementById('token-grub-nama');if(grInp)grInp.value='';
@@ -121,12 +122,42 @@ async function generateTokens(){
         const result=await TokensAPI.generate(payload);
         if(!result||!result.length){showToast('Tidak ada token yang dibuat','danger');return;}
         // Server sekarang mengembalikan array objek {kode,modul_kode,aktivasi,expired}
-        // Pastikan format konsisten
-        _genTokens=result.map(t=>typeof t==='string'?{kode:t,modul_kode:modul,aktivasi:payload.aktivasi||null,expired:payload.expired||null,izinkan_review:izinkanReview,batas_keluar:batasKeluar}:t);
+        // Pastikan format konsisten. Kode Master Grup (is_master:true, kalau Grup
+        // Token aktif) sengaja DIPISAH dari daftar token asli di sini — dia tampil
+        // di kartu tersendiri (_renderGrupMasterCard), bukan ikut sebagai salah satu
+        // dari token asli yang diminta admin.
+        const masterTok=result.find(t=>t&&t.is_master);
+        const realResult=result.filter(t=>!(t&&t.is_master));
+        _genTokens=realResult.map(t=>typeof t==='string'?{kode:t,modul_kode:modul,aktivasi:payload.aktivasi||null,expired:payload.expired||null,izinkan_review:izinkanReview,batas_keluar:batasKeluar}:t);
         _renderGenList(1);document.getElementById('token-dl-section').style.display='flex';
-        showToast(`${_genTokens.length} token berhasil dibuat!`,'success');
+        _renderGrupMasterCard(masterTok);
+        showToast(`${_genTokens.length} token berhasil dibuat!`+(masterTok?' + 1 Kode Master Grup':''),'success');
     }catch(e){showToast('Gagal: '+e.message,'danger');}
     if(btn){btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Buat Token';}
+}
+// Kartu "Kode Master Grup": 1 kode/QR (format beda, prefix "GRUP-") yang mewakili
+// SELURUH token asli dalam grup yang barusan dibuat. Peserta yang scan/input kode
+// ini otomatis dapat 1 token asli yang masih tersedia (dikunci ke dia saat itu
+// juga) — kalau semua token asli sudah habis, kode ini otomatis gagal dipakai.
+// Token asli tetap muncul apa adanya di tabel/daftar di bawah kartu ini.
+function _renderGrupMasterCard(masterTok){
+    const wrap=document.getElementById('token-grup-master-card');
+    if(!wrap)return;
+    if(!masterTok){wrap.style.display='none';wrap.innerHTML='';return;}
+    wrap.style.display='block';
+    wrap.innerHTML=`<div class="card" style="border:1.5px dashed var(--blue);background:rgba(19,50,89,0.04)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+            <div style="min-width:200px">
+                <div class="switch-label" style="margin-bottom:2px">🔑 Kode Master Grup</div>
+                <div class="switch-desc" style="margin-bottom:8px">1 kode/QR ini mewakili seluruh ${_genTokens.length} token asli di grup "${(masterTok.grub_token||'').replace(/</g,'&lt;')}". Tiap peserta yang scan/input kode ini otomatis dapat 1 token asli yang masih tersedia — otomatis gagal kalau semua token asli sudah habis dipakai.</div>
+                <code style="font-family:monospace;font-weight:700;font-size:15px;color:var(--blue);letter-spacing:0.08em">${masterTok.kode}</code>
+            </div>
+            <div style="display:flex;gap:8px;flex-shrink:0">
+                <button class="btn btn-secondary btn-sm" onclick="openTokenQR('${masterTok.kode}','${masterTok.modul_kode||''}')">QR</button>
+                <button class="btn btn-secondary btn-sm" onclick="openTokenCopy('${masterTok.kode}','${masterTok.modul_kode||''}','${masterTok.aktivasi||''}','${masterTok.expired||''}')">Copy</button>
+            </div>
+        </div>
+    </div>`;
 }
 let _genPage=1;
 function _renderGenList(pg){
@@ -152,8 +183,10 @@ function _renderGenList(pg){
 // otomatis ilang dari dropdown karena toh percuma, gak ada datanya lagi buat difilter.
 function _populateGrubFilterSelect(selId,data,currentVal){
     const sel=document.getElementById(selId);if(!sel)return currentVal;
+    // Kode Master Grup (is_master) sengaja TIDAK ikut dihitung di sini — angka
+    // grup tetap mencerminkan jumlah token ASLI saja (bukan token asli + 1 kode master).
     const counts={};let noneCount=0;
-    data.forEach(t=>{ if(t.grub_token){counts[t.grub_token]=(counts[t.grub_token]||0)+1;} else noneCount++; });
+    data.forEach(t=>{ if(t.is_master)return; if(t.grub_token){counts[t.grub_token]=(counts[t.grub_token]||0)+1;} else noneCount++; });
     const names=Object.keys(counts).sort((a,b)=>a.localeCompare(b,'id'));
     let newVal=currentVal;
     if(newVal&&newVal!=='__none__'&&!counts[newVal])newVal='';
@@ -189,9 +222,9 @@ function _ltDateKey(tk){ return _localDateStr(tk.created_at||tk.token_created_at
 function _ltGroupHtml(group){
     const items=group.items;
     const label=group.key==='0000-00-00'?'Tanggal Tidak Diketahui':new Date(group.key).toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-    const rows=items.map((tk,i)=>`<tr><td>${i+1}</td><td><code style="font-family:monospace;font-weight:700;font-size:12px;color:var(--blue)">${tk.kode}</code></td><td class="hide-mobile" style="font-size:12px">${tk.modul_kode||'-'}</td><td class="hide-mobile" style="font-size:11px">${tk.aktivasi?new Date(tk.aktivasi).toLocaleDateString('id-ID'):'-'}</td><td class="hide-mobile" style="font-size:11px">${tk.expired?new Date(tk.expired).toLocaleDateString('id-ID'):'-'}</td><td class="hide-mobile"><span class="history-badge" style="${tk.izinkan_review?'background:rgba(22,163,74,.12);color:#16a34a':'background:rgba(19,50,89,.08);color:var(--text-sub)'}">${tk.izinkan_review?'✓ Ya':'Tidak'}</span></td><td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="openTokenQR('${tk.kode}','${tk.modul_kode||''}')">QR</button> <button class="btn-icon danger" onclick="hapusListToken('${tk.kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></td></tr>`).join('');
+    const rows=items.map((tk,i)=>`<tr><td>${i+1}</td><td><code style="font-family:monospace;font-weight:700;font-size:12px;color:var(--blue)">${tk.kode}</code>${tk.is_master?' <span class="history-badge" style="background:rgba(19,50,89,.12);color:var(--blue)">Master Grup</span>':''}</td><td class="hide-mobile" style="font-size:12px">${tk.modul_kode||'-'}</td><td class="hide-mobile" style="font-size:11px">${tk.aktivasi?new Date(tk.aktivasi).toLocaleDateString('id-ID'):'-'}</td><td class="hide-mobile" style="font-size:11px">${tk.expired?new Date(tk.expired).toLocaleDateString('id-ID'):'-'}</td><td class="hide-mobile"><span class="history-badge" style="${tk.izinkan_review?'background:rgba(22,163,74,.12);color:#16a34a':'background:rgba(19,50,89,.08);color:var(--text-sub)'}">${tk.izinkan_review?'✓ Ya':'Tidak'}</span></td><td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="openTokenQR('${tk.kode}','${tk.modul_kode||''}')">QR</button> <button class="btn-icon danger" onclick="hapusListToken('${tk.kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></td></tr>`).join('');
     const cards=items.map(tk=>SwipeCards.buildSwipeCardHtml({
-        title:tk.kode,
+        title:tk.kode+(tk.is_master?' · Master Grup':''),
         sub:(tk.modul_kode||'-')+(tk.expired?` · exp ${new Date(tk.expired).toLocaleDateString('id-ID')}`:''),
         leftActions:[{icon:'qr',label:'QR',cls:'act-secondary',onClick:`openTokenQR('${tk.kode}','${tk.modul_kode||''}')`}],
         rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`hapusListToken('${tk.kode}')`}]

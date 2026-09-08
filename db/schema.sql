@@ -184,6 +184,23 @@ ALTER TABLE tokens ADD COLUMN IF NOT EXISTS batas_keluar INTEGER;
 -- grub_token (perilaku lama, satu-satunya cara yg tersedia utk data lama).
 ALTER TABLE tokens ADD COLUMN IF NOT EXISTS grub_id TEXT;
 
+-- is_master: menandai 1 baris token per batch sebagai "Kode Master Grup" (BUKAN
+-- token asli), dibuat otomatis oleh POST /api/tokens/generate setiap kali admin
+-- mengaktifkan switch "Aktifkan Grup Token" di Buat Token. Kode master dibuat
+-- oleh genGrupMasterKode() (format beda: diawali "GRUP-", supaya gampang dibedain
+-- dari token asli baik oleh admin maupun sistem). Kode master TIDAK PERNAH
+-- ditandai digunakan=1 pada dirinya sendiri — dia dipakai berulang oleh banyak
+-- peserta berbeda; setiap kali divalidasi (POST /api/exam/validate-token) dia
+-- otomatis "meminjamkan" 1 token asli yang masih nganggur (digunakan=0, is_master=0)
+-- di grup yang sama (grub_id sama) ke peserta yang barusan validasi, dan token
+-- asli itulah yang benar-benar dikunci/dipakai. Reservasi dilakukan ATOMIK lewat
+-- `UPDATE tokens ... WHERE id=(SELECT ... FOR UPDATE SKIP LOCKED)` supaya 2
+-- peserta yang validasi kode master ini nyaris bersamaan TIDAK PERNAH kebagian
+-- token asli yang sama. Kalau seluruh token asli di grup sudah habis dipakai,
+-- validasi kode master otomatis gagal (tidak ada baris tersisa utk direservasi)
+-- — sengaja tidak ada logic tambahan apa pun utk kasus ini.
+ALTER TABLE tokens ADD COLUMN IF NOT EXISTS is_master SMALLINT DEFAULT 0;
+
 -- Nama internal (opsional) untuk soal & modul — HANYA ditampilkan di admin
 -- (Library Soal dan saat menyusun Modul), tidak pernah dikirim ke peserta ujian.
 -- Ditampilkan sebagai "nama soal | nama internal soal" di UI admin.
