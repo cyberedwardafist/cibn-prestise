@@ -1023,7 +1023,7 @@
   <div class="glass token-card">
     <div class="code-label">Kode Token</div>
     <div class="input-token-row">
-      <input type="text" id="code-input" class="code-textarea" placeholder="Contoh: ABCD-EFGH-IJKL" spellcheck="false" autocomplete="off" oninput="this.value=this.value.toUpperCase();onTokenInput()">
+      <input type="text" id="code-input" name="token_manual_entry" class="code-textarea" placeholder="Contoh: ABCD-EFGH-IJKL" spellcheck="false" autocomplete="one-time-code" autocapitalize="characters" readonly onfocus="this.removeAttribute('readonly')" oninput="this.value=this.value.toUpperCase();onTokenInput()">
       <button class="btn-scan-qr" onclick="openQrScanner()" title="Scan QR Code">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <rect x="3" y="3" width="7" height="7" rx="1"></rect>
