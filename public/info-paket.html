@@ -1099,18 +1099,6 @@ if (footerSpot) {
     const selectedPackage = PACKAGES.find(p => p.id === selectedId) || PACKAGES[0];
     renderInfo(selectedPackage);
   });
-
-  const footer = d.footer || {};
-    setText('footerDesc', footer.brandDesc);
-    setText('footerCopyright', footer.copyright);
-    setText('footerEmail', footer.email);
-    setHref('footerEmail', footer.email ? 'mailto:' + footer.email : '');
-    setText('footerPhone', footer.phone);
-    setHref('footerPhone', footer.phone ? 'tel:' + footer.phone.replace(/[^+\d]/g, '') : '');
-    setText('footerAddress', footer.address);
-    setHref('footerInstagram', footer.instagram);
-    setHref('footerTwitter', footer.twitter);
-    setHref('footerLinkedin', footer.linkedin);
 </script>
 </body>
 </html>
