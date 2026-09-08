@@ -345,3 +345,62 @@ CREATE INDEX IF NOT EXISTS idx_tokens_kode       ON tokens(kode);
 CREATE INDEX IF NOT EXISTS idx_tokens_digunakan  ON tokens(digunakan);
 CREATE INDEX IF NOT EXISTS idx_laporan_user      ON laporan(user_kode);
 CREATE INDEX IF NOT EXISTS idx_up_user           ON user_pakets(user_kode);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- Index tambahan — OPTIMASI PERFORMA (ditambahkan setelah audit query di server.js)
+-- Semua CREATE INDEX di bawah pakai IF NOT EXISTS & jalan di db/init.js setiap
+-- server start (lihat initSchema()) — jadi otomatis diterapkan baik ke instalasi
+-- BARU maupun instalasi LAMA yang sudah punya data, tanpa perlu migrasi manual.
+--
+-- Kategori 1 — kolom yang sering dipakai di WHERE/JOIN tapi belum ada index
+-- (sebelumnya Postgres terpaksa Seq Scan / baca seluruh tabel baris demi baris
+-- untuk query ini, persis pola "baca dari awal sampai ketemu" yang ingin dihindari):
+-- ═══════════════════════════════════════════════════════════════════════════════
+CREATE INDEX IF NOT EXISTS idx_tokens_modul          ON tokens(modul_kode);
+CREATE INDEX IF NOT EXISTS idx_tokens_digunakan_oleh ON tokens(digunakan_oleh);
+CREATE INDEX IF NOT EXISTS idx_tokens_grub_id        ON tokens(grub_id);
+CREATE INDEX IF NOT EXISTS idx_tokens_grub_token     ON tokens(grub_token);
+CREATE INDEX IF NOT EXISTS idx_laporan_token         ON laporan(token_kode);
+CREATE INDEX IF NOT EXISTS idx_laporan_modul         ON laporan(modul_kode);
+CREATE INDEX IF NOT EXISTS idx_laporan_created       ON laporan(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_up_paket              ON user_pakets(paket_kode);
+CREATE INDEX IF NOT EXISTS idx_up_user_akhir         ON user_pakets(user_kode, akhir DESC);
+CREATE INDEX IF NOT EXISTS idx_users_grub            ON users(grub);
+CREATE INDEX IF NOT EXISTS idx_soal_kelompok         ON soal(kelompok);
+CREATE INDEX IF NOT EXISTS idx_modul_kelompok        ON modul(kelompok);
+CREATE INDEX IF NOT EXISTS idx_ebooks_kelompok       ON ebooks(kelompok);
+CREATE INDEX IF NOT EXISTS idx_ebook_modul_kelompok  ON ebook_modul(kelompok);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- Kategori 2 — index "text_pattern_ops" untuk kolom `kode` yang dipakai genKode()
+-- (helper generator kode berurutan seperti SOL001, MOD002, EBK003, dst — dipanggil
+-- di HAMPIR SETIAP endpoint "create" di server.js). Pola query-nya:
+--     SELECT kode FROM <tabel> WHERE kode LIKE 'PREFIX%' ORDER BY id DESC LIMIT 1
+-- Index UNIQUE biasa (dibuat otomatis oleh `kode TEXT UNIQUE`) HANYA bisa
+-- mempercepat pencarian PERSIS SAMA (kode = 'SOL001'), TIDAK bisa dipakai untuk
+-- LIKE 'PREFIX%' kecuali collation database = "C". Tanpa index tambahan ini,
+-- genKode() akan Seq Scan (baca semua baris dari awal ke akhir, cek satu-satu)
+-- setiap kali ada yang membuat soal/modul/ebook/token-grup/dll baru — ini
+-- PERSIS pola "baca dari awal hingga akhir" yang disebutkan di pertanyaan.
+-- Index text_pattern_ops di bawah membuat pencarian prefix ini langsung lompat
+-- ke rentang data yang relevan (seperti buka halaman lewat daftar isi), bukan
+-- membaca seluruh tabel dari baris pertama.
+-- ═══════════════════════════════════════════════════════════════════════════════
+CREATE INDEX IF NOT EXISTS idx_users_kode_pattern              ON users(kode text_pattern_ops);
+CREATE INDEX IF NOT EXISTS idx_pakets_kode_pattern              ON pakets(kode text_pattern_ops);
+CREATE INDEX IF NOT EXISTS idx_up_kode_pattern                  ON user_pakets(kode text_pattern_ops);
+CREATE INDEX IF NOT EXISTS idx_grubs_kode_pattern               ON grubs(kode text_pattern_ops);
+CREATE INDEX IF NOT EXISTS idx_soal_kode_pattern                ON soal(kode text_pattern_ops);
+CREATE INDEX IF NOT EXISTS idx_soal_kelompok_kode_pattern       ON soal_kelompok(kode text_pattern_ops);
+CREATE INDEX IF NOT EXISTS idx_modul_kode_pattern               ON modul(kode text_pattern_ops);
+CREATE INDEX IF NOT EXISTS idx_modul_kelompok_kode_pattern      ON modul_kelompok(kode text_pattern_ops);
+CREATE INDEX IF NOT EXISTS idx_ebooks_kode_pattern              ON ebooks(kode text_pattern_ops);
+CREATE INDEX IF NOT EXISTS idx_ebook_kelompok_kode_pattern      ON ebook_kelompok(kode text_pattern_ops);
+CREATE INDEX IF NOT EXISTS idx_ebook_modul_kode_pattern         ON ebook_modul(kode text_pattern_ops);
+CREATE INDEX IF NOT EXISTS idx_ebook_modul_kelompok_kode_pattern ON ebook_modul_kelompok(kode text_pattern_ops);
+CREATE INDEX IF NOT EXISTS idx_laporan_kode_pattern             ON laporan(kode text_pattern_ops);
+CREATE INDEX IF NOT EXISTS idx_paket_requests_kode_pattern      ON paket_requests(kode text_pattern_ops);
+
+-- Kategori 3 — kolom tanggal yang dipakai untuk filter rentang (BETWEEN/<=/>=)
+-- pada notifikasi langganan hampir habis (GET /api/notifikasi/expired-soon).
+CREATE INDEX IF NOT EXISTS idx_users_langganan_akhir ON users(langganan_akhir) WHERE role = 'user';
