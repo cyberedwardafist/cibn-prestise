@@ -1061,6 +1061,18 @@ if (footerSpot) {
     setText('paketTitle', d.paket.title);
     setText('paketDesc', d.paket.desc);
   }).catch(() => {});
+
+  const footer = d.footer || {};
+    setText('footerDesc', footer.brandDesc);
+    setText('footerCopyright', footer.copyright);
+    setText('footerEmail', footer.email);
+    setHref('footerEmail', footer.email ? 'mailto:' + footer.email : '');
+    setText('footerPhone', footer.phone);
+    setHref('footerPhone', footer.phone ? 'tel:' + footer.phone.replace(/[^+\d]/g, '') : '');
+    setText('footerAddress', footer.address);
+    setHref('footerInstagram', footer.instagram);
+    setHref('footerTwitter', footer.twitter);
+    setHref('footerLinkedin', footer.linkedin);
 </script>
 </body>
 </html>
