@@ -702,6 +702,14 @@ async function saveLandingPrivasi() {
   catch (e) { showToast('Gagal menyimpan: ' + e.message, 'danger'); }
 }
 
+// Footer (Kontak, dsb) dipakai bareng di SEMUA halaman landing/publik:
+// public/index.html, paket.html, testimoni.html, info-paket.html,
+// syarat-ketentuan.html, kebijakan-privasi.html (elemen ber-id footerDesc/
+// footerEmail/footerPhone/footerAddress/footerInstagram/footerTwitter/
+// footerLinkedin/footerCopyright, masing-masing fetch /api/landing sendiri),
+// dan public/tentang.html + materi.html (lewat js/glass-common.js, elemen
+// .f-phone/.f-email/.f-address di dalam .footer-contact). Simpan di sini
+// otomatis kesebar ke semuanya — TIDAK perlu ubah apa pun di halaman lain.
 async function saveLandingFooter() {
   const footer = {
     brandDesc: document.getElementById('ld-footer-desc').value.trim(),
