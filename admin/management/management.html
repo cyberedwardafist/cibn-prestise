@@ -1,0 +1,101 @@
+<!-- ══ MANAGEMENT — Pengaturan Integrasi (dock sub: GMAIL | GMEET) ══
+     Fragmen ini di-lazy-load ke #page-management (lihat ADMIN_PAGE_MODULES di js/app.js).
+     Navigasi GMAIL/GMEET pakai panel dock terpisah (#management-dock-wrap di
+     admin/index_admin.html), bukan .sub-tabs pill biasa — polanya sama persis dgn
+     Editor Landing (#landing-dock-wrap). Logic ada di admin/management/management.js. -->
+
+<div class="section-title">Management</div>
+<div class="section-sub">Pengaturan integrasi pihak ketiga yang dipakai sistem — email pengirim (Gmail) & persiapan jadwal video call (Google Meet).</div>
+
+<!-- ── GMAIL ── -->
+<div class="sub-page active" id="sub-management-gmail">
+  <div class="ld-card">
+    <div class="ld-card-hd">
+      <div class="ld-sc-icon">✉️</div>
+      <div>
+        <h3>Email Pengirim (Gmail)</h3>
+        <p>Alamat ini dipakai sistem untuk mengirim kode OTP (lupa kata sandi) dan pesan/notifikasi lain ke user &amp; review.</p>
+      </div>
+      <span class="badge-pending" id="mgmt-gmail-status-badge" style="margin-left:auto;flex-shrink:0">Belum Diatur</span>
+    </div>
+
+    <div class="ld-notice">
+      Alamat &amp; App Password di bawah ini dipakai server untuk benar-benar mengirim email lewat Gmail (kode OTP lupa kata sandi, serta notifikasi pengingat kelas H-1 &amp; saat kelas dimulai). Pastikan 2-Step Verification aktif di akun Google-nya, lalu buat App Password khusus lewat Google Account → Security → App Passwords — <b>jangan pakai kata sandi Gmail biasa</b>. Simpan lalu tekan "Tes Koneksi" untuk memastikan email percobaan benar-benar sampai.
+    </div>
+
+    <div class="ld-field-group ld-cols-2">
+      <div class="ld-field">
+        <label>Alamat Email Pengirim</label>
+        <input type="email" id="mgmt-gmail-email" placeholder="noreply@cibnprestise.id atau akun Gmail Anda">
+        <div class="ld-hint">Alamat Gmail yang akan tercantum sebagai pengirim OTP &amp; pesan sistem lainnya.</div>
+      </div>
+      <div class="ld-field">
+        <label>Nama Pengirim</label>
+        <input type="text" id="mgmt-gmail-nama" placeholder="CIBN PRESTISE">
+        <div class="ld-hint">Muncul sebagai nama pengirim di inbox penerima.</div>
+      </div>
+    </div>
+
+    <div class="ld-field-group" style="margin-top:1rem">
+      <div class="ld-field">
+        <label>App Password</label>
+        <input type="password" id="mgmt-gmail-app-password" placeholder="16 karakter dari Google App Passwords" autocomplete="new-password">
+        <div class="ld-hint">Bukan kata sandi akun Gmail biasa — buat khusus lewat Google Account → Security → App Passwords (2-Step Verification harus aktif).</div>
+      </div>
+    </div>
+
+    <label style="display:flex;align-items:center;gap:.6rem;margin-top:1.1rem;font-size:.85rem;font-weight:600;color:var(--blue);cursor:pointer">
+      <input type="checkbox" id="mgmt-gmail-aktif" style="width:16px;height:16px;accent-color:var(--blue)">
+      Aktifkan pengiriman lewat alamat ini
+    </label>
+
+    <button class="btn btn-primary" id="mgmt-gmail-save-btn" onclick="mgmtSaveGmail()" style="margin-top:1.3rem">Simpan Pengaturan Gmail</button>
+    <button class="btn btn-secondary" id="mgmt-gmail-test-btn" onclick="mgmtTestGmail()" style="margin-top:1.3rem;margin-left:.7rem">Tes Koneksi &amp; Kirim Email Percobaan</button>
+  </div>
+</div>
+
+<!-- ── GMEET ── -->
+<div class="sub-page" id="sub-management-gmeet">
+  <div class="ld-card">
+    <div class="ld-card-hd">
+      <div class="ld-sc-icon">🎥</div>
+      <div>
+        <h3>Google Meet — Jadwal</h3>
+        <p>Dipakai untuk membuat tautan Google Meet otomatis pada fitur Jadwal di halaman User &amp; Review.</p>
+      </div>
+      <span class="badge-pending" id="mgmt-gmeet-status-badge" style="margin-left:auto;flex-shrink:0">Dummy / Belum Terhubung</span>
+    </div>
+
+    <div class="ld-notice">
+      Bagian ini <b>masih placeholder</b> — belum ada alur OAuth Google yang sesungguhnya. Field &amp; tombol di bawah disiapkan lebih dulu supaya begitu integrasi asli dipasang, halaman Jadwal di User &amp; Review tinggal pakai data yang sama tanpa perlu bongkar ulang tampilan.
+    </div>
+
+    <div class="ld-field-group ld-cols-2">
+      <div class="ld-field">
+        <label>Google Client ID</label>
+        <input type="text" id="mgmt-gmeet-client-id" placeholder="xxxxxxxxxx.apps.googleusercontent.com">
+      </div>
+      <div class="ld-field">
+        <label>Google Client Secret</label>
+        <input type="password" id="mgmt-gmeet-client-secret" placeholder="Client secret dari Google Cloud Console" autocomplete="new-password">
+      </div>
+    </div>
+
+    <div class="ld-field-group ld-cols-2" style="margin-top:1rem">
+      <div class="ld-field">
+        <label>Calendar ID</label>
+        <input type="text" id="mgmt-gmeet-calendar-id" placeholder="primary">
+        <div class="ld-hint">Kalender Google tempat jadwal &amp; link Meet akan dibuat.</div>
+      </div>
+      <div class="ld-field">
+        <label>Durasi Default Sesi (menit)</label>
+        <input type="number" id="mgmt-gmeet-durasi" min="15" step="15" placeholder="60">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:.7rem;flex-wrap:wrap;margin-top:1.3rem">
+      <button class="btn btn-primary" id="mgmt-gmeet-save-btn" onclick="mgmtSaveGmeet()">Simpan Pengaturan Gmeet</button>
+      <button class="btn btn-secondary" id="mgmt-gmeet-connect-btn" onclick="mgmtDummyConnectGmeet()">Hubungkan Akun Google</button>
+    </div>
+  </div>
+</div>

@@ -263,6 +263,55 @@ CREATE TABLE IF NOT EXISTS landing (
     data TEXT
 );
 
+-- Pengaturan integrasi pihak ketiga (tab MANAGEMENT di admin: dock GMAIL | GMEET).
+-- Sama pola dgn tabel `landing` di atas (1 baris, kolom data berisi JSON, di-merge
+-- lewat PUT), bedanya endpoint-nya (/api/pengaturan/integrasi) KHUSUS admin (GET
+-- maupun PUT) karena isinya bisa memuat kredensial (mis. app password Gmail) —
+-- tidak boleh ikut publik seperti /api/landing.
+-- Struktur data.gmail: { email, app_password, nama_pengirim, aktif } — dipakai utk
+-- kirim OTP (lupa kata sandi) & notifikasi/pesan lain ke user (lihat server.js).
+-- Struktur data.gmeet: { client_id, client_secret, calendar_id, durasi_default,
+-- status } — MASIH DUMMY/PLACEHOLDER, disiapkan utk fitur Jadwal di halaman user
+-- & review (belum ada alur OAuth Google / pembuatan link Meet asli).
+CREATE TABLE IF NOT EXISTS pengaturan_integrasi (
+    id   INTEGER PRIMARY KEY DEFAULT 1,
+    data TEXT
+);
+
+-- Sesi kelas online (booking user <-> tentor). Sumber data NYATA untuk pengingat
+-- email H-1 & "kelas dimulai" (lib/kelas-reminder.js) — beda dari halaman Jadwal
+-- di user/jadwal/jadwal.js & review/jadwal/jadwal.js yang SAAT INI masih dummy
+-- (localStorage per-browser, lihat JadwalStore di file itu). Kolom & vokabuler
+-- status (pending/acc/ditolak/berlangsung/selesai/batal/dst) sengaja dibuat
+-- selaras dengan JDW_STATUS_LABEL di jadwal.js supaya nanti gampang disambung.
+-- waktu_mulai/waktu_selesai adalah gabungan tanggal+slot dalam bentuk TIMESTAMP
+-- asli (bukan cuma tanggal+kode slot) karena itu yang dipakai scheduler untuk
+-- hitung "H-1" & "sudah mulai".
+CREATE TABLE IF NOT EXISTS jadwal_sesi (
+    id                   SERIAL PRIMARY KEY,
+    kode                 TEXT UNIQUE NOT NULL,
+    user_kode            TEXT NOT NULL REFERENCES users(kode),
+    tentor_id            TEXT NOT NULL,
+    tentor_nama          TEXT,
+    materi_id            TEXT,
+    materi_nama          TEXT,
+    tanggal              DATE NOT NULL,
+    slot_id              TEXT,
+    slot_label           TEXT,
+    waktu_mulai          TIMESTAMP NOT NULL,
+    waktu_selesai        TIMESTAMP,
+    status               TEXT NOT NULL DEFAULT 'pending',
+    meet_link            TEXT,
+    catatan              TEXT,
+    reminder_h1_sent     BOOLEAN DEFAULT false,
+    reminder_mulai_sent  BOOLEAN DEFAULT false,
+    created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_jadwal_sesi_user   ON jadwal_sesi(user_kode);
+CREATE INDEX IF NOT EXISTS idx_jadwal_sesi_waktu  ON jadwal_sesi(waktu_mulai);
+CREATE INDEX IF NOT EXISTS idx_jadwal_sesi_status ON jadwal_sesi(status);
+
 CREATE TABLE IF NOT EXISTS signup_requests (
     id         SERIAL PRIMARY KEY,
     nama       TEXT,
@@ -291,9 +340,9 @@ CREATE INDEX IF NOT EXISTS idx_paket_requests_user   ON paket_requests(user_kode
 CREATE INDEX IF NOT EXISTS idx_paket_requests_status ON paket_requests(status);
 
 -- Kode OTP untuk fitur "Lupa Kata Sandi" (landing baru, halaman otp.html).
--- Belum ada layanan email/SMTP terpasang — kode saat ini dicatat ke server log
--- (console.log) saat /api/password/forgot dipanggil. Sambungkan ke SMTP asli
--- di titik yang sama begitu kredensial email tersedia.
+-- Dikirim via Gmail nyata (lib/mailer.js) begitu admin mengisi & mengaktifkan
+-- Gmail di dock Management; kalau belum diaktifkan, kode tetap dicatat ke
+-- server log (console.log) sebagai fallback saat /api/password/forgot dipanggil.
 CREATE TABLE IF NOT EXISTS password_resets (
     id         SERIAL PRIMARY KEY,
     email      TEXT NOT NULL,

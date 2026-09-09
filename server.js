@@ -11,6 +11,8 @@ require('dotenv').config();
 
 const { db, transaction } = require('./db/pool');
 const { initSchema, seedIfEmpty, sanityCheckEbooks, ensureGatewayConfig } = require('./db/init');
+const { kirimEmail, invalidateMailerCache, verifikasiDanKirimTes } = require('./lib/mailer');
+const { mulaiScheduler, jalankanCekReminder } = require('./lib/kelas-reminder');
 
 const app       = express();
 const PORT      = process.env.PORT || 3000;
@@ -1030,21 +1032,31 @@ app.post('/api/pembayaran/notify/xendit', ah(async (req, res) => {
 }));
 
 // ── Lupa kata sandi via OTP (halaman otp.html) ──
-// PENTING: belum ada layanan email/SMTP terpasang di server ini. Kode OTP
-// dicatat ke console.log server sebagai pengganti sementara — sambungkan ke
-// layanan email asli (mis. nodemailer + SMTP) tepat di baris console.log di
-// bawah begitu kredensialnya tersedia.
+// Kode OTP sekarang benar-benar dikirim lewat Gmail (lib/mailer.js), memakai
+// kredensial yang diisi admin di dock Management > GMAIL. Kalau Gmail belum
+// diisi/diaktifkan, kirimEmail() otomatis fallback mencatat ke console.log
+// server (lihat lib/mailer.js) supaya alur tetap bisa dites tanpa Gmail nyata.
 function genOtp() { return String(Math.floor(100000 + Math.random() * 900000)); }
 
 app.post('/api/password/forgot', ah(async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email wajib diisi' });
-    const user = await db.prepare('SELECT kode FROM users WHERE email=?').get(email);
+    const user = await db.prepare('SELECT kode,nama FROM users WHERE email=?').get(email);
     if (user) {
         const otp = genOtp();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
         await db.prepare('INSERT INTO password_resets (email,otp,expires_at) VALUES (?,?,?)').run(email, otp, expiresAt);
         console.log(`[OTP] Kode reset kata sandi untuk ${email}: ${otp} (berlaku 10 menit)`);
+        kirimEmail({
+            to: email,
+            subject: 'Kode OTP Reset Kata Sandi — CIBN PRESTISE',
+            html: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">
+                <p>Halo ${user.nama || ''},</p>
+                <p>Kode OTP untuk mengatur ulang kata sandi akun kamu:</p>
+                <p style="font-size:28px;font-weight:700;letter-spacing:4px;margin:16px 0">${otp}</p>
+                <p>Kode ini berlaku 10 menit. Kalau kamu tidak meminta reset kata sandi, abaikan email ini.</p>
+            </div>`,
+        }).catch(() => {}); // Kegagalan kirim tidak boleh menggagalkan response ke user (lihat balasan generik di bawah).
     }
     // Selalu balas sukses (tidak membocorkan apakah email terdaftar atau tidak).
     res.json({ message: 'Jika email terdaftar, kode OTP telah dikirim.' });
@@ -1952,6 +1964,92 @@ app.post('/api/exam/submit', auth(['user','admin','review']), ah(async (req, res
 app.get('/api/notifikasi/expired-soon', auth(['admin']), ah(async (req, res) => { res.json(await db.prepare(`SELECT u.kode, u.nama, u.email, u.langganan_akhir, (u.langganan_akhir::date - CURRENT_DATE) as sisa_hari FROM users u WHERE u.role='user' AND u.langganan_akhir IS NOT NULL AND u.langganan_akhir::date >= CURRENT_DATE AND (u.langganan_akhir::date - CURRENT_DATE) <= 7 ORDER BY sisa_hari ASC`).all()); }));
 app.get('/api/landing', ah(async (req, res) => { const row = await db.prepare('SELECT data FROM landing WHERE id=1').get(); res.json(row ? JSON.parse(row.data) : {}); }));
 app.put('/api/landing', auth(['admin']), ah(async (req, res) => { const existing = await db.prepare('SELECT data FROM landing WHERE id=1').get(); const merged = { ...(existing ? JSON.parse(existing.data) : {}), ...req.body }; await db.prepare('INSERT INTO landing (id,data) VALUES (1,?) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data').run(JSON.stringify(merged)); res.json({ message: 'Berhasil' }); }));
+// ── Pengaturan Integrasi (tab MANAGEMENT admin: dock GMAIL | GMEET) ──
+// Sama pola merge spt /api/landing di atas, tapi GET-nya JUGA dikunci auth(['admin'])
+// (bukan publik) karena data.gmail bisa memuat app password Gmail.
+app.get('/api/pengaturan/integrasi', auth(['admin']), ah(async (req, res) => { const row = await db.prepare('SELECT data FROM pengaturan_integrasi WHERE id=1').get(); res.json(row ? JSON.parse(row.data) : {}); }));
+app.put('/api/pengaturan/integrasi', auth(['admin']), ah(async (req, res) => {
+    const existing = await db.prepare('SELECT data FROM pengaturan_integrasi WHERE id=1').get();
+    const merged = { ...(existing ? JSON.parse(existing.data) : {}), ...req.body };
+    await db.prepare('INSERT INTO pengaturan_integrasi (id,data) VALUES (1,?) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data').run(JSON.stringify(merged));
+    // Kredensial Gmail bisa berubah di sini (email/app_password/aktif) — buang transporter
+    // lama dari cache supaya kiriman berikutnya (OTP/notif kelas) pakai kredensial terbaru.
+    if (req.body.gmail) invalidateMailerCache();
+    res.json({ message: 'Berhasil' });
+}));
+// Tombol "Tes Koneksi & Kirim Email Percobaan" di dock GMAIL — verifikasi SMTP
+// beneran (bukan cuma simpan field) lalu kirim 1 email percobaan ke alamat Gmail
+// yang sama (atau ke `to` di body kalau mau tes ke alamat lain).
+app.post('/api/pengaturan/integrasi/test-email', auth(['admin']), ah(async (req, res) => {
+    try {
+        await verifikasiDanKirimTes(req.body?.to);
+        res.json({ message: 'Berhasil! Email percobaan sudah dikirim — cek inbox (atau folder spam).' });
+    } catch (e) {
+        res.status(400).json({ error: e.message || 'Gagal terhubung ke Gmail. Cek lagi App Password & pastikan 2-Step Verification aktif di akun Google-nya.' });
+    }
+}));
+
+// ── JADWAL SESI KELAS (sumber data nyata utk pengingat email H-1/mulai) ──
+// Vokabuler status sengaja selaras JDW_STATUS_LABEL di user/jadwal/jadwal.js
+// (yang saat ini masih dummy/localStorage) supaya nanti gampang disambung —
+// lihat catatan lengkap di lib/kelas-reminder.js.
+app.get('/api/jadwal-sesi', auth(['admin','review','user']), ah(async (req, res) => {
+    let rows;
+    if (req.user.role === 'user') {
+        rows = await db.prepare('SELECT * FROM jadwal_sesi WHERE user_kode=? ORDER BY waktu_mulai DESC').all(req.user.kode);
+    } else if (req.user.role === 'review') {
+        rows = await db.prepare('SELECT * FROM jadwal_sesi WHERE tentor_id=? ORDER BY waktu_mulai DESC').all(req.user.kode);
+    } else {
+        rows = await db.prepare('SELECT * FROM jadwal_sesi ORDER BY waktu_mulai DESC').all();
+    }
+    res.json(rows);
+}));
+app.post('/api/jadwal-sesi', auth(['admin','user']), ah(async (req, res) => {
+    const { tentor_id, tentor_nama, materi_id, materi_nama, tanggal, slot_id, slot_label, waktu_mulai, waktu_selesai, meet_link } = req.body || {};
+    if (!tentor_id || !tanggal || !waktu_mulai) return res.status(400).json({ error: 'tentor_id, tanggal, dan waktu_mulai wajib diisi' });
+    const user_kode = req.user.role === 'admin' && req.body.user_kode ? req.body.user_kode : req.user.kode;
+    const kode = await genKode('JDS', 'jadwal_sesi');
+    await db.prepare(`INSERT INTO jadwal_sesi
+        (kode,user_kode,tentor_id,tentor_nama,materi_id,materi_nama,tanggal,slot_id,slot_label,waktu_mulai,waktu_selesai,meet_link,status)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        .run(kode, user_kode, tentor_id, tentor_nama || null, materi_id || null, materi_nama || null, tanggal, slot_id || null, slot_label || null, waktu_mulai, waktu_selesai || null, meet_link || null, 'pending');
+    res.json(await db.prepare('SELECT * FROM jadwal_sesi WHERE kode=?').get(kode));
+}));
+app.put('/api/jadwal-sesi/:kode', auth(['admin','review']), ah(async (req, res) => {
+    const existing = await db.prepare('SELECT * FROM jadwal_sesi WHERE kode=?').get(req.params.kode);
+    if (!existing) return res.status(404).json({ error: 'Sesi tidak ditemukan' });
+    if (req.user.role === 'review' && existing.tentor_id !== req.user.kode) return res.status(403).json({ error: 'Forbidden' });
+    const { status, waktu_mulai, waktu_selesai, meet_link, catatan } = req.body || {};
+    // Kalau jam mulai berubah, reset flag pengingat supaya H-1/notif-mulai
+    // dihitung ulang dari jam yang baru (bukan tetap dianggap "sudah dikirim").
+    const jamBerubah = waktu_mulai && waktu_mulai !== existing.waktu_mulai;
+    await db.prepare(`UPDATE jadwal_sesi SET
+        status = COALESCE(?, status),
+        waktu_mulai = COALESCE(?, waktu_mulai),
+        waktu_selesai = COALESCE(?, waktu_selesai),
+        meet_link = COALESCE(?, meet_link),
+        catatan = COALESCE(?, catatan),
+        reminder_h1_sent = CASE WHEN ? THEN false ELSE reminder_h1_sent END,
+        reminder_mulai_sent = CASE WHEN ? THEN false ELSE reminder_mulai_sent END,
+        updated_at = CURRENT_TIMESTAMP
+        WHERE kode = ?`)
+        .run(status || null, waktu_mulai || null, waktu_selesai || null, meet_link || null, catatan || null, jamBerubah, jamBerubah, req.params.kode);
+    res.json(await db.prepare('SELECT * FROM jadwal_sesi WHERE kode=?').get(req.params.kode));
+}));
+app.delete('/api/jadwal-sesi/:kode', auth(['admin','user']), ah(async (req, res) => {
+    const existing = await db.prepare('SELECT * FROM jadwal_sesi WHERE kode=?').get(req.params.kode);
+    if (!existing) return res.status(404).json({ error: 'Sesi tidak ditemukan' });
+    if (req.user.role === 'user' && existing.user_kode !== req.user.kode) return res.status(403).json({ error: 'Forbidden' });
+    await db.prepare('DELETE FROM jadwal_sesi WHERE kode=?').run(req.params.kode);
+    res.json({ message: 'Dihapus' });
+}));
+// Pemicu manual siklus pengecekan H-1/kelas-dimulai — dipakai kalau server
+// dijalankan sbg serverless (Vercel, dst) di mana setInterval di kelas-reminder.js
+// tidak jalan terus; jadwalkan cron eksternal (mis. Vercel Cron / cron-job.org)
+// memanggil endpoint ini tiap beberapa menit.
+app.post('/api/cron/jadwal-reminder', auth(['admin']), ah(async (req, res) => {
+    res.json(await jalankanCekReminder());
+}));
 app.put('/api/me', auth(['admin','review','user']), ah(async (req, res) => { await db.prepare('UPDATE users SET nama=?,email=? WHERE kode=?').run(req.body.nama, req.body.email, req.user.kode); res.json({ message: 'OK' }); }));
 app.get('/api/review/users', auth(['review','admin']), ah(async (req, res) => res.json(await db.prepare("SELECT id,kode,nama,email,grub,status FROM users WHERE role='user' ORDER BY id").all())));
 app.get('/api/review/laporan/:user_kode', auth(['review','admin']), ah(async (req, res) => { const rows = await db.prepare('SELECT * FROM laporan WHERE user_kode=? ORDER BY created_at DESC').all(req.params.user_kode); rows.forEach(r => { if (r.jawaban) try { r.jawaban = JSON.parse(r.jawaban); } catch (e) {} }); res.json(rows); }));
@@ -2064,6 +2162,12 @@ app.use((err, req, res, next) => {
         await initSchema();
         await seedIfEmpty();
         await ensureGatewayConfig();
+
+        // Scheduler pengingat kelas (H-1 & kelas dimulai) — jalan tiap 5 menit via
+        // setInterval. Kalau dijalankan sbg serverless (VERCEL), setInterval tidak
+        // bisa diandalkan hidup terus; pakai cron eksternal memanggil
+        // POST /api/cron/jadwal-reminder sebagai gantinya (lihat server.js).
+        if (!process.env.VERCEL) mulaiScheduler();
 
         // Server hanya menggunakan app.listen jika dijalankan secara lokal (bukan Vercel)
         if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
