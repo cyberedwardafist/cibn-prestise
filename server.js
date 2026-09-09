@@ -135,6 +135,15 @@ function genTokenKode() {
     const seg   = () => Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
     return `${seg()}-${seg()}-${seg()}`;
 }
+// Kode "Master Grup" — sengaja BEDA FORMAT dari genTokenKode() (prefix "GRUP-",
+// cuma 2 segmen bukan 3) supaya admin gampang bedain di List Token sekilas mata
+// tanpa perlu buka detail. Lihat komentar kolom is_master di db/schema.sql utk
+// alur lengkap bagaimana kode ini dipakai (validate-token).
+function genGrupMasterKode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const seg   = () => Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+    return `GRUP-${seg()}-${seg()}`;
+}
 // ID unik per BATCH generate token (grup) — lihat komentar kolom `grub_id` di
 // db/schema.sql. Timestamp (base36) + acak: praktis tidak pernah tabrakan
 // tanpa perlu cek unik ke DB (beda dgn genTokenKode() yg di-retry oleh
@@ -1655,7 +1664,10 @@ app.get('/api/tokens/used', auth(['admin']), ah(async (req, res) => {
     const rows = await db.prepare(`SELECT t.kode, t.modul_kode, t.aktivasi, t.expired, t.digunakan_oleh, t.izinkan_review, t.grub_token, t.grub_id, t.created_at as token_created_at, l.kode as laporan_kode, l.tgl_selesai, l.waktu_pengerjaan, l.skor, l.created_at as laporan_created_at, u.nama as user_nama, m.nama as modul_nama, m.nama_internal as modul_nama_internal FROM tokens t LEFT JOIN laporan l ON l.token_kode = t.kode LEFT JOIN users u ON t.digunakan_oleh = u.kode LEFT JOIN modul m ON t.modul_kode = m.kode WHERE t.digunakan = 1 ORDER BY COALESCE(l.tgl_selesai, l.created_at::text, t.created_at::text) DESC`).all();
     res.json(rows);
 }));
-app.get('/api/tokens/grub-list', auth(['admin','review']), ah(async (req, res) => { res.json(await db.prepare(`SELECT grub_token, COUNT(*) as jumlah_token FROM tokens WHERE grub_token IS NOT NULL AND TRIM(grub_token) <> '' GROUP BY grub_token ORDER BY LOWER(grub_token)`).all()); }));
+// Hitungan jumlah_token sengaja MENGECUALIKAN baris Kode Master Grup (is_master=1)
+// supaya angkanya tetap mencerminkan jumlah token ASLI di grup itu (mis. tetap
+// tampil "10", bukan "11" gara-gara ikut menghitung 1 kode master-nya).
+app.get('/api/tokens/grub-list', auth(['admin','review']), ah(async (req, res) => { res.json(await db.prepare(`SELECT grub_token, COUNT(*) as jumlah_token FROM tokens WHERE grub_token IS NOT NULL AND TRIM(grub_token) <> '' AND (is_master=0 OR is_master IS NULL) GROUP BY grub_token ORDER BY LOWER(grub_token)`).all()); }));
 app.post('/api/tokens/generate', auth(['admin']), ah(async (req, res) => {
     const { modul_kode, jumlah, mode, aktivasi, expired, izinkan_review, grub_token, batas_keluar } = req.body;
     const izinReview = izinkan_review ? 1 : 0;
@@ -1673,12 +1685,20 @@ app.post('/api/tokens/generate', auth(['admin']), ah(async (req, res) => {
     else if (mode === 'custom' && aktivasi && expired) { akt = new Date(aktivasi).toISOString(); exp = new Date(expired).toISOString(); }
     try {
         const tokens = await transaction(async (tdb) => {
-            const insert = tdb.prepare('INSERT INTO tokens (kode,modul_kode,aktivasi,expired,izinkan_review,grub_token,batas_keluar,grub_id) VALUES (?,?,?,?,?,?,?,?)');
+            const insert = tdb.prepare('INSERT INTO tokens (kode,modul_kode,aktivasi,expired,izinkan_review,grub_token,batas_keluar,grub_id,is_master) VALUES (?,?,?,?,?,?,?,?,?)');
             const checkExist = tdb.prepare('SELECT id FROM tokens WHERE kode=?');
             const count = Math.min(jumlah, 200); const result = [];
             for (let i = 0; i < count; i++) {
                 let kode, tries = 0; do { kode = genTokenKode(); tries++; } while ((await checkExist.get(kode)) && tries < 10);
-                await insert.run(kode, modul_kode, akt, exp, izinReview, grubToken, batasKeluar, grubId); result.push({ kode, modul_kode, aktivasi: akt, expired: exp, izinkan_review: izinReview, grub_token: grubToken, batas_keluar: batasKeluar, grub_id: grubId });
+                await insert.run(kode, modul_kode, akt, exp, izinReview, grubToken, batasKeluar, grubId, 0); result.push({ kode, modul_kode, aktivasi: akt, expired: exp, izinkan_review: izinReview, grub_token: grubToken, batas_keluar: batasKeluar, grub_id: grubId, is_master: false });
+            }
+            // Kode Master Grup: 1 baris tambahan per batch, HANYA kalau Grup Token aktif.
+            // Bukan salah satu dari `jumlah` token asli yang diminta admin — lihat
+            // komentar kolom is_master di db/schema.sql utk alur lengkapnya.
+            if (grubId) {
+                let masterKode, tries = 0; do { masterKode = genGrupMasterKode(); tries++; } while ((await checkExist.get(masterKode)) && tries < 10);
+                await insert.run(masterKode, modul_kode, akt, exp, izinReview, grubToken, batasKeluar, grubId, 1);
+                result.push({ kode: masterKode, modul_kode, aktivasi: akt, expired: exp, izinkan_review: izinReview, grub_token: grubToken, batas_keluar: batasKeluar, grub_id: grubId, is_master: true });
             }
             return result;
         });
@@ -1735,7 +1755,7 @@ app.get('/api/analisa/grup/:grubKey', auth(['admin','review']), ah(async (req, r
         LEFT JOIN laporan l ON l.token_kode = t.kode
         LEFT JOIN users u ON t.digunakan_oleh = u.kode
         LEFT JOIN modul m ON t.modul_kode = m.kode
-        WHERE ${isLegacy ? '(t.grub_id IS NULL AND t.grub_token = ?)' : 't.grub_id = ?'}
+        WHERE ${isLegacy ? '(t.grub_id IS NULL AND t.grub_token = ?)' : 't.grub_id = ?'} AND (t.is_master=0 OR t.is_master IS NULL)
     `).all(isLegacy ? legacyNama : rawKey);
 
     if (!tokens.length) {
@@ -1832,12 +1852,48 @@ app.post('/api/analisa/soal/:kode/hitung', auth(['admin','review']), ah(async (r
 app.post('/api/exam/validate-token', auth(['user','admin','review']), ah(async (req, res) => {
     const { kode } = req.body;
     if (!kode) return res.status(400).json({ error: 'Kode token diperlukan' });
-    const token = await db.prepare('SELECT * FROM tokens WHERE kode=?').get(kode.trim().toUpperCase());
-    if (!token)          return res.status(404).json({ error: 'Token tidak ditemukan' });
-    if (token.digunakan) return res.status(400).json({ error: 'Token sudah digunakan' });
+    let token = await db.prepare('SELECT * FROM tokens WHERE kode=?').get(kode.trim().toUpperCase());
+    if (!token) return res.status(404).json({ error: 'Token tidak ditemukan' });
     const now = new Date();
+    // Jendela waktu (aktivasi/expired) kode master SELALU identik dgn seluruh
+    // anggota grupnya (dibuat dalam 1 batch yang sama) — jadi cukup dicek sekali
+    // di sini, tidak perlu dicek ulang per-token asli saat direservasi di bawah.
     if (token.aktivasi && new Date(token.aktivasi) > now) return res.status(400).json({ error: `Token belum aktif. Aktif mulai ${new Date(token.aktivasi).toLocaleString('id-ID')}` });
     if (token.expired && new Date(token.expired) < now) return res.status(400).json({ error: 'Token sudah expired' });
+
+    if (token.is_master) {
+        // Kode Master Grup: boleh divalidasi berulang oleh banyak peserta berbeda.
+        // Setiap kali, "pinjamkan" 1 token asli yang masih nganggur di grup yang sama
+        // ke peserta yang barusan validasi — LANGSUNG dikunci (digunakan=1) di sini,
+        // pada saat validasi, bukan menunggu sampai ujian selesai/submit. Ini yang
+        // mencegah 2 peserta kebagian token asli yang sama kalau mereka validasi kode
+        // master ini nyaris bersamaan.
+        //
+        // Atomisitas dijamin oleh Postgres sendiri: UPDATE...WHERE id=(SELECT...FOR
+        // UPDATE SKIP LOCKED) adalah 1 statement tunggal, otomatis atomik walau
+        // dijalankan tanpa BEGIN/COMMIT eksplisit. SKIP LOCKED membuat request lain
+        // yang datang persis bersamaan otomatis MELEWATI baris yang sedang "dipegang"
+        // request ini (bukan menunggu lalu ikut mengambil baris yang sama).
+        const claimed = await db.prepare(`
+            UPDATE tokens SET digunakan=1, digunakan_oleh=?
+            WHERE id = (
+                SELECT id FROM tokens
+                WHERE grub_id=? AND is_master=0 AND digunakan=0
+                ORDER BY id ASC
+                LIMIT 1
+                FOR UPDATE SKIP LOCKED
+            )
+            RETURNING *
+        `).get(req.user.kode, token.grub_id);
+        // Semua token asli di grup ini sudah habis dipakai — kode master tetap ada
+        // (tidak pernah dihapus/dinonaktifkan sendiri), validasi cuma otomatis gagal
+        // di sini karena tidak ada lagi token asli tersisa utk di-assign.
+        if (!claimed) return res.status(400).json({ error: 'Semua token pada grup ini sudah habis dipakai' });
+        token = claimed;
+    } else if (token.digunakan) {
+        return res.status(400).json({ error: 'Token sudah digunakan' });
+    }
+
     const modul = await db.prepare('SELECT * FROM modul WHERE kode=?').get(token.modul_kode);
     if (!modul) return res.status(404).json({ error: 'Modul tidak ditemukan' });
     const soalDetail = await buildSoalDetail(modul);
@@ -1902,7 +1958,7 @@ app.get('/api/review/users', auth(['review','admin']), ah(async (req, res) => re
 app.get('/api/review/laporan/:user_kode', auth(['review','admin']), ah(async (req, res) => { const rows = await db.prepare('SELECT * FROM laporan WHERE user_kode=? ORDER BY created_at DESC').all(req.params.user_kode); rows.forEach(r => { if (r.jawaban) try { r.jawaban = JSON.parse(r.jawaban); } catch (e) {} }); res.json(rows); }));
 app.get('/api/user/riwayat', auth(['user','admin','review']), ah(async (req, res) => { const rows = await db.prepare('SELECT l.*,m.nama as modul_nama FROM laporan l LEFT JOIN modul m ON l.modul_kode=m.kode WHERE l.user_kode=? ORDER BY l.created_at DESC').all(req.user.kode); rows.forEach(r => { if (r.jawaban) try { r.jawaban = JSON.parse(r.jawaban); } catch (e) {} }); if (req.user.role === 'user' && rows.some(r => !r.izinkan_review) && await userPunyaReviewOverride(req.user.kode)) { rows.forEach(r => { r.izinkan_review = 1; }); } res.json(rows); }));
 app.get('/api/user/riwayat/:kode', auth(['user','admin','review']), ah(async (req, res) => { const lap = await db.prepare('SELECT * FROM laporan WHERE kode=?').get(req.params.kode); if (!lap) return res.status(404).json({ error: 'Laporan tidak ditemukan' }); if (req.user.role === 'user') { if (lap.user_kode !== req.user.kode) return res.status(403).json({ error: 'Forbidden' }); if (!lap.izinkan_review && !(await userPunyaReviewOverride(req.user.kode))) return res.status(403).json({ error: 'Review untuk kode ini belum diizinkan' }); } if (lap.jawaban) try { lap.jawaban = JSON.parse(lap.jawaban); } catch (e) {} if (lap.urutan_tampil) try { lap.urutan_tampil = JSON.parse(lap.urutan_tampil); } catch (e) { lap.urutan_tampil = null; } const modul = lap.modul_kode ? await db.prepare('SELECT * FROM modul WHERE kode=?').get(lap.modul_kode) : null; if (modul) delete modul.nama_internal; let soalDetail = []; if (modul) { let soal_list = []; try { soal_list = JSON.parse(modul.soal_list || '[]'); } catch (e) {} for (const sl of soal_list) { const s = await db.prepare('SELECT * FROM soal WHERE kode=?').get(sl.soal_kode); if (s) { let data = null; try { data = JSON.parse(s.data || 'null'); } catch (e) {} data = expandSikapKerja(s.type, data); delete s.nama_internal; soalDetail.push({...s, data}); } } } res.json({ laporan: lap, modul, soal: soalDetail }); }));
-app.get('/api/user/jadwal', auth(['user','admin','review']), ah(async (req, res) => { const me = await db.prepare('SELECT grub FROM users WHERE kode=?').get(req.user.kode); const rows = await db.prepare(`SELECT t.kode as token_kode, t.modul_kode, t.aktivasi as waktu_mulai, t.expired as waktu_selesai, t.digunakan, t.digunakan_oleh, m.nama as modul_nama, m.nama as nama FROM tokens t LEFT JOIN modul m ON t.modul_kode = m.kode WHERE t.digunakan_oleh = ? OR (t.grub_token IS NOT NULL AND t.grub_token = ? AND t.digunakan = 0) ORDER BY t.aktivasi DESC NULLS LAST, t.created_at DESC`).all(req.user.kode, me?.grub || null); res.json(rows); }));
+app.get('/api/user/jadwal', auth(['user','admin','review']), ah(async (req, res) => { const me = await db.prepare('SELECT grub FROM users WHERE kode=?').get(req.user.kode); const rows = await db.prepare(`SELECT t.kode as token_kode, t.modul_kode, t.aktivasi as waktu_mulai, t.expired as waktu_selesai, t.digunakan, t.digunakan_oleh, m.nama as modul_nama, m.nama as nama FROM tokens t LEFT JOIN modul m ON t.modul_kode = m.kode WHERE (t.digunakan_oleh = ? AND (t.is_master=0 OR t.is_master IS NULL)) OR (t.grub_token IS NOT NULL AND t.grub_token = ? AND t.digunakan = 0 AND (t.is_master=0 OR t.is_master IS NULL)) ORDER BY t.aktivasi DESC NULLS LAST, t.created_at DESC`).all(req.user.kode, me?.grub || null); res.json(rows); }));
 app.put('/api/user/password', auth(['user','admin','review']), ah(async (req, res) => { if (!req.body.password || req.body.password.length < 6) return res.status(400).json({ error: 'Password minimal 6 karakter' }); await db.prepare('UPDATE users SET password=? WHERE kode=?').run(bcrypt.hashSync(req.body.password, 10), req.user.kode); res.json({ message: 'Password berhasil diubah' }); }));
 app.get('/api/user/me', auth(['user','admin','review']), ah(async (req, res) => { const user = await db.prepare('SELECT id,kode,nama,email,grub,status FROM users WHERE kode=?').get(req.user.kode); if (!user) return res.status(404).json({ error: 'User tidak ditemukan' }); if (user.grub) { const g = await db.prepare('SELECT nama FROM grubs WHERE kode=?').get(user.grub); user.grub_nama = g?.nama || user.grub; } res.json(user); }));
 // Hak akses DOCK user, digabung dari SELURUH paket aktif (belum expired) milik
