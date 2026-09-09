@@ -724,13 +724,19 @@ app.post('/api/login', ah(async (req, res) => {
     res.json({ token, user: { kode: user.kode, nama: user.nama, email: user.email, role: user.role } });
 }));
 
-// Catatan alur baru (landing "animation frame"): akun langsung AKTIF begitu
-// daftar (bisa langsung login), TIDAK lagi masuk antrian signup_requests.
-// Kalau user memilih paket saat daftar, itu dicatat sebagai permintaan aktivasi
-// paket terpisah (paket_requests) yang menunggu verifikasi admin — akun tetap
-// bisa dipakai login walau paketnya belum aktif. Endpoint signup_requests/
-// approve/reject lama TETAP dibiarkan ada (tidak dihapus) untuk kompatibilitas
-// data lama, tapi alur baru ini tidak lagi menulis ke tabel itu.
+// Catatan alur baru (landing "animation frame" + konfirmasi OTP): akun TIDAK
+// lagi langsung dibuat begitu form daftar disubmit. POST /api/signup cuma
+// memvalidasi data & menyimpannya sementara di tabel signup_otps sambil
+// mengirim kode OTP 6 digit ke email (lewat Gmail, lib/mailer.js — sama
+// seperti alur lupa kata sandi). Baris `users` yang sesungguhnya baru ditulis
+// oleh POST /api/signup/verify-otp setelah kode OTP dicocokkan, dan baru saat
+// itu token login diterbitkan (bisa langsung login). TIDAK lagi masuk antrian
+// signup_requests. Kalau user memilih paket saat daftar, itu dicatat sebagai
+// permintaan aktivasi paket terpisah (paket_requests) yang menunggu verifikasi
+// admin — akun tetap bisa dipakai login walau paketnya belum aktif. Endpoint
+// signup_requests/approve/reject lama TETAP dibiarkan ada (tidak dihapus)
+// untuk kompatibilitas data lama, tapi alur baru ini tidak lagi menulis ke
+// tabel itu.
 app.post('/api/signup', ah(async (req, res) => {
     const { nama, email, password } = req.body;
     if (!nama || !email || !password) return res.status(400).json({ error: 'Data tidak lengkap' });
@@ -739,16 +745,66 @@ app.post('/api/signup', ah(async (req, res) => {
         if (await db.prepare('SELECT id FROM users WHERE email=?').get(email))
             return res.status(400).json({ error: 'Email sudah terdaftar' });
         const hash = bcrypt.hashSync(password, 10);
+        await kirimSignupOtp(nama, email, hash);
+        res.json({ message: 'Kode OTP telah dikirim ke email Anda.', email });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+}));
+
+// Buat/kirim ulang kode OTP pendaftaran + simpan data pendaftaran (dipakai oleh
+// /api/signup di atas dan /api/signup/resend-otp di bawah).
+async function kirimSignupOtp(nama, email, passwordHash) {
+    const otp = genOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    await db.prepare('INSERT INTO signup_otps (nama,email,password,otp,expires_at) VALUES (?,?,?,?,?)')
+        .run(nama, email, passwordHash, otp, expiresAt);
+    console.log(`[OTP] Kode konfirmasi pendaftaran untuk ${email}: ${otp} (berlaku 10 menit)`);
+    kirimEmail({
+        to: email,
+        subject: 'Kode OTP Konfirmasi Pendaftaran — CIBN PRESTISE',
+        html: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">
+            <p>Halo ${nama || ''},</p>
+            <p>Kode OTP untuk mengonfirmasi pendaftaran akun kamu di CIBN PRESTISE:</p>
+            <p style="font-size:28px;font-weight:700;letter-spacing:4px;margin:16px 0">${otp}</p>
+            <p>Kode ini berlaku 10 menit. Kalau kamu tidak merasa mendaftar, abaikan email ini.</p>
+        </div>`,
+    }).catch(() => {}); // Kegagalan kirim tidak boleh menggagalkan response ke user.
+}
+
+app.post('/api/signup/resend-otp', ah(async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email wajib diisi' });
+    try {
+        if (await db.prepare('SELECT id FROM users WHERE email=?').get(email))
+            return res.status(400).json({ error: 'Email sudah terdaftar' });
+        const row = await db.prepare('SELECT nama,password FROM signup_otps WHERE email=? ORDER BY id DESC LIMIT 1').get(email);
+        if (!row) return res.status(400).json({ error: 'Tidak ada pendaftaran yang menunggu untuk email ini. Silakan isi ulang form pendaftaran.' });
+        await kirimSignupOtp(row.nama, email, row.password);
+        res.json({ message: 'Kode OTP baru telah dikirim.' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+}));
+
+app.post('/api/signup/verify-otp', ah(async (req, res) => {
+    const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ error: 'Data tidak lengkap' });
+    try {
+        const row = await db.prepare('SELECT * FROM signup_otps WHERE email=? AND otp=? ORDER BY id DESC LIMIT 1').get(email, otp);
+        if (!row) return res.status(400).json({ error: 'Kode OTP salah' });
+        if (new Date(row.expires_at) < new Date()) return res.status(400).json({ error: 'Kode OTP sudah kedaluwarsa' });
+        if (await db.prepare('SELECT id FROM users WHERE email=?').get(email)) {
+            await db.prepare('DELETE FROM signup_otps WHERE email=?').run(email);
+            return res.status(400).json({ error: 'Email sudah terdaftar' });
+        }
         const kode = await genKode('USR', 'users');
         await db.prepare('INSERT INTO users (kode,nama,email,password,role,status) VALUES (?,?,?,?,?,?)')
-            .run(kode, nama, email, hash, 'user', 'aktif');
+            .run(kode, row.nama, row.email, row.password, 'user', 'aktif');
+        await db.prepare('DELETE FROM signup_otps WHERE email=?').run(email);
         // Catatan: pemilihan/aktivasi paket TIDAK lagi ditulis di sini. Kalau user
         // memilih paket saat daftar, permintaan aktivasinya baru dibuat di halaman
         // pembayaran.html/qris.html (lewat POST /api/user/paket-requests) setelah
         // token login di bawah ini dipakai — supaya akun-baru maupun akun-lama yang
         // login ulang untuk beli/perpanjang paket sama-sama lewat satu jalur yang sama.
-        const token = jwt.sign({ id: kode, kode, email, nama, role: 'user' }, JWT_SECRET, { expiresIn: '7d' });
-        res.json({ message: 'Pendaftaran berhasil. Akun Anda sudah aktif.', token, user: { kode, nama, email, role: 'user' } });
+        const token = jwt.sign({ id: kode, kode, email: row.email, nama: row.nama, role: 'user' }, JWT_SECRET, { expiresIn: '7d' });
+        res.json({ message: 'Pendaftaran berhasil. Akun Anda sudah aktif.', token, user: { kode, nama: row.nama, email: row.email, role: 'user' } });
     } catch (e) { res.status(500).json({ error: e.message }); }
 }));
 

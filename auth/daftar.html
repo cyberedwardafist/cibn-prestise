@@ -27,6 +27,7 @@
   --line-strong:rgba(44,90,160,0.28);
   --radius:14px;
   --ease:cubic-bezier(.16,.84,.44,1);
+  --danger:#c0392b;
 
   --glass-bg: linear-gradient(160deg, rgba(255,255,255,0.75), rgba(255,255,255,0.40));
   --glass-bg-hover: linear-gradient(160deg, rgba(255,255,255,0.9), rgba(255,255,255,0.58));
@@ -302,6 +303,33 @@ input{font-family:inherit}
 .auth-form.active{display:flex}
 .field-hint{font-size:11.5px;color:var(--text-dim);margin-top:-4px}
 
+/* ---------- OTP KONFIRMASI PENDAFTARAN (di dalam form Daftar) ---------- */
+.otp-inputs{display:flex;gap:10px;justify-content:center;margin:6px 0 6px}
+.otp-inputs input{
+  width:15%;max-width:52px;aspect-ratio:1/1;text-align:center;
+  font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;color:var(--text);
+  border-radius:12px;background:rgba(255,255,255,.6);border:1px solid var(--glass-border-hover);
+  transition:border-color .25s var(--ease),box-shadow .25s var(--ease);
+}
+.otp-inputs input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 4px rgba(44,90,160,.14)}
+.otp-inputs.error input{border-color:var(--danger);box-shadow:0 0 0 4px rgba(192,57,43,.14)}
+.otp-inputs.shake{animation:otp-shake .5s var(--ease)}
+@keyframes otp-shake{
+  10%,90%{transform:translateX(-2px)}
+  20%,80%{transform:translateX(4px)}
+  30%,50%,70%{transform:translateX(-8px)}
+  40%,60%{transform:translateX(8px)}
+}
+.otp-msg{margin-top:2px;font-size:13px;line-height:1.6;min-height:20px}
+.otp-msg.error{color:var(--danger)}
+.otp-msg.success{color:#1f8a4c}
+.otp-actions{margin-top:6px;display:flex;flex-direction:column;gap:14px}
+.otp-resend{font-size:13px;color:var(--text-dim);text-align:center}
+.otp-resend button{color:var(--blue);font-weight:600}
+.otp-resend button:hover{text-decoration:underline}
+.otp-back{font-size:13px;color:var(--text-dim);font-weight:600;display:inline-flex;align-items:center;gap:6px;justify-content:center;text-align:center}
+.otp-back:hover{color:var(--blue)}
+
 /* ---------- TNC TRIGGER (dalam check-row) ---------- */
 .tnc-trigger{color:var(--blue);font-weight:600;text-decoration:underline;text-underline-offset:2px;display:inline}
 .tnc-trigger:hover{color:var(--blue-deep)}
@@ -401,43 +429,64 @@ input{font-family:inherit}
         <button type="button" class="auth-tab" data-tab="masuk">Sudah Punya Akun</button>
       </div>
 
-      <!-- ===== FORM: DAFTAR (buat akun baru) ===== -->
+      <!-- ===== FORM: DAFTAR (buat akun baru — sekarang butuh konfirmasi OTP email) ===== -->
       <form class="auth-form active" data-form="daftar" onsubmit="return false">
-        <div class="field">
-          <label for="daftar-nama">Nama Lengkap</label>
-          <input id="daftar-nama" type="text" placeholder="Nama sesuai identitas" required>
+        <div id="daftarFieldsStage">
+          <div class="field">
+            <label for="daftar-nama">Nama Lengkap</label>
+            <input id="daftar-nama" type="text" placeholder="Nama sesuai identitas" required>
+          </div>
+          <div class="field">
+            <label for="daftar-email">Email</label>
+            <input id="daftar-email" type="email" placeholder="nama@email.com" required>
+          </div>
+          <div class="field">
+            <label for="daftar-wa">Nomor WhatsApp</label>
+            <input id="daftar-wa" type="tel" placeholder="08xx xxxx xxxx" required>
+          </div>
+          <div class="field">
+            <label for="daftar-password">Kata Sandi</label>
+            <div class="field-input-wrap">
+              <input id="daftar-password" type="password" placeholder="Minimal 8 karakter" required minlength="8">
+              <button type="button" class="pw-toggle" data-target="daftar-password" aria-label="Tampilkan kata sandi">
+                <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.64 21.64 0 0 1 5.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 7 11 7a21.64 21.64 0 0 1-2.66 3.79M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="daftar-password2">Konfirmasi Kata Sandi</label>
+            <div class="field-input-wrap">
+              <input id="daftar-password2" type="password" placeholder="Ulangi kata sandi" required minlength="8">
+              <button type="button" class="pw-toggle" data-target="daftar-password2" aria-label="Tampilkan kata sandi">
+                <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.64 21.64 0 0 1 5.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 7 11 7a21.64 21.64 0 0 1-2.66 3.79M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+              </button>
+            </div>
+          </div>
+          <p class="otp-msg" id="daftarMsg" style="margin:0;font-size:13px;min-height:18px"></p>
+          <label class="check-row"><input type="checkbox" required> Saya menyetujui <button type="button" class="tnc-trigger" id="tncTrigger">Syarat & Ketentuan serta Kebijakan Privasi</button></label>
+          <button type="submit" class="btn btn-gold btn-block">Daftar & Lanjut ke Pembayaran</button>
         </div>
-        <div class="field">
-          <label for="daftar-email">Email</label>
-          <input id="daftar-email" type="email" placeholder="nama@email.com" required>
-        </div>
-        <div class="field">
-          <label for="daftar-wa">Nomor WhatsApp</label>
-          <input id="daftar-wa" type="tel" placeholder="08xx xxxx xxxx" required>
-        </div>
-        <div class="field">
-          <label for="daftar-password">Kata Sandi</label>
-          <div class="field-input-wrap">
-            <input id="daftar-password" type="password" placeholder="Minimal 8 karakter" required minlength="8">
-            <button type="button" class="pw-toggle" data-target="daftar-password" aria-label="Tampilkan kata sandi">
-              <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-              <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.64 21.64 0 0 1 5.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 7 11 7a21.64 21.64 0 0 1-2.66 3.79M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
-            </button>
+
+        <!-- ===== STAGE 2: Konfirmasi OTP (muncul setelah form di atas berhasil dikirim) ===== -->
+        <div id="daftarOtpStage" style="display:none">
+          <p class="lead" id="daftarOtpLead" style="font-size:14.5px;color:var(--text-dim);line-height:1.75;margin-bottom:22px;text-align:center"></p>
+          <div class="otp-inputs" id="daftarOtpInputs">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit OTP 1" autocomplete="one-time-code">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit OTP 2">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit OTP 3">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit OTP 4">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit OTP 5">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit OTP 6">
+          </div>
+          <p class="otp-msg" id="daftarOtpMsg"></p>
+          <div class="otp-actions">
+            <button type="button" class="btn btn-gold btn-block" id="daftarOtpVerifyBtn">Verifikasi & Buat Akun</button>
+            <p class="otp-resend">Belum menerima kode? <button type="button" id="daftarOtpResend">Kirim ulang</button></p>
+            <button type="button" class="otp-back" id="daftarOtpBack">← Ubah data pendaftaran</button>
           </div>
         </div>
-        <div class="field">
-          <label for="daftar-password2">Konfirmasi Kata Sandi</label>
-          <div class="field-input-wrap">
-            <input id="daftar-password2" type="password" placeholder="Ulangi kata sandi" required minlength="8">
-            <button type="button" class="pw-toggle" data-target="daftar-password2" aria-label="Tampilkan kata sandi">
-              <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-              <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.64 21.64 0 0 1 5.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 7 11 7a21.64 21.64 0 0 1-2.66 3.79M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
-            </button>
-          </div>
-        </div>
-        <p class="otp-msg" id="daftarMsg" style="margin:0;font-size:13px;min-height:18px"></p>
-        <label class="check-row"><input type="checkbox" required> Saya menyetujui <button type="button" class="tnc-trigger" id="tncTrigger">Syarat & Ketentuan serta Kebijakan Privasi</button></label>
-        <button type="submit" class="btn btn-gold btn-block">Daftar & Lanjut ke Pembayaran</button>
       </form>
 
       <!-- ===== FORM: MASUK (untuk yang sudah punya akun) ===== -->
@@ -686,10 +735,15 @@ authTabs.forEach(tab => {
 
 const API_BASE = window.location.origin + '/api';
 
-// ===== Submit: Daftar (buat akun) — terhubung ke backend asli (/api/signup) =====
+// ===== Submit: Daftar (kirim OTP) -> Verifikasi OTP (buat akun) =====
+// Terhubung ke backend asli: /api/signup (kirim kode), /api/signup/verify-otp
+// (cocokkan kode + benar-benar membuat akun), /api/signup/resend-otp (kirim ulang).
 const daftarForm = document.querySelector('form[data-form="daftar"]');
+const daftarFieldsStage = document.getElementById('daftarFieldsStage');
 const daftarMsg = document.getElementById('daftarMsg');
 const daftarBtn = daftarForm.querySelector('button[type="submit"]');
+let daftarPendingEmail = '';
+
 daftarForm.addEventListener('submit', async () => {
   const nama = document.getElementById('daftar-nama').value.trim();
   const email = document.getElementById('daftar-email').value.trim();
@@ -704,7 +758,7 @@ daftarForm.addEventListener('submit', async () => {
   if (pw !== pw2) { daftarMsg.textContent = 'Konfirmasi kata sandi tidak cocok.'; return; }
   daftarMsg.textContent = '';
   daftarBtn.disabled = true;
-  daftarBtn.textContent = 'Memproses...';
+  daftarBtn.textContent = 'Mengirim kode OTP...';
   try {
     const res = await fetch(API_BASE + '/signup', {
       method: 'POST',
@@ -713,21 +767,130 @@ daftarForm.addEventListener('submit', async () => {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Pendaftaran gagal');
+    daftarPendingEmail = email;
+    showDaftarOtpStage(email);
+  } catch (e) {
+    daftarMsg.textContent = e.message || 'Gagal terhubung ke server. Pastikan server aktif.';
+  } finally {
+    daftarBtn.disabled = false;
+    daftarBtn.textContent = 'Daftar & Lanjut ke Pembayaran';
+  }
+});
+
+// ---- Stage 2: konfirmasi kode OTP yang dikirim ke email ----
+const daftarOtpStage = document.getElementById('daftarOtpStage');
+const daftarOtpLead = document.getElementById('daftarOtpLead');
+const daftarOtpWrap = document.getElementById('daftarOtpInputs');
+const daftarOtpBoxes = Array.from(daftarOtpWrap.querySelectorAll('input'));
+const daftarOtpMsg = document.getElementById('daftarOtpMsg');
+const daftarOtpVerifyBtn = document.getElementById('daftarOtpVerifyBtn');
+const daftarOtpResend = document.getElementById('daftarOtpResend');
+const daftarOtpBack = document.getElementById('daftarOtpBack');
+
+function showDaftarOtpStage(email) {
+  daftarOtpLead.innerHTML = `Kami telah mengirimkan kode verifikasi 6 digit ke <b>${email}</b>. Masukkan kode tersebut untuk menyelesaikan pendaftaran.`;
+  daftarFieldsStage.style.display = 'none';
+  daftarOtpStage.style.display = 'block';
+  clearDaftarOtpState();
+  daftarOtpBoxes.forEach(b => { b.value = ''; b.disabled = false; });
+  daftarOtpBoxes[0].focus();
+}
+
+function clearDaftarOtpState() {
+  daftarOtpWrap.classList.remove('error', 'shake');
+  daftarOtpMsg.textContent = '';
+  daftarOtpMsg.classList.remove('error', 'success');
+}
+
+function triggerDaftarOtpError(message) {
+  daftarOtpMsg.classList.remove('success');
+  daftarOtpMsg.classList.add('error');
+  daftarOtpMsg.textContent = message;
+  daftarOtpWrap.classList.remove('shake');
+  void daftarOtpWrap.offsetWidth; // restart animasi shake
+  daftarOtpWrap.classList.add('error', 'shake');
+}
+
+daftarOtpBoxes.forEach((box, i) => {
+  box.addEventListener('input', () => {
+    box.value = box.value.replace(/[^0-9]/g, '').slice(0, 1);
+    if (daftarOtpWrap.classList.contains('error')) clearDaftarOtpState();
+    if (box.value && i < daftarOtpBoxes.length - 1) daftarOtpBoxes[i + 1].focus();
+  });
+  box.addEventListener('keydown', (e) => {
+    if (e.key === 'Backspace' && !box.value && i > 0) {
+      daftarOtpBoxes[i - 1].focus();
+      daftarOtpBoxes[i - 1].value = '';
+      e.preventDefault();
+    } else if (e.key === 'ArrowLeft' && i > 0) daftarOtpBoxes[i - 1].focus();
+    else if (e.key === 'ArrowRight' && i < daftarOtpBoxes.length - 1) daftarOtpBoxes[i + 1].focus();
+  });
+  box.addEventListener('paste', (e) => {
+    const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g, '');
+    if (!pasted) return;
+    e.preventDefault();
+    clearDaftarOtpState();
+    pasted.slice(0, daftarOtpBoxes.length).split('').forEach((digit, idx) => { if (daftarOtpBoxes[idx]) daftarOtpBoxes[idx].value = digit; });
+    const nextEmpty = daftarOtpBoxes.findIndex(b => !b.value);
+    (nextEmpty === -1 ? daftarOtpBoxes[daftarOtpBoxes.length - 1] : daftarOtpBoxes[nextEmpty]).focus();
+  });
+});
+
+daftarOtpWrap.addEventListener('animationend', () => daftarOtpWrap.classList.remove('shake'));
+
+daftarOtpVerifyBtn.addEventListener('click', async () => {
+  const code = daftarOtpBoxes.map(b => b.value).join('');
+  if (code.length < daftarOtpBoxes.length) { triggerDaftarOtpError('Lengkapi keenam digit kode OTP.'); return; }
+  daftarOtpVerifyBtn.disabled = true;
+  daftarOtpVerifyBtn.textContent = 'Memverifikasi...';
+  try {
+    const res = await fetch(API_BASE + '/signup/verify-otp', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: daftarPendingEmail, otp: code })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Kode OTP salah');
     // Akun baru langsung aktif — simpan sesi supaya user otomatis login dan
     // halaman pembayaran bisa mengirim permintaan aktivasi paket atas namanya.
     localStorage.setItem('cbn_token', data.token);
     localStorage.setItem('cbn_user', JSON.stringify(data.user));
-    daftarMsg.classList.add('success');
-    daftarMsg.style.color = '#1f8a4c';
-    daftarMsg.textContent = selectedPaketName
+    daftarOtpBoxes.forEach(b => b.disabled = true);
+    daftarOtpMsg.classList.remove('error');
+    daftarOtpMsg.classList.add('success');
+    daftarOtpMsg.textContent = selectedPaketName
       ? 'Pendaftaran berhasil! Akun Anda sudah aktif. Mengarahkan ke halaman pembayaran…'
       : 'Pendaftaran berhasil! Akun Anda sudah aktif. Mengarahkan ke akun Anda…';
     setTimeout(() => { selectedPaketName ? goToPembayaran() : (window.location.href = 'index_user.html'); }, 1200);
   } catch (e) {
-    daftarMsg.textContent = e.message || 'Gagal terhubung ke server. Pastikan server aktif.';
-    daftarBtn.disabled = false;
-    daftarBtn.textContent = 'Daftar & Lanjut ke Pembayaran';
+    triggerDaftarOtpError(e.message || 'Gagal terhubung ke server.');
+  } finally {
+    daftarOtpVerifyBtn.disabled = false;
+    daftarOtpVerifyBtn.textContent = 'Verifikasi & Buat Akun';
   }
+});
+
+daftarOtpResend.addEventListener('click', async () => {
+  clearDaftarOtpState();
+  try {
+    const res = await fetch(API_BASE + '/signup/resend-otp', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: daftarPendingEmail })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Gagal mengirim ulang kode');
+    daftarOtpBoxes.forEach(b => { b.value = ''; b.disabled = false; });
+    daftarOtpBoxes[0].focus();
+    daftarOtpMsg.classList.add('success');
+    daftarOtpMsg.textContent = 'Kode baru telah dikirim ke email Anda.';
+  } catch (e) {
+    triggerDaftarOtpError(e.message || 'Gagal terhubung ke server.');
+  }
+});
+
+daftarOtpBack.addEventListener('click', () => {
+  daftarOtpStage.style.display = 'none';
+  daftarFieldsStage.style.display = 'block';
+  clearDaftarOtpState();
 });
 
 // ===== Submit: Masuk (login untuk yang sudah punya akun) — terhubung ke backend asli (/api/login) =====

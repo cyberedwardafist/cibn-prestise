@@ -353,6 +353,21 @@ CREATE TABLE IF NOT EXISTS password_resets (
 );
 CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);
 
+-- Pendaftaran akun baru sekarang butuh konfirmasi OTP lewat email sebelum baris
+-- di tabel `users` benar-benar dibuat. POST /api/signup menyimpan data
+-- pendaftaran (nama/email/password sudah di-hash) + kode OTP di sini; baris
+-- users baru baru ditulis oleh POST /api/signup/verify-otp setelah kode cocok.
+CREATE TABLE IF NOT EXISTS signup_otps (
+    id         SERIAL PRIMARY KEY,
+    nama       TEXT NOT NULL,
+    email      TEXT NOT NULL,
+    password   TEXT NOT NULL,
+    otp        TEXT NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_signup_otps_email ON signup_otps(email);
+
 -- Konfigurasi Payment Gateway ASLI (Midtrans / Xendit) — 1 baris singleton (id=1),
 -- diisi admin lewat panel Keuangan > Payment Gateway. Server Key/Secret Key
 -- disimpan di sini (server-side saja) dan TIDAK PERNAH dikirim mentah ke browser.
