@@ -539,7 +539,6 @@ body.soal-building #side-dock-wrap.side-dock-right{
 <div class="page dock-avoid" id="page-ebook-library"></div>
 <div class="page dock-avoid" id="page-ebook-modul"></div>
 <div class="page dock-avoid" id="page-landing"></div>
-<div class="page dock-avoid" id="page-management"></div>
 <div class="page dock-avoid" id="page-analisa-token"></div>
 <div class="page dock-avoid" id="page-analisa-soal"></div>
 <div class="page dock-avoid" id="page-analisa-grafik"></div>
@@ -562,7 +561,6 @@ body.soal-building #side-dock-wrap.side-dock-right{
     <button class="dock-item" data-group="soalujian" onclick="navigateTo('soal')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><span class="dock-label">SOAL</span></button>
     <button class="dock-item dock-overflow-item" data-group="ebook" onclick="navigateTo('buku')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div><span class="dock-label">E-BOOK</span></button>
     <button class="dock-item dock-overflow-item" data-page="landing" onclick="navigateTo('landing')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><span class="dock-label">LANDING</span></button>
-    <button class="dock-item dock-overflow-item" data-page="management" onclick="navigateTo('management')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div><span class="dock-label">MANAGEMENT</span></button>
     <button class="dock-item dock-overflow-item" data-group="analisa" onclick="navigateTo('analisa-token')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><span class="dock-label">ANALISA</span></button>
     <button class="dock-item" data-page="keuangan" onclick="navigateTo('keuangan')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><span class="dock-label">KEUANGAN</span></button>
     <!-- Overflow items: tampil inline saat layar lebar, masuk titik-3 saat sempit -->
@@ -627,28 +625,6 @@ body.soal-building #side-dock-wrap.side-dock-right{
       <button class="dock-item" data-sub="footer" onclick="renderLandingSub('footer')">
         <div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg></div>
         <span class="dock-label">FOOTER</span>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- MANAGEMENT DOCK — panel vertikal navigasi tab Management (GMAIL / GMEET).
-     Strukturnya SAMA PERSIS dengan #landing-dock-wrap di atas — daftar sub statis
-     ditulis langsung di HTML, buka/tutup mengikuti tab Management lewat
-     syncManagementDockForPage() (dipanggil dari _doNav di js/app.js). -->
-<div class="side-dock-wrap" id="management-dock-wrap">
-  <div class="side-dock" id="mgmt-sub-tabs">
-    <button class="side-dock-pos-btn" onclick="toggleSideDockPosition('management-dock-wrap')" title="Pindah panel ke sisi lain">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
-    </button>
-    <div class="side-dock-scroll" id="mgmt-sub-tabs-items">
-      <button class="dock-item active-tab" data-sub="gmail" onclick="renderManagementSub('gmail')">
-        <div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22 6 12 13 2 6"/></svg></div>
-        <span class="dock-label">EMAIL</span>
-      </button>
-      <button class="dock-item" data-sub="gmeet" onclick="renderManagementSub('gmeet')">
-        <div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div>
-        <span class="dock-label">GMEET</span>
       </button>
     </div>
   </div>
@@ -914,7 +890,7 @@ function openAnalisaSoalList() {
    ketimpa panel kalau tidak digeser (persis kasus di screenshot). */
 function _syncDockLayoutOffset() {
   const body = document.body;
-  const wrap = [document.getElementById('side-dock-wrap'), document.getElementById('landing-dock-wrap'), document.getElementById('management-dock-wrap')]
+  const wrap = [document.getElementById('side-dock-wrap'), document.getElementById('landing-dock-wrap')]
     .find(w => w && w.classList.contains('open'));
   if (!wrap) {
     body.classList.remove('side-dock-open', 'side-dock-open-right');
@@ -980,15 +956,6 @@ function toggleSideDockPosition(wrapId) {
 function syncLandingDockForPage(pageId) {
   const wrap = document.getElementById('landing-dock-wrap');
   if (wrap) wrap.classList.toggle('open', pageId === 'landing');
-  _syncDockLayoutOffset();
-}
-
-// ── MANAGEMENT DOCK (#management-dock-wrap) — buka/tutup mengikuti tab aktif ──
-// Sama persis pola-nya dgn syncLandingDockForPage() di atas: daftar sub (GMAIL/
-// GMEET) statis di HTML, jadi cukup toggle class "open", tidak perlu digenerate ulang.
-function syncManagementDockForPage(pageId) {
-  const wrap = document.getElementById('management-dock-wrap');
-  if (wrap) wrap.classList.toggle('open', pageId === 'management');
   _syncDockLayoutOffset();
 }
 

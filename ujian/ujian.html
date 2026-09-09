@@ -1444,25 +1444,7 @@ async function doSelesai(){
     jawaban:st.jawaban,
     urutan_tampil:buildUrutanTampil()
   };
-  // PERBAIKAN KEHILANGAN DATA: payload disimpan ke localStorage SEBELUM percobaan
-  // kirim pertama (bukan menunggu sampai 3x retry gagal seperti sebelumnya).
-  // Sebelumnya ada jeda beberapa detik (selama retry berlangsung) di mana kalau
-  // siswa menutup tab/refresh/mati koneksi HP tepat saat itu, jawaban yang sudah
-  // dikerjakan hilang total karena belum sempat tersimpan di mana pun. Sekarang,
-  // begitu tombol Selesai ditekan, jawaban sudah aman di localStorage — kalaupun
-  // tab tertutup di detik itu juga, resumePendingExamSubmits() di dashboard akan
-  // otomatis mencoba kirim ulang saat siswa membuka lagi.
-  try{ localStorage.setItem('cbn_pending_submit_' + token, JSON.stringify(payload)); }catch(e){}
-  // Peringatkan siswa supaya tidak menutup halaman selagi hasil sedang dikirim —
-  // dilepas otomatis begitu kirimHasilUjian() selesai (sukses maupun gagal).
-  const _warnBeforeUnload=(e)=>{ e.preventDefault(); e.returnValue=''; return ''; };
-  window.addEventListener('beforeunload',_warnBeforeUnload);
-  let result;
-  try{
-    result=await kirimHasilUjian(token, payload);
-  } finally {
-    window.removeEventListener('beforeunload',_warnBeforeUnload);
-  }
+  const result=await kirimHasilUjian(token, payload);
   if(result) await finalizeHasil(token, result);
 }
 

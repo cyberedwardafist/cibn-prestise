@@ -347,27 +347,6 @@ const LandingAPI = {
     async save(data) { return await apiPut('/landing', data); }
 };
 
-// ── MANAGEMENT API (pengaturan integrasi: Gmail utk OTP/pesan, Gmeet utk jadwal) ──
-const ManagementAPI = {
-    async get() { return await apiGet('/pengaturan/integrasi'); },
-    async save(data) { return await apiPut('/pengaturan/integrasi', data); },
-    // Verifikasi SMTP Gmail beneran + kirim 1 email percobaan (lihat lib/mailer.js
-    // di backend). `to` opsional — kalau kosong, email percobaan dikirim ke alamat
-    // Gmail pengirim itu sendiri.
-    async testEmail(to) { return await apiFetch('/pengaturan/integrasi/test-email', { method: 'POST', body: JSON.stringify({ to }) }); }
-};
-
-// ── JADWAL SESI API (sesi kelas nyata di server — sumber data pengingat email
-// H-1/kelas-dimulai, lihat lib/kelas-reminder.js. BELUM dipakai oleh UI Jadwal
-// user/review yang sekarang masih localStorage/JadwalStore — disiapkan lebih
-// dulu di sini supaya siap dipakai begitu JadwalStore dimigrasikan.) ──
-const JadwalSesiAPI = {
-    async getAll() { return await apiGet('/jadwal-sesi') || []; },
-    async create(data) { return await apiPost('/jadwal-sesi', data); },
-    async update(kode, data) { return await apiPut(`/jadwal-sesi/${kode}`, data); },
-    async delete(kode) { return await apiDel(`/jadwal-sesi/${kode}`); }
-};
-
 // ── EXAM API ──
 const ExamAPI = {
     async validateToken(kode) { return await apiFetch('/exam/validate-token', { method:'POST', body: JSON.stringify({kode}) }); },

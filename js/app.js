@@ -85,7 +85,6 @@ function _doNav(pageId, subId) {
     _persistAdminNav();
     if (typeof syncSideDockForPage === 'function') syncSideDockForPage(pageId);
     if (typeof syncLandingDockForPage === 'function') syncLandingDockForPage(pageId);
-    if (typeof syncManagementDockForPage === 'function') syncManagementDockForPage(pageId);
     closeDockMore();
     // subId (sub-tab) sengaja DITUNGGU sampai modul halaman ini selesai lazy-load
     // (lihat renderPage) sebelum switchSubPage dipanggil — kalau tidak, di koneksi
@@ -102,7 +101,7 @@ function renderPage(id, subId) {
         // jadi langsung ReferenceError sebelum sempat cek map[id]. Dengan string +
         // window[...], cuma nama fungsi utk id yang sedang aktif yang di-resolve,
         // dan modul-nya sudah pasti sudah dimuat oleh ensureAdminPageModule di atas.
-        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-grafik':'renderAnalisaGrafik', management:'renderManagement' };
+        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-grafik':'renderAnalisaGrafik' };
         const fn = map[id] && window[map[id]];
         if (typeof fn === 'function') fn();
         if (subId) switchSubPage(id, subId);
@@ -145,11 +144,6 @@ const ADMIN_PAGE_MODULES = {
     'ebook-library': { html: 'admin/ebook/ebook-library.html',  js: ['admin/ebook/ebook.js'], modals: 'admin/ebook/ebook-modals.html' },
     'ebook-modul':   { html: 'admin/ebook/ebook-modul.html',    js: ['admin/ebook/ebook.js'], modals: 'admin/ebook/ebook-modals.html' },
     landing:         { html: 'admin/landing/landing.html',      js: ['admin/landing/landing.js'], modals: 'admin/landing/landing-modals.html' },
-    // Tab MANAGEMENT: pengaturan integrasi pihak ketiga, dock sub GMAIL | GMEET
-    // (lihat #management-dock-wrap & syncManagementDockForPage di admin/index_admin.html).
-    // GMAIL = alamat email pengirim OTP & pesan lain. GMEET = persiapan integrasi
-    // Google Meet utk fitur Jadwal di halaman user/review — masih dummy.
-    management:      { html: 'admin/management/management.html', js: ['admin/management/management.js'] },
     'analisa-token':        { html: 'admin/analisa/analisa-token.html',        js: ['admin/analisa/analisa-token.js'] },
     // + analisa-export.js: logika tombol "Ekstrak" (bangun .xlsx + suntik grafik native via JSZip) — lihat komentar di file itu.
     // + analisa-chart-shared.js: kode grafik SVG (line chart + median/sebaran

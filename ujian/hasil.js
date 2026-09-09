@@ -21,22 +21,7 @@ function showHasilPending(){
 // sukses, atau null kalau gagal setelah beberapa percobaan (lalu tampilkan tombol
 // "Coba Kirim Ulang" — progress lokal baru dihapus setelah benar-benar sukses,
 // supaya jawaban peserta tidak hilang kalau koneksi bermasalah).
-// PERBAIKAN: 3x percobaan dengan jeda tetap 1.5 detik sebelumnya terlalu singkat
-// untuk koneksi HP yang sedang tidak stabil (mati-nyala sinyal beberapa detik) —
-// habis 3x percobaan (~4.5 detik) langsung menyerah dan menunggu klik manual
-// "Coba Kirim Ulang". Sekarang percobaan otomatis ditambah jadi 6x dengan jeda
-// yang membesar bertahap (exponential backoff + sedikit jitter), memberi total
-// waktu toleransi jauh lebih panjang sebelum benar-benar minta tindakan manual.
-let _submitInFlight=false;
-async function kirimHasilUjian(token, payload, attempt=1, maxAttempt=6){
-  // Cegah beberapa rantai retry berjalan bersamaan (mis. background interval
-  // menembak lagi padahal rantai retry sebelumnya masih jalan) — cukup satu
-  // percobaan aktif dalam satu waktu, server juga sudah idempoten sebagai
-  // jaring pengaman kalau ini tetap kelolosan.
-  if(attempt===1){
-    if(_submitInFlight) return null;
-    _submitInFlight=true;
-  }
+async function kirimHasilUjian(token, payload, attempt=1){
   try{
     const res=await fetch(API+'/exam/submit',{
       method:'POST',
@@ -56,66 +41,38 @@ async function kirimHasilUjian(token, payload, attempt=1, maxAttempt=6){
     localStorage.removeItem('cbn_pending_submit_' + token);
     localStorage.removeItem('cbn_leavecount_' + token);
     const warn=document.getElementById('h-submit-warning'); if(warn) warn.style.display='none';
-    _stopBackgroundRetry();
     await CBN_DB.clear();
-    _submitInFlight=false;
     return data;
   }catch(e){
-    console.warn('Submit gagal (percobaan '+attempt+'/'+maxAttempt+'):',e);
-    if(attempt<maxAttempt){
-      const delay=Math.min(1500*Math.pow(1.6,attempt-1),12000)+Math.random()*500;
-      await new Promise(r=>setTimeout(r,delay));
-      return kirimHasilUjian(token, payload, attempt+1, maxAttempt);
+    console.warn('Submit gagal (percobaan '+attempt+'):',e);
+    if(attempt<3){
+      await new Promise(r=>setTimeout(r,1500));
+      return kirimHasilUjian(token, payload, attempt+1);
     }
-    // Gagal setelah beberapa percobaan: payload sudah tersimpan di localStorage
-    // sejak SEBELUM percobaan pertama (lihat doSelesai() di ujian.html), jadi di
-    // sini cukup pastikan tetap tersimpan (idempoten kalau dipanggil dari
-    // retryKirimHasil), lalu beri tahu peserta secara jelas (bukan hanya log di
-    // console). Halaman tetap di status "menunggu" (bukan skor) sampai submit
-    // benar-benar sukses.
+    // Gagal setelah beberapa percobaan: simpan payload supaya tidak hilang, dan
+    // beri tahu peserta secara jelas (bukan hanya log di console). Halaman tetap di
+    // status "menunggu" (bukan skor) sampai submit benar-benar sukses.
     try{ localStorage.setItem('cbn_pending_submit_' + token, JSON.stringify(payload)); }catch(err){}
     const loadTxt=document.querySelector('#h-loading .h-loading-txt');
     if(loadTxt) loadTxt.textContent='Menunggu koneksi untuk mengirim hasil ujian...';
     const warn=document.getElementById('h-submit-warning');
     if(warn){
       warn.style.display='block';
-      warn.innerHTML='⚠️ Hasil ujian ini <strong>belum berhasil terkirim</strong> ke server (kemungkinan koneksi bermasalah). Jangan tutup halaman ini — skor belum bisa dihitung sebelum tersimpan di server. Sistem akan otomatis mencoba lagi begitu koneksi kembali. <button class="btn-nav btn-nav-pri" style="padding:6px 14px;font-size:12px;margin-left:6px" onclick="retryKirimHasil(\''+token+'\')">Coba Kirim Ulang</button>';
+      warn.innerHTML='⚠️ Hasil ujian ini <strong>belum berhasil terkirim</strong> ke server (kemungkinan koneksi bermasalah). Jangan tutup halaman ini — skor belum bisa dihitung sebelum tersimpan di server. <button class="btn-nav btn-nav-pri" style="padding:6px 14px;font-size:12px;margin-left:6px" onclick="retryKirimHasil(\''+token+'\')">Coba Kirim Ulang</button>';
     } else {
       showToast('Hasil ujian belum berhasil terkirim, silakan coba lagi','danger');
     }
-    // PERBAIKAN: jangan cuma diam menunggu klik manual. Coba lagi otomatis begitu
-    // browser mendeteksi koneksi kembali online ('online' event), DAN sebagai
-    // jaring pengaman tambahan (mis. browser tidak selalu akurat soal event
-    // online/offline di jaringan seluler) coba lagi tiap 15 detik di background
-    // selama masih di halaman ini.
-    _startBackgroundRetry(token);
-    _submitInFlight=false;
     return null;
   }
 }
 
-// ── AUTO-RETRY DI BACKGROUND SELAMA MASIH TERJEBAK DI "MENUNGGU" ───────────
-let _bgRetryInterval=null, _bgRetryOnline=null;
-function _startBackgroundRetry(token){
-  _stopBackgroundRetry();
-  _bgRetryOnline=()=>retryKirimHasil(token,true);
-  window.addEventListener('online',_bgRetryOnline);
-  _bgRetryInterval=setInterval(()=>retryKirimHasil(token,true),15000);
-}
-function _stopBackgroundRetry(){
-  if(_bgRetryInterval){clearInterval(_bgRetryInterval);_bgRetryInterval=null;}
-  if(_bgRetryOnline){window.removeEventListener('online',_bgRetryOnline);_bgRetryOnline=null;}
-}
-
-async function retryKirimHasil(token, silent=false){
+async function retryKirimHasil(token){
   let payload=null;
   try{ payload=JSON.parse(localStorage.getItem('cbn_pending_submit_' + token)||'null'); }catch(e){}
-  if(!payload){ if(!silent) showToast('Tidak ada data tersimpan untuk dikirim ulang','danger'); return; }
-  if(!silent){
-    showToast('Mengirim ulang...','');
-    const loadTxt=document.querySelector('#h-loading .h-loading-txt');
-    if(loadTxt) loadTxt.textContent='Mengirim & menghitung hasil ujian...';
-  }
+  if(!payload){ showToast('Tidak ada data tersimpan untuk dikirim ulang','danger'); return; }
+  showToast('Mengirim ulang...','');
+  const loadTxt=document.querySelector('#h-loading .h-loading-txt');
+  if(loadTxt) loadTxt.textContent='Mengirim & menghitung hasil ujian...';
   const result=await kirimHasilUjian(token, payload, 1);
   if(result) await finalizeHasil(token, result);
 }
@@ -374,3 +331,4 @@ function drawChart(id,kolom){
   kolom.forEach((_,i)=>ctx.fillText(`K${i+1}`,pad.l+i*sx,H-6));
   let lx=pad.l;[['Dijawab','#1a5aa0'],['Benar','#16a34a'],['Salah','#dc2626']].forEach(([lb,col])=>{ctx.fillStyle=col;ctx.fillRect(lx,4,14,2.5);ctx.fillStyle='rgba(19,50,89,0.5)';ctx.font='9px DM Sans';ctx.textAlign='left';ctx.fillText(lb,lx+17,10);lx+=72;});
 }
+

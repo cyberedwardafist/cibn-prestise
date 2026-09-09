@@ -4,34 +4,12 @@
 
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { pool, db, transaction } = require('./pool');
 
 async function initSchema() {
     const schemaSql = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
-    const checksum = crypto.createHash('sha256').update(schemaSql).digest('hex');
-
-    // Tabel kecil utk melacak checksum schema.sql yang TERAKHIR dijalankan, supaya
-    // file schema.sql (24 CREATE TABLE + 27 ALTER TABLE/INDEX, ratusan baris,
-    // semuanya IF NOT EXISTS) TIDAK perlu dieksekusi ulang PENUH di SETIAP cold
-    // start server. Sebelumnya file ini dijalankan penuh setiap kali Vercel
-    // menyalakan instance serverless baru — aman (idempotent) tapi tetap memakai
-    // 1 koneksi + waktu query ekstra persis di saat BANYAK instance baru muncul
-    // bersamaan (mis. banyak peserta ujian membuka aplikasi di jam yang sama),
-    // yaitu saat koneksi DB paling dibutuhkan utk trafik ujian sungguhan.
-    // Kalau schema.sql BERUBAH di update berikutnya (ada tabel/kolom baru),
-    // checksum ikut berubah -> otomatis dijalankan ulang, migrasi tidak terlewat.
-    await pool.query('CREATE TABLE IF NOT EXISTS _schema_checksum (id INT PRIMARY KEY DEFAULT 1, checksum TEXT)');
-    const existing = await pool.query('SELECT checksum FROM _schema_checksum WHERE id=1');
-    if (existing.rows[0]?.checksum === checksum) return;
-
     await pool.query(schemaSql);
-    await pool.query(
-        `INSERT INTO _schema_checksum (id, checksum) VALUES (1, $1)
-         ON CONFLICT (id) DO UPDATE SET checksum = EXCLUDED.checksum`,
-        [checksum]
-    );
 }
 
 async function seedIfEmpty() {

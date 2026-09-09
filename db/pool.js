@@ -34,41 +34,10 @@ const useSSL = process.env.PGSSL
     ? process.env.PGSSL === 'true'
     : process.env.NODE_ENV === 'production';
 
-// ── CATATAN PENTING UTK DEPLOY SERVERLESS (VERCEL) + SUPABASE ──────────────
-// Kalau DATABASE_URL menunjuk ke koneksi LANGSUNG Supabase
-// (host "db.<ref>.supabase.co", port 5432), jumlah slot koneksi ke Postgres
-// SANGAT terbatas (tergantung plan, sering cuma belasan-puluhan TOTAL utk
-// SELURUH project). Di Vercel, setiap instance serverless yang aktif
-// menjalankan file ini dari awal lagi -> membuat Pool BARU miliknya sendiri
-// (sampai PG_POOL_MAX koneksi). Kalau banyak peserta submit ujian nyaris
-// bersamaan, Vercel bisa menyalakan BANYAK instance sekaligus, dan totalnya
-// gampang melebihi slot koneksi Supabase -> koneksi baru GAGAL/menggantung,
-// yang di sisi browser peserta muncul sebagai "jaringan error" saat submit.
-//
-// SOLUSI YANG DISARANKAN (di luar kode ini, di dashboard Supabase & env var):
-//   1. Ganti DATABASE_URL ke "Connection Pooling" Supabase (Session/Transaction
-//      Pooler, PgBouncer) - host "aws-0-<region>.pooler.supabase.com", port
-//      6543 (transaction mode) atau 5432 (session mode). Pooler ini didesain
-//      utk banyak koneksi pendek/serverless dan slotnya jauh lebih longgar.
-//   2. Kalau tetap pakai koneksi langsung, set PG_POOL_MAX kecil (mis. 2-3)
-//      lewat env var supaya 1 instance tidak memonopoli slot yang tersisa.
 const pool = new Pool({
     connectionString,
     ssl: useSSL ? { rejectUnauthorized: false } : false,
     max: parseInt(process.env.PG_POOL_MAX || '10', 10),
-    // Tanpa ini, pg menunggu TANPA BATAS WAKTU kalau semua slot koneksi
-    // sedang penuh/habis — request akan menggantung sampai akhirnya
-    // fungsi serverless dipaksa berhenti oleh Vercel (function timeout),
-    // yang di browser peserta muncul sebagai kegagalan jaringan mentah
-    // (bukan pesan error yang jelas). Dengan batas ini, kegagalan terjadi
-    // lebih cepat & rapi (error jelas -> ditangkap ah()/error handler
-    // -> dikembalikan sbg JSON 500), sehingga retry otomatis di client
-    // (lihat ujian/hasil.js) bisa mulai coba lagi jauh lebih cepat.
-    connectionTimeoutMillis: parseInt(process.env.PG_CONN_TIMEOUT_MS || '8000', 10),
-    // Lepas koneksi idle lebih cepat drpd default (10dtk) supaya slot yang
-    // sudah tidak dipakai lebih cepat kembali tersedia utk request lain,
-    // penting saat slot koneksi terbatas (koneksi langsung Supabase).
-    idleTimeoutMillis: parseInt(process.env.PG_IDLE_TIMEOUT_MS || '5000', 10),
 });
 
 pool.on('error', (err) => {

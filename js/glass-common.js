@@ -62,10 +62,8 @@ function glassApplyNav(D) {
     if (f.phone) setContactText('.footer-contact .f-phone', f.phone);
     if (f.email) setContactText('.footer-contact .f-email', f.email);
     if (f.address) setContactText('.footer-contact .f-address', f.address);
-    document.querySelectorAll('.footer-copy.f-copy').forEach(el => { if (f.copyright) el.textContent = f.copyright; });
-    // f.reg ("Terdaftar & diawasi oleh OJK") sengaja TIDAK ada field admin-nya
-    // (sama seperti link Navigasi/Perusahaan di bawah) — teks default di HTML
-    // dibiarkan apa adanya.
+    document.querySelectorAll('.footer-copy.f-copy').forEach(el => { if (f.copy) el.textContent = f.copy; });
+    document.querySelectorAll('.footer-copy.f-reg').forEach(el => { if (f.reg) el.textContent = f.reg; });
     if (f.platform && f.platform.length) {
       document.querySelectorAll('.footer-platform-list').forEach(ul => {
         ul.innerHTML = f.platform.map(l => `<li><a href="${GlassEsc(l.href)}">${GlassEsc(l.text)}</a></li>`).join('');
@@ -76,21 +74,11 @@ function glassApplyNav(D) {
         ul.innerHTML = f.perusahaan.map(l => `<li><a href="${GlassEsc(l.href)}">${GlassEsc(l.text)}</a></li>`).join('');
       });
     }
-    // Social: admin cuma punya 3 field (instagram/twitter/linkedin, disimpan di
-    // Editor Landing > Footer) — bukan array bebas. Cocokkan lewat atribut
-    // `title` tombol yang sudah ada di HTML (Instagram/Twitter atau X/LinkedIn)
-    // dan cuma timpa href-nya kalau admin sudah isi; tombol lain (YouTube,
-    // WhatsApp, dst, kalau ada) dibiarkan seperti apa adanya karena memang
-    // belum ada field admin utknya.
-    const socialMap = { instagram: f.instagram, twitter: f.twitter, linkedin: f.linkedin };
-    document.querySelectorAll('.social-links .social-btn').forEach(btn => {
-      const title = (btn.getAttribute('title') || '').toLowerCase();
-      let url = null;
-      if (title.includes('instagram')) url = socialMap.instagram;
-      else if (title.includes('twitter') || title === 'x' || title.includes('/x')) url = socialMap.twitter;
-      else if (title.includes('linkedin')) url = socialMap.linkedin;
-      if (url) btn.href = url;
-    });
+    if (f.social && f.social.length) {
+      document.querySelectorAll('.social-links').forEach(sl => {
+        sl.innerHTML = f.social.map(s => `<a href="${GlassEsc(s.href)}" class="social-btn" title="${GlassEsc(s.label)}">${GlassEsc(s.short)}</a>`).join('');
+      });
+    }
     if (f.canvasText) window._customCanvasText = f.canvasText;
   }
 }

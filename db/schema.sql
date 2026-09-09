@@ -184,26 +184,6 @@ ALTER TABLE tokens ADD COLUMN IF NOT EXISTS batas_keluar INTEGER;
 -- grub_token (perilaku lama, satu-satunya cara yg tersedia utk data lama).
 ALTER TABLE tokens ADD COLUMN IF NOT EXISTS grub_id TEXT;
 
--- is_master: menandai 1 baris token per batch sebagai "Kode Master Grup" (BUKAN
--- token asli), dibuat otomatis oleh POST /api/tokens/generate setiap kali admin
--- mengaktifkan switch "Aktifkan Grup Token" di Buat Token. Teks kode-nya sengaja
--- dibuat PERSIS SAMA formatnya dgn token asli (pakai genTokenKode() yang sama,
--- tanpa prefix/embel-embel apa pun) — jadi di mata peserta kode master ini
--- tidak kelihatan beda sama sekali dari token asli biasa. Pembeda cuma internal
--- lewat kolom is_master ini (dipakai admin di panel: badge "Master Grup", dan
--- dipakai server utk tahu kapan harus jalanin logic pencarian/reservasi di bawah).
--- Kode master TIDAK PERNAH ditandai digunakan=1 pada dirinya sendiri — dia dipakai berulang oleh banyak
--- peserta berbeda; setiap kali divalidasi (POST /api/exam/validate-token) dia
--- otomatis "meminjamkan" 1 token asli yang masih nganggur (digunakan=0, is_master=0)
--- di grup yang sama (grub_id sama) ke peserta yang barusan validasi, dan token
--- asli itulah yang benar-benar dikunci/dipakai. Reservasi dilakukan ATOMIK lewat
--- `UPDATE tokens ... WHERE id=(SELECT ... FOR UPDATE SKIP LOCKED)` supaya 2
--- peserta yang validasi kode master ini nyaris bersamaan TIDAK PERNAH kebagian
--- token asli yang sama. Kalau seluruh token asli di grup sudah habis dipakai,
--- validasi kode master otomatis gagal (tidak ada baris tersisa utk direservasi)
--- — sengaja tidak ada logic tambahan apa pun utk kasus ini.
-ALTER TABLE tokens ADD COLUMN IF NOT EXISTS is_master SMALLINT DEFAULT 0;
-
 -- Nama internal (opsional) untuk soal & modul — HANYA ditampilkan di admin
 -- (Library Soal dan saat menyusun Modul), tidak pernah dikirim ke peserta ujian.
 -- Ditampilkan sebagai "nama soal | nama internal soal" di UI admin.
@@ -263,55 +243,6 @@ CREATE TABLE IF NOT EXISTS landing (
     data TEXT
 );
 
--- Pengaturan integrasi pihak ketiga (tab MANAGEMENT di admin: dock GMAIL | GMEET).
--- Sama pola dgn tabel `landing` di atas (1 baris, kolom data berisi JSON, di-merge
--- lewat PUT), bedanya endpoint-nya (/api/pengaturan/integrasi) KHUSUS admin (GET
--- maupun PUT) karena isinya bisa memuat kredensial (mis. app password Gmail) —
--- tidak boleh ikut publik seperti /api/landing.
--- Struktur data.gmail: { email, app_password, nama_pengirim, aktif } — dipakai utk
--- kirim OTP (lupa kata sandi) & notifikasi/pesan lain ke user (lihat server.js).
--- Struktur data.gmeet: { client_id, client_secret, calendar_id, durasi_default,
--- status } — MASIH DUMMY/PLACEHOLDER, disiapkan utk fitur Jadwal di halaman user
--- & review (belum ada alur OAuth Google / pembuatan link Meet asli).
-CREATE TABLE IF NOT EXISTS pengaturan_integrasi (
-    id   INTEGER PRIMARY KEY DEFAULT 1,
-    data TEXT
-);
-
--- Sesi kelas online (booking user <-> tentor). Sumber data NYATA untuk pengingat
--- email H-1 & "kelas dimulai" (lib/kelas-reminder.js) — beda dari halaman Jadwal
--- di user/jadwal/jadwal.js & review/jadwal/jadwal.js yang SAAT INI masih dummy
--- (localStorage per-browser, lihat JadwalStore di file itu). Kolom & vokabuler
--- status (pending/acc/ditolak/berlangsung/selesai/batal/dst) sengaja dibuat
--- selaras dengan JDW_STATUS_LABEL di jadwal.js supaya nanti gampang disambung.
--- waktu_mulai/waktu_selesai adalah gabungan tanggal+slot dalam bentuk TIMESTAMP
--- asli (bukan cuma tanggal+kode slot) karena itu yang dipakai scheduler untuk
--- hitung "H-1" & "sudah mulai".
-CREATE TABLE IF NOT EXISTS jadwal_sesi (
-    id                   SERIAL PRIMARY KEY,
-    kode                 TEXT UNIQUE NOT NULL,
-    user_kode            TEXT NOT NULL REFERENCES users(kode),
-    tentor_id            TEXT NOT NULL,
-    tentor_nama          TEXT,
-    materi_id            TEXT,
-    materi_nama          TEXT,
-    tanggal              DATE NOT NULL,
-    slot_id              TEXT,
-    slot_label           TEXT,
-    waktu_mulai          TIMESTAMP NOT NULL,
-    waktu_selesai        TIMESTAMP,
-    status               TEXT NOT NULL DEFAULT 'pending',
-    meet_link            TEXT,
-    catatan              TEXT,
-    reminder_h1_sent     BOOLEAN DEFAULT false,
-    reminder_mulai_sent  BOOLEAN DEFAULT false,
-    created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_jadwal_sesi_user   ON jadwal_sesi(user_kode);
-CREATE INDEX IF NOT EXISTS idx_jadwal_sesi_waktu  ON jadwal_sesi(waktu_mulai);
-CREATE INDEX IF NOT EXISTS idx_jadwal_sesi_status ON jadwal_sesi(status);
-
 CREATE TABLE IF NOT EXISTS signup_requests (
     id         SERIAL PRIMARY KEY,
     nama       TEXT,
@@ -340,9 +271,9 @@ CREATE INDEX IF NOT EXISTS idx_paket_requests_user   ON paket_requests(user_kode
 CREATE INDEX IF NOT EXISTS idx_paket_requests_status ON paket_requests(status);
 
 -- Kode OTP untuk fitur "Lupa Kata Sandi" (landing baru, halaman otp.html).
--- Dikirim via Gmail nyata (lib/mailer.js) begitu admin mengisi & mengaktifkan
--- Gmail di dock Management; kalau belum diaktifkan, kode tetap dicatat ke
--- server log (console.log) sebagai fallback saat /api/password/forgot dipanggil.
+-- Belum ada layanan email/SMTP terpasang — kode saat ini dicatat ke server log
+-- (console.log) saat /api/password/forgot dipanggil. Sambungkan ke SMTP asli
+-- di titik yang sama begitu kredensial email tersedia.
 CREATE TABLE IF NOT EXISTS password_resets (
     id         SERIAL PRIMARY KEY,
     email      TEXT NOT NULL,
@@ -352,21 +283,6 @@ CREATE TABLE IF NOT EXISTS password_resets (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);
-
--- Pendaftaran akun baru sekarang butuh konfirmasi OTP lewat email sebelum baris
--- di tabel `users` benar-benar dibuat. POST /api/signup menyimpan data
--- pendaftaran (nama/email/password sudah di-hash) + kode OTP di sini; baris
--- users baru baru ditulis oleh POST /api/signup/verify-otp setelah kode cocok.
-CREATE TABLE IF NOT EXISTS signup_otps (
-    id         SERIAL PRIMARY KEY,
-    nama       TEXT NOT NULL,
-    email      TEXT NOT NULL,
-    password   TEXT NOT NULL,
-    otp        TEXT NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_signup_otps_email ON signup_otps(email);
 
 -- Konfigurasi Payment Gateway ASLI (Midtrans / Xendit) — 1 baris singleton (id=1),
 -- diisi admin lewat panel Keuangan > Payment Gateway. Server Key/Secret Key

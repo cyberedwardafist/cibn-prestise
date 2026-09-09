@@ -139,6 +139,9 @@ h1.hero-h1 span{color:var(--primary);font-style:italic;font-weight:500}
 
 /* ── MITRA ── */
 .mitra-track{overflow:hidden;position:relative;padding:1.7rem 0}
+.mitra-track::before,.mitra-track::after{content:'';position:absolute;top:0;bottom:0;width:100px;z-index:2}
+.mitra-track::before{left:0;background:linear-gradient(to right,#f6f8fc,transparent)}
+.mitra-track::after{right:0;background:linear-gradient(to left,#f6f8fc,transparent)}
 .mitra-scroll{display:flex;gap:1.2rem;animation:scrollMitra 26s linear infinite;width:max-content}
 .mitra-track:hover .mitra-scroll{animation-play-state:paused}
 @keyframes scrollMitra{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
