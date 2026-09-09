@@ -21,13 +21,24 @@ function showHasilPending(){
 // sukses, atau null kalau gagal setelah beberapa percobaan (lalu tampilkan tombol
 // "Coba Kirim Ulang" — progress lokal baru dihapus setelah benar-benar sukses,
 // supaya jawaban peserta tidak hilang kalau koneksi bermasalah).
+const KIRIM_HASIL_MAX_ATTEMPT=5;
 async function kirimHasilUjian(token, payload, attempt=1){
   try{
+    // Batasi tiap percobaan maksimal 15 detik. Tanpa ini, kalau server sedang
+    // sibuk (mis. pool koneksi database penuh saat banyak peserta submit
+    // bersamaan), fetch() bisa menggantung lama tanpa respons sama sekali —
+    // peserta cuma melihat spinner diam tanpa progres apapun. Dengan timeout
+    // ini, percobaan yang gagal "dianggap gagal" lebih cepat dan retry
+    // berikutnya bisa segera dicoba (server mungkin sudah tidak sesibuk itu).
+    const controller=new AbortController();
+    const timeoutId=setTimeout(()=>controller.abort(),15000);
     const res=await fetch(API+'/exam/submit',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+getJWT()},
-      body:JSON.stringify(payload)
+      body:JSON.stringify(payload),
+      signal:controller.signal
     });
+    clearTimeout(timeoutId);
     if(!res.ok) throw new Error('HTTP '+res.status);
     const data=await res.json();
     // Sukses — baru sekarang aman menghapus progress lokal. cibn_flat_data_ dihapus
@@ -45,8 +56,13 @@ async function kirimHasilUjian(token, payload, attempt=1){
     return data;
   }catch(e){
     console.warn('Submit gagal (percobaan '+attempt+'):',e);
-    if(attempt<3){
-      await new Promise(r=>setTimeout(r,1500));
+    if(attempt<KIRIM_HASIL_MAX_ATTEMPT){
+      // Jeda antar percobaan makin lama (1.5s, 2.7s, 4.9s, 8s...) — memberi
+      // waktu server/koneksi database pulih dulu kalau penyebabnya server
+      // sedang sibuk/pool koneksi penuh, bukan cuma langsung tembak ulang
+      // dengan jeda tetap yang mungkin masih kena kondisi sibuk yang sama.
+      const delay=Math.min(1500*Math.pow(1.8,attempt-1),8000);
+      await new Promise(r=>setTimeout(r,delay));
       return kirimHasilUjian(token, payload, attempt+1);
     }
     // Gagal setelah beberapa percobaan: simpan payload supaya tidak hilang, dan
@@ -331,4 +347,3 @@ function drawChart(id,kolom){
   kolom.forEach((_,i)=>ctx.fillText(`K${i+1}`,pad.l+i*sx,H-6));
   let lx=pad.l;[['Dijawab','#1a5aa0'],['Benar','#16a34a'],['Salah','#dc2626']].forEach(([lb,col])=>{ctx.fillStyle=col;ctx.fillRect(lx,4,14,2.5);ctx.fillStyle='rgba(19,50,89,0.5)';ctx.font='9px DM Sans';ctx.textAlign='left';ctx.fillText(lb,lx+17,10);lx+=72;});
 }
-

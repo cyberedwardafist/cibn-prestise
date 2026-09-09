@@ -1,0 +1,15 @@
+node_modules/
+.env
+*.log
+npm-debug.log*
+
+# File PDF/gambar hasil upload pengguna (biarkan folder-nya, jangan commit isinya)
+uploads/soal/*
+uploads/ebook/*
+!uploads/soal/.gitkeep
+!uploads/ebook/.gitkeep
+
+# Backup database SQLite lama — jangan ikut ter-commit (bisa berisi data pengguna asli)
+db/legacy-sqlite/*.db
+db/legacy-sqlite/*.db-shm
+db/legacy-sqlite/*.db-wal
