@@ -135,11 +135,9 @@ async function generateTokens(){
     }catch(e){showToast('Gagal: '+e.message,'danger');}
     if(btn){btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Buat Token';}
 }
-// Kartu "Kode Master Grup": 1 kode/QR (format beda, prefix "GRUP-") yang mewakili
-// SELURUH token asli dalam grup yang barusan dibuat. Peserta yang scan/input kode
-// ini otomatis dapat 1 token asli yang masih tersedia (dikunci ke dia saat itu
-// juga) — kalau semua token asli sudah habis, kode ini otomatis gagal dipakai.
-// Token asli tetap muncul apa adanya di tabel/daftar di bawah kartu ini.
+// Kartu "Kode Master Grup": 1 kode/QR yang mewakili SELURUH token asli dalam
+// grup yang barusan dibuat — teksnya sengaja dibuat sama persis format token
+// biasa (tidak ada prefix/embel-embel apa pun) supaya peserta tidak lihat beda.
 function _renderGrupMasterCard(masterTok){
     const wrap=document.getElementById('token-grup-master-card');
     if(!wrap)return;

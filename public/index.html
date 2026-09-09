@@ -291,11 +291,15 @@ input{font-family:inherit}
 
 .hero-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:56px;max-width:480px}
 .hero-stats .stat{
+  /* tint gelap sendiri (bukan cuma putih tipis) biar kartu tetap kebaca
+     walau jatuh di zona bawah hero yang video & overlay-nya sudah
+     memudar ke transparan — di situ latar belakangnya balik ke --bg
+     yang terang, jadi kartu gak boleh gantung ke video buat kontras */
   border-radius:14px;padding:16px 14px;
-  background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.22);
+  background:rgba(9,16,30,.42);border-color:rgba(255,255,255,.16);
 }
-.hero-stats .stat b{font-family:'Space Grotesk',sans-serif;font-size:24px;color:#fff;display:block}
-.hero-stats .stat span{font-size:10.5px;color:rgba(255,255,255,.68);letter-spacing:.08em;text-transform:uppercase}
+.hero-stats .stat b{font-family:'Space Grotesk',sans-serif;font-size:24px;color:#fff;display:block;text-shadow:0 2px 10px rgba(0,0,0,.35)}
+.hero-stats .stat span{font-size:10.5px;color:rgba(255,255,255,.72);letter-spacing:.08em;text-transform:uppercase}
 
 /* ---------- EMBLEM: logo statis, ring melingkar di belakangnya ---------- */
 .hero-emblem-wrap{position:relative;height:460px;display:flex;align-items:center;justify-content:center}
@@ -308,23 +312,17 @@ input{font-family:inherit}
 .emblem-ring.r2{
   border-top-color:var(--cream);
   border-right-color:rgba(201,169,97,.35);
-  box-shadow:0 0 30px -8px rgba(201,169,97,.35);
   animation:ring-orbit 16s linear infinite;
 }
 .emblem-ring.r2::after{
   content:'';position:absolute;top:-5px;left:50%;width:9px;height:9px;margin-left:-4.5px;
   border-radius:50%;background:var(--cream);
-  box-shadow:0 0 12px var(--cream), 0 0 26px var(--cream-light);
 }
 @keyframes ring-orbit{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
 .emblem-logo{
   position:absolute;top:50%;left:50%;width:340px;height:340px;object-fit:contain;
   transform:translate(-50%,-50%);z-index:1;
   filter:drop-shadow(0 10px 34px rgba(21,34,56,.22));
-}
-.emblem-particle{
-  position:absolute;width:5px;height:5px;border-radius:50%;background:var(--cream);
-  box-shadow:0 0 10px var(--cream);
 }
 @media (max-width:960px){
   .hero-inner{grid-template-columns:1fr}
@@ -855,6 +853,7 @@ input{font-family:inherit}
         <h4>Perusahaan</h4>
         <ul>
           <li><a href="#">Tentang Kami</a></li>
+          <li><a href="#">Karier</a></li>
           <li><a href="kebijakan-privasi.html">Kebijakan Privasi</a></li>
           <li><a href="syarat-ketentuan.html">Syarat & Ketentuan</a></li>
         </ul>
@@ -870,7 +869,7 @@ input{font-family:inherit}
     </div>
     <div class="container footer-bottom">
       <span id="footerCopyright"></span>
-      <span>Powered by CIBN</span>
+      <span>Dibuat dengan presisi untuk investor yang serius.</span>
     </div>
   </div>
 </footer>
@@ -1110,25 +1109,10 @@ function attachTilt(root = document) {
 }
 attachTilt();
 
-// ===== Hero emblem: logo diam, hanya floating gold particles di sekitarnya =====
-const emblemWrap = document.querySelector('.hero-emblem-wrap');
-if (emblemWrap) {
-  // floating gold particles
-  for (let i = 0; i < 14; i++) {
-    const p = document.createElement('div');
-    p.className = 'emblem-particle';
-    const angle = Math.random() * Math.PI * 2;
-    const radius = 140 + Math.random() * 60;
-    p.style.left = `calc(50% + ${Math.cos(angle) * radius}px)`;
-    p.style.top = `calc(50% + ${Math.sin(angle) * radius}px)`;
-    p.style.opacity = (0.3 + Math.random() * 0.6).toFixed(2);
-    p.style.animation = `float-particle ${5 + Math.random() * 5}s ease-in-out ${Math.random() * 3}s infinite`;
-    emblemWrap.appendChild(p);
-  }
-  const styleTag = document.createElement('style');
-  styleTag.textContent = `@keyframes float-particle{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}`;
-  document.head.appendChild(styleTag);
-}
+// Emblem: logo statis dgn 1 ring tipis berputar pelan di belakangnya (lihat
+// CSS .emblem-ring) — sengaja TIDAK ada lagi partikel cahaya melayang di
+// sekitarnya, biar hero lebih bersih & fokus ke logo/teks, bukan ramai oleh
+// titik-titik cahaya dekoratif yang sebelumnya di-generate di sini.
 
 // ===== Footer spotlight follows cursor =====
 const footerSpot = document.querySelector('.footer-spotlight');

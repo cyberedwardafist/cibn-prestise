@@ -135,15 +135,12 @@ function genTokenKode() {
     const seg   = () => Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
     return `${seg()}-${seg()}-${seg()}`;
 }
-// Kode "Master Grup" — sengaja BEDA FORMAT dari genTokenKode() (prefix "GRUP-",
-// cuma 2 segmen bukan 3) supaya admin gampang bedain di List Token sekilas mata
-// tanpa perlu buka detail. Lihat komentar kolom is_master di db/schema.sql utk
-// alur lengkap bagaimana kode ini dipakai (validate-token).
-function genGrupMasterKode() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    const seg   = () => Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
-    return `GRUP-${seg()}-${seg()}`;
-}
+// Kode "Master Grup" — sengaja dibuat dgn format TEKS PERSIS SAMA dgn token asli
+// (pakai genTokenKode() yang sama, BUKAN prefix/format khusus) supaya di mata
+// peserta tidak ada bedanya sama sekali. Pembeda cuma internal (kolom is_master
+// di DB) — dipakai admin di panel (badge "Master Grup") dan dipakai server utk
+// tahu kapan harus jalanin logic pencarian/reservasi token asli saat validasi.
+// Lihat komentar kolom is_master di db/schema.sql utk alur lengkapnya.
 // ID unik per BATCH generate token (grup) — lihat komentar kolom `grub_id` di
 // db/schema.sql. Timestamp (base36) + acak: praktis tidak pernah tabrakan
 // tanpa perlu cek unik ke DB (beda dgn genTokenKode() yg di-retry oleh
@@ -1693,10 +1690,12 @@ app.post('/api/tokens/generate', auth(['admin']), ah(async (req, res) => {
                 await insert.run(kode, modul_kode, akt, exp, izinReview, grubToken, batasKeluar, grubId, 0); result.push({ kode, modul_kode, aktivasi: akt, expired: exp, izinkan_review: izinReview, grub_token: grubToken, batas_keluar: batasKeluar, grub_id: grubId, is_master: false });
             }
             // Kode Master Grup: 1 baris tambahan per batch, HANYA kalau Grup Token aktif.
-            // Bukan salah satu dari `jumlah` token asli yang diminta admin — lihat
-            // komentar kolom is_master di db/schema.sql utk alur lengkapnya.
+            // Bukan salah satu dari `jumlah` token asli yang diminta admin — teksnya
+            // sengaja dibuat dgn genTokenKode() yang sama persis dgn token asli (tidak
+            // ada embel-embel/prefix apa pun), pembeda cuma internal (is_master=1).
+            // Lihat komentar kolom is_master di db/schema.sql utk alur lengkapnya.
             if (grubId) {
-                let masterKode, tries = 0; do { masterKode = genGrupMasterKode(); tries++; } while ((await checkExist.get(masterKode)) && tries < 10);
+                let masterKode, tries = 0; do { masterKode = genTokenKode(); tries++; } while ((await checkExist.get(masterKode)) && tries < 10);
                 await insert.run(masterKode, modul_kode, akt, exp, izinReview, grubToken, batasKeluar, grubId, 1);
                 result.push({ kode: masterKode, modul_kode, aktivasi: akt, expired: exp, izinkan_review: izinReview, grub_token: grubToken, batas_keluar: batasKeluar, grub_id: grubId, is_master: true });
             }
