@@ -617,6 +617,30 @@ window.addEventListener('DOMContentLoaded', async () => {
     // --- PROSES PEMULIHAN DATA (RESTORE) ---
     const token = st.examData.token.kode;
 
+    // ── PEMULIHAN SUBMIT YANG TERTUNDA (perbaikan bug) ──────────────────────
+    // Kalau peserta sudah menekan "Selesai" sebelumnya TAPI /api/exam/submit
+    // gagal terus sampai 5x percobaan (kirimHasilUjian di hasil.js), payload
+    // jawaban final sudah disimpan ke localStorage['cbn_pending_submit_'+token]
+    // dan tombol "Coba Kirim Ulang" ditampilkan — TAPI hanya selama halaman
+    // hasil itu masih terbuka. Sebelumnya, kalau peserta reload halaman /
+    // tutup tab / koneksi putus sampai browser reload sendiri saat masih di
+    // status ini, DOMContentLoaded di sini langsung lanjut memulihkan &
+    // menampilkan ULANG halaman ujian (soal & timer) seolah belum selesai —
+    // payload yang sudah tersimpan itu terlantar, tidak pernah dicoba kirim
+    // lagi, dan peserta seperti "kehilangan" hasil ujiannya. Perbaikannya:
+    // cek dulu di sini SEBELUM merender ulang UI ujian — kalau ada payload
+    // tertunda utk token ini, langsung lanjutkan proses kirim-hasil (retry),
+    // JANGAN render ulang soal ujian.
+    const pendingSubmitRaw = localStorage.getItem('cbn_pending_submit_' + token);
+    if (pendingSubmitRaw) {
+      document.getElementById('loading-screen').classList.remove('active');
+      clearInterval(st.timerInterval); clearInterval(st.skTimerInterval);
+      await ensureHasilModule();
+      showHasilPending();
+      await retryKirimHasil(token);
+      return;
+    }
+
     // Batas keluar ujian per-token: NULL/undefined = perlindungan keluar DIMATIKAN
     // (peserta bebas keluar tanpa batas). Angka = jumlah maksimal pelanggaran yang
     // ditoleransi sebelum ujian otomatis diselesaikan. Dikonfigurasi admin saat
