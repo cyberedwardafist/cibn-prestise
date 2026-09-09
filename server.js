@@ -711,7 +711,8 @@ async function computeAnalisaSoalAggregate(soalKode, laporanRows) {
 // ROUTES: AUTH & USERS
 // ═══════════════════════════════════════════════════════════════════════════════
 app.post('/api/login', ah(async (req, res) => {
-    const { email, password } = req.body;
+    const { password } = req.body;
+    const email = normEmail(req.body.email);
     const user = await db.prepare('SELECT * FROM users WHERE email=?').get(email);
     if (!user)                           return res.status(401).json({ error: 'Email tidak ditemukan' });
     if (user.status === 'suspend')       return res.status(403).json({ error: 'Akun di-suspend' });
@@ -738,7 +739,8 @@ app.post('/api/login', ah(async (req, res) => {
 // untuk kompatibilitas data lama, tapi alur baru ini tidak lagi menulis ke
 // tabel itu.
 app.post('/api/signup', ah(async (req, res) => {
-    const { nama, email, password } = req.body;
+    const { nama, password } = req.body;
+    const email = normEmail(req.body.email);
     if (!nama || !email || !password) return res.status(400).json({ error: 'Data tidak lengkap' });
     if (String(password).length < 8) return res.status(400).json({ error: 'Kata sandi minimal 8 karakter' });
     try {
@@ -758,7 +760,11 @@ async function kirimSignupOtp(nama, email, passwordHash) {
     await db.prepare('INSERT INTO signup_otps (nama,email,password,otp,expires_at) VALUES (?,?,?,?,?)')
         .run(nama, email, passwordHash, otp, expiresAt);
     console.log(`[OTP] Kode konfirmasi pendaftaran untuk ${email}: ${otp} (berlaku 10 menit)`);
-    kirimEmail({
+    // PENTING (Vercel serverless): HARUS di-await sebelum function ini selesai.
+    // Kalau fire-and-forget, function bisa dibekukan/dimatikan begitu response
+    // terkirim, sebelum request HTTP ke Resend sempat selesai — akibatnya email
+    // TIDAK PERNAH benar-benar terkirim walau tidak ada error yang kelihatan.
+    await kirimEmailAman({
         to: email,
         subject: 'Kode OTP Konfirmasi Pendaftaran — CIBN PRESTISE',
         html: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">
@@ -767,11 +773,11 @@ async function kirimSignupOtp(nama, email, passwordHash) {
             <p style="font-size:28px;font-weight:700;letter-spacing:4px;margin:16px 0">${otp}</p>
             <p>Kode ini berlaku 10 menit. Kalau kamu tidak merasa mendaftar, abaikan email ini.</p>
         </div>`,
-    }).catch(() => {}); // Kegagalan kirim tidak boleh menggagalkan response ke user.
+    }, 'signup OTP'); // Kegagalan kirim tidak boleh menggagalkan response ke user, tapi tetap dicatat di log.
 }
 
 app.post('/api/signup/resend-otp', ah(async (req, res) => {
-    const { email } = req.body;
+    const email = normEmail(req.body.email);
     if (!email) return res.status(400).json({ error: 'Email wajib diisi' });
     try {
         if (await db.prepare('SELECT id FROM users WHERE email=?').get(email))
@@ -784,7 +790,8 @@ app.post('/api/signup/resend-otp', ah(async (req, res) => {
 }));
 
 app.post('/api/signup/verify-otp', ah(async (req, res) => {
-    const { email, otp } = req.body;
+    const { otp } = req.body;
+    const email = normEmail(req.body.email);
     if (!email || !otp) return res.status(400).json({ error: 'Data tidak lengkap' });
     try {
         const row = await db.prepare('SELECT * FROM signup_otps WHERE email=? AND otp=? ORDER BY id DESC LIMIT 1').get(email, otp);
@@ -1094,8 +1101,22 @@ app.post('/api/pembayaran/notify/xendit', ah(async (req, res) => {
 // server (lihat lib/mailer.js) supaya alur tetap bisa dites tanpa Resend nyata.
 function genOtp() { return String(Math.floor(100000 + Math.random() * 900000)); }
 
+// Normalisasi email (trim + lowercase) supaya "User@Gmail.com" dan
+// " user@gmail.com " dianggap akun yang sama saat daftar/login/lupa password.
+// Tanpa ini, email yang cocok persis-case bisa gagal ditemukan diam-diam.
+function normEmail(email) { return String(email || '').trim().toLowerCase(); }
+
+// Bungkus kirimEmail() supaya kegagalan tetap tidak menggagalkan response ke
+// user, TAPI tidak lagi ditelan diam-diam — selalu tercatat jelas di log
+// server dengan konteks (untuk siapa/tujuan apa) supaya gampang di-grep.
+function kirimEmailAman(payload, konteks) {
+    kirimEmail(payload).then((r) => {
+        if (!r.sent) console.error(`[MAIL] Gagal kirim (${konteks}) ke ${payload.to}: ${r.reason}`);
+    }).catch((e) => console.error(`[MAIL] Exception saat kirim (${konteks}) ke ${payload.to}:`, e.message));
+}
+
 app.post('/api/password/forgot', ah(async (req, res) => {
-    const { email } = req.body;
+    const email = normEmail(req.body.email);
     if (!email) return res.status(400).json({ error: 'Email wajib diisi' });
     const user = await db.prepare('SELECT kode,nama FROM users WHERE email=?').get(email);
     if (user) {
@@ -1103,7 +1124,11 @@ app.post('/api/password/forgot', ah(async (req, res) => {
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
         await db.prepare('INSERT INTO password_resets (email,otp,expires_at) VALUES (?,?,?)').run(email, otp, expiresAt);
         console.log(`[OTP] Kode reset kata sandi untuk ${email}: ${otp} (berlaku 10 menit)`);
-        kirimEmail({
+        // PENTING (Vercel serverless): HARUS di-await — lihat catatan di kirimSignupOtp().
+        // Fire-and-forget adalah penyebab paling mungkin kenapa OTP lupa password
+        // tidak pernah nyampe: function di Vercel keburu dibekukan sebelum fetch()
+        // ke Resend selesai, begitu res.json() dikirim.
+        await kirimEmailAman({
             to: email,
             subject: 'Kode OTP Reset Kata Sandi — CIBN PRESTISE',
             html: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">
@@ -1112,14 +1137,17 @@ app.post('/api/password/forgot', ah(async (req, res) => {
                 <p style="font-size:28px;font-weight:700;letter-spacing:4px;margin:16px 0">${otp}</p>
                 <p>Kode ini berlaku 10 menit. Kalau kamu tidak meminta reset kata sandi, abaikan email ini.</p>
             </div>`,
-        }).catch(() => {}); // Kegagalan kirim tidak boleh menggagalkan response ke user (lihat balasan generik di bawah).
+        }, 'reset password OTP'); // Kegagalan kirim dicatat di log, tidak menggagalkan balasan generik di bawah.
+    } else {
+        console.log(`[OTP] Lupa password: email "${email}" TIDAK ditemukan di tabel users — OTP tidak dikirim.`);
     }
     // Selalu balas sukses (tidak membocorkan apakah email terdaftar atau tidak).
     res.json({ message: 'Jika email terdaftar, kode OTP telah dikirim.' });
 }));
 
 app.post('/api/password/verify-otp', ah(async (req, res) => {
-    const { email, otp } = req.body;
+    const { otp } = req.body;
+    const email = normEmail(req.body.email);
     if (!email || !otp) return res.status(400).json({ error: 'Data tidak lengkap' });
     const row = await db.prepare('SELECT * FROM password_resets WHERE email=? AND otp=? ORDER BY id DESC LIMIT 1').get(email, otp);
     if (!row) return res.status(400).json({ error: 'Kode OTP salah' });
@@ -1129,7 +1157,8 @@ app.post('/api/password/verify-otp', ah(async (req, res) => {
 }));
 
 app.post('/api/password/reset', ah(async (req, res) => {
-    const { email, otp, password } = req.body;
+    const { otp, password } = req.body;
+    const email = normEmail(req.body.email);
     if (!email || !otp || !password) return res.status(400).json({ error: 'Data tidak lengkap' });
     if (String(password).length < 8) return res.status(400).json({ error: 'Kata sandi minimal 8 karakter' });
     const row = await db.prepare('SELECT * FROM password_resets WHERE email=? AND otp=? AND verified=1 ORDER BY id DESC LIMIT 1').get(email, otp);
@@ -1165,7 +1194,8 @@ app.get('/api/users/:role', auth(['admin']), ah(async (req, res) => {
 }));
 
 app.post('/api/users', auth(['admin']), ah(async (req, res) => {
-    const { nama, email, password, role, grub, status, paket_nama, langganan_mulai, langganan_akhir } = req.body;
+    const { nama, password, role, grub, status, paket_nama, langganan_mulai, langganan_akhir } = req.body;
+    const email = normEmail(req.body.email);
     try {
         const kode = await genKode(role === 'admin' ? 'ADM' : role === 'review' ? 'REV' : 'USR', 'users');
         const hash = bcrypt.hashSync(password || 'Default@123', 10);
@@ -1211,7 +1241,8 @@ app.put('/api/users/bulk', auth(['admin']), ah(async (req, res) => {
 }));
 
 app.put('/api/users/:kode', auth(['admin']), ah(async (req, res) => {
-    const { nama, email, password, grub, status, paket_nama, langganan_mulai, langganan_akhir } = req.body;
+    const { nama, password, grub, status, paket_nama, langganan_mulai, langganan_akhir } = req.body;
+    const email = normEmail(req.body.email);
     try {
         await transaction(async (tdb) => {
             if (password) {
@@ -2106,7 +2137,7 @@ app.delete('/api/jadwal-sesi/:kode', auth(['admin','user']), ah(async (req, res)
 app.post('/api/cron/jadwal-reminder', auth(['admin']), ah(async (req, res) => {
     res.json(await jalankanCekReminder());
 }));
-app.put('/api/me', auth(['admin','review','user']), ah(async (req, res) => { await db.prepare('UPDATE users SET nama=?,email=? WHERE kode=?').run(req.body.nama, req.body.email, req.user.kode); res.json({ message: 'OK' }); }));
+app.put('/api/me', auth(['admin','review','user']), ah(async (req, res) => { await db.prepare('UPDATE users SET nama=?,email=? WHERE kode=?').run(req.body.nama, normEmail(req.body.email), req.user.kode); res.json({ message: 'OK' }); }));
 app.get('/api/review/users', auth(['review','admin']), ah(async (req, res) => res.json(await db.prepare("SELECT id,kode,nama,email,grub,status FROM users WHERE role='user' ORDER BY id").all())));
 app.get('/api/review/laporan/:user_kode', auth(['review','admin']), ah(async (req, res) => { const rows = await db.prepare('SELECT * FROM laporan WHERE user_kode=? ORDER BY created_at DESC').all(req.params.user_kode); rows.forEach(r => { if (r.jawaban) try { r.jawaban = JSON.parse(r.jawaban); } catch (e) {} }); res.json(rows); }));
 app.get('/api/user/riwayat', auth(['user','admin','review']), ah(async (req, res) => { const rows = await db.prepare('SELECT l.*,m.nama as modul_nama FROM laporan l LEFT JOIN modul m ON l.modul_kode=m.kode WHERE l.user_kode=? ORDER BY l.created_at DESC').all(req.user.kode); rows.forEach(r => { if (r.jawaban) try { r.jawaban = JSON.parse(r.jawaban); } catch (e) {} }); if (req.user.role === 'user' && rows.some(r => !r.izinkan_review) && await userPunyaReviewOverride(req.user.kode)) { rows.forEach(r => { r.izinkan_review = 1; }); } res.json(rows); }));
