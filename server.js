@@ -9,7 +9,21 @@ const crypto    = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
-const { db, transaction } = require('./db/pool');
+const { db, transaction, connectWithRetry } = require('./db/pool');
+
+// PERBAIKAN STABILITAS SERVER: sebelumnya tidak ada handler untuk error async
+// yang lolos dari try/catch (mis. query DB yang reject di luar request-response
+// cycle) — di Node, unhandledRejection yang tidak ditangani bisa mematikan
+// seluruh proses server (tergantung versi Node), yang berarti SEMUA siswa yang
+// sedang ujian kena "Failed to fetch" bersamaan walau masalahnya cuma satu
+// query nyasar. Log saja & tetap hidup; endpoint yang benar-benar error tetap
+// akan mengembalikan 500 lewat 'ah()'/error handler seperti biasa.
+process.on('unhandledRejection', (reason) => {
+    console.error('[UNHANDLED REJECTION]', reason && reason.message ? reason.message : reason);
+});
+process.on('uncaughtException', (err) => {
+    console.error('[UNCAUGHT EXCEPTION]', err.message);
+});
 const { initSchema, seedIfEmpty, sanityCheckEbooks, ensureGatewayConfig } = require('./db/init');
 const { kirimEmail, invalidateMailerCache, verifikasiDanKirimTes } = require('./lib/mailer');
 const { mulaiScheduler, jalankanCekReminder } = require('./lib/kelas-reminder');
@@ -2246,6 +2260,12 @@ app.use((err, req, res, next) => {
 // ── START / EXPORT UNTUK VERCEL ───────────────────────────────────────────────
 (async () => {
     try {
+        // PERBAIKAN: pastikan Postgres benar-benar bisa dihubungi dulu (dengan
+        // retry) sebelum initSchema — hiccup jaringan sesaat ke Supabase saat
+        // cold-start sebelumnya langsung dianggap FATAL dan server batal nyala
+        // sepenuhnya (harus restart manual). Sekarang dicoba ulang beberapa kali.
+        await connectWithRetry();
+
         await initSchema();
         await seedIfEmpty();
         await ensureGatewayConfig();
@@ -2256,8 +2276,16 @@ app.use((err, req, res, next) => {
         // POST /api/cron/jadwal-reminder sebagai gantinya (lihat server.js).
         if (!process.env.VERCEL) mulaiScheduler();
 
-        // Server hanya menggunakan app.listen jika dijalankan secara lokal (bukan Vercel)
-        if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+        // BUG YANG DIPERBAIKI: sebelumnya syaratnya `NODE_ENV !== 'production' &&
+        // !VERCEL`, jadi kalau server di-deploy ke server/VPS BIASA (bukan Vercel)
+        // dengan NODE_ENV=production (praktik umum utk deployment produksi),
+        // app.listen() TIDAK PERNAH dipanggil — server tidak pernah benar-benar
+        // membuka port, sehingga semua request dari siswa (termasuk submit ujian)
+        // gagal terhubung sama sekali ("network error"). Satu-satunya kondisi yang
+        // BENAR memang perlu skip listen() adalah saat dijalankan di Vercel
+        // (serverless — Vercel yang mengurus request lifecycle-nya sendiri lewat
+        // module.exports = app), jadi cek NODE_ENV dibuang; hanya cek VERCEL.
+        if (!process.env.VERCEL) {
             app.listen(PORT, () => {
                 console.log(`\n🚀 Server berjalan di http://localhost:${PORT}`);
                 console.log(`📊 Database: PostgreSQL Ready`);
@@ -2265,7 +2293,12 @@ app.use((err, req, res, next) => {
             });
         }
     } catch (e) {
-        console.error('[FATAL] Gagal inisialisasi database:', e.message);
+        console.error('[FATAL] Gagal inisialisasi database setelah beberapa percobaan:', e.message);
+        // Jangan diam-diam biarkan proses menggantung tanpa listen sama sekali di
+        // deployment non-serverless — keluar dengan kode error supaya process
+        // manager (PM2/systemd/Docker) tahu harus restart, bukan "menyala" tapi
+        // sebenarnya tidak melayani apa pun.
+        if (!process.env.VERCEL) process.exit(1);
     }
 })();
 

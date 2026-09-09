@@ -1368,6 +1368,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch(e) { /* offline / gagal muat — biarkan default fail-open di atas */ }
     applyDockAkses();
     resumePendingExamSubmits();
+    // PERBAIKAN: sebelumnya submit tertunda hanya dicoba ulang sekali saat
+    // dashboard pertama dibuka. Kalau saat itu masih offline, siswa harus
+    // reload manual supaya dicoba lagi. Sekarang juga dipicu otomatis begitu
+    // browser mendeteksi koneksi kembali online, selama siswa masih di halaman ini.
+    window.addEventListener('online', resumePendingExamSubmits);
     let lastPage = 'home';
     try {
         const saved = localStorage.getItem('cbn_user_lastpage');
