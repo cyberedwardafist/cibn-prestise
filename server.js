@@ -727,7 +727,7 @@ app.post('/api/login', ah(async (req, res) => {
 // Catatan alur baru (landing "animation frame" + konfirmasi OTP): akun TIDAK
 // lagi langsung dibuat begitu form daftar disubmit. POST /api/signup cuma
 // memvalidasi data & menyimpannya sementara di tabel signup_otps sambil
-// mengirim kode OTP 6 digit ke email (lewat Gmail, lib/mailer.js — sama
+// mengirim kode OTP 6 digit ke email (lewat Resend, lib/mailer.js — sama
 // seperti alur lupa kata sandi). Baris `users` yang sesungguhnya baru ditulis
 // oleh POST /api/signup/verify-otp setelah kode OTP dicocokkan, dan baru saat
 // itu token login diterbitkan (bisa langsung login). TIDAK lagi masuk antrian
@@ -1088,10 +1088,10 @@ app.post('/api/pembayaran/notify/xendit', ah(async (req, res) => {
 }));
 
 // ── Lupa kata sandi via OTP (halaman otp.html) ──
-// Kode OTP sekarang benar-benar dikirim lewat Gmail (lib/mailer.js), memakai
-// kredensial yang diisi admin di dock Management > GMAIL. Kalau Gmail belum
+// Kode OTP sekarang benar-benar dikirim lewat Resend (lib/mailer.js), memakai
+// kredensial yang diisi admin di dock Management > EMAIL. Kalau Resend belum
 // diisi/diaktifkan, kirimEmail() otomatis fallback mencatat ke console.log
-// server (lihat lib/mailer.js) supaya alur tetap bisa dites tanpa Gmail nyata.
+// server (lihat lib/mailer.js) supaya alur tetap bisa dites tanpa Resend nyata.
 function genOtp() { return String(Math.floor(100000 + Math.random() * 900000)); }
 
 app.post('/api/password/forgot', ah(async (req, res) => {
@@ -2022,26 +2022,26 @@ app.get('/api/landing', ah(async (req, res) => { const row = await db.prepare('S
 app.put('/api/landing', auth(['admin']), ah(async (req, res) => { const existing = await db.prepare('SELECT data FROM landing WHERE id=1').get(); const merged = { ...(existing ? JSON.parse(existing.data) : {}), ...req.body }; await db.prepare('INSERT INTO landing (id,data) VALUES (1,?) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data').run(JSON.stringify(merged)); res.json({ message: 'Berhasil' }); }));
 // ── Pengaturan Integrasi (tab MANAGEMENT admin: dock GMAIL | GMEET) ──
 // Sama pola merge spt /api/landing di atas, tapi GET-nya JUGA dikunci auth(['admin'])
-// (bukan publik) karena data.gmail bisa memuat app password Gmail.
+// (bukan publik) karena data.resend bisa memuat API Key Resend.
 app.get('/api/pengaturan/integrasi', auth(['admin']), ah(async (req, res) => { const row = await db.prepare('SELECT data FROM pengaturan_integrasi WHERE id=1').get(); res.json(row ? JSON.parse(row.data) : {}); }));
 app.put('/api/pengaturan/integrasi', auth(['admin']), ah(async (req, res) => {
     const existing = await db.prepare('SELECT data FROM pengaturan_integrasi WHERE id=1').get();
     const merged = { ...(existing ? JSON.parse(existing.data) : {}), ...req.body };
     await db.prepare('INSERT INTO pengaturan_integrasi (id,data) VALUES (1,?) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data').run(JSON.stringify(merged));
-    // Kredensial Gmail bisa berubah di sini (email/app_password/aktif) — buang transporter
-    // lama dari cache supaya kiriman berikutnya (OTP/notif kelas) pakai kredensial terbaru.
-    if (req.body.gmail) invalidateMailerCache();
+    // Kredensial Resend bisa berubah di sini (from_email/api_key/aktif) — invalidateMailerCache()
+    // dipertahankan utk kompatibilitas (lihat lib/mailer.js) walau sekarang no-op.
+    if (req.body.resend) invalidateMailerCache();
     res.json({ message: 'Berhasil' });
 }));
-// Tombol "Tes Koneksi & Kirim Email Percobaan" di dock GMAIL — verifikasi SMTP
-// beneran (bukan cuma simpan field) lalu kirim 1 email percobaan ke alamat Gmail
-// yang sama (atau ke `to` di body kalau mau tes ke alamat lain).
+// Tombol "Tes Koneksi & Kirim Email Percobaan" di dock EMAIL — verifikasi
+// beneran ke Resend (bukan cuma simpan field) lalu kirim 1 email percobaan ke
+// alamat pengirim yang sama (atau ke `to` di body kalau mau tes ke alamat lain).
 app.post('/api/pengaturan/integrasi/test-email', auth(['admin']), ah(async (req, res) => {
     try {
         await verifikasiDanKirimTes(req.body?.to);
         res.json({ message: 'Berhasil! Email percobaan sudah dikirim — cek inbox (atau folder spam).' });
     } catch (e) {
-        res.status(400).json({ error: e.message || 'Gagal terhubung ke Gmail. Cek lagi App Password & pastikan 2-Step Verification aktif di akun Google-nya.' });
+        res.status(400).json({ error: e.message || 'Gagal terhubung ke Resend. Cek lagi API Key-nya.' });
     }
 }));
 

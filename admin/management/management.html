@@ -5,29 +5,35 @@
      Editor Landing (#landing-dock-wrap). Logic ada di admin/management/management.js. -->
 
 <div class="section-title">Management</div>
-<div class="section-sub">Pengaturan integrasi pihak ketiga yang dipakai sistem — email pengirim (Gmail) & persiapan jadwal video call (Google Meet).</div>
+<div class="section-sub">Pengaturan integrasi pihak ketiga yang dipakai sistem — email pengirim (Resend) & persiapan jadwal video call (Google Meet).</div>
 
-<!-- ── GMAIL ── -->
+<!-- ── EMAIL (Resend) ──
+     Sebelumnya pakai Gmail App Password (SMTP via nodemailer) — diganti Resend
+     (REST API) karena banyak akun Google yang halaman "App Passwords"-nya tidak
+     bisa diakses sama sekali (2-Step Verification belum aktif, akun Workspace
+     yang dikunci admin, Advanced Protection, dst). Resend cukup 1 API Key,
+     tanpa proses autentikasi Google apa pun. Data disimpan di key `resend`
+     (dulu `gmail`) pada `pengaturan_integrasi` — lihat lib/mailer.js. -->
 <div class="sub-page active" id="sub-management-gmail">
   <div class="ld-card">
     <div class="ld-card-hd">
       <div class="ld-sc-icon">✉️</div>
       <div>
-        <h3>Email Pengirim (Gmail)</h3>
-        <p>Alamat ini dipakai sistem untuk mengirim kode OTP (lupa kata sandi) dan pesan/notifikasi lain ke user &amp; review.</p>
+        <h3>Email Pengirim (Resend)</h3>
+        <p>Alamat ini dipakai sistem untuk mengirim kode OTP (pendaftaran &amp; lupa kata sandi) dan pesan/notifikasi lain ke user &amp; review.</p>
       </div>
       <span class="badge-pending" id="mgmt-gmail-status-badge" style="margin-left:auto;flex-shrink:0">Belum Diatur</span>
     </div>
 
     <div class="ld-notice">
-      Alamat &amp; App Password di bawah ini dipakai server untuk benar-benar mengirim email lewat Gmail (kode OTP lupa kata sandi, serta notifikasi pengingat kelas H-1 &amp; saat kelas dimulai). Pastikan 2-Step Verification aktif di akun Google-nya, lalu buat App Password khusus lewat Google Account → Security → App Passwords — <b>jangan pakai kata sandi Gmail biasa</b>. Simpan lalu tekan "Tes Koneksi" untuk memastikan email percobaan benar-benar sampai.
+      API Key di bawah ini dipakai server untuk benar-benar mengirim email lewat Resend (kode OTP pendaftaran &amp; lupa kata sandi, serta notifikasi pengingat kelas H-1 &amp; saat kelas dimulai). Daftar gratis di <b>resend.com</b> → Dashboard → API Keys → Create API Key, lalu tempel di sini. Tidak perlu 2-Step Verification atau App Password Google sama sekali. Simpan lalu tekan "Tes Koneksi" untuk memastikan email percobaan benar-benar sampai.
     </div>
 
     <div class="ld-field-group ld-cols-2">
       <div class="ld-field">
         <label>Alamat Email Pengirim</label>
-        <input type="email" id="mgmt-gmail-email" placeholder="noreply@cibnprestise.id atau akun Gmail Anda">
-        <div class="ld-hint">Alamat Gmail yang akan tercantum sebagai pengirim OTP &amp; pesan sistem lainnya.</div>
+        <input type="email" id="mgmt-gmail-email" placeholder="onboarding@resend.dev atau domain terverifikasi Anda">
+        <div class="ld-hint">Alamat yang akan tercantum sebagai pengirim OTP &amp; pesan sistem lainnya. Tanpa domain terverifikasi di Resend, pakai <code>onboarding@resend.dev</code> bawaan.</div>
       </div>
       <div class="ld-field">
         <label>Nama Pengirim</label>
@@ -38,9 +44,9 @@
 
     <div class="ld-field-group" style="margin-top:1rem">
       <div class="ld-field">
-        <label>App Password</label>
-        <input type="password" id="mgmt-gmail-app-password" placeholder="16 karakter dari Google App Passwords" autocomplete="new-password">
-        <div class="ld-hint">Bukan kata sandi akun Gmail biasa — buat khusus lewat Google Account → Security → App Passwords (2-Step Verification harus aktif).</div>
+        <label>API Key Resend</label>
+        <input type="password" id="mgmt-gmail-app-password" placeholder="re_xxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="new-password">
+        <div class="ld-hint">Dari resend.com → Dashboard → API Keys. Beda dari App Password Gmail — ini cukup 1 kode, tanpa akun Google sama sekali.</div>
       </div>
     </div>
 
@@ -49,7 +55,7 @@
       Aktifkan pengiriman lewat alamat ini
     </label>
 
-    <button class="btn btn-primary" id="mgmt-gmail-save-btn" onclick="mgmtSaveGmail()" style="margin-top:1.3rem">Simpan Pengaturan Gmail</button>
+    <button class="btn btn-primary" id="mgmt-gmail-save-btn" onclick="mgmtSaveGmail()" style="margin-top:1.3rem">Simpan Pengaturan Email</button>
     <button class="btn btn-secondary" id="mgmt-gmail-test-btn" onclick="mgmtTestGmail()" style="margin-top:1.3rem;margin-left:.7rem">Tes Koneksi &amp; Kirim Email Percobaan</button>
   </div>
 </div>
