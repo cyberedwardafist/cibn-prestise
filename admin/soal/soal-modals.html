@@ -28,6 +28,24 @@
   <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('soal-kelompok-overlay')">Tutup</button></div>
 </div></div>
 
+<!-- soal-materi-overlay: kelola daftar "materi" LOKAL milik soal yang sedang dibuat/diedit saja (bukan tabel global) -->
+<div class="overlay" id="soal-materi-overlay"><div class="modal"><div class="modal-header"><div class="modal-title">Kelola Materi Soal Ini</div><button class="modal-close" onclick="closeModal('soal-materi-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <p style="font-size:12px;color:var(--text-sub);margin-bottom:14px">Materi di sini cuma berlaku untuk soal yang sedang dibuat/diedit ini saja — tidak akan muncul di soal lain, dan tidak pernah tampil saat ujian maupun di mana pun. Hanya penanda internal per pertanyaan.</p>
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <input id="soal-materi-new-input" class="form-input" type="text" placeholder="Nama materi baru" onkeydown="if(event.key==='Enter')addSoalMateri()">
+    <button class="btn btn-primary" style="flex-shrink:0" onclick="addSoalMateri()">Tambah</button>
+  </div>
+  <div id="soal-materi-manage-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('soal-materi-overlay')">Tutup</button></div>
+</div></div>
+
+<!-- pilih-materi-soal-overlay: pilih materi untuk 1 pertanyaan yang sedang dibuka (opsional) -->
+<div class="overlay" id="pilih-materi-soal-overlay"><div class="modal modal-sm"><div class="modal-header"><div class="modal-title">Pilih Materi</div><button class="modal-close" onclick="closeModal('pilih-materi-soal-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <p style="font-size:12px;color:var(--text-sub);margin-bottom:12px">Opsional. Tandai pertanyaan ini masuk materi apa (khusus soal ini saja).</p>
+  <div id="pilih-materi-soal-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('pilih-materi-soal-overlay')">Tutup</button><button class="btn btn-secondary" onclick="closeModal('pilih-materi-soal-overlay');openManageSoalMateri()">+ Tambah Materi Baru</button></div>
+</div></div>
+
 <!-- preview-soal-overlay -->
 <div class="overlay" id="preview-soal-overlay"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title">Preview Soal</div><button class="modal-close" onclick="closeModal('preview-soal-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><div id="preview-soal-body" style="max-height:60vh;overflow-y:auto"></div><div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('preview-soal-overlay')">Tutup</button></div></div></div>
 

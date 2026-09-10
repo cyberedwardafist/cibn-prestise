@@ -228,6 +228,10 @@ ALTER TABLE tokens ADD COLUMN IF NOT EXISTS is_master SMALLINT DEFAULT 0;
 -- Untuk instalasi lama yang tabelnya sudah ada dari sebelum kolom ini dibuat —
 -- aman dijalankan berkali-kali.
 ALTER TABLE soal  ADD COLUMN IF NOT EXISTS nama_internal TEXT;
+-- materi_list: daftar "materi" LOKAL milik soal ini saja (JSON array {id,nama}), dipakai sebagai
+-- penanda internal per-pertanyaan (lihat kolom "materi" di tiap item soal.data). Tidak berhubungan
+-- dengan soal lain, dan tidak pernah tampil saat ujian/review — disiapkan utk Dock Analisa nanti.
+ALTER TABLE soal  ADD COLUMN IF NOT EXISTS materi_list TEXT;
 ALTER TABLE modul ADD COLUMN IF NOT EXISTS nama_internal TEXT;
 
 -- Mode Bebas Pindah Soal (khusus modul yang SELURUH soalnya ber-tipe

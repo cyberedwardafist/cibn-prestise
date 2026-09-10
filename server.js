@@ -1548,22 +1548,26 @@ app.post('/api/upload-finalize', auth(['admin']), ah(async (req, res) => {
 
 app.get('/api/soal', auth(['admin']), ah(async (req, res) => {
     const rows = await db.prepare('SELECT * FROM soal ORDER BY id').all();
-    rows.forEach(r => { if (r.data) try { r.data = expandSikapKerja(r.type, JSON.parse(r.data)); } catch (e) {} });
+    rows.forEach(r => {
+        if (r.data) try { r.data = expandSikapKerja(r.type, JSON.parse(r.data)); } catch (e) {}
+        if (r.materi_list) try { r.materi_list = JSON.parse(r.materi_list); } catch (e) { r.materi_list = []; }
+    });
     res.json(rows);
 }));
 app.get('/api/soal/:kode', auth(['admin','review']), ah(async (req, res) => {
     const s = await db.prepare('SELECT * FROM soal WHERE kode=?').get(req.params.kode);
     if (!s) return res.status(404).json({ error: 'Tidak ditemukan' });
     if (s.data) try { s.data = expandSikapKerja(s.type, JSON.parse(s.data)); } catch (e) {}
+    if (s.materi_list) try { s.materi_list = JSON.parse(s.materi_list); } catch (e) { s.materi_list = []; }
     if (req.user.role !== 'admin') delete s.nama_internal;
     res.json(s);
 }));
 app.post('/api/soal', auth(['admin']), ah(async (req, res) => {
-    const { nama, nama_internal, type, skor_type, opsi_jawaban, timer_jam, timer_menit, timer_detik, kelompok, data } = req.body;
+    const { nama, nama_internal, type, skor_type, opsi_jawaban, timer_jam, timer_menit, timer_detik, kelompok, data, materi_list } = req.body;
     const kode = await genKode('SOL', 'soal');
-    await db.prepare('INSERT INTO soal (kode,nama,nama_internal,type,skor_type,opsi_jawaban,timer_jam,timer_menit,timer_detik,kelompok,data) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+    await db.prepare('INSERT INTO soal (kode,nama,nama_internal,type,skor_type,opsi_jawaban,timer_jam,timer_menit,timer_detik,kelompok,data,materi_list) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
         .run(kode, nama, (nama_internal || '').trim() || null, type, skor_type || null, opsi_jawaban || null, timer_jam || 0, timer_menit || 30, timer_detik || 0,
-             (kelompok || '').trim() || null, data ? JSON.stringify(data) : null);
+             (kelompok || '').trim() || null, data ? JSON.stringify(data) : null, (materi_list && materi_list.length) ? JSON.stringify(materi_list) : null);
     res.json({ kode, message: 'Berhasil' });
 }));
 app.put('/api/soal/:kode', auth(['admin']), ah(async (req, res) => {
@@ -1584,9 +1588,10 @@ app.put('/api/soal/:kode', auth(['admin']), ah(async (req, res) => {
     const timer_detik   = b.timer_detik  !== undefined ? (b.timer_detik || 0) : oldRow.timer_detik;
     const kelompok      = b.kelompok     !== undefined ? ((b.kelompok || '').trim() || null) : oldRow.kelompok;
     const data          = b.data         !== undefined ? JSON.stringify(b.data) : oldRow.data;
+    const materi_list   = b.materi_list  !== undefined ? ((b.materi_list && b.materi_list.length) ? JSON.stringify(b.materi_list) : null) : oldRow.materi_list;
 
-    await db.prepare('UPDATE soal SET nama=?,nama_internal=?,type=?,skor_type=?,opsi_jawaban=?,timer_jam=?,timer_menit=?,timer_detik=?,kelompok=?,data=? WHERE kode=?')
-        .run(nama, nama_internal, type, skor_type, opsi_jawaban, timer_jam, timer_menit, timer_detik, kelompok, data, req.params.kode);
+    await db.prepare('UPDATE soal SET nama=?,nama_internal=?,type=?,skor_type=?,opsi_jawaban=?,timer_jam=?,timer_menit=?,timer_detik=?,kelompok=?,data=?,materi_list=? WHERE kode=?')
+        .run(nama, nama_internal, type, skor_type, opsi_jawaban, timer_jam, timer_menit, timer_detik, kelompok, data, materi_list, req.params.kode);
 
     res.json({ message: 'Berhasil' });
     cleanupOrphanedUploads(oldRefs);

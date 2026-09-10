@@ -9,6 +9,12 @@ const SoalState = {
     kelompok: '',   // kelompok = kode referensi ke soal_kelompok ('' = tanpa kelompok)
     pertanyaan: [], kolom: null, currentIdx: 0, navOpen: true,
     _editors: {},
+    // materiList = daftar "materi" LOKAL milik soal ini saja (bukan tabel global seperti kelompok).
+    // Cuma dipakai sebagai penanda internal per-pertanyaan (lihat q.materi di _newQ), tidak pernah
+    // tampil saat ujian/review. Materi soal A tidak berhubungan sama sekali dengan materi soal B —
+    // makanya list ini SELALU direset kosong tiap mulai bikin soal baru (lihat startBuatSoal),
+    // dan diisi ulang dari data tersimpan cuma saat membuka soal yang sama utk diedit.
+    materiList: [],
 };
 
 // Daftar kelompok soal yg sudah pernah di-fetch (dipakai bareng oleh setup form, edit info, & library)
@@ -52,6 +58,7 @@ function _soalDraftSave() {
             nama: SoalState.nama, nama_internal: SoalState.nama_internal, type: SoalState.type, skor_type: SoalState.skor_type,
             opsi_jawaban: SoalState.opsi_jawaban, timer: SoalState.timer,
             pertanyaan: SoalState.pertanyaan, kolom: SoalState.kolom, currentIdx: SoalState.currentIdx,
+            materiList: SoalState.materiList,
             _sikapView: (typeof _sikapView !== 'undefined') ? _sikapView : 'list',
             _sikapKolIdx: (typeof _sikapKolIdx !== 'undefined') ? _sikapKolIdx : 0,
         }));
@@ -73,6 +80,7 @@ function _tryRestoreSoalDraft() {
     SoalState.opsi_jawaban = d.opsi_jawaban; SoalState.timer = d.timer || { jam:0, menit:30, detik:0 };
     SoalState.pertanyaan = d.pertanyaan || []; SoalState.kolom = d.kolom || null;
     SoalState.currentIdx = d.currentIdx || 0; SoalState._editors = {}; SoalState.mode = 'build';
+    SoalState.materiList = d.materiList || [];
     if (typeof d._sikapView === 'string') _sikapView = d._sikapView;
     if (typeof d._sikapKolIdx === 'number') _sikapKolIdx = d._sikapKolIdx;
 
@@ -92,7 +100,7 @@ function renderSoal() {
         if (_tryRestoreSoalDraft()) return;
     }
     SoalState.mode = 'setup'; SoalState.kode = null;
-    SoalState.editMode = false; SoalState._editors = {}; SoalState.kelompok = '';
+    SoalState.editMode = false; SoalState._editors = {}; SoalState.kelompok = ''; SoalState.materiList = [];
     showSoalSetup();
 }
 
@@ -215,6 +223,7 @@ function startBuatSoal() {
     SoalState.opsi_jawaban = parseInt(document.getElementById('soal-opsi-jawaban')?.value) || 1;
     SoalState.timer = { jam: parseInt(document.getElementById('soal-jam')?.value)||0, menit: parseInt(document.getElementById('soal-menit')?.value)||30, detik: parseInt(document.getElementById('soal-detik')?.value)||0 };
     SoalState.mode = 'build'; SoalState._editors = {};
+    SoalState.materiList = []; // soal baru = materi selalu mulai kosong, tidak mewarisi soal lain
     if (SoalState.type === 'sikap_kerja') {
         SoalState.kolom = Array.from({length:10},(_,i)=>({id:`KOL${String(i+1).padStart(2,'0')}`,no:i+1,items:Array.from({length:5},(_,j)=>({id:`I${i}${j}`,nilai:''})),soal:[]}));
         SoalState.pertanyaan = [];
@@ -226,7 +235,8 @@ function startBuatSoal() {
 }
 
 function _newQ() {
-    return { id:'Q_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), soal:'', jawaban:[{id:'A_'+Date.now(),teks:'',nilai:0},{id:'B_'+(Date.now()+1),teks:'',nilai:0}], kunci:[], pembahasan:'' };
+    // materi: null = opsional, belum ditandai masuk materi apa pun (lihat SoalState.materiList)
+    return { id:'Q_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), soal:'', jawaban:[{id:'A_'+Date.now(),teks:'',nilai:0},{id:'B_'+(Date.now()+1),teks:'',nilai:0}], kunci:[], pembahasan:'', materi:null };
 }
 
 function cancelBuild() {
@@ -266,6 +276,7 @@ function _renderMCHtml() {
     <button class="btn btn-secondary btn-sm" onclick="cancelBuild()">← Batal</button>
     <button class="btn btn-secondary btn-sm" onclick="openEditSoalInfoModal()">✏ Edit Info</button>
     <button class="btn btn-secondary btn-sm" onclick="showPreview()">👁 Preview</button>
+    <button class="btn btn-secondary btn-sm" onclick="openManageSoalMateri()" title="Kelola materi khusus soal ini (opsional, cuma penanda internal)">📑 Materi</button>
     <button class="btn btn-secondary btn-sm" onclick="exportCurrentSoalToExcel()" title="Unduh soal ini sebagai file Excel">⬇ Export</button>
     <button class="btn btn-primary btn-sm" onclick="simpanSoal()">💾 Simpan</button>
   </div>
@@ -273,7 +284,10 @@ function _renderMCHtml() {
 <div style="display:flex;gap:16px;align-items:flex-start">
   <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px">
     <div class="card" style="padding:16px">
-      <div class="form-label" style="margin-bottom:8px">Pertanyaan</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+        <div class="form-label" style="margin-bottom:0">Pertanyaan</div>
+        ${_materiBadgeHTML(q)}
+      </div>
       <div id="editor-soal-wrap"></div>
     </div>
     <div class="card" style="padding:16px">
@@ -312,6 +326,117 @@ function _renderMCHtml() {
   </div>
 </div>`;
     setTimeout(_initMCEditors, 60);
+}
+
+// ══════════════ MATERI (penanda lokal per-pertanyaan, khusus soal yang sedang dibuat/diedit) ══════════════
+// CATATAN PENTING: materiList ada di SoalState (bukan global/API) — jadi materi yang dibuat di
+// soal A TIDAK PERNAH muncul saat membuat/mengedit soal B. Ini hanya penanda id internal per
+// pertanyaan (q.materi), tidak pernah dikirim/ditampilkan ke peserta ujian atau di halaman review.
+// Disiapkan untuk kebutuhan Dock Analisa nanti — implementasi analisanya menyusul terpisah.
+function _materiNama(id) {
+    if (!id) return null;
+    const m = SoalState.materiList.find(x => x.id === id);
+    return m ? m.nama : null;
+}
+function _materiBadgeHTML(q) {
+    const nama = _materiNama(q.materi);
+    return `<div id="materi-badge-wrap">
+      <button type="button" class="btn btn-secondary btn-sm" style="padding:4px 10px;font-size:11.5px;${nama ? 'color:var(--accent);border-color:var(--accent)' : ''}" onclick="openPilihMateriSoal()" title="Tandai pertanyaan ini masuk materi apa (opsional, khusus soal ini saja)">
+        📑 ${nama ? `Materi: ${nama}` : 'Pilih Materi (opsional)'}
+      </button>
+    </div>`;
+}
+function _refreshMateriBadge() {
+    const wrap = document.getElementById('materi-badge-wrap');
+    const q = SoalState.pertanyaan[SoalState.currentIdx];
+    if (wrap && q) wrap.outerHTML = _materiBadgeHTML(q);
+}
+
+// ── Kelola daftar materi (tombol "📑 Materi" di toolbar) ──
+function openManageSoalMateri() {
+    const input = document.getElementById('soal-materi-new-input'); if (input) input.value = '';
+    _renderSoalMateriManageList();
+    openModal('soal-materi-overlay');
+}
+function _renderSoalMateriManageList() {
+    const el = document.getElementById('soal-materi-manage-list'); if (!el) return;
+    if (!SoalState.materiList.length) { el.innerHTML = '<p style="color:var(--text-sub);font-size:13px">Belum ada materi. Tambahkan lewat kolom di atas.</p>'; return; }
+    el.innerHTML = SoalState.materiList.map(m => `
+      <div class="ebook-pick-item" id="sml-row-${m.id}" style="justify-content:space-between">
+        <span id="sml-nama-${m.id}" style="font-weight:600;font-size:13.5px;color:var(--blue)">${m.nama}</span>
+        <div class="sml-row-actions" style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn-icon" title="Ganti nama" onclick="_startRenameSoalMateri('${m.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="btn-icon danger" title="Hapus" onclick="deleteSoalMateriItem('${m.id}','${(m.nama || '').replace(/'/g, "\\'")}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button>
+        </div>
+      </div>`).join('');
+}
+function addSoalMateri() {
+    const input = document.getElementById('soal-materi-new-input');
+    const nama = (input?.value || '').trim();
+    if (!nama) { showToast('Nama materi wajib diisi', 'danger'); return; }
+    SoalState.materiList.push({ id: 'MAT_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), nama });
+    if (input) input.value = '';
+    _renderSoalMateriManageList();
+    _soalQueueAutoSave(); setDirty(SoalState.editMode ? 'edit soal' : 'pembuatan soal');
+    showToast('Materi ditambahkan', 'success');
+}
+function _startRenameSoalMateri(id) {
+    const span = document.getElementById(`sml-nama-${id}`); if (!span) return;
+    const current = span.textContent;
+    span.outerHTML = `<input id="sml-nama-${id}" class="form-input" style="padding:6px 10px;font-size:13px" type="text" value="${current.replace(/"/g, '&quot;')}" onkeydown="if(event.key==='Enter')_saveRenameSoalMateri('${id}')">`;
+    const row = document.getElementById(`sml-row-${id}`);
+    const actionsWrap = row?.querySelector('.sml-row-actions');
+    if (actionsWrap) actionsWrap.innerHTML = `<button class="btn-icon" title="Simpan" onclick="_saveRenameSoalMateri('${id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></button>`;
+    document.getElementById(`sml-nama-${id}`)?.focus();
+}
+function _saveRenameSoalMateri(id) {
+    const input = document.getElementById(`sml-nama-${id}`);
+    const nama = (input?.value || '').trim();
+    if (!nama) { showToast('Nama materi wajib diisi', 'danger'); return; }
+    const m = SoalState.materiList.find(x => x.id === id); if (m) m.nama = nama;
+    _renderSoalMateriManageList();
+    _refreshMateriBadge();
+    _soalQueueAutoSave(); setDirty(SoalState.editMode ? 'edit soal' : 'pembuatan soal');
+    showToast('Materi diperbarui', 'success');
+}
+function deleteSoalMateriItem(id, nama) {
+    showConfirm('Hapus Materi', `Yakin hapus materi "${nama}"? Pertanyaan yang ditandai materi ini akan menjadi tanpa materi (soal tidak ikut terhapus).`, 'danger', () => {
+        SoalState.materiList = SoalState.materiList.filter(x => x.id !== id);
+        SoalState.pertanyaan.forEach(q => { if (q.materi === id) q.materi = null; });
+        _renderSoalMateriManageList();
+        _refreshMateriBadge();
+        _soalQueueAutoSave(); setDirty(SoalState.editMode ? 'edit soal' : 'pembuatan soal');
+        showToast('Materi dihapus', 'danger');
+    });
+}
+
+// ── Pilih materi untuk pertanyaan yang sedang dibuka (klik badge di samping label "Pertanyaan") ──
+function openPilihMateriSoal() {
+    _renderPilihMateriSoalList();
+    openModal('pilih-materi-soal-overlay');
+}
+function _renderPilihMateriSoalList() {
+    const el = document.getElementById('pilih-materi-soal-list'); if (!el) return;
+    const q = SoalState.pertanyaan[SoalState.currentIdx];
+    const current = q?.materi || null;
+    let html = `<div class="ebook-pick-item" style="cursor:pointer;${!current ? 'border-color:var(--accent)' : ''}" onclick="pilihMateriUntukSoal(null)">
+      <span style="font-size:13.5px;color:var(--text-sub)">— Tanpa Materi —</span>
+      ${!current ? '<svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+    </div>`;
+    html += SoalState.materiList.map(m => `
+      <div class="ebook-pick-item" style="cursor:pointer;${current === m.id ? 'border-color:var(--accent)' : ''}" onclick="pilihMateriUntukSoal('${m.id}')">
+        <span style="font-size:13.5px;font-weight:600;color:var(--blue)">${m.nama}</span>
+        ${current === m.id ? '<svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+      </div>`).join('');
+    if (!SoalState.materiList.length) html += '<p style="color:var(--text-sub);font-size:12.5px;margin-top:8px">Belum ada materi dibuat untuk soal ini. Tutup lalu klik tombol "📑 Materi" di toolbar atas untuk menambahkan.</p>';
+    el.innerHTML = html;
+}
+function pilihMateriUntukSoal(id) {
+    const q = SoalState.pertanyaan[SoalState.currentIdx]; if (!q) return;
+    q.materi = id || null;
+    closeModal('pilih-materi-soal-overlay');
+    _refreshMateriBadge();
+    _soalQueueAutoSave(); setDirty(SoalState.editMode ? 'edit soal' : 'pembuatan soal');
 }
 
 function _jawabanItemHTML(j, i, isNilai, kunci) {
@@ -742,7 +867,7 @@ function _compactSikapKolom(kolom){
 async function simpanSoal(){
     syncEditors();
     if(!SoalState.nama){showToast('Nama soal wajib','danger');return;}
-    const payload={nama:SoalState.nama,nama_internal:SoalState.nama_internal||'',type:SoalState.type,skor_type:SoalState.skor_type,opsi_jawaban:SoalState.opsi_jawaban,timer_jam:SoalState.timer.jam,timer_menit:SoalState.timer.menit,timer_detik:SoalState.timer.detik,kelompok:SoalState.kelompok||'',data:SoalState.type==='sikap_kerja'?_compactSikapKolom(SoalState.kolom):SoalState.pertanyaan};
+    const payload={nama:SoalState.nama,nama_internal:SoalState.nama_internal||'',type:SoalState.type,skor_type:SoalState.skor_type,opsi_jawaban:SoalState.opsi_jawaban,timer_jam:SoalState.timer.jam,timer_menit:SoalState.timer.menit,timer_detik:SoalState.timer.detik,kelompok:SoalState.kelompok||'',data:SoalState.type==='sikap_kerja'?_compactSikapKolom(SoalState.kolom):SoalState.pertanyaan,materi_list:SoalState.materiList||[]};
     try {
         if(SoalState.kode) await SoalAPI.update(SoalState.kode,payload);
         else await SoalAPI.create(payload);
@@ -766,6 +891,7 @@ async function editSoalFromLibrary(kode){
             SoalState.opsi_jawaban=soal.opsi_jawaban||1;
             SoalState.timer={jam:soal.timer_jam||0,menit:soal.timer_menit||30,detik:soal.timer_detik||0};
             SoalState._editors={};
+            SoalState.materiList=soal.materi_list||[]; // materi milik soal INI saja, dimuat balik hanya saat edit soal yang sama
             const rawData=soal.data;
             if(soal.type==='sikap_kerja'){SoalState.kolom=rawData||Array.from({length:10},(_,i)=>({id:`KOL${String(i+1).padStart(2,'0')}`,no:i+1,items:Array.from({length:5},(_,j)=>({id:`I${i}${j}`,nilai:''})),soal:[]}));SoalState.pertanyaan=[];}
             else{SoalState.pertanyaan=rawData||[_newQ()];SoalState.currentIdx=0;SoalState.kolom=null;}
