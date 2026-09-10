@@ -7,7 +7,7 @@
 //      analisa 1 SOAL TUNGGAL lewat Sampel manual (window.
 //      _analisaSoalDetailHasil, hasil POST /api/analisa/soal/:kode/hitung).
 // Keduanya jadi 1 file .xlsx yang bisa diunduh admin, strukturnya sama
-// persis (lihat _appendChartSummaryBlocks/_appendSoalSheets) — cuma beda
+// persis (lihat _appendChartSummaryBlocks/_appendSoalGroupSheets) — cuma beda
 // header ringkasan di sheet "ANALISA" (_buildSheetAnalisa vs
 // _buildSheetAnalisaSoal), karena versi soal tunggal tidak punya info
 // token/modul grup.
@@ -30,16 +30,27 @@
 // STRUKTUR FILE:
 //   Sheet 1 "ANALISA"   = ringkasan grup (token, modul, daftar soal) + grafik
 //                         ringkasan per tipe (Benar/Salah, Nilai/Skor, Sikap Kerja).
-//   Sheet 2, 3, dst "Soal N" = 1 sheet PER SOAL (urut: semua soal
-//                         Benar/Salah dulu, lalu Nilai/Skor) — isinya
+//   Sheet 2, 3, dst = 1 sheet PER SOAL BERNAMA dlm modul (mis. 1 modul py 3
+//                         soal "TWK"/"TIU"/"TKP" -> 3 sheet bernama TWK, TIU,
+//                         TKP — BUKAN 1 sheet per nomor butir global spt
+//                         sebelumnya). Nama sheet = nama soal apa adanya
+//                         (disanitasi sesuai batas nama sheet Excel).
+//                         Isi tiap sheet: SEMUA butir soal itu, nomor LOKAL
+//                         1..akhir (reset per soal, bukan nomor global lintas
+//                         soal), ditumpuk ke bawah — 1 blok per butir berisi
 //                         pertanyaan lengkap, opsi/kunci/nilai, jumlah & nama
-//                         peserta per opsi, + grafik distribusi jawaban soal
-//                         itu. Kalau modul ada soal Sikap Kerja, SEMUA
-//                         kolomnya (K1, K2, dst) digabung jadi 1 sheet
-//                         terakhir, isinya per PENGERJAAN (bukan per akun) —
-//                         1 blok grafik per pengerjaan ditumpuk ke bawah;
-//                         pengerjaan berulang dgn nama sama TETAP jadi blok
-//                         terpisah (dibedakan via id laporan, bukan nama).
+//                         peserta per opsi, + grafik distribusi jawaban butir
+//                         itu. Kalau soal itu bertipe Sikap Kerja, sheet-nya
+//                         berisi SEMUA kolom (K1, K2, dst) MILIK SOAL ITU
+//                         SAJA (tidak digabung dgn soal Sikap Kerja lain di
+//                         modul yg sama), disusun per PENGERJAAN (bukan per
+//                         akun) — 1 blok grafik per pengerjaan ditumpuk ke
+//                         bawah; pengerjaan berulang dgn nama sama TETAP jadi
+//                         blok terpisah (dibedakan via id laporan, bukan nama).
+//                         Sumber pengelompokan per-soal: `agg.per_soal` (lihat
+//                         computeAnalisaGrupAggregate di server.js) utk versi
+//                         grup token; versi 1 soal tunggal (buildSoal) tidak
+//                         perlu pengelompokan krn memang sudah 1 soal saja.
 
 const AnalisaExport = (() => {
 
@@ -336,96 +347,131 @@ ${titleXml}
         return { rows, chartSpecs };
     }
 
-    // ── SUSUN SEMUA SHEET "Soal N" (per butir) KE DALAM WORKBOOK ──────────
-    // Dipakai bareng oleh build() (grup token) & buildSoal() (1 soal tunggal
-    // lewat Sampel) — logikanya identik, `charts.binary`/`charts.skor`/
-    // `charts.sikap` bentuknya sama persis di kedua konteks.
-    function _appendSoalSheets(wb, sheetChartsMap, charts) {
-        let globalIdx = 0;
-
-        (charts.binary || []).forEach(item => {
-            globalIdx++;
-            const sheetName = `Soal ${globalIdx}`;
-            const { rows, merges, chart } = _buildSheetSoalItem(globalIdx, item, 'binary');
-            const ws = XLSX.utils.aoa_to_sheet(rows);
-            ws['!cols'] = [{ wch: 45 }, { wch: 14 }, { wch: 16 }, { wch: 55 }];
-            ws['!merges'] = merges;
-            XLSX.utils.book_append_sheet(wb, ws, sheetName);
-            sheetChartsMap[sheetName] = [chart];
-        });
-
-        (charts.skor || []).forEach(item => {
-            globalIdx++;
-            const sheetName = `Soal ${globalIdx}`;
-            const { rows, merges, chart } = _buildSheetSoalItem(globalIdx, item, 'skor');
-            const ws = XLSX.utils.aoa_to_sheet(rows);
-            ws['!cols'] = [{ wch: 45 }, { wch: 14 }, { wch: 16 }, { wch: 55 }];
-            ws['!merges'] = merges;
-            XLSX.utils.book_append_sheet(wb, ws, sheetName);
-            sheetChartsMap[sheetName] = [chart];
-        });
-
-        if (charts.sikap && charts.sikap.length) {
-            globalIdx++;
-            const sheetName = `Soal ${globalIdx}`;
-            const { rows, chartSpecs: sikapCharts } = _buildSheetSikapKerja(globalIdx, charts.sikap);
-            const ws = XLSX.utils.aoa_to_sheet(rows);
-            ws['!cols'] = [{ wch: 22 }, { wch: 16 }, { wch: 16 }, { wch: 24 }];
-            XLSX.utils.book_append_sheet(wb, ws, sheetName);
-            sheetChartsMap[sheetName] = sikapCharts;
+    // ── NAMA SHEET AMAN UTK EXCEL (≤31 char, tanpa \/?*[]:) + jaga unik ────
+    function _sheetNameSafe(name) {
+        let s = String(name == null ? '' : name).replace(/[:\\\/\?\*\[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (!s) s = 'Soal';
+        if (s.length > 31) s = s.substring(0, 31).trim();
+        return s || 'Soal';
+    }
+    function _uniqueSheetName(name, used) {
+        const base = _sheetNameSafe(name);
+        let candidate = base;
+        let n = 2;
+        while (used[candidate.toLowerCase()]) {
+            const suffix = ` (${n})`;
+            candidate = (base.length + suffix.length > 31) ? base.substring(0, 31 - suffix.length) + suffix : base + suffix;
+            n++;
         }
+        used[candidate.toLowerCase()] = true;
+        return candidate;
     }
 
-    // ── SUSUN ISI SHEET "Soal N" (tipe Benar/Salah atau Nilai/Skor Sendiri) ─
-    function _buildSheetSoalItem(globalIdx, item, kind) {
+    // ── SUSUN SEMUA SHEET PER SOAL BERNAMA KE DALAM WORKBOOK ──────────────
+    // Dipakai bareng oleh build() (grup token, sumber `perSoal` = agg.per_soal
+    // apa adanya) & buildSoal() (1 soal tunggal, `perSoal` disintesis jadi 1
+    // entri lewat _soalTunggalKePerSoal di bawah) — 1 ENTRI `perSoal` = 1
+    // SHEET, nama sheet = `entry.soal_nama`. `used` (map nama-lower -> true)
+    // dioper dari pemanggil supaya nama sheet tetap unik lintas pemanggilan
+    // (mis. jaga2 kalau ada 2 soal Sikap Kerja bernama sama persis).
+    function _appendSoalGroupSheets(wb, sheetChartsMap, perSoal, used) {
+        (perSoal || []).forEach(entry => {
+            const sheetName = _uniqueSheetName(entry.soal_nama, used);
+            if (entry.tipe === 'sikap') {
+                const { rows, chartSpecs } = _buildSheetSikapKerja(entry.soal_nama, entry.catRaw || []);
+                const ws = XLSX.utils.aoa_to_sheet(rows);
+                ws['!cols'] = [{ wch: 22 }, { wch: 16 }, { wch: 16 }, { wch: 24 }];
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                sheetChartsMap[sheetName] = chartSpecs;
+            } else {
+                const { rows, merges, charts } = _buildSheetSoalGroup(entry.soal_nama, entry.items || [], entry.tipe);
+                const ws = XLSX.utils.aoa_to_sheet(rows);
+                ws['!cols'] = [{ wch: 45 }, { wch: 14 }, { wch: 16 }, { wch: 55 }];
+                ws['!merges'] = merges;
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                sheetChartsMap[sheetName] = charts;
+            }
+        });
+    }
+
+    // Sintesis bentuk `perSoal` (1 entri) dari data 1-soal-tunggal (`buildSoal`,
+    // hasil computeAnalisaSoalAggregate — TIDAK punya soal_nama/local krn
+    // memang cuma 1 soal, jadi nomor ASLI di situ = nomor lokal). Normalnya
+    // cuma 1 dari 3 (binary/skor/sikap) yg terisi krn 1 soal = 1 tipe, tapi
+    // dijaga bisa >1 entri (jadi >1 sheet bernama sama + suffix) kalau data
+    // ternyata tidak sesuai asumsi itu.
+    function _soalTunggalKePerSoal(soalNama, tipeSoal, charts) {
+        const out = [];
+        if (tipeSoal.binary && charts.binary && charts.binary.length) out.push({ soal_nama: soalNama, tipe: 'binary', items: charts.binary });
+        if (tipeSoal.skor && charts.skor && charts.skor.length) out.push({ soal_nama: soalNama, tipe: 'skor', items: charts.skor });
+        if (tipeSoal.sikap && charts.sikap && charts.sikap.length) out.push({ soal_nama: soalNama, tipe: 'sikap', catRaw: charts.sikap });
+        return out;
+    }
+
+    // ── SUSUN ISI 1 SHEET SOAL (SEMUA butir Benar/Salah atau Nilai/Skor
+    // Sendiri milik soal ini, nomor LOKAL 1..akhir ditumpuk ke bawah) ──────
+    function _buildSheetSoalGroup(soalNama, items, kind) {
         const rows = [];
-        rows.push(['SOAL', globalIdx]);
+        rows.push(['SOAL', soalNama]);
         rows.push(['TIPE', kind === 'binary' ? 'Benar / Salah' : 'Nilai / Skor Sendiri']);
-        rows.push(['NO SOAL (ASLI, PER TIPE)', item.nomor]);
-        rows.push([]);
-        rows.push(['PERTANYAAN']);
-        const pertanyaanRowIdx = rows.length;
-        rows.push([_stripHtml(item.pertanyaan)]);
-        rows.push([]);
-        if (item.pembahasan) {
-            rows.push(['PEMBAHASAN']);
-            rows.push([_stripHtml(item.pembahasan)]);
-            rows.push([]);
-        }
-        rows.push(kind === 'binary'
-            ? ['OPSI', 'KUNCI', 'JUMLAH PESERTA', 'NAMA PESERTA']
-            : ['OPSI', 'NILAI', 'JUMLAH PESERTA', 'NAMA PESERTA']);
-        const options = item.options || [];
-        options.forEach((o, oi) => {
-            const label = `${String.fromCharCode(65 + oi)}. ${_stripHtml(o.teks)}`;
-            rows.push(kind === 'binary'
-                ? [label, o.isKunci ? 'KUNCI' : '', o.count, (o.names || []).join(', ')]
-                : [label, o.nilai, o.count, (o.names || []).join(', ')]);
-        });
+        rows.push(['JUMLAH BUTIR', items.length]);
         rows.push([]);
 
-        const merges = [{ s: { r: pertanyaanRowIdx, c: 0 }, e: { r: pertanyaanRowIdx, c: 3 } }];
-        const chart = {
-            title: 'Distribusi Jawaban',
-            categories: options.map((o, oi) => String.fromCharCode(65 + oi)),
-            series: [{ name: 'Jumlah Peserta', color: '2666B8', values: options.map(o => o.count || 0) }],
-            fromCol: 0, fromRow: rows.length + 1, toCol: 6, toRow: rows.length + 1 + 16
-        };
-        return { rows, merges, chart };
+        const merges = [];
+        const charts = [];
+
+        items.forEach((item, idx) => {
+            const noLokal = item.local || item.nomor || (idx + 1);
+            rows.push(['NO SOAL (LOKAL DALAM SOAL INI)', noLokal]);
+            rows.push([]);
+            rows.push(['PERTANYAAN']);
+            const pertanyaanRowIdx = rows.length;
+            rows.push([_stripHtml(item.pertanyaan)]);
+            rows.push([]);
+            if (item.pembahasan) {
+                rows.push(['PEMBAHASAN']);
+                rows.push([_stripHtml(item.pembahasan)]);
+                rows.push([]);
+            }
+            rows.push(kind === 'binary'
+                ? ['OPSI', 'KUNCI', 'JUMLAH PESERTA', 'NAMA PESERTA']
+                : ['OPSI', 'NILAI', 'JUMLAH PESERTA', 'NAMA PESERTA']);
+            const options = item.options || [];
+            options.forEach((o, oi) => {
+                const label = `${String.fromCharCode(65 + oi)}. ${_stripHtml(o.teks)}`;
+                rows.push(kind === 'binary'
+                    ? [label, o.isKunci ? 'KUNCI' : '', o.count, (o.names || []).join(', ')]
+                    : [label, o.nilai, o.count, (o.names || []).join(', ')]);
+            });
+            rows.push([]);
+
+            merges.push({ s: { r: pertanyaanRowIdx, c: 0 }, e: { r: pertanyaanRowIdx, c: 3 } });
+            charts.push({
+                title: `Distribusi Jawaban — No. ${noLokal}`,
+                categories: options.map((o, oi) => String.fromCharCode(65 + oi)),
+                series: [{ name: 'Jumlah Peserta', color: '2666B8', values: options.map(o => o.count || 0) }],
+                fromCol: 0, fromRow: rows.length + 1, toCol: 6, toRow: rows.length + 1 + 16
+            });
+            for (let i = 0; i < 16; i++) rows.push([]); // cadangan ruang visual grafik (drawing melayang, tidak mendorong sel)
+        });
+
+        return { rows, merges, charts };
     }
 
-    // ── SUSUN ISI SHEET "Soal N" (SEMUA kolom Sikap Kerja jadi 1 sheet) ────
-    // Per PERMINTAAN: bukan 1 sheet per kolom (K1, K2, ...), tapi 1 sheet utk
-    // seluruh soal tipe Sikap Kerja, isinya per PENGERJAAN (bukan per akun/
-    // nama) — 1 blok grafik utk 1 pengerjaan, ditumpuk ke bawah utk
-    // pengerjaan berikutnya. Kalau 1 nama/akun yg sama mengerjakan token
-    // lain lagi, itu TETAP masuk sbg blok baru terpisah (dibedakan pakai
-    // `id` = kode laporan per baris sikapRaw, bukan `nama` — lihat komentar
-    // di server.js computeAnalisaGrupAggregate soal ini), tidak digabung
-    // jadi satu walau namanya sama.
-    function _buildSheetSikapKerja(globalIdx, sikapRaw) {
+    // ── SUSUN ISI 1 SHEET SIKAP KERJA (SEMUA kolom milik 1 soal Sikap Kerja
+    // — bukan digabung lintas soal — per PENGERJAAN, bukan per akun) ──────
+    // Per PERMINTAAN: bukan 1 sheet per kolom (K1, K2, ...), dan bukan pula
+    // digabung lintas soal Sikap Kerja lain dlm modul yg sama — 1 sheet ini
+    // isinya seluruh kolom SATU soal Sikap Kerja saja, per PENGERJAAN — 1
+    // blok grafik utk 1 pengerjaan, ditumpuk ke bawah utk pengerjaan
+    // berikutnya. Kalau 1 nama/akun yg sama mengerjakan token lain lagi, itu
+    // TETAP masuk sbg blok baru terpisah (dibedakan pakai `id` = kode
+    // laporan per baris sikapRaw, bukan `nama` — lihat komentar di
+    // server.js computeAnalisaGrupAggregate soal ini), tidak digabung jadi
+    // satu walau namanya sama.
+    function _buildSheetSikapKerja(soalNama, sikapRaw) {
         const rows = [];
-        rows.push(['SOAL', globalIdx]);
+        rows.push(['SOAL', soalNama]);
         rows.push(['TIPE', 'Sikap Kerja (semua kolom, per pengerjaan)']);
         rows.push([]);
 
@@ -470,6 +516,7 @@ ${titleXml}
         }
         const wb = XLSX.utils.book_new();
         const sheetChartsMap = {};
+        const usedSheetNames = { analisa: true }; // "ANALISA" sudah dipakai duluan
 
         const { rows: rowsAnalisa, chartSpecs: chartsAnalisa } = _buildSheetAnalisa(grupNama, agg);
         const wsAnalisa = XLSX.utils.aoa_to_sheet(rowsAnalisa);
@@ -477,8 +524,12 @@ ${titleXml}
         XLSX.utils.book_append_sheet(wb, wsAnalisa, 'ANALISA');
         if (chartsAnalisa.length) sheetChartsMap['ANALISA'] = chartsAnalisa;
 
-        const charts = agg.charts || { binary: [], skor: [], sikap: [] };
-        _appendSoalSheets(wb, sheetChartsMap, charts);
+        // 1 sheet PER SOAL BERNAMA dlm modul (TWK/TIU/TKP dst) — lihat
+        // komentar besar di atas file ini & komentar `perSoal` di server.js
+        // computeAnalisaGrupAggregate. Sumbernya agg.per_soal (dikirim GET
+        // /api/analisa/grup/:grubKey), SUDAH terkelompok per soal + nomor
+        // lokal, tinggal dipetakan 1:1 ke sheet.
+        _appendSoalGroupSheets(wb, sheetChartsMap, agg.per_soal || [], usedSheetNames);
 
         const xlsxBytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
         return _injectCharts(xlsxBytes, sheetChartsMap);
@@ -500,6 +551,7 @@ ${titleXml}
         }
         const wb = XLSX.utils.book_new();
         const sheetChartsMap = {};
+        const usedSheetNames = { analisa: true }; // "ANALISA" sudah dipakai duluan
 
         const tipeSoal = hasil.tipe_soal || { binary: false, skor: false, sikap: false };
         const charts = hasil.charts || { binary: [], skor: [], sikap: [] };
@@ -510,7 +562,12 @@ ${titleXml}
         XLSX.utils.book_append_sheet(wb, wsAnalisa, 'ANALISA');
         if (chartsAnalisa.length) sheetChartsMap['ANALISA'] = chartsAnalisa;
 
-        _appendSoalSheets(wb, sheetChartsMap, charts);
+        // 1 soal tunggal -> sintesis jadi bentuk `perSoal` (1 entri, biasanya)
+        // supaya lewat jalur sheet-per-soal yg sama dgn build() — sheet-nya
+        // otomatis dinamai `soalNama` apa adanya, isinya semua butir nomor
+        // LOKAL 1..akhir (yg mmg sudah "lokal" krn cuma 1 soal ini).
+        const perSoal = _soalTunggalKePerSoal(soalNama, tipeSoal, charts);
+        _appendSoalGroupSheets(wb, sheetChartsMap, perSoal, usedSheetNames);
 
         const xlsxBytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
         return _injectCharts(xlsxBytes, sheetChartsMap);
