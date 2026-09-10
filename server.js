@@ -2105,20 +2105,30 @@ app.post('/api/exam/submit', auth(['user','admin','review']), ah(async (req, res
         if (!token) return { status: 404, body: { error: 'Token tidak ditemukan' } };
 
         if (token.digunakan) {
-            // IDEMPOTENSI SUBMIT: kalau token ini SUDAH dipakai oleh user yang SAMA yang
-            // sedang submit sekarang, jangan langsung tolak dengan error. Ini terjadi kalau
-            // submit SEBELUMNYA sebenarnya sukses tersimpan di server, tapi responsnya tidak
-            // sempat sampai ke browser (koneksi putus di tengah jalan) — kirimHasilUjian()
-            // di client lalu otomatis retry (lihat ujian/hasil.js) memakai token yang sama,
-            // dan SELALU akan gagal 400 di sini walau ujiannya sudah resmi tersimpan. Ini
-            // paling sering kena pada ujian panjang seperti Sikap Kerja (durasi lama, banyak
-            // kolom, koneksi lebih rentan putus di tengah). Solusinya: kalau ownernya cocok,
-            // kembalikan laporan yang SUDAH ada apa adanya (bukan generate baru), supaya
-            // peserta tetap bisa melihat hasil ujiannya alih-alih terjebak selamanya di
-            // banner "Hasil ujian ini belum berhasil terkirim".
-            if (token.digunakan_oleh === user_kode) {
-                const existing = await tdb.prepare('SELECT * FROM laporan WHERE token_kode=? ORDER BY created_at DESC LIMIT 1').get(token_kode);
-                if (existing) {
+            // Status `digunakan=1` di sini bisa berarti 2 hal BERBEDA yang HARUS
+            // dibedakan (BUG YANG DIPERBAIKI — sebelumnya disamakan, membuat
+            // submit PERTAMA KALI dari token hasil klaim KODE MASTER selalu
+            // gagal 400 "Token sudah digunakan" walau peserta belum pernah
+            // submit sama sekali, bahkan di percobaan pertama):
+            //   1) Token ASLI hasil klaim KODE MASTER GRUP (lihat POST
+            //      /api/exam/validate-token) — `digunakan=1` DITULIS DI AWAL saat
+            //      validasi/reservasi token (mencegah 2 peserta kebagian token
+            //      sama), BUKAN saat submit. Peserta pemilik reservasi ini
+            //      (`digunakan_oleh===user_kode`) yang belum pernah submit (belum
+            //      ada baris `laporan`) HARUS tetap boleh lanjut submit seperti
+            //      biasa di bawah, bukan ditolak.
+            //   2) Token yang MEMANG sudah beneran pernah submit (baris `laporan`
+            //      sudah ada) — inilah kasus IDEMPOTENSI SUBMIT asli: kalau submit
+            //      SEBELUMNYA sebenarnya sukses tersimpan di server, tapi
+            //      responsnya tidak sempat sampai ke browser (koneksi putus di
+            //      tengah jalan) — kirimHasilUjian() di client lalu otomatis retry
+            //      (lihat ujian/hasil.js) memakai token yang sama. Solusinya:
+            //      kalau ownernya cocok, kembalikan laporan yang SUDAH ada apa
+            //      adanya (bukan generate baru); kalau ownernya beda (token benar2
+            //      dipakai/direservasi orang lain), baru tolak 400.
+            const existing = await tdb.prepare('SELECT * FROM laporan WHERE token_kode=? ORDER BY created_at DESC LIMIT 1').get(token_kode);
+            if (existing) {
+                if (token.digunakan_oleh === user_kode) {
                     let soalDenganKunci = [];
                     try {
                         const modulExisting = await db.prepare('SELECT * FROM modul WHERE kode=?').get(existing.modul_kode);
@@ -2126,8 +2136,16 @@ app.post('/api/exam/submit', auth(['user','admin','review']), ah(async (req, res
                     } catch (e) {}
                     return { status: 200, body: { kode: existing.kode, skor: existing.skor, soal: soalDenganKunci, message: 'Ujian berhasil disimpan' } };
                 }
+                return { status: 400, body: { error: 'Token sudah digunakan' } };
             }
-            return { status: 400, body: { error: 'Token sudah digunakan' } };
+            // Belum ada laporan sama sekali utk token ini — kasus (1) di atas:
+            // hanya lanjut kalau reservasinya memang milik peserta yang submit
+            // sekarang. Kalau `digunakan_oleh` terisi tapi beda user (atau token
+            // biasa/non-master yang entah kenapa `digunakan=1` tanpa laporan &
+            // tanpa owner cocok), baru dianggap konflik asli & ditolak.
+            if (token.digunakan_oleh && token.digunakan_oleh !== user_kode) {
+                return { status: 400, body: { error: 'Token sudah digunakan' } };
+            }
         }
 
         const modul_kode = token.modul_kode;
