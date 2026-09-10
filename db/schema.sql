@@ -12,6 +12,24 @@
 --     (angka 0/1) tetap identik dengan versi lama, tidak perlu ubah frontend.
 -- ═══════════════════════════════════════════════════════════════════════════════
 
+-- Penghitung nomor urut ATOMIK per tabel, dipakai genKode() di server.js.
+-- Menggantikan pola lama "SELECT kode ... ORDER BY id DESC LIMIT 1" lalu +1 di
+-- JavaScript, yang RACY di bawah beban bersamaan (mis. banyak peserta submit
+-- ujian nyaris berbarengan): dua request bisa membaca kode terakhir yang SAMA
+-- lalu keduanya coba INSERT kode yang SAMA persis -> yang kedua kena error
+-- unique-constraint (23505) -> oleh error handler global diterjemahkan jadi
+-- HTTP 400 "Data duplikat" -> muncul di client sebagai "Submit gagal". Retry
+-- otomatis TIDAK menolong karena race-nya bisa terjadi lagi di percobaan
+-- berikutnya kalau submission bersamaan lain masih berlangsung. Dengan tabel
+-- ini, setiap pemanggilan genKode() melakukan satu UPDATE ... RETURNING atomik
+-- (Postgres mengunci baris counter selama update, jadi request yang datang
+-- bersamaan otomatis antre dan masing-masing dapat angka berbeda -- tidak
+-- mungkin tabrakan lagi).
+CREATE TABLE IF NOT EXISTS kode_counters (
+    table_name TEXT PRIMARY KEY,
+    counter    INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS users (
     id              SERIAL PRIMARY KEY,
     kode            TEXT UNIQUE,

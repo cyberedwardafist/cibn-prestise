@@ -538,7 +538,8 @@ let st={
   curIdx:0,timerInterval:null, groupStats: {}, activeKode:null,
   leaveCount:0,maxLeave:3,antiCheatLeaveEnabled:true,orient:'vertical',
   startTime:null,skTimerInterval:null,skTimerSec:0,
-  modeBebas:false,mainTimer:{sec:0,deadline:null}
+  modeBebas:false,mainTimer:{sec:0,deadline:null},
+  selesaiCalled:false
 };
 let _skItem=null,_skKolom=0,_skQ=0;
 let _pendingNextIdx=null;
@@ -1451,7 +1452,22 @@ async function ensureHasilModule(){
   await LazyLoader.load('/ujian', 'hasil', document.getElementById('hasil-page'));
 }
 
+// PERBAIKAN RACE CONDITION SUBMIT GANDA (sisi client): doSelesai() bisa
+// terpanggil dari beberapa jalur berbeda (klik tombol "Ya, Selesai", timer
+// per-bagian/utama habis, batas keluar ujian tercapai, dst). clearInterval()
+// di baris pertama MENCEGAH timer memanggil doSelesai() lagi ke DEPAN, tapi
+// tidak bisa membatalkan callback timer yang KEBETULAN sudah masuk antrean
+// event browser tepat sebelum clearInterval dijalankan (jendela race yang
+// sangat sempit, mis. timer habis persis saat peserta klik "Selesai"). Kalau
+// itu terjadi, doSelesai() bisa terpanggil dua kali dan mengirim 2 request
+// submit hampir bersamaan. Flag `st.selesaiCalled` ini jadi penjaga terakhir
+// di sisi client (selain perbaikan `FOR UPDATE` di server.js yang menjamin
+// tidak akan pernah ada laporan ganda tersimpan biar bagaimana pun) — supaya
+// panggilan kedua langsung berhenti di sini, tidak perlu sampai buang request
+// jaringan sia-sia atau menampilkan halaman hasil dua kali.
 async function doSelesai(){
+  if(st.selesaiCalled) return;
+  st.selesaiCalled=true;
   closeConfirm();clearInterval(st.timerInterval);clearInterval(st.skTimerInterval);
   const token = st.examData.token.kode;
   sessionStorage.removeItem('cbn_ujian_data');

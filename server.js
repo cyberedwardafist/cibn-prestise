@@ -125,12 +125,34 @@ async function deleteUploadedFileByUrl(url) {
 // langsung dari browser ke Supabase Storage lewat signed URL.
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
+// BUG YANG DIPERBAIKI: versi lama membaca kode terakhir via "SELECT ... ORDER BY
+// id DESC LIMIT 1" lalu +1 di JavaScript — RACY di bawah beban bersamaan. Kalau
+// dua request datang nyaris berbarengan (mis. banyak peserta submit ujian di
+// waktu yang sama), keduanya bisa membaca kode terakhir yang SAMA dan menghasilkan
+// kode berikutnya yang SAMA juga, lalu INSERT kedua kena unique-constraint error
+// (23505) -> diterjemahkan error handler global jadi HTTP 400 "Data duplikat" ->
+// retry otomatis di client tetap gagal berulang kali kalau submission bersamaan
+// lain masih berlangsung (persis pola "Submit gagal (percobaan 1/6, 2/6, ...)").
+// Sekarang pakai tabel kode_counters + UPDATE ... RETURNING (jalur cepat) yang
+// atomik secara native di Postgres (baris counter otomatis terkunci selama
+// UPDATE, request bersamaan antre dan masing-masing pasti dapat angka berbeda).
+// Jalur lambat (INSERT ber-fallback dari MAX(kode) tabel aslinya) hanya jalan
+// SEKALI per tabel, saat kode_counters belum punya baris utk tabel itu —
+// supaya nomor lanjut sambung dari data lama, bukan mulai dari 1 lagi.
 async function genKode(prefix, table) {
-    const row = await db.prepare(`SELECT kode FROM ${table} WHERE kode LIKE ? ORDER BY id DESC LIMIT 1`)
-        .get(prefix + '%');
-    if (!row) return prefix + '001';
-    const num = parseInt(row.kode.replace(prefix, '')) + 1;
-    return prefix + String(num).padStart(3, '0');
+    let row = await db.prepare(
+        `UPDATE kode_counters SET counter = counter + 1 WHERE table_name = ? RETURNING counter`
+    ).get(table);
+    if (!row) {
+        const like = prefix + '%';
+        row = await db.prepare(`
+            INSERT INTO kode_counters (table_name, counter)
+            SELECT ?, COALESCE((SELECT MAX(CAST(SUBSTRING(kode FROM ?) AS INTEGER)) FROM ${table} WHERE kode LIKE ?), 0) + 1
+            ON CONFLICT (table_name) DO UPDATE SET counter = kode_counters.counter + 1
+            RETURNING counter
+        `).get(table, prefix.length + 1, like);
+    }
+    return prefix + String(row.counter).padStart(3, '0');
 }
 function genTokenKode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -2000,53 +2022,85 @@ app.post('/api/exam/validate-token', auth(['user','admin','review']), ah(async (
 }));
 
 app.post('/api/exam/submit', auth(['user','admin','review']), ah(async (req, res) => {
-    const { token_kode, modul_kode, waktu_pengerjaan, jawaban, skor_detail, urutan_tampil } = req.body;
+    const { token_kode, waktu_pengerjaan, jawaban, urutan_tampil } = req.body;
     const user_kode = req.user.kode;
-    const token = await db.prepare('SELECT * FROM tokens WHERE kode=?').get(token_kode);
-    if (!token) return res.status(404).json({ error: 'Token tidak ditemukan' });
-    if (token.digunakan) {
-        // IDEMPOTENSI SUBMIT: kalau token ini SUDAH dipakai oleh user yang SAMA yang
-        // sedang submit sekarang, jangan langsung tolak dengan error. Ini terjadi kalau
-        // submit SEBELUMNYA sebenarnya sukses tersimpan di server, tapi responsnya tidak
-        // sempat sampai ke browser (koneksi putus di tengah jalan) — kirimHasilUjian()
-        // di client lalu otomatis retry (lihat ujian/hasil.js) memakai token yang sama,
-        // dan SELALU akan gagal 400 di sini walau ujiannya sudah resmi tersimpan. Ini
-        // paling sering kena pada ujian panjang seperti Sikap Kerja (durasi lama, banyak
-        // kolom, koneksi lebih rentan putus di tengah). Solusinya: kalau ownernya cocok,
-        // kembalikan laporan yang SUDAH ada apa adanya (bukan generate baru), supaya
-        // peserta tetap bisa melihat hasil ujiannya alih-alih terjebak selamanya di
-        // banner "Hasil ujian ini belum berhasil terkirim".
-        if (token.digunakan_oleh === user_kode) {
-            const existing = await db.prepare('SELECT * FROM laporan WHERE token_kode=? ORDER BY created_at DESC LIMIT 1').get(token_kode);
-            if (existing) {
-                let soalDenganKunci = [];
-                try {
-                    const modulExisting = await db.prepare('SELECT * FROM modul WHERE kode=?').get(existing.modul_kode);
-                    if (modulExisting) soalDenganKunci = await buildSoalDetail(modulExisting, { withKunci: true });
-                } catch (e) {}
-                return res.json({ kode: existing.kode, skor: existing.skor, soal: soalDenganKunci, message: 'Ujian berhasil disimpan' });
+
+    // ── PERBAIKAN CELAH SUNTIK-NILAI ────────────────────────────────────────
+    // SEBELUMNYA: modul_kode diambil LANGSUNG dari req.body (dikirim client),
+    // dan kalau hitungSkorUjianServer() gagal (mis. modul_kode itu tidak valid/
+    // tidak ada di DB), server DIAM-DIAM memakai `skor_detail` — juga dari
+    // req.body — sebagai skor akhir yang tersimpan. Ini celah nyata: peserta
+    // yang mengubah request submit lewat devtools/proxy (mengirim modul_kode
+    // asal-asalan + skor_detail besar) bisa membuat server MENYIMPAN skor
+    // buatannya sendiri sebagai skor resmi ujian, bukan hasil hitungan server.
+    // SEKARANG: modul_kode SELALU diambil dari token.modul_kode (satu-satunya
+    // sumber sah — ditentukan sejak token dibuat, bukan dari body request), dan
+    // skor SELALU hasil hitungSkorUjianServer(). Kalau perhitungan itu gagal
+    // (mis. data modul benar-benar rusak di DB), submit dianggap GAGAL (error
+    // 500 -> ditangani retry otomatis client di ujian/hasil.js) — TIDAK PERNAH
+    // diam-diam menerima angka kiriman client sebagai skor resmi.
+    //
+    // ── PERBAIKAN RACE CONDITION SUBMIT GANDA ───────────────────────────────
+    // SEBELUMNYA: status token.digunakan dibaca via SELECT biasa (tanpa kunci)
+    // SEBELUM transaksi INSERT/UPDATE. Kalau dua request submit utk token yang
+    // SAMA datang nyaris bersamaan (mis. timer "waktu habis" & klik tombol
+    // "Selesai" peserta race di sisi client, atau tab ganda/double-klik),
+    // KEDUANYA bisa membaca "belum digunakan" sebelum salah satu commit, lalu
+    // KEDUANYA lolos membuat baris laporan sendiri-sendiri untuk 1x pengerjaan
+    // ujian yang sama (laporan ganda, salah satunya "phantom"). SEKARANG: baris
+    // token dikunci (SELECT ... FOR UPDATE) di dalam transaksi SEJAK AWAL —
+    // request kedua otomatis menunggu request pertama selesai commit, baru boleh
+    // membaca status digunakan-nya (yang saat itu sudah ter-update), sehingga
+    // jalur idempotensi (kembalikan laporan yang sudah ada) yang menanganinya,
+    // bukan membuat baris baru.
+    const result = await transaction(async (tdb) => {
+        const token = await tdb.prepare('SELECT * FROM tokens WHERE kode=? FOR UPDATE').get(token_kode);
+        if (!token) return { status: 404, body: { error: 'Token tidak ditemukan' } };
+
+        if (token.digunakan) {
+            // IDEMPOTENSI SUBMIT: kalau token ini SUDAH dipakai oleh user yang SAMA yang
+            // sedang submit sekarang, jangan langsung tolak dengan error. Ini terjadi kalau
+            // submit SEBELUMNYA sebenarnya sukses tersimpan di server, tapi responsnya tidak
+            // sempat sampai ke browser (koneksi putus di tengah jalan) — kirimHasilUjian()
+            // di client lalu otomatis retry (lihat ujian/hasil.js) memakai token yang sama,
+            // dan SELALU akan gagal 400 di sini walau ujiannya sudah resmi tersimpan. Ini
+            // paling sering kena pada ujian panjang seperti Sikap Kerja (durasi lama, banyak
+            // kolom, koneksi lebih rentan putus di tengah). Solusinya: kalau ownernya cocok,
+            // kembalikan laporan yang SUDAH ada apa adanya (bukan generate baru), supaya
+            // peserta tetap bisa melihat hasil ujiannya alih-alih terjebak selamanya di
+            // banner "Hasil ujian ini belum berhasil terkirim".
+            if (token.digunakan_oleh === user_kode) {
+                const existing = await tdb.prepare('SELECT * FROM laporan WHERE token_kode=? ORDER BY created_at DESC LIMIT 1').get(token_kode);
+                if (existing) {
+                    let soalDenganKunci = [];
+                    try {
+                        const modulExisting = await db.prepare('SELECT * FROM modul WHERE kode=?').get(existing.modul_kode);
+                        if (modulExisting) soalDenganKunci = await buildSoalDetail(modulExisting, { withKunci: true });
+                    } catch (e) {}
+                    return { status: 200, body: { kode: existing.kode, skor: existing.skor, soal: soalDenganKunci, message: 'Ujian berhasil disimpan' } };
+                }
             }
+            return { status: 400, body: { error: 'Token sudah digunakan' } };
         }
-        return res.status(400).json({ error: 'Token sudah digunakan' });
-    }
 
-    let skor = 0;
-    try { skor = await hitungSkorUjianServer(modul_kode, jawaban); } 
-    catch (e) { try { if (skor_detail && typeof skor_detail === 'object') { const v = Object.values(skor_detail); if (v.length) skor = Math.round(v.reduce((a,b) => a+b, 0)); } } catch (e2) {} }
+        const modul_kode = token.modul_kode;
+        const skor = await hitungSkorUjianServer(modul_kode, jawaban);
 
-    const kode = await genKode('LAP', 'laporan');
-    const tgl_selesai = new Date().toISOString().slice(0, 10);
-    const izinReview = token.izinkan_review ? 1 : 0;
-    await transaction(async (tdb) => {
+        const kode = await genKode('LAP', 'laporan');
+        const tgl_selesai = new Date().toISOString().slice(0, 10);
+        const izinReview = token.izinkan_review ? 1 : 0;
         await tdb.prepare('INSERT INTO laporan (kode,token_kode,user_kode,modul_kode,tgl_selesai,waktu_pengerjaan,skor,jawaban,urutan_tampil,izinkan_review) VALUES (?,?,?,?,?,?,?,?,?,?)')
             .run(kode, token_kode, user_kode, modul_kode, tgl_selesai, waktu_pengerjaan, skor, JSON.stringify(jawaban), urutan_tampil ? JSON.stringify(urutan_tampil) : null, izinReview);
         await tdb.prepare('UPDATE tokens SET digunakan=1,digunakan_oleh=? WHERE kode=?').run(user_kode, token_kode);
+
+        let soalDenganKunci = [];
+        try { const modul = await db.prepare('SELECT * FROM modul WHERE kode=?').get(modul_kode); if (modul) soalDenganKunci = await buildSoalDetail(modul, { withKunci: true }); } catch (e) {}
+        return { status: 200, body: { kode, skor, soal: soalDenganKunci, message: 'Ujian berhasil disimpan' } };
     });
 
-    let soalDenganKunci = [];
-    try { const modul = await db.prepare('SELECT * FROM modul WHERE kode=?').get(modul_kode); if (modul) soalDenganKunci = await buildSoalDetail(modul, { withKunci: true }); } catch (e) {}
-    res.json({ kode, skor, soal: soalDenganKunci, message: 'Ujian berhasil disimpan' });
+    res.status(result.status).json(result.body);
 }));
+
 
 app.get('/api/notifikasi/expired-soon', auth(['admin']), ah(async (req, res) => { res.json(await db.prepare(`SELECT u.kode, u.nama, u.email, u.langganan_akhir, (u.langganan_akhir::date - CURRENT_DATE) as sisa_hari FROM users u WHERE u.role='user' AND u.langganan_akhir IS NOT NULL AND u.langganan_akhir::date >= CURRENT_DATE AND (u.langganan_akhir::date - CURRENT_DATE) <= 7 ORDER BY sisa_hari ASC`).all()); }));
 app.get('/api/landing', ah(async (req, res) => { const row = await db.prepare('SELECT data FROM landing WHERE id=1').get(); res.json(row ? JSON.parse(row.data) : {}); }));
