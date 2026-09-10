@@ -57,8 +57,13 @@ function renderAnalisaGrafik() {
     const kind = window._analisaGrafikDetailKind || null;
     const sub = document.getElementById('ag-sub');
     if (sub) {
+        // `_analisaGrafikDetailSoalNama` (kalau ada — dititip _atdGoToGrafikDetail
+        // di analisa-token-detail.js) = nama soal Sikap Kerja spesifik yg
+        // tombol "Analisa"-nya diklik, dipakai murni utk perjelas subjudul
+        // saja (modul boleh py >1 soal Sikap Kerja terpisah).
+        const soalNama = window._analisaGrafikDetailSoalNama || null;
         sub.textContent = grup
-            ? `Grup: ${grup}${kind ? ' · Grafik: ' + (kind === 'sikap' ? 'Sikap Kerja — Median & Sebaran' : kind) : ''}`
+            ? `Grup: ${grup}${kind ? ' · Grafik: ' + (kind === 'sikap' ? 'Sikap Kerja — Median & Sebaran' + (soalNama ? ' (' + soalNama + ')' : '') : kind) : ''}`
             : '-';
     }
     // Reset state interaksi (popup bola & overlay orang terpilih) tiap kali

@@ -45,6 +45,27 @@ let _atdSkorSortedPerSoal = [];   // per soal: opsi diurutkan sesuai slot yg sam
 let _atdSikapDist = [];  // [{label,color,dist:[{nilai:jumlahOrang} per kolom]}]
 let _atdSikapCats = [];  // ['K1','K2',...]
 
+// ── POPUP DATA PER-CONTAINER (khusus kartu "Grafik Per Soal" YANG BARU di
+// analisa-token-detail.js, dari sekarang bisa lebih dari 1 kartu binary/skor/
+// sikap sekaligus di 1 halaman — 1 kartu per SOAL bernama, bukan lagi 1
+// kartu gabungan utk seluruh modul) ─────────────────────────────────────────
+// Popup hover/klik (_atdSlicesFor, _atdRenderSikapStatPopup) SEBELUMNYA
+// selalu baca dari variabel GLOBAL TUNGGAL di atas (_ATD_DUMMY_BINARY dkk) —
+// itu cukup selama cuma ADA 1 grafik per jenis per halaman (analisa-soal-
+// detail.js, analisa-grafik.js: memang begitu desainnya). Begitu 1 halaman
+// bisa punya BEBERAPA kartu binary/skor/sikap sekaligus (1 per soal), popup
+// perlu tahu kartu MANA yg lagi di-hover supaya tidak salah ambil data soal
+// lain. `_atdSetChartPopupData(containerId, data)` dipanggil pemanggil BARU
+// (analisa-token-detail.js) tepat sebelum _atdBindChartEvents utk kartu itu;
+// _atdSlicesFor/_atdRenderSikapStatPopup PRIORITASKAN data di sini kalau ada,
+// baru fallback ke variabel global lama kalau containerId ini tidak
+// terdaftar — jadi pemanggil LAMA (analisa-soal-detail.js, analisa-grafik.js,
+// yg tidak pernah memanggil _atdSetChartPopupData) tetap jalan PERSIS spt
+// sebelumnya, tidak ada perubahan perilaku sama sekali utk mereka.
+const _atdChartPopupStore = {};
+function _atdSetChartPopupData(containerId, data) { _atdChartPopupStore[containerId] = data; }
+function _atdClearChartPopupData(containerId) { delete _atdChartPopupStore[containerId]; }
+
 function _atdDistFromRaw(raw, pick) {
     return raw.map(rows => {
         const dist = {};
@@ -136,7 +157,15 @@ function _atdSikapLegendHtml() {
 
 // ── RENDER GRAFIK GARIS (SVG murni) ────────────────────────────────────────
 function _atdBuildLineChart(containerId, opts) {
-    const { title, sub, categories, series, maxVal, kind, xClickFn } = opts;
+    // `clickValues` (opsional): nilai yg dikirim ke xClickFn saat label sumbu-X
+    // diklik, kalau BEDA dari yg ditampilkan di `categories` (dipakai kartu
+    // "Grafik Per Soal" versi baru di analisa-token-detail.js: `categories`
+    // diisi nomor LOKAL soal itu saja, biar sumbu-X tidak numpuk sampai >100
+    // kalau modul digabung banyak soal — tapi drill-down klik tetap harus
+    // kirim nomor GLOBAL spy lookup di analisa-soal.js tetap tepat sasaran).
+    // Kalau tidak diisi, fallback ke `categories` spt sebelumnya (perilaku
+    // lama, dipakai pemanggil yg cuma py 1 soal per grafik).
+    const { title, sub, categories, series, maxVal, kind, xClickFn, clickValues } = opts;
     const width = 680, height = 300, left = 34, right = 16, top = 16, bottom = 40;
     const plotW = width - left - right, plotH = height - top - bottom;
     const N = categories.length;
@@ -166,7 +195,8 @@ function _atdBuildLineChart(containerId, opts) {
             dotsSvg += `<circle class="atd-dot" cx="${cx(i).toFixed(1)}" cy="${cy(s.values[i]).toFixed(1)}" r="3.5" fill="${s.color}"></circle>`;
         });
         const xLabelCls = xClickFn ? 'atd-x-label atd-x-label-clickable' : 'atd-x-label';
-        const xLabelClick = xClickFn ? ` onclick="${xClickFn}(event,'${kind}',${JSON.stringify(cat)})"` : '';
+        const clickVal = clickValues ? clickValues[i] : cat;
+        const xLabelClick = xClickFn ? ` onclick="${xClickFn}(event,'${kind}',${JSON.stringify(clickVal)})"` : '';
         svgParts += `<g class="atd-chart-group" data-idx="${i}" data-kind="${kind}">
             <rect class="atd-hit" x="${(left + i * slotW).toFixed(1)}" y="${top}" width="${slotW.toFixed(1)}" height="${plotH}"></rect>
             ${dotsSvg}
@@ -188,7 +218,7 @@ function _atdBuildLineChart(containerId, opts) {
 
 // ── RENDER GRAFIK MEDIAN + SEBARAN (SVG murni) — khusus Sikap Kerja ────────
 function _atdBuildSikapMedianChart(containerId, opts) {
-    const { title, sub, categories, catData, kind, hideAnalisaBtn, userOverlay, showUtamaCats, showUserCats } = opts;
+    const { title, sub, categories, catData, kind, hideAnalisaBtn, userOverlay, showUtamaCats, showUserCats, analisaBtnSoalKode } = opts;
     const width = 680, height = 300, left = 34, right = 16, top = 16, bottom = 40;
     const plotW = width - left - right, plotH = height - top - bottom;
     const N = categories.length;
@@ -287,7 +317,7 @@ function _atdBuildSikapMedianChart(containerId, opts) {
         </div>
         <div class="atd-chart-svg-wrap">${svg}</div>
         <div class="atd-legend" id="${containerId}-legend"></div>
-        ${hideAnalisaBtn ? '' : `<button class="atd-btn-analisa-grafik" onclick="_atdGoToGrafikDetail(event,'${kind}')">
+        ${hideAnalisaBtn ? '' : `<button class="atd-btn-analisa-grafik" onclick="_atdGoToGrafikDetail(event,'${kind}'${analisaBtnSoalKode ? ',' + JSON.stringify(String(analisaBtnSoalKode)) : ''})">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
             Analisa
         </button>`}`;
@@ -306,24 +336,31 @@ function _atdPieSvg(slices) {
     return `<svg viewBox="0 0 36 36" width="72" height="72">${circles}</svg>`;
 }
 
-function _atdSlicesFor(kind, idx) {
+function _atdSlicesFor(containerId, kind, idx) {
+    // Kartu BARU (1 per soal, lihat komentar _atdChartPopupStore di atas)
+    // titip datanya sendiri lewat _atdSetChartPopupData — pakai itu kalau
+    // ada. Kartu LAMA (1 grafik per halaman) tidak pernah memanggil fungsi
+    // itu, jadi otomatis fallback ke variabel global spt sebelumnya.
+    const store = _atdChartPopupStore[containerId];
     if (kind === 'binary') {
-        const s = _ATD_DUMMY_BINARY[idx];
+        const s = (store && store.items) ? store.items[idx] : _ATD_DUMMY_BINARY[idx];
         const total = s.benar + s.salah;
         return {
-            title: `Soal No. ${s.nomor} · ${total} jawaban`,
+            title: `Soal No. ${s.local != null ? s.local : s.nomor} · ${total} jawaban`,
             slices: [
                 { label: 'Benar', value: s.benar, pct: total ? Math.round(s.benar / total * 100) : 0, color: '#16a34a' },
                 { label: 'Salah', value: s.salah, pct: total ? Math.round(s.salah / total * 100) : 0, color: '#dc2626' }
             ]
         };
     }
-    const sorted = _atdSkorSortedPerSoal[idx];
+    const sorted = (store && store.sortedPerSoal) ? store.sortedPerSoal[idx] : _atdSkorSortedPerSoal[idx];
+    const seriesMeta = (store && store.seriesMeta) ? store.seriesMeta : _atdSkorSeriesMeta;
+    const soalItem = (store && store.items) ? store.items[idx] : _ATD_DUMMY_SKOR[idx];
     const total = sorted.reduce((sum, o) => sum + (o ? o.jumlah : 0), 0);
     return {
-        title: `Soal No. ${_ATD_DUMMY_SKOR[idx].nomor} · ${total} jawaban`,
+        title: `Soal No. ${soalItem.local != null ? soalItem.local : soalItem.nomor} · ${total} jawaban`,
         slices: sorted.map((o, slot) => {
-            const meta = _atdSkorSeriesMeta[slot] || {};
+            const meta = seriesMeta[slot] || {};
             return { label: meta.label, value: o.jumlah, pct: total ? Math.round(o.jumlah / total * 100) : 0, color: meta.color };
         }).filter(sl => sl.value > 0)
     };
@@ -336,9 +373,12 @@ function _atdRenderPiePopup(title, slices) {
     pop.innerHTML = `<div class="atd-pie-pop-title">${title}</div><div class="atd-pie-pop-body">${_atdPieSvg(slices)}<div class="atd-pie-pop-legend">${legend}</div></div>`;
 }
 
-function _atdRenderSikapStatPopup(idx) {
-    const kolomLabel = _atdSikapCats[idx] || `#${idx + 1}`;
-    const rows = _atdSikapDist.map(c => {
+function _atdRenderSikapStatPopup(containerId, idx) {
+    const store = _atdChartPopupStore[containerId];
+    const cats = (store && store.cats) ? store.cats : _atdSikapCats;
+    const dist = (store && store.dist) ? store.dist : _atdSikapDist;
+    const kolomLabel = cats[idx] || `#${idx + 1}`;
+    const rows = dist.map(c => {
         const dist = c.dist[idx] || {};
         const entries = Object.entries(dist).map(([v, cnt]) => [Number(v), cnt]).filter(([, cnt]) => cnt > 0).sort((a, b) => a[0] - b[0]);
         const n = entries.reduce((s, [, cnt]) => s + cnt, 0);
@@ -379,11 +419,11 @@ function _atdPositionPiePopup(evt) {
 }
 
 let _atdActiveGroup = null;
-function _atdShowPie(evt, groupEl, kind, idx) {
+function _atdShowPie(evt, groupEl, containerId, kind, idx) {
     if (kind === 'sikap') {
-        _atdRenderSikapStatPopup(idx);
+        _atdRenderSikapStatPopup(containerId, idx);
     } else {
-        const { title, slices } = _atdSlicesFor(kind, idx);
+        const { title, slices } = _atdSlicesFor(containerId, kind, idx);
         _atdRenderPiePopup(title, slices);
     }
     _atdPositionPiePopup(evt);
@@ -403,18 +443,18 @@ function _atdHidePie() {
 function _atdBindChartEvents(containerId, kind) {
     document.querySelectorAll(`#${containerId} .atd-chart-group`).forEach(g => {
         const idx = +g.dataset.idx;
-        g.addEventListener('mouseenter', e => _atdShowPie(e, g, kind, idx));
+        g.addEventListener('mouseenter', e => _atdShowPie(e, g, containerId, kind, idx));
         g.addEventListener('mousemove', e => _atdPositionPiePopup(e));
         g.addEventListener('mouseleave', () => { if (_atdActiveGroup === g) _atdHidePie(); });
         g.addEventListener('click', e => {
             e.stopPropagation();
             if (_atdActiveGroup === g) { _atdHidePie(); return; }
-            _atdShowPie(e, g, kind, idx);
+            _atdShowPie(e, g, containerId, kind, idx);
         });
         g.addEventListener('touchstart', e => {
             e.stopPropagation();
             if (_atdActiveGroup === g) { _atdHidePie(); return; }
-            _atdShowPie(e, g, kind, idx);
+            _atdShowPie(e, g, containerId, kind, idx);
         }, { passive: true });
     });
     if (!window._atdDocCloseBound) {

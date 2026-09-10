@@ -492,7 +492,7 @@ function _analisaSoalButir(type, data) {
 
 async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
     const modul = await db.prepare('SELECT * FROM modul WHERE kode=?').get(modul_kode);
-    if (!modul) return { modul: null, binaryChart: [], skorChart: [], sikapRaw: [], tipeSoal: { binary: false, skor: false, sikap: false } };
+    if (!modul) return { modul: null, binaryChart: [], skorChart: [], sikapRaw: [], tipeSoal: { binary: false, skor: false, sikap: false }, perSoal: [] };
 
     let soal_list = []; try { soal_list = JSON.parse(modul.soal_list || '[]'); } catch (e) {}
     const soalRows = [];
@@ -512,9 +512,28 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
     const totalPeserta = jawabanList.length;
 
     const ringkasanSoal = [];
-    const binaryChart = [];   // [{nomor, benar, salah}]
-    const skorChart = [];     // [{nomor, opsi:[{nilai,jumlah}]}]
-    const sikapRaw = [];      // [kolomIdx] -> [{benar,salah,nama,id}] per peserta
+    // `binaryChart`/`skorChart`/`sikapRaw` TETAP dipertahankan sbg array
+    // GABUNGAN se-modul dgn PENOMORAN GLOBAL (nomor jalan terus lintas soal,
+    // tidak pernah reset) — dipakai APA ADANYA oleh konsumer lain yg memang
+    // sudah benar mengasumsikan 1 modul = 1 seri nomor unik: lookup detail 1
+    // butir soal by nomor (admin/analisa/analisa-soal.js, _asBuildOpsiData)
+    // & sheet Excel gabungan (admin/analisa/analisa-export.js). JANGAN diubah
+    // jadi nomor lokal per soal di sini, itu akan mematahkan kedua konsumer
+    // itu (nomor jadi tidak unik lagi kalau 2 soal sama2 py butir no.1).
+    //
+    // `perSoal` di bawah adalah data BARU utk kartu "Grafik Per Soal" di
+    // admin/analisa/analisa-token-detail.js — 1 ENTRI PER SOAL BERNAMA dlm
+    // modul (persis urutan modul.soal_list), bukan lagi digabung jadi cuma 3
+    // kartu tetap (binary/skor/sikap) utk SELURUH modul. Tiap entri bawa
+    // nomor LOKAL (`local`, reset ke 1 tiap ganti soal) dipakai FE sbg label
+    // sumbu-X grafik (biar tidak numpuk sampai >100 kalau modul py byk soal
+    // digabung jadi 1 sumbu spt sebelumnya) + `nomor` GLOBAL yg sama dgn di
+    // atas (dipakai FE saat klik sumbu-X utk drill-down ke halaman detail
+    // butir soal, supaya lookup by-nomor itu tetap tepat sasaran).
+    const binaryChart = [];   // [{nomor, local, soal_kode, soal_nama, benar, salah}]
+    const skorChart = [];     // [{nomor, local, soal_kode, soal_nama, opsi:[{nilai,jumlah}]}]
+    const sikapRaw = [];      // [kolomGlobalIdx] -> [{benar,salah,nama,id}] per peserta
+    const perSoal = [];       // 1 entri per soal bernama, urut sesuai modul
 
     // Komposisi TIPE soal modul ini — dihitung dari `soalRows` (susunan modul
     // itu sendiri), BUKAN dari isi binaryChart/skorChart/sikapRaw di bawah.
@@ -523,13 +542,10 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
     // itu beda kasus dgn modul yg SUNGGUH-SUNGGUH tidak punya soal tipe itu
     // sama sekali. Frontend (analisa-token-detail.js) pakai flag ini utk
     // memutuskan apakah kartu grafik tipe tsb perlu ditampilkan sama sekali,
-    // terpisah dari soal isinya (kosong data vs kosong tipe). 1 modul bisa
-    // punya lebih dari 1 soal dgn tipe yg sama (mis. 3 soal Benar/Salah
-    // terpisah) — semuanya tetap digabung jadi SATU grafik per tipe seperti
-    // sebelumnya, flag ini cuma soal ADA/TIDAK-nya tipe itu di modul.
+    // terpisah dari soal isinya (kosong data vs kosong tipe).
     const tipeSoal = { binary: false, skor: false, sikap: false };
 
-    let binNomor = 0, skorNomor = 0;
+    let binNomor = 0, skorNomor = 0, sikapGlobalKi = 0;
 
     for (const s of soalRows) {
         const data = Array.isArray(s.data) ? s.data : [];
@@ -537,13 +553,22 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
 
         if (s.type === 'sikap_kerja') {
             tipeSoal.sikap = true;
-            data.forEach((kol, ki) => {
-                if (!sikapRaw[ki]) sikapRaw[ki] = [];
+            // `localKi` = indeks kolom LOKAL soal ini (K1, K2, ... dari 0 lagi
+            // tiap soal Sikap Kerja baru), dipetakan ke slot GLOBAL
+            // `sikapGlobalKi` yg TIDAK PERNAH direset lintas soal — supaya 2
+            // soal Sikap Kerja terpisah dlm 1 modul tidak numpuk data kolom
+            // yg sama (dulu `ki` lokal dipakai LANGSUNG sbg indeks sikapRaw,
+            // jadi kolom-0 soal ke-2 ikut nimbun ke sikapRaw[0] milik soal
+            // pertama — salah gabung 2 populasi peserta yg beda soal).
+            const kolomLokalList = [];
+            data.forEach((kol, localKi) => {
+                const gk = sikapGlobalKi++;
+                sikapRaw[gk] = [];
                 const kolSoal = Array.isArray(kol.soal) ? kol.soal : [];
                 jawabanList.forEach((jw, pi) => {
                     let benar = 0, salah = 0;
                     kolSoal.forEach((q, qi) => {
-                        const ans = jw[`${s.kode}_${ki}_${qi}`];
+                        const ans = jw[`${s.kode}_${localKi}_${qi}`];
                         if (ans) { const k = q.kunci_huruf || q.kunci; if (ans === k) benar++; else salah++; }
                     });
                     const namaPeserta = (laporanRows[pi] && laporanRows[pi].user_nama) || `Peserta ${pi + 1}`;
@@ -556,18 +581,29 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
                     // pengerjaan yg berbeda hanya krn nama sama. `id` dipakai
                     // frontend sbg kunci pencarian (bukan `nama`, yg boleh dobel).
                     const idPengerjaan = (laporanRows[pi] && laporanRows[pi].laporan_kode) || ('idx:' + pi);
-                    sikapRaw[ki].push({ benar, salah, nama: namaPeserta, id: idPengerjaan });
+                    sikapRaw[gk].push({ benar, salah, nama: namaPeserta, id: idPengerjaan });
                 });
+                kolomLokalList.push(gk);
             });
+            if (kolomLokalList.length) {
+                perSoal.push({
+                    soal_kode: s.kode, soal_nama: s.nama, tipe: 'sikap',
+                    categories: kolomLokalList.map((_, i) => 'K' + (i + 1)),
+                    catRaw: kolomLokalList.map(gk => sikapRaw[gk])
+                });
+            }
             continue;
         }
 
         const isNilaiSendiri = s.skor_type === 'nilai_sendiri';
         if (isNilaiSendiri) tipeSoal.skor = true; else tipeSoal.binary = true;
+        let localNomor = 0;
+        const soalBinaryItems = [], soalSkorItems = [];
         data.forEach((q, qi) => {
             const jawabanOpsi = Array.isArray(q.jawaban) ? q.jawaban : [];
             const pertanyaan = q.soal || '';
             const pembahasan = q.pembahasan || '';
+            localNomor++;
 
             // Nama peserta yang memilih tiap opsi — dipakai halaman detail soal
             // (admin/analisa/analisa-soal.js). Dihitung sekali per opsi di sini
@@ -592,7 +628,9 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
                     const names = pemilihOpsi(j.id);
                     return { id: j.id, teks: j.teks || '', nilai: parseFloat(j.nilai) || 0, isKunci: (parseFloat(j.nilai) || 0) > 0, count: names.length, jumlah: names.length, names };
                 });
-                skorChart.push({ nomor: skorNomor, pertanyaan, pembahasan, opsi: options.map(o => ({ nilai: o.nilai, jumlah: o.jumlah })), options });
+                const item = { nomor: skorNomor, local: localNomor, soal_kode: s.kode, soal_nama: s.nama, pertanyaan, pembahasan, opsi: options.map(o => ({ nilai: o.nilai, jumlah: o.jumlah })), options };
+                skorChart.push(item);
+                soalSkorItems.push(item);
             } else {
                 binNomor++;
                 const kunciRaw = q.kunci;
@@ -610,14 +648,18 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
                     const names = pemilihOpsi(j.id);
                     return { id: j.id, teks: j.teks || '', isKunci: kunci.includes(String(j.id)), count: names.length, names };
                 });
-                binaryChart.push({ nomor: binNomor, benar, salah: totalPeserta - benar, pertanyaan, pembahasan, options });
+                const item = { nomor: binNomor, local: localNomor, soal_kode: s.kode, soal_nama: s.nama, benar, salah: totalPeserta - benar, pertanyaan, pembahasan, options };
+                binaryChart.push(item);
+                soalBinaryItems.push(item);
             }
         });
+        if (soalBinaryItems.length) perSoal.push({ soal_kode: s.kode, soal_nama: s.nama, tipe: 'binary', items: soalBinaryItems });
+        if (soalSkorItems.length) perSoal.push({ soal_kode: s.kode, soal_nama: s.nama, tipe: 'skor', items: soalSkorItems });
     }
 
     return {
         modul: { kode: modul.kode, nama: modul.nama, soal: ringkasanSoal },
-        binaryChart, skorChart, sikapRaw, tipeSoal
+        binaryChart, skorChart, sikapRaw, tipeSoal, perSoal
     };
 }
 
@@ -1879,7 +1921,7 @@ app.get('/api/analisa/grup/:grubKey', auth(['admin','review']), ah(async (req, r
     `).all(isLegacy ? legacyNama : rawKey);
 
     if (!tokens.length) {
-        return res.json({ grub_key: rawKey, grub_token: legacyNama, ringkasan: { total: 0, used: 0, hangus: 0, modul: null }, peserta: [], charts: { binary: [], skor: [], sikap: [] }, tipe_soal: { binary: false, skor: false, sikap: false }, multi_modul: false, modul_list: [] });
+        return res.json({ grub_key: rawKey, grub_token: legacyNama, ringkasan: { total: 0, used: 0, hangus: 0, modul: null }, peserta: [], charts: { binary: [], skor: [], sikap: [] }, per_soal: [], tipe_soal: { binary: false, skor: false, sikap: false }, multi_modul: false, modul_list: [] });
     }
 
     const now = Date.now();
@@ -1904,7 +1946,7 @@ app.get('/api/analisa/grup/:grubKey', auth(['admin','review']), ah(async (req, r
         .sort((a, b) => new Date(b.laporan_created_at || 0) - new Date(a.laporan_created_at || 0))
         .map(r => ({ nama: r.user_nama || '-', skor: r.laporan_skor != null ? r.laporan_skor : null }));
 
-    let agg = { modul: null, binaryChart: [], skorChart: [], sikapRaw: [], tipeSoal: { binary: false, skor: false, sikap: false } };
+    let agg = { modul: null, binaryChart: [], skorChart: [], sikapRaw: [], tipeSoal: { binary: false, skor: false, sikap: false }, perSoal: [] };
     if (majorModul) {
         const laporanMajor = tokens.filter(t => t.laporan_kode && t.modul_kode === majorModul);
         agg = await computeAnalisaGrupAggregate(majorModul, laporanMajor);
@@ -1916,6 +1958,11 @@ app.get('/api/analisa/grup/:grubKey', auth(['admin','review']), ah(async (req, r
         ringkasan: { total, used, hangus, modul: agg.modul },
         peserta,
         charts: { binary: agg.binaryChart, skor: agg.skorChart, sikap: agg.sikapRaw },
+        // per_soal: kartu "Grafik Per Soal" versi baru — 1 entri per SOAL
+        // BERNAMA dlm modul (lihat komentar perSoal di computeAnalisaGrupAggregate).
+        // `charts` di atas TETAP dikirim apa adanya (dipakai analisa-soal.js
+        // utk lookup by-nomor & analisa-export.js utk sheet Excel gabungan).
+        per_soal: agg.perSoal || [],
         tipe_soal: agg.tipeSoal || { binary: false, skor: false, sikap: false },
         multi_modul: multiModul,
         modul_list: modulKodes.map(k => ({ kode: k, nama: (tokens.find(t => t.modul_kode === k) || {}).modul_nama || k, jumlah_token: modulCount[k] }))

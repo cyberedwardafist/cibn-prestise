@@ -59,6 +59,20 @@
 // _ATD_DUMMY_BINARY / _ATD_DUMMY_SKOR / _ATD_DUMMY_SIKAP_RAW (nama variabel
 // dipertahankan sengaja, lihat komentar di dekat deklarasinya) sekarang diisi
 // dari respons AnalisaAPI.getGrup() tiap kali grup dibuka — lihat _atdRenderCharts().
+//
+// UPDATE: kartu "Grafik Per Soal" di halaman ini SEKARANG 1 KARTU PER SOAL
+// BERNAMA dlm modul (urut sesuai modul.soal_list), BUKAN LAGI cuma 3 kartu
+// tetap yg menggabung SELURUH soal se-tipe jadi 1 sumbu-X (itu yg bikin
+// modul dgn banyak soal — mis. SKD: TWK+TIU+TKP — numpuk jadi 1 grafik
+// dgn sumbu 1..110 yg labelnya tidak terbaca). Ketiga TEMPLATE grafiknya
+// (line chart Benar/Salah, line chart Nilai/Skor Sendiri, median-chart
+// Sikap Kerja) TETAP SAMA, cuma sekarang dipanggil SEKALI PER SOAL (bukan
+// sekali per tipe utk seluruh modul), sumbu-X-nya nomor LOKAL soal itu saja.
+// Sumbernya agg.per_soal (lihat computeAnalisaGrupAggregate di server.js) —
+// _ATD_DUMMY_BINARY/_ATD_DUMMY_SKOR/_ATD_DUMMY_SIKAP_RAW (nomor GLOBAL,
+// digabung se-modul) TETAP diisi krn masih dipakai analisa-soal.js (lookup
+// 1 butir soal by nomor global) & tombol Ekstrak/analisa-export.js (sheet
+// Excel gabungan) — lihat komentar lengkap di _atdRenderCharts().
 
 // Dipanggil sekali di awal renderAnalisaTokenDetail(): kalau nama grup sudah
 // ada (baik dari klik normal di analisa-token.js MAUPUN hasil dipulihkan
@@ -280,124 +294,158 @@ function _atdGoToSoalDetail(evt, kind, nomor) {
 // masih kosong, cuma ada tombol kembali — isinya menyusul instruksi
 // berikutnya). Konteks (grup asal + jenis grafik) dititip lewat window var,
 // sama polanya dgn _atdGoToSoalDetail() di atas.
-function _atdGoToGrafikDetail(evt, kind) {
+function _atdGoToGrafikDetail(evt, kind, soalKode) {
     if (evt) evt.stopPropagation();
     window._analisaGrafikDetailGrup = window._analisaTokenDetailGrup || null;
     window._analisaGrafikDetailKind = kind;
+    window._analisaGrafikDetailSoalNama = null;
+    // Sejak kartu Sikap Kerja dipecah per-SOAL (1 modul boleh py >1 soal
+    // Sikap Kerja terpisah — lihat _atdRenderCharts), tombol "Analisa" di
+    // tiap kartu itu sekarang titip `soalKode` miliknya sendiri. analisa-
+    // grafik.js TIDAK diubah sama sekali (tetap "pakai ulang" _ATD_DUMMY_
+    // SIKAP_RAW/_atdSikapCats/_atdSikapDist apa adanya, sesuai desain lama
+    // yg tertulis di komentar file itu) — jadi di sinilah, SEBELUM
+    // navigateTo(), variabel global itu ditimpa dulu supaya isinya data
+    // grup soal yg TOMBOLNYA diklik, bukan grup soal Sikap Kerja lain yg
+    // kebetulan juga ada di modul yg sama.
+    if (soalKode && window._atdSikapGroupsByKode && window._atdSikapGroupsByKode[soalKode]) {
+        const grp = window._atdSikapGroupsByKode[soalKode];
+        _ATD_DUMMY_SIKAP_RAW = grp.raw;
+        _atdSikapCats = grp.categories;
+        _atdSikapDist = grp.catData;
+        window._analisaGrafikDetailSoalNama = grp.soal_nama;
+    }
     if (typeof _persistAnalisaCtx === 'function') _persistAnalisaCtx();
     navigateTo('analisa-grafik');
 }
 
 
 
-// ── ENTRY: bangun ketiga grafik per-soal dari hasil agregasi asli (agg.charts,
-// dari GET /api/analisa/grup/:grubToken) — lihat komentar keputusan produk
-// "multi-modul per grup" di server.js (computeAnalisaGrupAggregate) tentang
-// dari mana data ini berasal. Tiap tipe grafik dibedakan 2 kondisi kosongnya:
-//  1) Modul grup ini MEMANG TIDAK PUNYA soal bertipe itu sama sekali (dicek
-//     lewat agg.tipe_soal, dihitung SERVER dari susunan modul-nya sendiri —
-//     BUKAN dari isi chart-nya) -> kartunya disembunyikan total
-//     (_atdHideChartCard), tidak ada kotak kosong sama sekali. Ini wajar,
-//     bukan bug — 1 modul boleh saja cuma berisi soal Sikap Kerja misalnya.
-//  2) Modul MEMANG PUNYA soal bertipe itu (boleh lebih dari 1 soal, mis. 3
-//     soal Benar/Salah terpisah — semuanya tetap digabung jadi SATU grafik
-//     per tipe seperti biasa) tapi datanya masih kosong krn belum ada
-//     peserta yang menyelesaikan ujian -> kartu TETAP tampil dgn pesan,
-//     karena grafiknya memang akan terisi begitu ada yang selesai.
+// ── ENTRY: bangun kartu "Grafik Per Soal" dari hasil agregasi asli
+// (agg.per_soal, dari GET /api/analisa/grup/:grubToken) — lihat komentar
+// perSoal di server.js (computeAnalisaGrupAggregate).
+//
+// BERBEDA dari versi lama (3 kartu TETAP per modul, binary/skor/sikap
+// digabung jadi 1 grafik masing2 utk SELURUH modul, sumbu-X-nya nomor
+// GLOBAL lintas soal — makanya modul SKD 3 soal 30+35+45 butir numpuk jadi
+// 1 sumbu 1..110, label-nya numpuk tak terbaca): SEKARANG 1 KARTU PER SOAL
+// BERNAMA dlm modul (urut sesuai modul.soal_list, boleh lebih dari 3 kalau
+// modul py lebih dari 3 soal), tiap kartu pakai salah satu dari 3 TEMPLATE
+// grafik yg sudah disiapkan (line chart Benar/Salah, line chart Nilai/Skor
+// Sendiri, atau median-chart Sikap Kerja) sesuai tipe soal itu SENDIRI —
+// bukan lagi tipe gabungan modul. Sumbu-X tiap kartu pakai nomor LOKAL soal
+// itu saja (1..N, reset tiap ganti soal), jadi soal ke-2 dgn 30 butir tetap
+// tampil 1..30, bukan lanjut dari nomor global soal pertama.
+//
+// Kalau modul ini benar2 tidak punya soal sama sekali (agg.per_soal kosong)
+// -> 1 kartu pesan kosong. Kalau modul py soal tapi belum ada peserta yang
+// selesai -> kartu tetap tampil (item digenerate per BUTIR SOAL, bukan per
+// peserta, jadi tetap ada baris/titik-nya walau nilainya 0 semua).
 function _atdRenderCharts(agg) {
+    const wrap = document.getElementById('atd-charts-wrap');
+    if (!wrap) return;
+
     if (!agg) {
-        _atdEmptyChartCard('atd-chart-binary', 'Gagal memuat grafik, silakan coba lagi');
-        _atdEmptyChartCard('atd-chart-skor', 'Gagal memuat grafik, silakan coba lagi');
-        _atdEmptyChartCard('atd-chart-sikap', 'Gagal memuat grafik, silakan coba lagi');
+        wrap.innerHTML = '<div class="card atd-chart-card"><div class="empty-state"><p>Gagal memuat grafik, silakan coba lagi</p></div></div>';
         return;
     }
 
+    // TETAP diisi (nomor GLOBAL, tidak berubah) — bukan lagi dipakai
+    // langsung utk membangun grafik DI HALAMAN INI (lihat per_soal di
+    // bawah), tapi WAJIB tetap terisi krn 2 hal lain masih baca variabel
+    // global ini apa adanya: analisa-soal.js (lookup 1 butir soal via klik
+    // sumbu-X, by nomor GLOBAL) & tombol "Ekstrak" -> analisa-export.js
+    // (sheet Excel gabungan se-modul).
     _ATD_DUMMY_BINARY = (agg.charts && agg.charts.binary) || [];
     _ATD_DUMMY_SKOR = (agg.charts && agg.charts.skor) || [];
     _ATD_DUMMY_SIKAP_RAW = (agg.charts && agg.charts.sikap) || [];
-    const tipeSoal = agg.tipe_soal || { binary: false, skor: false, sikap: false };
 
-    // Pastikan ketiga kartu kembali terlihat dulu sebelum diputuskan
-    // disembunyikan atau tidak di bawah — kalau kunjungan sebelumnya (grup
-    // token lain) sempat menyembunyikan salah satu kartu (tipeSoal-nya false
-    // saat itu), tapi grup token yang ini justru punya tipe itu, kartunya
-    // harus muncul lagi. _atdBuildLineChart/_atdBuildSikapMedianChart di
-    // bawah cuma mengisi innerHTML, tidak pernah menyentuh style.display.
-    ['atd-chart-binary', 'atd-chart-skor', 'atd-chart-sikap'].forEach(id => {
-        const elX = document.getElementById(id);
-        if (elX) elX.style.display = '';
+    const perSoal = agg.per_soal || [];
+    // Dipakai _atdGoToGrafikDetail() saat tombol "Analisa" di kartu Sikap
+    // Kerja SALAH SATU soal diklik — supaya analisa-grafik.js (yg pakai
+    // ulang _ATD_DUMMY_SIKAP_RAW dkk apa adanya) dapat data grup SOAL yg
+    // BENAR, bukan soal Sikap Kerja lain yg kebetulan juga ada di modul ini.
+    window._atdSikapGroupsByKode = {};
+
+    if (!perSoal.length) {
+        wrap.innerHTML = '<div class="card atd-chart-card"><div class="empty-state"><p>Modul ini belum berisi soal</p></div></div>';
+        return;
+    }
+
+    wrap.innerHTML = perSoal.map((grp, gi) => `<div class="card atd-chart-card" id="atd-chart-${gi}"></div>`).join('');
+
+    perSoal.forEach((grp, gi) => {
+        const containerId = 'atd-chart-' + gi;
+        const namaSoal = _atdEsc(grp.soal_nama);
+
+        if (grp.tipe === 'binary') {
+            const items = grp.items || [];
+            if (!items.length) { _atdEmptyChartCard(containerId, `${grp.soal_nama}: belum ada data`); return; }
+            const cats = items.map(it => it.local);
+            const clickVals = items.map(it => it.nomor);
+            const series = [
+                { label: 'Benar', color: '#16a34a', values: items.map(it => it.benar) },
+                { label: 'Salah', color: '#dc2626', values: items.map(it => it.salah) }
+            ];
+            const maxVal = Math.max.apply(null, items.flatMap(it => [it.benar, it.salah]));
+            _atdSetChartPopupData(containerId, { items });
+            _atdBuildLineChart(containerId, {
+                title: `${namaSoal} — Grafik Per Soal (Tipe Benar/Salah)`,
+                sub: 'Jumlah peserta yang menjawab Benar / Salah, per nomor soal (nomor butir soal ini)',
+                categories: cats, clickValues: clickVals, series, maxVal, kind: 'binary', xClickFn: '_atdGoToSoalDetail'
+            });
+            const leg = document.getElementById(containerId + '-legend');
+            if (leg) leg.innerHTML = _atdBinaryLegendHtml();
+            _atdBindChartEvents(containerId, 'binary');
+
+        } else if (grp.tipe === 'skor') {
+            // 1 garis per OPSI JAWABAN (bukan per nilai gabungan) — kalau
+            // beberapa opsi kebetulan sama2 bernilai 0, tetap jadi garis
+            // terpisah (lihat _atdBuildOpsiSeries), cuma labelnya sama2
+            // "Nilai 0" dgn warna beda2 supaya kebedanya jelas.
+            const items = grp.items || [];
+            if (!items.length) { _atdEmptyChartCard(containerId, `${grp.soal_nama}: belum ada data`); return; }
+            const { series, sortedPerSoal } = _atdBuildOpsiSeries(items);
+            const cats = items.map(it => it.local);
+            const clickVals = items.map(it => it.nomor);
+            const maxVal = Math.max.apply(null, items.flatMap(it => it.opsi.map(o => o.jumlah)));
+            _atdSetChartPopupData(containerId, { items, sortedPerSoal, seriesMeta: series });
+            _atdBuildLineChart(containerId, {
+                title: `${namaSoal} — Grafik Per Soal (Tipe Nilai/Skor Sendiri)`,
+                sub: 'Jumlah peserta yang memilih tiap opsi jawaban, per nomor soal (nomor butir soal ini) — opsi sesama nilai 0 tetap dipisah, bukan digabung',
+                categories: cats, clickValues: clickVals, series, maxVal, kind: 'skor', xClickFn: '_atdGoToSoalDetail'
+            });
+            const leg = document.getElementById(containerId + '-legend');
+            if (leg) leg.innerHTML = _atdSkorLegendHtml(series);
+            _atdBindChartEvents(containerId, 'skor');
+
+        } else if (grp.tipe === 'sikap') {
+            // Sebaran nilai antar peserta per kolom (Benar/Salah/Jumlah
+            // Dijawab), digambar sbg bola kecil + garis median per kategori
+            // (lihat komentar _atdBuildSikapMedianChart) — KOLOM di sini
+            // lokal utk soal Sikap Kerja ini saja (K1, K2, ... reset tiap
+            // ganti soal Sikap Kerja lain dlm modul yg sama).
+            const cats = grp.categories || [];
+            const catRaw = grp.catRaw || [];
+            if (!cats.length) { _atdEmptyChartCard(containerId, `${grp.soal_nama}: belum ada data`); return; }
+            const distBenar = _atdDistFromRaw(catRaw, r => r.benar);
+            const distSalah = _atdDistFromRaw(catRaw, r => r.salah);
+            const distDijawab = _atdDistFromRaw(catRaw, r => r.benar + r.salah);
+            const catData = [
+                { label: 'Benar', color: '#16a34a', key: 'benar', dist: distBenar },
+                { label: 'Salah', color: '#dc2626', key: 'salah', dist: distSalah },
+                { label: 'Jumlah Dijawab', color: '#2666b8', key: 'dijawab', dist: distDijawab }
+            ];
+            window._atdSikapGroupsByKode[grp.soal_kode] = { soal_nama: grp.soal_nama, categories: cats, raw: catRaw, catData };
+            _atdSetChartPopupData(containerId, { cats, dist: catData });
+            _atdBuildSikapMedianChart(containerId, {
+                title: `${namaSoal} — Grafik Sikap Kerja (Median & Sebaran, Per Kolom)`,
+                sub: 'Tiap bola = jumlah orang yang dapat nilai itu; garis = median (bukan rata-rata) tiap kategori per kolom',
+                categories: cats, catData, kind: 'sikap', analisaBtnSoalKode: grp.soal_kode
+            });
+            const leg = document.getElementById(containerId + '-legend');
+            if (leg) leg.innerHTML = _atdSikapLegendHtml();
+            _atdBindChartEvents(containerId, 'sikap');
+        }
     });
-
-    // 1) Tipe Benar/Salah
-    if (!tipeSoal.binary) {
-        _atdHideChartCard('atd-chart-binary');
-    } else if (!_ATD_DUMMY_BINARY.length) {
-        _atdEmptyChartCard('atd-chart-binary', 'Belum ada peserta yang menyelesaikan ujian');
-    } else {
-        const catsB = _ATD_DUMMY_BINARY.map(s => s.nomor);
-        const seriesB = [
-            { label: 'Benar', color: '#16a34a', values: _ATD_DUMMY_BINARY.map(s => s.benar) },
-            { label: 'Salah', color: '#dc2626', values: _ATD_DUMMY_BINARY.map(s => s.salah) }
-        ];
-        const maxValB = Math.max.apply(null, _ATD_DUMMY_BINARY.flatMap(s => [s.benar, s.salah]));
-        _atdBuildLineChart('atd-chart-binary', {
-            title: 'Grafik Per Soal — Tipe Benar/Salah',
-            sub: 'Jumlah peserta yang menjawab Benar / Salah, per nomor soal',
-            categories: catsB, series: seriesB, maxVal: maxValB, kind: 'binary', xClickFn: '_atdGoToSoalDetail'
-        });
-        const legB = document.getElementById('atd-chart-binary-legend');
-        if (legB) legB.innerHTML = _atdBinaryLegendHtml();
-        _atdBindChartEvents('atd-chart-binary', 'binary');
-    }
-
-    // 2) Tipe Nilai/Skor Sendiri — 1 garis per OPSI JAWABAN (bukan per nilai
-    // gabungan). Kalau beberapa opsi kebetulan sama2 bernilai 0, tetap jadi
-    // garis terpisah (lihat _atdBuildOpsiSeries), cuma labelnya sama2 "Nilai 0"
-    // dgn warna beda2 supaya kebedanya jelas.
-    if (!tipeSoal.skor) {
-        _atdHideChartCard('atd-chart-skor');
-    } else if (!_ATD_DUMMY_SKOR.length) {
-        _atdEmptyChartCard('atd-chart-skor', 'Belum ada peserta yang menyelesaikan ujian');
-    } else {
-        const { series: seriesS, sortedPerSoal: sortedS } = _atdBuildOpsiSeries(_ATD_DUMMY_SKOR);
-        _atdSkorSeriesMeta = seriesS;
-        _atdSkorSortedPerSoal = sortedS;
-        const catsS = _ATD_DUMMY_SKOR.map(s => s.nomor);
-        const maxValS = Math.max.apply(null, _ATD_DUMMY_SKOR.flatMap(s => s.opsi.map(o => o.jumlah)));
-        _atdBuildLineChart('atd-chart-skor', {
-            title: 'Grafik Per Soal — Tipe Nilai/Skor Sendiri',
-            sub: 'Jumlah peserta yang memilih tiap opsi jawaban, per nomor soal — opsi sesama nilai 0 tetap dipisah, bukan digabung',
-            categories: catsS, series: seriesS, maxVal: maxValS, kind: 'skor', xClickFn: '_atdGoToSoalDetail'
-        });
-        const legS = document.getElementById('atd-chart-skor-legend');
-        if (legS) legS.innerHTML = _atdSkorLegendHtml(seriesS);
-        _atdBindChartEvents('atd-chart-skor', 'skor');
-    }
-
-    // 3) Tipe Sikap Kerja — sebaran nilai antar peserta per kolom (Benar/
-    // Salah/Jumlah Dijawab), digambar sbg bola kecil + garis median per
-    // kategori (lihat komentar _atdBuildSikapMedianChart).
-    if (!tipeSoal.sikap) {
-        _atdHideChartCard('atd-chart-sikap');
-    } else if (!_ATD_DUMMY_SIKAP_RAW.length) {
-        _atdEmptyChartCard('atd-chart-sikap', 'Belum ada peserta yang menyelesaikan ujian');
-    } else {
-        const distBenar = _atdDistFromRaw(_ATD_DUMMY_SIKAP_RAW, r => r.benar);
-        const distSalah = _atdDistFromRaw(_ATD_DUMMY_SIKAP_RAW, r => r.salah);
-        const distDijawab = _atdDistFromRaw(_ATD_DUMMY_SIKAP_RAW, r => r.benar + r.salah);
-        _atdSikapCats = _ATD_DUMMY_SIKAP_RAW.map((_, i) => 'K' + (i + 1));
-        _atdSikapDist = [
-            { label: 'Benar', color: '#16a34a', key: 'benar', dist: distBenar },
-            { label: 'Salah', color: '#dc2626', key: 'salah', dist: distSalah },
-            { label: 'Jumlah Dijawab', color: '#2666b8', key: 'dijawab', dist: distDijawab }
-        ];
-        _atdBuildSikapMedianChart('atd-chart-sikap', {
-            title: 'Grafik Sikap Kerja — Median & Sebaran, Per Kolom',
-            sub: 'Tiap bola = jumlah orang yang dapat nilai itu; garis = median (bukan rata-rata) tiap kategori per kolom',
-            categories: _atdSikapCats, catData: _atdSikapDist, kind: 'sikap'
-        });
-        const legK = document.getElementById('atd-chart-sikap-legend');
-        if (legK) legK.innerHTML = _atdSikapLegendHtml();
-        _atdBindChartEvents('atd-chart-sikap', 'sikap');
-    }
 }

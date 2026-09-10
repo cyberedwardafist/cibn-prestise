@@ -52,7 +52,14 @@ async function kirimHasilUjian(token, payload, attempt=1){
     localStorage.removeItem('cbn_pending_submit_' + token);
     localStorage.removeItem('cbn_leavecount_' + token);
     const warn=document.getElementById('h-submit-warning'); if(warn) warn.style.display='none';
-    await CBN_DB.clear();
+    // BUG YANG DIPERBAIKI: CBN_DB.clear() sebelumnya ada DI DALAM try yang sama
+    // dengan fetch() di atas — kalau IndexedDB gagal dibersihkan (mis. private
+    // browsing / storage device sedang bermasalah), error itu jatuh ke catch()
+    // di bawah dan dianggap SUBMIT GAGAL, padahal skor sudah tersimpan sukses
+    // di server. Peserta jadi melihat proses retry ulang (sampai beberapa
+    // percobaan dgn jeda) walau hasilnya sebenarnya sudah aman. Sekarang
+    // kegagalan bersihkan cache lokal ini tidak dianggap kegagalan submit.
+    try { await CBN_DB.clear(); } catch(e) { console.warn('Gagal membersihkan cache lokal (tidak fatal, hasil tetap tersimpan):', e); }
     return data;
   }catch(e){
     console.warn('Submit gagal (percobaan '+attempt+'):',e);

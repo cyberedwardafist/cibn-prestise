@@ -20,12 +20,10 @@
     <div class="empty-state"><p>Memuat data peserta…</p></div>
   </div>
 
-  <!-- Grafik per-soal — DATA DUMMY, belum ditarik dari jawaban asli.
-       Dua contoh sesuai tipe penilaian soal:
-       1) Benar/Salah (pilihan ganda otomatis-nilai)
-       2) Nilai/skor sendiri (uraian/essay, dinilai reviewer) -->
-  <div class="card atd-chart-card" id="atd-chart-binary"></div>
-  <div class="card atd-chart-card" id="atd-chart-skor"></div>
-  <div class="card atd-chart-card" id="atd-chart-sikap"></div>
+  <!-- Grafik Per Soal — 1 kartu per SOAL BERNAMA dlm modul (bukan lagi 3
+       kartu tetap digabung se-modul), dibangun dinamis oleh
+       _atdRenderCharts() di analisa-token-detail.js sesuai agg.per_soal
+       dari server. Lihat komentar lengkap di sana. -->
+  <div id="atd-charts-wrap"></div>
 
   <div class="atd-pie-pop" id="atd-pie-pop" style="display:none"></div>

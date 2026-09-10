@@ -577,7 +577,22 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (!getUser() || !getJWT()) { window.location.href = 'index.html'; return; }
 
   // Ambil data dari IndexedDB (kapasitas besar)
-  let rawData = await CBN_DB.get('current_exam');
+  // BUG YANG DIPERBAIKI: sebelumnya await ini TIDAK dibungkus try/catch. Di
+  // beberapa device/browser (Safari mode Private/Incognito, sebagian browser
+  // kios/terkelola sekolah, WebView Android yang membatasi IndexedDB, atau
+  // storage yang tiba-tiba diblokir kebijakan perangkat), CBN_DB.get() bisa
+  // reject — dan karena tidak tertangkap, seluruh proses DOMContentLoaded ini
+  // berhenti diam-diam: peserta cuma melihat layar "Memuat ujian..." selamanya
+  // tanpa pesan error apapun, padahal sudah ada UI fallback "Data Ujian Tidak
+  // Ditemukan" di bawah yang seharusnya tampil untuk kasus ini. Sekarang kalau
+  // IndexedDB gagal dibaca, rawData tetap null dan lanjut ke fallback
+  // sessionStorage → localStorage seperti biasa, bukan macet total.
+  let rawData = null;
+  try {
+    rawData = await CBN_DB.get('current_exam');
+  } catch (e) {
+    console.warn('[CIBN PRESTISE] IndexedDB gagal dibaca, fallback ke sessionStorage:', e);
+  }
   
   // Fallback ke sessionStorage jika di database tidak ada (untuk kompatibilitas)
   if (!rawData) {
@@ -1406,11 +1421,26 @@ function openMobNav(){document.getElementById('mob-nav-overlay').classList.add('
 function closeMobNav(){document.getElementById('mob-nav-overlay').classList.remove('active');document.getElementById('mob-nav-slide').classList.remove('open');}
 
 function konfirmasiSelesai(){
-  const curKode = st.flat[st.curIdx]?.soalKode;
-  const setIt=st.flat.filter(f=>f.type!=='sikap_kerja' && f.soalKode === curKode);
+  // BUG YANG DIPERBAIKI: sebelumnya jumlah "belum dijawab" SELALU dihitung
+  // hanya dari soal-soal dengan soalKode yang sama dengan soal yang sedang
+  // dibuka saat ini (curKode) — cocok untuk modul biasa (per-bagian, timer
+  // per-bagian, tidak bisa lompat ke bagian lain). TAPI untuk modul Mode
+  // Bebas Pindah Soal (1 timer utama utk SELURUH modul, peserta bebas
+  // lompat ke bagian manapun sebelum waktu habis), jumlah ini SEHARUSNYA
+  // dihitung dari seluruh soal di modul — bukan cuma bagian yang sedang
+  // dibuka — karena tombol ini memang mengakhiri keseluruhan ujian, dan di
+  // mode ini "bagian ini" bukan lagi unit pengerjaan yang terkunci.
+  let setIt;
+  if (st.modeBebas) {
+    setIt = st.flat.filter(f=>f.type!=='sikap_kerja');
+  } else {
+    const curKode = st.flat[st.curIdx]?.soalKode;
+    setIt = st.flat.filter(f=>f.type!=='sikap_kerja' && f.soalKode === curKode);
+  }
   const ans=setIt.filter(f=>!!st.jawaban[`${f.soalKode}_${f.qIdx}`]).length;
   const sisa=setIt.length-ans;
-  document.getElementById('confirm-msg').textContent=sisa>0?`Masih ada ${sisa} soal belum dijawab di bagian ini. Yakin ingin mengakhiri keseluruhan ujian?`:'Semua soal di bagian ini sudah dijawab. Yakin mengakhiri keseluruhan ujian?';
+  const lingkup = st.modeBebas ? '' : ' di bagian ini';
+  document.getElementById('confirm-msg').textContent=sisa>0?`Masih ada ${sisa} soal belum dijawab${lingkup}. Yakin ingin mengakhiri keseluruhan ujian?`:`Semua soal${lingkup} sudah dijawab. Yakin mengakhiri keseluruhan ujian?`;
   document.getElementById('confirm-overlay').classList.add('active');
 }
 function closeConfirm(){document.getElementById('confirm-overlay').classList.remove('active');}
