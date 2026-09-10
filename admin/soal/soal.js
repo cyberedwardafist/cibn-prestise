@@ -980,6 +980,7 @@ async function downloadSoalTemplate() {
         ['Nama Soal', 'Contoh: Tes Wawasan Kebangsaan'],
         ['Nama Internal', ''],
         ['Kelompok', ''],
+        ['Materi', type === 'sikap_kerja' ? '-' : 'Contoh: TWK, TIU, TKP'],
         ['Tipe Soal', type],
         ['Sistem Penilaian', type === 'sikap_kerja' ? '-' : skorType],
         ['Jumlah Jawaban Dipilih Peserta', type === 'sikap_kerja' ? '-' : 1],
@@ -1008,11 +1009,11 @@ async function downloadSoalTemplate() {
     } else {
         let header, exampleRow;
         if (skorType === 'nilai_sendiri') {
-            header = ['No', 'Pertanyaan', 'Pilihan A', 'Skor A', 'Pilihan B', 'Skor B', 'Pilihan C', 'Skor C', 'Pilihan D', 'Skor D', 'Pilihan E', 'Skor E', 'Pembahasan'];
-            exampleRow = [1, 'Contoh: Apa sikap terbaik saat menghadapi rekan kerja yang lalai?', 'Menegur langsung dengan tegas', 10, 'Membiarkan saja', 0, 'Melapor ke atasan tanpa menegur', 5, '', '', '', '', 'Contoh pembahasan (opsional)'];
+            header = ['No', 'Pertanyaan', 'Pilihan A', 'Skor A', 'Pilihan B', 'Skor B', 'Pilihan C', 'Skor C', 'Pilihan D', 'Skor D', 'Pilihan E', 'Skor E', 'Pembahasan', 'Materi'];
+            exampleRow = [1, 'Contoh: Apa sikap terbaik saat menghadapi rekan kerja yang lalai?', 'Menegur langsung dengan tegas', 10, 'Membiarkan saja', 0, 'Melapor ke atasan tanpa menegur', 5, '', '', '', '', 'Contoh pembahasan (opsional)', 'TKP'];
         } else {
-            header = ['No', 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban', 'Pembahasan'];
-            exampleRow = [1, 'Contoh: Ibu kota Indonesia adalah?', 'Jakarta', 'Bandung', 'Surabaya', 'Medan', '', 'A', 'Contoh pembahasan (opsional)'];
+            header = ['No', 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban', 'Pembahasan', 'Materi'];
+            exampleRow = [1, 'Contoh: Ibu kota Indonesia adalah?', 'Jakarta', 'Bandung', 'Surabaya', 'Medan', '', 'A', 'Contoh pembahasan (opsional)', 'TWK'];
         }
         const rows = [header, exampleRow];
         for (let i = 2; i <= jumlah; i++) {
@@ -1034,6 +1035,9 @@ async function downloadSoalTemplate() {
             ['6. "Nama Internal" di sheet Info bersifat opsional — hanya terlihat di admin, kosongkan jika tidak perlu.'],
             ['7. "Kelompok" di sheet Info bersifat opsional — isi PERSIS sama dengan nama kelompok yang sudah ada di aplikasi (besar/kecil huruf tidak masalah). Kosongkan jika soal tidak perlu masuk kelompok manapun. Jika nama yang ditulis tidak cocok dengan kelompok manapun, soal akan tetap terimport tapi kelompoknya dikosongkan (akan ada notifikasi).'],
             _soalKelompokList.length ? ['   Kelompok yang sudah ada: ' + _soalKelompokList.map(k => k.nama).join(', ')] : ['   Belum ada kelompok yang dibuat — kolom ini bisa dikosongkan.'],
+            ['8. "Materi" di sheet Info WAJIB diisi dulu jika mau pakai kolom Materi di sheet Soal — tulis daftar nama materi dipisah koma, contoh: TWK, TIU, TKP. Ini beda dari Kelompok: daftar Materi cuma berlaku untuk soal ini sendiri, bukan data global aplikasi.'],
+            ['9. Kolom "Materi" di sheet Soal (paling kanan) diisi PERSIS salah satu nama yang sudah dideklarasikan di Info->Materi (besar/kecil huruf tidak masalah). Boleh dikosongkan jika pertanyaan itu tidak perlu ditandai materi.'],
+            ['10. Jika nama di kolom Materi TIDAK ada di daftar Info->Materi (salah ketik/belum dideklarasikan), pertanyaan itu akan otomatis dianggap TANPA materi — tidak ada notifikasi/error, jadi pastikan penulisannya sama persis.'],
         ];
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(petunjuk), 'Petunjuk');
     }
@@ -1219,12 +1223,29 @@ async function _importSoalFromWorkbook(wb, imageMap) {
     // Kelompok: cell kosong -> dikosongkan diam-diam (seperti tidak pernah diisi).
     // Cell terisi tapi nama tidak cocok kelompok manapun -> dikosongkan JUGA, tapi beri notifikasi.
     const kelompokResolved = await _resolveImportKelompokKode(info['Kelompok']);
+    // Materi: dideklarasikan di sheet Info (nama-nama dipisah koma), lokal khusus soal ini saja
+    // (bukan tabel global seperti Kelompok). Baris di sheet Soal cuma boleh mereferensikan nama
+    // yang sudah dideklarasikan di sini; kalau tidak cocok -> dianggap tanpa materi, diam-diam.
+    const materiDeclared = String(info['Materi'] || '').split(',').map(s => s.trim()).filter(Boolean);
+    const materiListImport = [];
+    materiDeclared.forEach(nm => {
+        if (!materiListImport.some(m => m.nama.toLowerCase() === nm.toLowerCase())) {
+            materiListImport.push({ id: 'MAT_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), nama: nm });
+        }
+    });
+    const _findMateriId = (nm) => {
+        const t = String(nm || '').trim();
+        if (!t) return null;
+        const m = materiListImport.find(x => x.nama.toLowerCase() === t.toLowerCase());
+        return m ? m.id : null;
+    };
 
     SoalState.mode = 'build'; SoalState.kode = null; SoalState.editMode = false; SoalState._editors = {};
     SoalState.nama = nama; SoalState.nama_internal = namaInternal; SoalState.type = type; SoalState.skor_type = skorType;
     SoalState.opsi_jawaban = opsiJawaban;
     SoalState.timer = { jam: timerJam, menit: timerMenit, detik: timerDetik };
     SoalState.kelompok = kelompokResolved.kode;
+    SoalState.materiList = materiListImport;
     const kelompokNotifSuffix = kelompokResolved.notFound
         ? ` (Kelompok "${String(info['Kelompok']).trim()}" tidak ditemukan, dikosongkan)`
         : '';
@@ -1285,7 +1306,7 @@ async function _importSoalFromWorkbook(wb, imageMap) {
                 if (imgFor(1)) { totalGambar += imgFor(1).length; soalTeks += _imgTagSoal(imgFor(1)); }
                 let pembahasanTeks = _escHtmlSoal(r[12] || '');
                 if (imgFor(12)) { totalGambar += imgFor(12).length; pembahasanTeks += _imgTagSoal(imgFor(12)); }
-                q = { id: 'Q_' + Date.now() + '_' + idx, soal: soalTeks, jawaban, kunci: [], pembahasan: pembahasanTeks };
+                q = { id: 'Q_' + Date.now() + '_' + idx, soal: soalTeks, jawaban, kunci: [], pembahasan: pembahasanTeks, materi: _findMateriId(r[13]) };
             } else {
                 const teksIdx = [2, 3, 4, 5, 6];
                 const jawaban = [];
@@ -1302,7 +1323,7 @@ async function _importSoalFromWorkbook(wb, imageMap) {
                 if (imgFor(1)) { totalGambar += imgFor(1).length; soalTeks += _imgTagSoal(imgFor(1)); }
                 let pembahasanTeks = _escHtmlSoal(r[8] || '');
                 if (imgFor(8)) { totalGambar += imgFor(8).length; pembahasanTeks += _imgTagSoal(imgFor(8)); }
-                q = { id: 'Q_' + Date.now() + '_' + idx, soal: soalTeks, jawaban, kunci, pembahasan: pembahasanTeks };
+                q = { id: 'Q_' + Date.now() + '_' + idx, soal: soalTeks, jawaban, kunci, pembahasan: pembahasanTeks, materi: _findMateriId(r[9]) };
             }
             return q;
         });
@@ -1542,11 +1563,14 @@ function _buildSoalWorkbook(s) {
     const skorType = s.skor_type || 'benar_salah';
     const wb = XLSX.utils.book_new();
 
+    const materiListExport = s.materi_list || [];
+    const _materiNamaExport = (id) => (materiListExport.find(m => m.id === id) || {}).nama || '';
     const infoRows = [
         ['Field', 'Isi'],
         ['Nama Soal', s.nama || ''],
         ['Nama Internal', s.nama_internal || ''],
         ['Kelompok', _soalKelompokNama(s.kelompok) || ''],
+        ['Materi', type === 'sikap_kerja' ? '-' : materiListExport.map(m => m.nama).join(', ')],
         ['Tipe Soal', type],
         ['Sistem Penilaian', type === 'sikap_kerja' ? '-' : skorType],
         ['Jumlah Jawaban Dipilih Peserta', type === 'sikap_kerja' ? '-' : (s.opsi_jawaban || 1)],
@@ -1567,8 +1591,8 @@ function _buildSoalWorkbook(s) {
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(kolomRows), 'Kolom');
     } else {
         const header = skorType === 'nilai_sendiri'
-            ? ['No', 'Pertanyaan', 'Pilihan A', 'Skor A', 'Pilihan B', 'Skor B', 'Pilihan C', 'Skor C', 'Pilihan D', 'Skor D', 'Pilihan E', 'Skor E', 'Pembahasan']
-            : ['No', 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban', 'Pembahasan'];
+            ? ['No', 'Pertanyaan', 'Pilihan A', 'Skor A', 'Pilihan B', 'Skor B', 'Pilihan C', 'Skor C', 'Pilihan D', 'Skor D', 'Pilihan E', 'Skor E', 'Pembahasan', 'Materi']
+            : ['No', 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban', 'Pembahasan', 'Materi'];
         const rows = [header];
         data.forEach((q, idx) => {
             const jawaban = q.jawaban || [];
@@ -1591,6 +1615,7 @@ function _buildSoalWorkbook(s) {
                 r.push(kunciHuruf.join(','));
             }
             r.push(_htmlToPlainSoal(q.pembahasan));
+            r.push(_materiNamaExport(q.materi));
             rows.push(r);
         });
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Soal');
@@ -1656,6 +1681,7 @@ async function exportCurrentSoalToExcel() {
         nama: SoalState.nama, nama_internal: SoalState.nama_internal, type: SoalState.type, skor_type: SoalState.skor_type,
         opsi_jawaban: SoalState.opsi_jawaban, timer: SoalState.timer, kelompok: SoalState.kelompok,
         data: SoalState.type === 'sikap_kerja' ? (SoalState.kolom || []) : (SoalState.pertanyaan || []),
+        materi_list: SoalState.materiList || [],
     });
 }
 
