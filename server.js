@@ -2100,7 +2100,47 @@ app.post('/api/exam/submit', auth(['user','admin','review']), ah(async (req, res
     // membaca status digunakan-nya (yang saat itu sudah ter-update), sehingga
     // jalur idempotensi (kembalikan laporan yang sudah ada) yang menanganinya,
     // bukan membuat baris baru.
-    const result = await transaction(async (tdb) => {
+    // ── PERBAIKAN "kode_counters KETINGGALAN DARI DATA LAMA" ────────────────
+    // AKAR MASALAH (BUKAN race condition — kode_counters + UPDATE...RETURNING
+    // di genKode() sudah atomik dgn benar): kode_counters bisa punya baris
+    // 'laporan' dengan `counter` LEBIH KECIL drpd kode TERBESAR yang sudah ADA
+    // beneran di tabel laporan (mis. setelah db/migrate-from-sqlite.js
+    // meng-INSERT data laporan lama LANGSUNG dgn kode aslinya, TANPA lewat
+    // genKode() — lihat db/migrate-from-sqlite.js — sementara baris
+    // kode_counters utk 'laporan' sudah lebih dulu ada dgn angka kecil, mis.
+    // dari beberapa submit asli sebelum migrasi dijalankan). Akibatnya
+    // genKode('LAP','laporan') terus menghasilkan kode yang KEBETULAN SUDAH
+    // DIPAKAI data lama (mis. LAP034) berkali-kali berturut-turut sampai
+    // counter akhirnya lewat angka terbesar yang ada — persis pola bertubi²
+    // "duplicate key value violates unique constraint laporan_kode_key" yang
+    // terlihat di log. Selama itu, tiap percobaan (asli & retry otomatis
+    // client di ujian/hasil.js) GAGAL 400, padahal isi jawabannya valid.
+    // SEKARANG: kalau INSERT gagal spesifik krn tabrakan kode (23505 pada
+    // constraint laporan_kode_key), seluruh transaksi ini diulang dari awal
+    // (genKode() dipanggil ulang -> dapat angka baru yang sudah lanjut dari
+    // percobaan gagal sebelumnya, krn counter tetap naik walau INSERT-nya
+    // gagal) — TANPA peserta perlu menunggu client-side retry (yang tetap
+    // ada sbg pengaman lapis kedua kalau penyebabnya justru gangguan
+    // jaringan/server, bukan ini). Lihat juga scripts/fix-kode-counters.js
+    // utk menyamakan ulang seluruh kode_counters dgn data yang sudah ada
+    // (perbaikan satu-kali, dijalankan manual, tidak otomatis di sini).
+    const MAX_KODE_CLASH_RETRY = 8;
+    let result;
+    for (let clashAttempt = 1; clashAttempt <= MAX_KODE_CLASH_RETRY; clashAttempt++) {
+        try {
+            result = await submitUjianTransaksi();
+            break;
+        } catch (e) {
+            const isKodeClash = e && e.code === '23505' && /laporan_kode_key/.test(e.constraint || e.message || '');
+            if (!isKodeClash || clashAttempt === MAX_KODE_CLASH_RETRY) throw e;
+            console.warn(`[exam/submit] Tabrakan kode laporan (percobaan ${clashAttempt}/${MAX_KODE_CLASH_RETRY}), mengulang dgn kode baru...`);
+        }
+    }
+
+    res.status(result.status).json(result.body);
+
+    async function submitUjianTransaksi() {
+    return await transaction(async (tdb) => {
         const token = await tdb.prepare('SELECT * FROM tokens WHERE kode=? FOR UPDATE').get(token_kode);
         if (!token) return { status: 404, body: { error: 'Token tidak ditemukan' } };
 
@@ -2162,8 +2202,7 @@ app.post('/api/exam/submit', auth(['user','admin','review']), ah(async (req, res
         try { const modul = await db.prepare('SELECT * FROM modul WHERE kode=?').get(modul_kode); if (modul) soalDenganKunci = await buildSoalDetail(modul, { withKunci: true }); } catch (e) {}
         return { status: 200, body: { kode, skor, soal: soalDenganKunci, message: 'Ujian berhasil disimpan' } };
     });
-
-    res.status(result.status).json(result.body);
+    }
 }));
 
 
