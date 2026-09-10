@@ -2355,7 +2355,14 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.ht
 
 app.use((req, res) => res.status(404).json({ error: 'Endpoint tidak ditemukan' }));
 app.use((err, req, res, next) => {
-    console.error('[SERVER ERROR]', err.message);
+    // Log detail lengkap (constraint/kolom/tabel yg bentrok) — SEBELUMNYA cuma
+    // err.message yg dicatat, tidak cukup utk mendiagnosis error 23502/23505 di
+    // Vercel Function Logs (mis. "Data duplikat" tanpa tahu constraint/kolom
+    // mana yg sebenarnya bentrok, krn pesan generik itu yg dikirim ke client).
+    console.error('[SERVER ERROR]', err.message, {
+        code: err.code, constraint: err.constraint, detail: err.detail,
+        table: err.table, column: err.column, path: req.path
+    });
     if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Format data tidak valid' });
     if (err.code === '23502') return res.status(400).json({ error: `Kolom "${err.column || ''}" wajib diisi` });
     if (err.code === '23505') return res.status(400).json({ error: 'Data duplikat' });
