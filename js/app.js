@@ -43,9 +43,14 @@ function _persistAnalisaCtx() {
             soalDetailNomor: window._analisaSoalDetailNomor || null,
             soalDetailKind: window._analisaSoalDetailKind || null,
             soalDetailBackKode: window._analisaSoalDetailBackKode || null,
+            soalDetailBackToMateri: window._analisaSoalDetailBackToMateri || false,
             soalListDetailKode: window._analisaSoalListDetailKode || null,
             soalSampelKode: window._analisaSoalSampelKode || null,
-            soalSampelMode: window._analisaSoalSampelMode || null
+            soalSampelMode: window._analisaSoalSampelMode || null,
+            materiDetailSoalKode: window._analisaMateriDetailSoalKode || null,
+            materiDetailMateriId: window._analisaMateriDetailMateriId || null,
+            materiDetailMateriNama: window._analisaMateriDetailMateriNama || null,
+            materiDetailKind: window._analisaMateriDetailKind || null
         }));
     } catch(e) {}
 }
@@ -66,9 +71,14 @@ function _restoreAnalisaCtx() {
         if (ctx.soalDetailNomor) window._analisaSoalDetailNomor = ctx.soalDetailNomor;
         if (ctx.soalDetailKind) window._analisaSoalDetailKind = ctx.soalDetailKind;
         if (ctx.soalDetailBackKode) window._analisaSoalDetailBackKode = ctx.soalDetailBackKode;
+        if (ctx.soalDetailBackToMateri) window._analisaSoalDetailBackToMateri = ctx.soalDetailBackToMateri;
         if (ctx.soalListDetailKode) window._analisaSoalListDetailKode = ctx.soalListDetailKode;
         if (ctx.soalSampelKode) window._analisaSoalSampelKode = ctx.soalSampelKode;
         if (ctx.soalSampelMode) window._analisaSoalSampelMode = ctx.soalSampelMode;
+        if (ctx.materiDetailSoalKode) window._analisaMateriDetailSoalKode = ctx.materiDetailSoalKode;
+        if (ctx.materiDetailMateriId) window._analisaMateriDetailMateriId = ctx.materiDetailMateriId;
+        if (ctx.materiDetailMateriNama) window._analisaMateriDetailMateriNama = ctx.materiDetailMateriNama;
+        if (ctx.materiDetailKind) window._analisaMateriDetailKind = ctx.materiDetailKind;
     } catch(e) {}
 }
 
@@ -102,7 +112,7 @@ function renderPage(id, subId) {
         // jadi langsung ReferenceError sebelum sempat cek map[id]. Dengan string +
         // window[...], cuma nama fungsi utk id yang sedang aktif yang di-resolve,
         // dan modul-nya sudah pasti sudah dimuat oleh ensureAdminPageModule di atas.
-        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-grafik':'renderAnalisaGrafik', management:'renderManagement' };
+        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-materi-detail':'renderAnalisaMateriDetail', 'analisa-grafik':'renderAnalisaGrafik', management:'renderManagement' };
         const fn = map[id] && window[map[id]];
         if (typeof fn === 'function') fn();
         if (subId) switchSubPage(id, subId);
@@ -170,6 +180,12 @@ const ADMIN_PAGE_MODULES = {
     // analisa-soal-detail.js — lihat komentar _asdOpenSampel() di file itu &
     // header admin/analisa/analisa-soal-sampel.js utk alurnya.
     'analisa-soal-sampel':  { html: 'admin/analisa/analisa-soal-sampel.html',  js: ['admin/analisa/analisa-soal-sampel.js'] },
+    // Halaman detail 1 MATERI (dibuka dari klik lingkaran "Ringkasan Per
+    // Materi" pada kartu Grafik di 'analisa-soal-detail') — pakai ulang
+    // analisa-chart-shared.js (grafik SVG + popup) yg sama dgn 2 tab di
+    // atas, TIDAK butuh analisa-export.js (halaman ini tidak punya tombol
+    // Ekstrak sendiri). Lihat header admin/analisa/analisa-materi-detail.js.
+    'analisa-materi-detail': { html: 'admin/analisa/analisa-materi-detail.html', js: ['admin/analisa/analisa-chart-shared.js', 'admin/analisa/analisa-materi-detail.js'] },
     'analisa-grafik':       { html: 'admin/analisa/analisa-grafik.html',       js: ['admin/analisa/analisa-grafik.js'] },
     // Form Tambah/Edit Paket dipisah dari keuangan.js/keuangan-modals.html jadi
     // admin/keuangan/paket-form.js + admin/keuangan/paket-form.html (tampil

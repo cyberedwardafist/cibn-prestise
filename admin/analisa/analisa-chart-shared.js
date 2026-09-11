@@ -463,6 +463,83 @@ function _atdBindChartEvents(containerId, kind) {
     }
 }
 
+// ── RINGKASAN PER MATERI (baris lingkaran kecil di atas kartu "Grafik") ────
+// Beda dgn _atdPieSvg/_atdSlicesFor di atas (donut POPUP hover, 1 nomor per
+// grafik): ini menggabungkan SEMUA nomor yg materinya sama jadi 1 lingkaran
+// ringkasan, dan KLIK-nya navigasi pindah halaman (bukan buka popup) — lihat
+// pemanggilnya (_asdRenderMateriPies di analisa-soal-detail.js).
+// `chartData` = charts.binary / charts.skor dari server (tiap entrinya kini
+// py field `materi`, lihat computeAnalisaSoalAggregate di server.js). Soal
+// yg butirnya belum ditandai materi (materi:null) DIABAIKAN (tidak dihitung,
+// tidak dapat lingkaran) — sesuai desain.
+function _atdComputeMateriAgg(materiList, chartData, kind) {
+    const byId = {};
+    (chartData || []).forEach(entry => {
+        if (entry.materi == null) return;
+        (byId[entry.materi] = byId[entry.materi] || []).push(entry);
+    });
+    return (materiList || [])
+        .filter(m => byId[m.id] && byId[m.id].length)
+        .map(m => {
+            const entries = byId[m.id];
+            if (kind === 'skor') {
+                const nilaiMap = {};
+                entries.forEach(e => (e.opsi || []).forEach(o => { nilaiMap[o.nilai] = (nilaiMap[o.nilai] || 0) + (o.jumlah || 0); }));
+                const total = Object.values(nilaiMap).reduce((a, b) => a + b, 0);
+                let zeroIdx = 0, nonZeroIdx = 0;
+                const slices = Object.keys(nilaiMap).map(Number).sort((a, b) => b - a).map(nilai => {
+                    const isZero = nilai === 0;
+                    const color = isZero
+                        ? _ATD_SKOR_ZERO_PALETTE[zeroIdx++ % _ATD_SKOR_ZERO_PALETTE.length]
+                        : _ATD_SKOR_NONZERO_PALETTE[nonZeroIdx++ % _ATD_SKOR_NONZERO_PALETTE.length];
+                    const value = nilaiMap[nilai];
+                    return { label: `Nilai ${nilai}`, value, pct: total ? Math.round(value / total * 100) : 0, color };
+                }).filter(sl => sl.value > 0);
+                return { id: m.id, nama: m.nama, kind, total, jumlahSoal: entries.length, slices };
+            }
+            const benar = entries.reduce((a, e) => a + (e.benar || 0), 0);
+            const salah = entries.reduce((a, e) => a + (e.salah || 0), 0);
+            const total = benar + salah;
+            const slices = [
+                { label: 'Benar', value: benar, pct: total ? Math.round(benar / total * 100) : 0, color: '#16a34a' },
+                { label: 'Salah', value: salah, pct: total ? Math.round(salah / total * 100) : 0, color: '#dc2626' }
+            ];
+            return { id: m.id, nama: m.nama, kind, total, jumlahSoal: entries.length, slices };
+        });
+}
+
+// Donut kecil + label persentase kategori TERBESAR di tengah (beda dgn
+// _atdPieSvg yg tanpa teks tengah, dipakai popup hover per-nomor di atas).
+function _atdMateriPieSvg(slices) {
+    const r = 15.9155;
+    let cum = 0;
+    const circles = (slices || []).map(s => {
+        const dash = `${s.pct} ${100 - s.pct}`;
+        const offset = 25 - cum;
+        cum += s.pct;
+        return `<circle cx="18" cy="18" r="${r}" fill="transparent" stroke="${s.color}" stroke-width="4.5" stroke-dasharray="${dash}" stroke-dashoffset="${offset}"></circle>`;
+    }).join('');
+    const top = (slices || []).slice().sort((a, b) => b.pct - a.pct)[0];
+    return `<svg class="atd-materi-pie-svg" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">${circles}<text x="18" y="19.6" text-anchor="middle" class="atd-materi-pie-center">${top ? top.pct : 0}%</text></svg>`;
+}
+
+// `clickFn` = nama fungsi global (string) dipanggil dgn 1 argumen (index di
+// array `materiAgg`) saat 1 lingkaran diklik — pemanggil (analisa-soal-
+// detail.js) yg simpan array itu sendiri & tentukan mau navigasi ke mana.
+function _atdMateriPieRowHtml(materiAgg, clickFn) {
+    if (!materiAgg || !materiAgg.length) return '';
+    const items = materiAgg.map((m, idx) => `
+        <div class="atd-materi-pie-item" onclick="${clickFn}(${idx})" title="${_atdEsc(m.nama)}">
+            ${_atdMateriPieSvg(m.slices)}
+            <div class="atd-materi-pie-label">${_atdEsc(m.nama)}</div>
+        </div>`).join('');
+    return `<div class="atd-materi-pie-head">
+            <div class="atd-chart-title">Ringkasan Per Materi</div>
+            <div class="atd-chart-sub">Klik salah satu materi untuk lihat grafik per nomor materi itu</div>
+        </div>
+        <div class="atd-materi-pie-row">${items}</div>`;
+}
+
 function _atdEmptyChartCard(containerId, msg) {
     const el = document.getElementById(containerId);
     if (el) { el.style.display = ''; el.innerHTML = `<div class="empty-state" style="padding:24px"><p>${_atdEsc(msg)}</p></div>`; }

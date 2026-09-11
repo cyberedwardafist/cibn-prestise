@@ -131,6 +131,27 @@
     .ag-switches{width:190px;flex:none;position:sticky;top:8px}
 }
 
+/* ── RINGKASAN PER MATERI (baris lingkaran kecil di atas kartu "Grafik") ──
+   admin/analisa/analisa-soal-detail.js (_asdRenderMateriPies) & fungsi
+   pembangunnya di analisa-chart-shared.js (_atdMateriPieRowHtml dkk).
+   Item lebar TETAP (bukan persentase/grid) supaya perilaku flex-wrap-nya
+   PERSIS spt diminta: sejajar ke samping selama muat, sisanya turun sendiri
+   ke baris baru — ukuran ikut mengecil di layar sempit lewat clamp() + media
+   query, tidak pernah kelihatan kebesaran/kekecilan. */
+.atd-materi-pie-head{margin-bottom:12px}
+.atd-materi-pie-row{display:flex;flex-wrap:wrap;gap:14px}
+.atd-materi-pie-item{display:flex;flex-direction:column;align-items:center;gap:4px;width:66px;cursor:pointer;transition:transform .12s ease}
+.atd-materi-pie-item:hover{transform:translateY(-2px)}
+.atd-materi-pie-svg{width:clamp(42px,13vw,64px);height:clamp(42px,13vw,64px);display:block}
+.atd-materi-pie-center{font-size:8px;font-weight:700;fill:var(--blue);font-family:var(--font-body,inherit)}
+.atd-materi-pie-label{font-size:10px;color:var(--text-sub);text-align:center;line-height:1.25;max-width:74px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+@media (max-width:480px){
+    .atd-materi-pie-row{gap:10px}
+    .atd-materi-pie-item{width:54px}
+    .atd-materi-pie-svg{width:clamp(36px,16vw,54px);height:clamp(36px,16vw,54px)}
+    .atd-materi-pie-label{font-size:9px;max-width:60px}
+}
+
 /* ── admin/analisa/analisa-soal.js — detail 1 nomor soal ────────────────────
    Kartu soal/opsi/pembahasan pakai inline-style yg meniru persis
    review/riwayat/riwayat.js (renderRuvMC, "MODE REVIEW") — jadi cuma

@@ -745,7 +745,7 @@ async function computeAnalisaSoalAggregate(soalKode, laporanRows) {
                 const names = pemilihOpsi(j.id);
                 return { id: j.id, teks: j.teks || '', nilai: parseFloat(j.nilai) || 0, isKunci: (parseFloat(j.nilai) || 0) > 0, count: names.length, jumlah: names.length, names };
             });
-            skorChart.push({ nomor: skorNomor, pertanyaan, pembahasan, opsi: options.map(o => ({ nilai: o.nilai, jumlah: o.jumlah })), options });
+            skorChart.push({ nomor: skorNomor, materi: q.materi || null, pertanyaan, pembahasan, opsi: options.map(o => ({ nilai: o.nilai, jumlah: o.jumlah })), options });
         } else {
             binNomor++;
             const kunciRaw = q.kunci;
@@ -763,7 +763,7 @@ async function computeAnalisaSoalAggregate(soalKode, laporanRows) {
                 const names = pemilihOpsi(j.id);
                 return { id: j.id, teks: j.teks || '', isKunci: kunci.includes(String(j.id)), count: names.length, names };
             });
-            binaryChart.push({ nomor: binNomor, benar, salah: totalPeserta - benar, pertanyaan, pembahasan, options });
+            binaryChart.push({ nomor: binNomor, materi: q.materi || null, benar, salah: totalPeserta - benar, pertanyaan, pembahasan, options });
         }
     });
 

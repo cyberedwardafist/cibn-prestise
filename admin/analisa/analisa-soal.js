@@ -271,6 +271,13 @@ function _aslOpenDetail(kode) {
 }
 
 function _asBack() {
+    // Datang dari klik grafik di kartu "Ringkasan Per Materi" -> Analisa
+    // Materi (admin/analisa/analisa-materi-detail.js) -> balik ke halaman
+    // itu, bukan ke Analisa Soal. Lihat _amdGoToButirDetail() di sana.
+    if (window._analisaSoalDetailBackToMateri) {
+        navigateTo('analisa-materi-detail');
+        return;
+    }
     // Datang dari klik grafik di Analisa > Soal (analisa-soal-detail.js,
     // TANPA grup token) -> balik ke halaman detail soal itu, bukan ke
     // alur token. Lihat _asdGoToButirDetail() di analisa-soal-detail.js.

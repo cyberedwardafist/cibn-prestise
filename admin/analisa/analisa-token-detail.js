@@ -285,6 +285,7 @@ function _atdGoToSoalDetail(evt, kind, nomor) {
     // analisa-soal-detail.js — supaya tombol kembali di analisa-soal.js
     // (_asBack()) tidak salah balik ke halaman detail soal itu.
     window._analisaSoalDetailBackKode = null;
+    window._analisaSoalDetailBackToMateri = false;
     if (typeof _persistAnalisaCtx === 'function') _persistAnalisaCtx();
     navigateTo('analisa-soal');
 }

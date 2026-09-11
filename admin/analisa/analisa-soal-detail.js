@@ -381,8 +381,43 @@ function _asdGoToButirDetail(evt, kind, nomor) {
     window._analisaSoalDetailNomor = nomor;
     window._analisaSoalDetailKind = kind;
     window._analisaSoalDetailBackKode = _asdKode;
+    window._analisaSoalDetailBackToMateri = false;
     if (typeof _persistAnalisaCtx === 'function') _persistAnalisaCtx();
     navigateTo('analisa-soal');
+}
+
+// ── RINGKASAN PER MATERI (baris lingkaran di atas kartu "Grafik") ──────────
+// Diisi ulang tiap _asdRenderChart() dapat data binary/skor baru (lihat
+// panggilannya di bawah) — dikosongkan (disembunyikan) utk tipe Sikap Kerja
+// atau soal yg tidak ada satupun butirnya ditandai materi (lihat
+// _atdComputeMateriAgg di analisa-chart-shared.js: soal materi:null
+// diabaikan). `_asdMateriAgg` disimpan supaya _asdGoToMateriDetail() bisa
+// ambil id/nama/kind materi yg diklik lewat index-nya saja.
+let _asdMateriAgg = [];
+function _asdRenderMateriPies(materiAgg) {
+    const el = document.getElementById('asd-materi-pies');
+    if (!el) return;
+    _asdMateriAgg = materiAgg || [];
+    if (!_asdMateriAgg.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = '';
+    el.innerHTML = _atdMateriPieRowHtml(_asdMateriAgg, '_asdGoToMateriDetail');
+}
+
+// Klik 1 lingkaran materi -> pindah ke halaman baru admin/analisa/
+// analisa-materi-detail.html/.js (grafik per-nomor KHUSUS materi itu, sama
+// pola drill-down-nya dgn _asdGoToButirDetail() di bawah). Konteks dititip
+// lewat window var + _persistAnalisaCtx (pola sama persis dgn
+// window._analisaSoalListDetailKode dkk) supaya tetap benar kalau halaman
+// itu di-refresh.
+function _asdGoToMateriDetail(idx) {
+    const m = _asdMateriAgg[idx];
+    if (!m || !_asdKode) return;
+    window._analisaMateriDetailSoalKode = _asdKode;
+    window._analisaMateriDetailMateriId = m.id;
+    window._analisaMateriDetailMateriNama = m.nama;
+    window._analisaMateriDetailKind = m.kind;
+    if (typeof _persistAnalisaCtx === 'function') _persistAnalisaCtx();
+    navigateTo('analisa-materi-detail');
 }
 
 // ── GRAFIK: 1 grafik, disesuaikan dgn TIPE soal ini sendiri ────────────────
@@ -410,6 +445,7 @@ async function _asdRenderChart() {
     // belum sampai ke fetch (mis. Sampel masih kosong).
     window._analisaSoalDetailHasil = null;
     window._analisaSoalDetailHasilNama = null;
+    _asdRenderMateriPies([]); // disembunyikan dulu, diisi ulang di bawah kalau tipe soal ini binary/skor
 
     if (!_asdKode || !_asdSoal) { el.style.display = 'none'; el.innerHTML = ''; return; }
 
@@ -466,6 +502,7 @@ async function _asdRenderChart() {
         const data = charts.skor || [];
         if (!data.length) { _atdEmptyChartCard('asd-chart-container', 'Belum ada peserta (dari sampel) yang menyelesaikan ujian utk soal ini'); return; }
         _ATD_DUMMY_SKOR = data;
+        _asdRenderMateriPies(_atdComputeMateriAgg(_asdSoal.materi_list || [], data, 'skor'));
         const { series, sortedPerSoal } = _atdBuildOpsiSeries(data);
         _atdSkorSeriesMeta = series;
         _atdSkorSortedPerSoal = sortedPerSoal;
@@ -486,6 +523,7 @@ async function _asdRenderChart() {
         const data = charts.binary || [];
         if (!data.length) { _atdEmptyChartCard('asd-chart-container', 'Belum ada peserta (dari sampel) yang menyelesaikan ujian utk soal ini'); return; }
         _ATD_DUMMY_BINARY = data;
+        _asdRenderMateriPies(_atdComputeMateriAgg(_asdSoal.materi_list || [], data, 'binary'));
         const cats = data.map(s => s.nomor);
         const series = [
             { label: 'Benar', color: '#16a34a', values: data.map(s => s.benar) },
