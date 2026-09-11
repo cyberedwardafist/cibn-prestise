@@ -544,10 +544,10 @@ body.soal-building #side-dock-wrap.side-dock-right{
 <div class="page dock-avoid" id="page-analisa-soal"></div>
 <div class="page dock-avoid" id="page-analisa-grafik"></div>
 <div class="page dock-avoid" id="page-analisa-modul"></div>
-<div class="page" id="page-analisa-token-detail"></div>
-<div class="page" id="page-analisa-soal-detail"></div>
-<div class="page" id="page-analisa-soal-sampel"></div>
-<div class="page" id="page-analisa-materi-detail"></div>
+<div class="page dock-avoid" id="page-analisa-token-detail"></div>
+<div class="page dock-avoid" id="page-analisa-soal-detail"></div>
+<div class="page dock-avoid" id="page-analisa-soal-sampel"></div>
+<div class="page dock-avoid" id="page-analisa-materi-detail"></div>
 <div class="page" id="page-keuangan"></div>
 <div class="page" id="page-akun-admin"></div>
 
@@ -850,11 +850,42 @@ const SIDE_DOCK_GROUPS = {
 
 let _sideDockOpenGroup = null;
 
+// Beberapa halaman "detail" Analisa (dibuka lewat drill-down grafik/kartu,
+// BUKAN lewat salah satu tombol TOKEN/SOAL/MODUL langsung di panel ini)
+// SENGAJA TIDAK didaftarkan sbg item tersendiri di SIDE_DOCK_GROUPS.analisa
+// di atas — supaya panel tetap KEBUKA & menyorot tombol grup yang BENAR
+// (sesuai alur asal user masuk), bukan malah tertutup total (groupForPage
+// balik null) atau salah nyorot tombol lain yang page-id-nya kebetulan sama:
+//   - analisa-token-detail & analisa-grafik: cuma bisa dicapai dari alur
+//     Token (lihat _atdGoToGrafikDetail()/_agBack() di analisa-token-
+//     detail.js & analisa-grafik.js) -> selalu sorot TOKEN.
+//   - analisa-soal-detail, analisa-soal-sampel, analisa-materi-detail: cuma
+//     bisa dicapai dari alur Soal (Analisa > Soal -> pilih 1 soal) -> selalu
+//     sorot SOAL.
+//   - analisa-soal: 1 page ID dipakai BERGANTIAN utk MODE LIST (selalu dari
+//     tombol SOAL) MAUPUN MODE DETAIL PER-NOMOR "Analisa Pertanyaan" (bisa
+//     dibuka dari alur Token ATAU Soal/Materi, tergantung grafik mana yang
+//     diklik) — window._analisaSoalDetailGrup (diisi _atdGoToSoalDetail() di
+//     alur Token, dikosongkan _asdGoToButirDetail()/_amdGoToButirDetail() di
+//     alur Soal/Materi) yang membedakan mana yang harus disorot saat itu.
+const ANALISA_DETAIL_GROUP_PAGE = {
+  'analisa-token-detail': 'analisa-token',
+  'analisa-grafik':       'analisa-token',
+  'analisa-soal-detail':  'analisa-soal',
+  'analisa-soal-sampel':  'analisa-soal',
+  'analisa-materi-detail':'analisa-soal'
+};
+function _analisaSideDockActivePage(pageId) {
+  if (pageId === 'analisa-soal') return window._analisaSoalDetailGrup ? 'analisa-token' : 'analisa-soal';
+  return ANALISA_DETAIL_GROUP_PAGE[pageId] || pageId;
+}
+
 // Cari grup pemilik sebuah pageId (null jika halaman itu bukan bagian dari grup manapun)
 function groupForPage(pageId) {
   for (const g in SIDE_DOCK_GROUPS) {
     if (SIDE_DOCK_GROUPS[g].items.some(it => it.page === pageId)) return g;
   }
+  if (ANALISA_DETAIL_GROUP_PAGE[pageId]) return 'analisa';
   return null;
 }
 
@@ -864,8 +895,9 @@ function openSideDock(group) {
   const items = document.getElementById('side-dock-items');
   if (!def || !wrap || !items) return;
 
+  const activePage = _analisaSideDockActivePage(AppState.currentPage);
   items.innerHTML = def.items.map(it => `
-    <button class="dock-item${AppState.currentPage === it.page ? ' active-tab' : ''}" data-page="${it.page}" onclick="${it.onclick || `navigateTo('${it.page}')`}">
+    <button class="dock-item${activePage === it.page ? ' active-tab' : ''}" data-page="${it.page}" onclick="${it.onclick || `navigateTo('${it.page}')`}">
       <div class="dock-icon">${it.icon}</div>
       <span class="dock-label">${it.label}</span>
     </button>`).join('');
@@ -952,12 +984,13 @@ function markSideDockGroupButtons(activeGroup) {
 function syncSideDockForPage(pageId) {
   const group = groupForPage(pageId);
   if (!group) { closeSideDock(); return; }
+  const activePage = _analisaSideDockActivePage(pageId);
   if (_sideDockOpenGroup !== group) {
     openSideDock(group);
   } else {
     // Grup sama & panel sudah terbuka — cukup perbarui highlight item aktif, panel tidak ditutup
     document.querySelectorAll('#side-dock-items .dock-item').forEach(b => {
-      b.classList.toggle('active-tab', b.dataset.page === pageId);
+      b.classList.toggle('active-tab', b.dataset.page === activePage);
     });
     markSideDockGroupButtons(group);
   }
