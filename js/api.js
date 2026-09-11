@@ -331,7 +331,11 @@ const AnalisaAPI = {
     // `userKodes` = daftar kode akun FINAL (individu + anggota grup yg tidak
     // dikeluarkan) — lihat komentar endpoint di server.js & _asdSampelUserKodes()
     // di admin/analisa/analisa-soal-detail.js.
-    async hitungSoal(soalKode, userKodes) { return await apiPost(`/analisa/soal/${encodeURIComponent(soalKode)}/hitung`, { user_kodes: userKodes }); }
+    async hitungSoal(soalKode, userKodes) { return await apiPost(`/analisa/soal/${encodeURIComponent(soalKode)}/hitung`, { user_kodes: userKodes }); },
+    // Sama pola dgn hitungSoal() di atas, tapi utk 1 MODUL (gabungan semua
+    // soal di dalamnya) — dipakai kartu Grafik di admin/analisa/analisa-
+    // modul-detail.js (_amodSampelUserKodes()).
+    async hitungModul(modulKode, userKodes) { return await apiPost(`/analisa/modul/${encodeURIComponent(modulKode)}/hitung`, { user_kodes: userKodes }); }
 };
 
 // ── LAPORAN API ──

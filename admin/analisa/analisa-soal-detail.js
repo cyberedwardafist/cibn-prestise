@@ -382,6 +382,7 @@ function _asdGoToButirDetail(evt, kind, nomor) {
     window._analisaSoalDetailKind = kind;
     window._analisaSoalDetailBackKode = _asdKode;
     window._analisaSoalDetailBackToMateri = false;
+    window._analisaSoalDetailBackModulKode = null;
     if (typeof _persistAnalisaCtx === 'function') _persistAnalisaCtx();
     navigateTo('analisa-soal');
 }

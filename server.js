@@ -2021,6 +2021,45 @@ app.post('/api/analisa/soal/:kode/hitung', auth(['admin','review']), ah(async (r
     });
 }));
 
+// POST /api/analisa/modul/:kode/hitung — endpoint agregasi khusus kartu
+// "Grafik" di admin/analisa/analisa-modul-detail.js (halaman detail 1 MODUL,
+// dibuka dari slide-dock ANALISA > MODUL). Polanya SAMA PERSIS dengan
+// POST /api/analisa/soal/:kode/hitung di atas (sampel manual dikirim FE sbg
+// `user_kodes` yang sudah final, SEMUA filter & hitungan jalan DI SERVER) —
+// BEDANYA: soal/:kode/hitung menghitung 1 soal (lintas SEMUA modul yang
+// memuatnya), di sini SEBALIKNYA — menghitung SEMUA soal dalam 1 modul
+// (gaya sama dgn GET /api/analisa/grup/:grubKey punya token, cuma sumber
+// pesertanya sampel manual, bukan otomatis dari 1 grup token) — makanya
+// dipakai computeAnalisaGrupAggregate() (fungsi yg SAMA dgn yg dipakai
+// token), bukan computeAnalisaSoalAggregate(). Body: { user_kodes: string[] }.
+app.post('/api/analisa/modul/:kode/hitung', auth(['admin','review']), ah(async (req, res) => {
+    const kode = req.params.kode;
+    const modul = await db.prepare('SELECT kode FROM modul WHERE kode=?').get(kode);
+    if (!modul) return res.status(404).json({ error: 'Modul tidak ditemukan' });
+
+    const userKodes = Array.isArray(req.body.user_kodes) ? [...new Set(req.body.user_kodes.filter(Boolean))] : [];
+    if (!userKodes.length) {
+        return res.json({ jumlah_peserta: 0, charts: { binary: [], skor: [], sikap: [] }, per_soal: [], tipe_soal: { binary: false, skor: false, sikap: false } });
+    }
+
+    const placeholdersUser = userKodes.map(() => '?').join(',');
+    const laporanRows = await db.prepare(`
+        SELECT l.kode as laporan_kode, l.jawaban, u.nama as user_nama
+        FROM laporan l
+        LEFT JOIN users u ON l.user_kode = u.kode
+        WHERE l.user_kode IN (${placeholdersUser}) AND l.modul_kode = ?
+        ORDER BY l.created_at DESC
+    `).all(...userKodes, kode);
+
+    const agg = await computeAnalisaGrupAggregate(kode, laporanRows);
+    res.json({
+        jumlah_peserta: laporanRows.length,
+        charts: { binary: agg.binaryChart, skor: agg.skorChart, sikap: agg.sikapRaw },
+        per_soal: agg.perSoal || [],
+        tipe_soal: agg.tipeSoal
+    });
+}));
+
 app.post('/api/exam/validate-token', auth(['user','admin','review']), ah(async (req, res) => {
     const { kode } = req.body;
     if (!kode) return res.status(400).json({ error: 'Kode token diperlukan' });

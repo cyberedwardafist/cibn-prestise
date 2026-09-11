@@ -548,6 +548,8 @@ body.soal-building #side-dock-wrap.side-dock-right{
 <div class="page dock-avoid" id="page-analisa-soal-detail"></div>
 <div class="page dock-avoid" id="page-analisa-soal-sampel"></div>
 <div class="page dock-avoid" id="page-analisa-materi-detail"></div>
+<div class="page dock-avoid" id="page-analisa-modul-detail"></div>
+<div class="page dock-avoid" id="page-analisa-modul-sampel"></div>
 <div class="page" id="page-keuangan"></div>
 <div class="page" id="page-akun-admin"></div>
 
@@ -873,10 +875,22 @@ const ANALISA_DETAIL_GROUP_PAGE = {
   'analisa-grafik':       'analisa-token',
   'analisa-soal-detail':  'analisa-soal',
   'analisa-soal-sampel':  'analisa-soal',
-  'analisa-materi-detail':'analisa-soal'
+  'analisa-materi-detail':'analisa-soal',
+  // 'analisa-soal' sendiri sengaja TIDAK didaftarkan di sini (lihat
+  // _analisaSideDockActivePage di bawah — 1 page ID itu dipakai bergantian
+  // utk beberapa alur, jadi butuh logika khusus, bukan pemetaan tetap).
+  'analisa-modul-detail': 'analisa-modul',
+  'analisa-modul-sampel': 'analisa-modul'
 };
 function _analisaSideDockActivePage(pageId) {
-  if (pageId === 'analisa-soal') return window._analisaSoalDetailGrup ? 'analisa-token' : 'analisa-soal';
+  if (pageId === 'analisa-soal') {
+    if (window._analisaSoalDetailGrup) return 'analisa-token';
+    // Dibuka lewat drill-down grafik dari Analisa > Modul (lihat
+    // _amodGoToButirDetail() di analisa-modul-detail.js) -> sorot MODUL,
+    // bukan SOAL, walau page ID aktifnya 'analisa-soal'.
+    if (window._analisaSoalDetailBackModulKode) return 'analisa-modul';
+    return 'analisa-soal';
+  }
   return ANALISA_DETAIL_GROUP_PAGE[pageId] || pageId;
 }
 
@@ -931,8 +945,20 @@ function openAnalisaSoalList() {
   window._analisaSoalDetailNomor = null;
   window._analisaSoalDetailKind = null;
   window._analisaSoalDetailBackKode = null;
+  window._analisaSoalDetailBackModulKode = null;
   if (typeof _persistAnalisaCtx === 'function') _persistAnalisaCtx();
   navigateTo('analisa-soal');
+}
+
+// Tombol panah kembali di header analisa-modul-detail.html -> balik ke
+// daftar Analisa > Modul. Sengaja fungsi terpisah (bukan navigateTo polos)
+// biar konsisten dgn openAnalisaSoalList() di atas & supaya window._analisa
+// ModulListDetailKode dibersihkan (mencegah _amlOpenDetail() sebelumnya
+// nyangkut kalau suatu saat halaman ini dibaca ulang tanpa klik kartu baru).
+function openAnalisaModulList() {
+  window._analisaModulListDetailKode = null;
+  if (typeof _persistAnalisaCtx === 'function') _persistAnalisaCtx();
+  navigateTo('analisa-modul');
 }
 
 /* ── Aturan tampilan-menyesuaikan-dock ──

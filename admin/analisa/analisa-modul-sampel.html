@@ -1,0 +1,21 @@
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+    <button class="btn-icon" onclick="navigateTo('analisa-modul-detail')" title="Kembali ke detail modul">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    </button>
+    <div style="flex:1">
+      <div class="section-title" style="margin-bottom:0" id="amos-title">Pilih Tester</div>
+      <div class="section-sub" id="amos-sub" style="margin-bottom:0">-</div>
+    </div>
+    <button class="btn btn-primary" onclick="_amosSimpan()">Simpan</button>
+  </div>
+
+  <div class="card" style="margin-bottom:18px">
+    <div class="search-bar" style="flex-wrap:wrap;gap:8px">
+      <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" id="amos-search-input" placeholder="Cari nama / email..." oninput="_amosSearch=this.value;_amosRenderList()"></div>
+      <div id="amos-filters"></div>
+    </div>
+  </div>
+
+  <div class="card" id="amos-list-wrap">
+    <div class="empty-state"><p>Memuat data…</p></div>
+  </div>

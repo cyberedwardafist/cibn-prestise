@@ -286,6 +286,14 @@ function _asBack() {
         navigateTo('analisa-soal-detail');
         return;
     }
+    // Datang dari klik grafik di Analisa > Modul (analisa-modul-detail.js,
+    // TANPA grup token) -> balik ke halaman detail modul itu. Lihat
+    // _amodGoToButirDetail() di analisa-modul-detail.js.
+    if (window._analisaSoalDetailBackModulKode) {
+        window._analisaModulListDetailKode = window._analisaSoalDetailBackModulKode;
+        navigateTo('analisa-modul-detail');
+        return;
+    }
     navigateTo(window._analisaSoalDetailGrup ? 'analisa-token-detail' : 'analisa-token');
 }
 

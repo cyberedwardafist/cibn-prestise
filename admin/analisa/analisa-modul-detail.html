@@ -1,0 +1,22 @@
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+    <button class="btn-icon" onclick="openAnalisaModulList()" title="Kembali ke daftar modul">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    </button>
+    <div style="flex:1">
+      <div class="section-title" style="margin-bottom:0">Analisa Modul</div>
+      <div class="section-sub" id="amod-kode-sub" style="margin-bottom:0">-</div>
+    </div>
+  </div>
+
+  <div class="card" id="amod-content" style="margin-bottom:18px">
+    <div class="empty-state"><p>Memuat data modul…</p></div>
+  </div>
+
+  <div class="card" id="amod-sampel-card" style="margin-bottom:18px"></div>
+
+  <!-- Kartu grafik PER SOAL — 1 kartu per soal bernama dlm modul, dibangun
+       JS (_amodRenderCharts di analisa-modul-detail.js), gaya & template
+       grafik SAMA PERSIS dgn #atd-charts-wrap di analisa-token-detail.html. -->
+  <div id="amod-charts-wrap"></div>
+
+  <div class="atd-pie-pop" id="atd-pie-pop" style="display:none"></div>
