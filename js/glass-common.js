@@ -17,7 +17,7 @@ function glassApplyNav(D) {
   if (n) {
     document.querySelectorAll('.nav-logo').forEach(el => {
       const alt = `${GlassEsc(n.brand || 'CIBN')} ${GlassEsc(n.subbrand || 'Akademi')}`;
-      el.innerHTML = `<img src="logo/logo-full.png" alt="${alt}">`;
+      el.innerHTML = `<img src="/logo/logo-full.png" alt="${alt}">`;
     });
     document.querySelectorAll('.nav-cta').forEach(el => { if (n.cta) el.textContent = n.cta; });
     if (n.menus && n.menus.length) {
