@@ -374,6 +374,12 @@ CREATE TABLE IF NOT EXISTS password_resets (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);
+-- Hitung percobaan verifikasi kode SALAH utk baris OTP ini. Proteksi brute-force
+-- tebak 6 digit: setelah MAX_OTP_VERIFY_ATTEMPTS (lihat server.js) kali salah,
+-- baris ini dihapus paksa & user harus minta kode OTP baru (yang otomatis kena
+-- jeda 1 menit / limit 3x sehari dari otp_request_limits) — jadi jauh lebih
+-- sulit ditebak drpd 1.000.000 kemungkinan tanpa batas percobaan.
+ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;
 
 -- Pendaftaran akun baru sekarang butuh konfirmasi OTP lewat email sebelum baris
 -- di tabel `users` benar-benar dibuat. POST /api/signup menyimpan data
@@ -389,6 +395,44 @@ CREATE TABLE IF NOT EXISTS signup_otps (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_signup_otps_email ON signup_otps(email);
+-- Sama seperti attempts di password_resets di atas — proteksi brute-force
+-- tebak kode OTP pendaftaran.
+ALTER TABLE signup_otps ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;
+
+-- Proteksi brute-force / pembobolan akun di POST /api/login. Satu baris per
+-- email yang pernah gagal login. fail_count naik tiap gagal (email tidak
+-- ditemukan / password salah); begitu mencapai 3x, locked_until diisi dan
+-- POST /api/login menolak percobaan berikutnya dengan HTTP 429 sampai waktu
+-- itu lewat. Kalau gagal LAGI setelah kunci sebelumnya habis, durasi kunci
+-- berikutnya dilipatgandakan (1 menit -> 2 menit -> 4 menit -> ... terus x2).
+-- Baris dihapus (DELETE, bukan cuma di-reset ke 0) begitu login berhasil ATAU
+-- begitu user menyelesaikan reset kata sandi lewat alur OTP "Lupa kata sandi?"
+-- (POST /api/password/reset) — jalur OTP itu sengaja dijadikan cara untuk
+-- langsung melewati masa tunggu tanpa harus menunggu penuh.
+CREATE TABLE IF NOT EXISTS login_lockouts (
+    email        TEXT PRIMARY KEY,
+    fail_count   INTEGER NOT NULL DEFAULT 0,
+    locked_until TIMESTAMP,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Jeda & limit permintaan kode OTP — dipakai bersama oleh alur pendaftaran
+-- (POST /api/signup + /api/signup/resend-otp, purpose='signup') dan alur lupa
+-- password (POST /api/password/forgot, purpose='password_reset'). Mencegah
+-- spam pengiriman OTP: jeda 1 menit antar permintaan yang BERHASIL dikirim,
+-- dan maksimal 3x permintaan per hari per email. Dihitung terpisah per
+-- `purpose` supaya pendaftaran & lupa password tidak berbagi jatah yang sama.
+-- Hitungan (request_count) otomatis dianggap 0 lagi begitu request_date sudah
+-- bukan hari ini — dicek di kode (lib fungsi cekJedaOtp di server.js), bukan
+-- lewat cron, supaya tidak perlu proses terjadwal terpisah.
+CREATE TABLE IF NOT EXISTS otp_request_limits (
+    email         TEXT NOT NULL,
+    purpose       TEXT NOT NULL,
+    request_date  DATE NOT NULL,
+    request_count INTEGER NOT NULL DEFAULT 0,
+    last_sent_at  TIMESTAMP,
+    PRIMARY KEY (email, purpose)
+);
 
 -- Konfigurasi Payment Gateway ASLI (Midtrans / Xendit) — 1 baris singleton (id=1),
 -- diisi admin lewat panel Keuangan > Payment Gateway. Server Key/Secret Key

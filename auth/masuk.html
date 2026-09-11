@@ -427,7 +427,33 @@ const API_BASE = window.location.origin + '/api';
 const masukForm = document.getElementById('masukForm');
 const masukMsg = document.getElementById('masukMsg');
 const masukBtn = document.getElementById('masukBtn');
+
+// ── Countdown kunci brute-force (server mengembalikan HTTP 429 +
+// retryAfterSeconds saat email sedang dikunci karena 3x gagal login) ──
+let lockoutInterval = null;
+function stopLockoutCountdown() {
+  if (lockoutInterval) { clearInterval(lockoutInterval); lockoutInterval = null; }
+  masukBtn.disabled = false;
+  masukBtn.textContent = 'Masuk Sekarang';
+}
+function startLockoutCountdown(retryAfterSeconds) {
+  if (lockoutInterval) clearInterval(lockoutInterval);
+  let sisa = Math.max(0, Math.ceil(retryAfterSeconds));
+  masukBtn.disabled = true;
+  const tick = () => {
+    if (sisa <= 0) { stopLockoutCountdown(); masukMsg.textContent = ''; return; }
+    const m = Math.floor(sisa / 60), s = sisa % 60;
+    const sisaTxt = m > 0 ? `${m}m ${String(s).padStart(2,'0')}d` : `${s}d`;
+    masukMsg.textContent = `Terlalu banyak percobaan gagal. Coba lagi dalam ${sisaTxt}, atau reset kata sandi lewat "Lupa kata sandi?" untuk langsung masuk.`;
+    masukBtn.textContent = `Tunggu ${sisaTxt}...`;
+    sisa--;
+  };
+  tick();
+  lockoutInterval = setInterval(tick, 1000);
+}
+
 masukForm.addEventListener('submit', async () => {
+  if (masukBtn.disabled) return; // masih dalam masa tunggu kunci, atau sedang memproses
   const email = document.getElementById('masuk-email').value.trim();
   const password = document.getElementById('masuk-password').value;
   masukMsg.textContent = '';
@@ -441,6 +467,10 @@ masukForm.addEventListener('submit', async () => {
       body: JSON.stringify({ email, password })
     });
     const data = await res.json();
+    if (res.status === 429 && data.retryAfterSeconds != null) {
+      startLockoutCountdown(data.retryAfterSeconds);
+      return;
+    }
     if (!res.ok) throw new Error(data.error || 'Login gagal');
     localStorage.setItem('cbn_token', data.token);
     localStorage.setItem('cbn_user', JSON.stringify(data.user));

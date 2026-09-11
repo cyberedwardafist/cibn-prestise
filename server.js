@@ -17,10 +17,35 @@ const { mulaiScheduler, jalankanCekReminder } = require('./lib/kelas-reminder');
 const app       = express();
 const PORT      = process.env.PORT || 3000;
 
-const JWT_SECRET = process.env.JWT_SECRET || 'cbn_secret_2025_admin';
-if (!process.env.JWT_SECRET) {
-    console.warn('[WARNING] JWT_SECRET belum di-set lewat environment variable.');
+// ── JWT_SECRET ────────────────────────────────────────────────────────────
+// PENTING: sebelumnya ada fallback ke secret bawaan yang statis kalau env var
+// belum di-set. Itu BERBAHAYA — secret itu ada di kode sumber, jadi siapa pun
+// yang pernah melihat kode ini bisa memalsukan token JWT (termasuk token
+// admin) kalau server benar-benar jalan pakai secret bawaan tsb. Sekarang:
+//   • Di production/Vercel, server MENOLAK jalan kalau JWT_SECRET belum
+//     di-set (fail-safe, drpd diam-diam jalan dengan secret yang bisa ditebak).
+//   • Di lokal/dev, dibuatkan secret ACAK setiap kali proses start (bukan
+//     statis) supaya tetap bisa dites tanpa .env, tapi TIDAK memakai secret
+//     yang bisa ditebak — konsekuensinya token lama jadi invalid tiap restart,
+//     itu disengaja supaya developer sadar & segera mengisi JWT_SECRET asli.
+let JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+        console.error('[FATAL] Environment variable JWT_SECRET belum di-set. Server tidak dijalankan tanpa secret yang aman.');
+        process.exit(1);
+    }
+    JWT_SECRET = crypto.randomBytes(48).toString('hex');
+    console.warn('[WARNING] JWT_SECRET belum di-set — memakai secret ACAK SEMENTARA (khusus mode development). Isi JWT_SECRET di .env sebelum deploy ke production.');
 }
+
+// ── HARDENING DASAR EXPRESS ───────────────────────────────────────────────
+app.disable('x-powered-by'); // jangan bocorkan "Express" (memudahkan penyerang cari exploit versi tertentu)
+// Server ini SELALU berjalan di belakang reverse proxy (Vercel, atau Nginx/
+// load balancer kalau self-host) — tanpa `trust proxy`, req.ip akan selalu
+// jadi IP proxy itu sendiri (bukan IP klien asli), yang membuat rate limit
+// & pencatatan/kunci brute-force berbasis IP di bawah jadi tidak berguna
+// (semua request kelihatan datang dari 1 "IP" yang sama).
+app.set('trust proxy', 1);
 
 // ── SETUP SUPABASE STORAGE ──────────────────────────────────────────────────
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -36,8 +61,77 @@ function safeFolderName(name) {
     return (name || 'Tanpa_Nama').replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
-app.use(cors());
+// ── CORS ──────────────────────────────────────────────────────────────────
+// Kalau ALLOWED_ORIGINS diisi di environment variable (daftar origin dipisah
+// koma, mis. "https://cibnprestise.id,https://www.cibnprestise.id"), CORS
+// dibatasi HANYA utk origin-origin itu. Kalau TIDAK diisi, tetap permisif
+// seperti sebelumnya (supaya tidak mendadak mematahkan deployment yang sudah
+// berjalan tanpa konfigurasi ini) — tapi sangat disarankan diisi di production.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+app.use(cors(ALLOWED_ORIGINS.length ? {
+    origin(origin, callback) {
+        // origin kosong = request non-browser/same-origin (curl, server-to-server, dsb) -> izinkan
+        if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+        callback(new Error('Origin tidak diizinkan oleh CORS'));
+    },
+    credentials: true,
+} : undefined));
 app.use(express.json({ limit: '20mb' }));
+
+// ── HEADER KEAMANAN DASAR ─────────────────────────────────────────────────
+// Ditulis manual (tanpa dependency baru spt helmet) supaya tidak menambah
+// permukaan/ukuran deploy — cukup beberapa header inti yang paling berdampak.
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');            // browser tidak boleh "menebak" tipe konten (mis. file upload disangka HTML/JS yang bisa dieksekusi)
+    res.setHeader('X-Frame-Options', 'DENY');                       // halaman ini tidak boleh ditaruh di <iframe> situs lain (cegah clickjacking)
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=(self)'); // camera=(self): dipakai fitur scan QR token ujian (user/index_user.html)
+    if (req.secure) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    next();
+});
+
+// ── RATE LIMIT DASAR PER-IP UNTUK SEMUA /api/* ───────────────────────────
+// Lapisan pertahanan TAMBAHAN di luar kunci login (login_lockouts) & jeda OTP
+// (otp_request_limits) yang sudah lebih spesifik. CATATAN kalau deploy di
+// Vercel (serverless): Map ini hidup di memori SATU instance function saja,
+// jadi TIDAK dibagi antar instance yang berbeda (cold start baru = hitungan
+// kosong lagi). Tetap berguna sbg lapisan murah di dalam kode, tapi utk
+// proteksi DDoS/brute-force yang benar-benar andal di skala serverless,
+// lengkapi juga dgn proteksi di level jaringan (mis. Vercel Firewall/Attack
+// Challenge Mode, atau Cloudflare di depan domain).
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 menit
+// Sengaja dibuat cukup longgar (bisa disetel lewat env RATE_LIMIT_MAX kalau
+// perlu) — platform ini dipakai utk ujian, dan banyak peserta suka mengakses
+// dari satu jaringan yang sama (lab sekolah/kantor di belakang 1 IP NAT) sambil
+// autosave jawaban scr berkala. Limit yg terlalu ketat justru bisa memblokir
+// peserta ujian yang sah, bukan cuma penyerang. Anggap ini jaring pengaman
+// terakhir utk automated abuse/DDoS kasar, BUKAN pembatas traffic normal.
+const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX || '3000', 10); // maksimal request /api per IP per window
+const rateLimitMap = new Map();
+// Bersihkan entri kadaluarsa scr berkala supaya Map tidak membesar tanpa
+// batas kalau server dijalankan lama (self-host, bukan serverless). .unref()
+// supaya timer ini tidak mencegah proses keluar kalau tidak ada lagi kerjaan
+// lain (aman dipanggil optional-chaining kalau lingkungan tidak mendukungnya).
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of rateLimitMap) {
+        if (now - entry.start > RATE_LIMIT_WINDOW_MS) rateLimitMap.delete(ip);
+    }
+}, RATE_LIMIT_WINDOW_MS)?.unref?.();
+app.use('/api', (req, res, next) => {
+    const ip = req.ip || 'unknown';
+    const now = Date.now();
+    let entry = rateLimitMap.get(ip);
+    if (!entry || now - entry.start > RATE_LIMIT_WINDOW_MS) {
+        entry = { start: now, count: 0 };
+        rateLimitMap.set(ip, entry);
+    }
+    entry.count++;
+    if (entry.count > RATE_LIMIT_MAX) {
+        return res.status(429).json({ error: 'Terlalu banyak permintaan dari alamat ini. Coba lagi beberapa saat lagi.' });
+    }
+    next();
+});
 
 // ── REDIRECT URL LAMA (*.html) → URL BARU TANPA EKSTENSI ────────────────────
 // Semua URL halaman publik sekarang TANPA ekstensi .html (mis. /index_admin,
@@ -814,11 +908,50 @@ async function computeAnalisaSoalAggregate(soalKode, laporanRows) {
 app.post('/api/login', ah(async (req, res) => {
     const { password } = req.body;
     const email = normEmail(req.body.email);
+
+    // ── Cek kunci brute-force LEBIH DULU, sebelum query/bcrypt apapun ──
+    // Lihat catatLoginGagal()/resetLoginLockout() di atas utk aturan lengkap:
+    // 3x gagal berturut-turut -> dikunci, durasi naik 2x tiap gagal lagi
+    // (1 menit, 2 menit, 4 menit, ...), otomatis lepas begitu login sukses
+    // ATAU begitu reset kata sandi lewat OTP "Lupa kata sandi?" berhasil.
+    const lockRow = await db.prepare('SELECT * FROM login_lockouts WHERE email=?').get(email);
+    if (lockRow && lockRow.locked_until && new Date(lockRow.locked_until) > new Date()) {
+        const sisaDetik = Math.ceil((new Date(lockRow.locked_until) - new Date()) / 1000);
+        return res.status(429).json({
+            error: `Terlalu banyak percobaan gagal. Coba lagi dalam ${formatSisaWaktu(sisaDetik)}, atau reset kata sandi lewat "Lupa kata sandi?" untuk langsung masuk.`,
+            locked: true,
+            retryAfterSeconds: sisaDetik,
+            lockedUntil: lockRow.locked_until,
+        });
+    }
+
     const user = await db.prepare('SELECT * FROM users WHERE email=?').get(email);
-    if (!user)                           return res.status(401).json({ error: 'Email tidak ditemukan' });
+    if (!user) {
+        const gagal = await catatLoginGagal(email);
+        if (gagal.locked) {
+            return res.status(429).json({
+                error: `Email tidak ditemukan. Sudah 3x gagal — dikunci sementara ${formatSisaWaktu(gagal.durasiDetik)}, atau reset kata sandi lewat "Lupa kata sandi?" untuk langsung masuk.`,
+                locked: true, retryAfterSeconds: gagal.durasiDetik, lockedUntil: gagal.lockedUntil,
+            });
+        }
+        return res.status(401).json({ error: 'Email tidak ditemukan' });
+    }
     if (user.status === 'suspend')       return res.status(403).json({ error: 'Akun di-suspend' });
     if (user.status === 'pending')       return res.status(403).json({ error: 'Akun menunggu aktivasi' });
-    if (!bcrypt.compareSync(password, user.password)) return res.status(401).json({ error: 'Password salah' });
+    if (!bcrypt.compareSync(password, user.password)) {
+        const gagal = await catatLoginGagal(email);
+        if (gagal.locked) {
+            return res.status(429).json({
+                error: `Password salah. Sudah 3x gagal — dikunci sementara ${formatSisaWaktu(gagal.durasiDetik)}, atau reset kata sandi lewat "Lupa kata sandi?" untuk langsung masuk.`,
+                locked: true, retryAfterSeconds: gagal.durasiDetik, lockedUntil: gagal.lockedUntil,
+            });
+        }
+        return res.status(401).json({ error: 'Password salah' });
+    }
+
+    // Login berhasil -> hapus catatan percobaan gagal, hitungan mulai dari 0 lagi.
+    await resetLoginLockout(email);
+
     const token = jwt.sign(
         { id: user.id, kode: user.kode, email: user.email, nama: user.nama, role: user.role },
         JWT_SECRET, { expiresIn: '7d' }
@@ -847,6 +980,10 @@ app.post('/api/signup', ah(async (req, res) => {
     try {
         if (await db.prepare('SELECT id FROM users WHERE email=?').get(email))
             return res.status(400).json({ error: 'Email sudah terdaftar' });
+        // Jeda 1 menit & maksimal 3x/hari per email — cek SEBELUM benar-benar
+        // mengirim OTP (lihat cekJedaOtp()).
+        const jeda = await cekJedaOtp(email, 'signup');
+        if (!jeda.ok) return res.status(429).json({ error: jeda.error, retryAfterSeconds: jeda.retryAfterSeconds });
         const hash = bcrypt.hashSync(password, 10);
         await kirimSignupOtp(nama, email, hash);
         res.json({ message: 'Kode OTP telah dikirim ke email Anda.', email });
@@ -885,6 +1022,10 @@ app.post('/api/signup/resend-otp', ah(async (req, res) => {
             return res.status(400).json({ error: 'Email sudah terdaftar' });
         const row = await db.prepare('SELECT nama,password FROM signup_otps WHERE email=? ORDER BY id DESC LIMIT 1').get(email);
         if (!row) return res.status(400).json({ error: 'Tidak ada pendaftaran yang menunggu untuk email ini. Silakan isi ulang form pendaftaran.' });
+        // Jeda 1 menit & maksimal 3x/hari — jatah sama dgn POST /api/signup
+        // (purpose 'signup' dihitung gabungan utk kirim pertama + kirim ulang).
+        const jeda = await cekJedaOtp(email, 'signup');
+        if (!jeda.ok) return res.status(429).json({ error: jeda.error, retryAfterSeconds: jeda.retryAfterSeconds });
         await kirimSignupOtp(row.nama, email, row.password);
         res.json({ message: 'Kode OTP baru telah dikirim.' });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -895,9 +1036,25 @@ app.post('/api/signup/verify-otp', ah(async (req, res) => {
     const email = normEmail(req.body.email);
     if (!email || !otp) return res.status(400).json({ error: 'Data tidak lengkap' });
     try {
-        const row = await db.prepare('SELECT * FROM signup_otps WHERE email=? AND otp=? ORDER BY id DESC LIMIT 1').get(email, otp);
+        // Ambil baris OTP terbaru utk email ini TANPA ikut memfilter by kode (beda
+        // dari sebelumnya) supaya percobaan kode SALAH tetap bisa dihitung di baris
+        // yg sama — proteksi brute-force tebak 6 digit (lihat MAX_OTP_VERIFY_ATTEMPTS).
+        const row = await db.prepare('SELECT * FROM signup_otps WHERE email=? ORDER BY id DESC LIMIT 1').get(email);
         if (!row) return res.status(400).json({ error: 'Kode OTP salah' });
         if (new Date(row.expires_at) < new Date()) return res.status(400).json({ error: 'Kode OTP sudah kedaluwarsa' });
+        if (row.attempts >= MAX_OTP_VERIFY_ATTEMPTS) {
+            await db.prepare('DELETE FROM signup_otps WHERE email=?').run(email);
+            return res.status(400).json({ error: 'Terlalu banyak percobaan kode salah. Silakan minta kode OTP baru.' });
+        }
+        if (String(row.otp) !== String(otp)) {
+            const attemptsBaru = row.attempts + 1;
+            if (attemptsBaru >= MAX_OTP_VERIFY_ATTEMPTS) {
+                await db.prepare('DELETE FROM signup_otps WHERE email=?').run(email);
+                return res.status(400).json({ error: 'Kode OTP salah. Terlalu banyak percobaan — silakan minta kode OTP baru.' });
+            }
+            await db.prepare('UPDATE signup_otps SET attempts=? WHERE id=?').run(attemptsBaru, row.id);
+            return res.status(400).json({ error: `Kode OTP salah. Sisa percobaan: ${MAX_OTP_VERIFY_ATTEMPTS - attemptsBaru}.` });
+        }
         if (await db.prepare('SELECT id FROM users WHERE email=?').get(email)) {
             await db.prepare('DELETE FROM signup_otps WHERE email=?').run(email);
             return res.status(400).json({ error: 'Email sudah terdaftar' });
@@ -1207,6 +1364,116 @@ function genOtp() { return String(Math.floor(100000 + Math.random() * 900000)); 
 // Tanpa ini, email yang cocok persis-case bisa gagal ditemukan diam-diam.
 function normEmail(email) { return String(email || '').trim().toLowerCase(); }
 
+// ── Proteksi brute-force / pembobolan akun di POST /api/login ──
+// Aturan: 3x gagal berturut-turut (email tidak ditemukan ATAU password salah)
+// -> email dikunci sementara. Kunci pertama 1 menit; kalau gagal LAGI setelah
+// kunci itu habis, kunci berikutnya dilipatgandakan (2 menit, 4 menit, 8
+// menit, ... terus x2) — mempersulit percobaan berulang otomatis (brute
+// force) tanpa mengunci akun selamanya. Data disimpan di tabel
+// `login_lockouts` (bukan memori proses) supaya tetap konsisten walau
+// server berjalan sbg banyak instance serverless (Vercel).
+const LOGIN_MAX_PERCOBAAN = 3;          // batas gagal sebelum mulai dikunci
+const LOGIN_LOCK_BASE_MS = 60 * 1000;   // durasi kunci pertama: 1 menit
+
+// Dipanggil setiap POST /api/login gagal. Menaikkan hitungan gagal utk email
+// ini; begitu mencapai LOGIN_MAX_PERCOBAAN, mengembalikan kapan kuncinya lepas.
+async function catatLoginGagal(email) {
+    const row = await db.prepare('SELECT fail_count FROM login_lockouts WHERE email=?').get(email);
+    const now = new Date();
+    const failCount = (row?.fail_count || 0) + 1;
+    let lockedUntil = null;
+    if (failCount >= LOGIN_MAX_PERCOBAAN) {
+        const durasiMs = LOGIN_LOCK_BASE_MS * Math.pow(2, failCount - LOGIN_MAX_PERCOBAAN);
+        lockedUntil = new Date(now.getTime() + durasiMs);
+    }
+    await db.prepare(`
+        INSERT INTO login_lockouts (email, fail_count, locked_until, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT (email) DO UPDATE SET
+            fail_count   = EXCLUDED.fail_count,
+            locked_until = EXCLUDED.locked_until,
+            updated_at   = CURRENT_TIMESTAMP
+    `).run(email, failCount, lockedUntil);
+    if (!lockedUntil) return { locked: false };
+    return { locked: true, durasiDetik: Math.ceil((lockedUntil - now) / 1000), lockedUntil: lockedUntil.toISOString() };
+}
+
+// Dipanggil saat login SUKSES, dan saat user berhasil menyelesaikan reset kata
+// sandi lewat OTP "Lupa kata sandi?" (lihat POST /api/password/reset) — jalur
+// OTP sengaja dijadikan cara utk langsung melewati masa tunggu (sesuai
+// permintaan: "masukkan otp baru bisa masuk, perlindungan waktu dianggap
+// selesai"), karena berhasil memverifikasi OTP email = identitas terbukti.
+async function resetLoginLockout(email) {
+    await db.prepare('DELETE FROM login_lockouts WHERE email=?').run(email);
+}
+
+// Format detik -> teks Indonesia ringkas utk pesan error (frontend menghitung
+// ulang countdown live sendiri dari field retryAfterSeconds pada JSON respons).
+function formatSisaWaktu(totalDetik) {
+    totalDetik = Math.max(0, Math.ceil(totalDetik));
+    const menit = Math.floor(totalDetik / 60);
+    const detik = totalDetik % 60;
+    if (menit <= 0) return `${detik} detik`;
+    if (detik === 0) return `${menit} menit`;
+    return `${menit} menit ${detik} detik`;
+}
+
+// ── Jeda & limit permintaan kode OTP ──
+// Dipakai oleh POST /api/signup, /api/signup/resend-otp (purpose='signup')
+// dan POST /api/password/forgot (purpose='password_reset', dipanggil baik utk
+// pengiriman pertama maupun tombol "Kirim ulang"). Aturan: jeda minimal 1
+// menit antar permintaan yang berhasil dikirim, dan maksimal 3x permintaan
+// per hari per email (dihitung terpisah per purpose).
+const OTP_JEDA_MS = 60 * 1000;   // jeda minimal antar pengiriman OTP: 1 menit
+const OTP_MAX_PER_HARI = 3;      // maksimal permintaan OTP per hari per email
+// Batas percobaan MENEBAK kode OTP (dipakai di /api/signup/verify-otp &
+// /api/password/verify-otp) — beda dari OTP_MAX_PER_HARI di atas (yg membatasi
+// PENGIRIMAN kode baru); ini membatasi berapa kali kode yg SUDAH terkirim
+// boleh ditebak salah sebelum baris OTP-nya dianggap gugur.
+const MAX_OTP_VERIFY_ATTEMPTS = 5;
+
+function tanggalHariIni() { return new Date().toISOString().slice(0, 10); } // 'YYYY-MM-DD'
+
+// Cek apakah email+purpose ini boleh mengirim OTP baru sekarang. Kalau boleh,
+// LANGSUNG mencatat permintaan ini juga (increment counter + update
+// last_sent_at) supaya pengecekan & pencatatan tidak terpisah jadi dua
+// langkah yang bisa di-race. Return:
+//   { ok:true }  -> boleh kirim, sudah dicatat, silakan lanjut kirim email OTP
+//   { ok:false, error, retryAfterSeconds? } -> ditolak, JANGAN kirim email
+async function cekJedaOtp(email, purpose) {
+    const hariIni = tanggalHariIni();
+    const row = await db.prepare('SELECT * FROM otp_request_limits WHERE email=? AND purpose=?').get(email, purpose);
+    const now = new Date();
+    const masihHariSama = !!row && String(row.request_date).slice(0, 10) === hariIni;
+
+    if (masihHariSama && row.last_sent_at) {
+        const sisaMs = OTP_JEDA_MS - (now - new Date(row.last_sent_at));
+        if (sisaMs > 0) {
+            const sisaDetik = Math.ceil(sisaMs / 1000);
+            return {
+                ok: false,
+                retryAfterSeconds: sisaDetik,
+                error: `Mohon tunggu sebentar sebelum meminta kode OTP baru (jeda 1 menit antar permintaan). Coba lagi dalam ${formatSisaWaktu(sisaDetik)}.`,
+            };
+        }
+    }
+    if (masihHariSama && row.request_count >= OTP_MAX_PER_HARI) {
+        return { ok: false, error: `Sudah mencapai batas ${OTP_MAX_PER_HARI}x permintaan kode OTP hari ini untuk email ini. Silakan coba lagi besok.` };
+    }
+
+    const countBaru = masihHariSama ? row.request_count + 1 : 1;
+    await db.prepare(`
+        INSERT INTO otp_request_limits (email, purpose, request_date, request_count, last_sent_at)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT (email, purpose) DO UPDATE SET
+            request_date  = EXCLUDED.request_date,
+            request_count = EXCLUDED.request_count,
+            last_sent_at  = CURRENT_TIMESTAMP
+    `).run(email, purpose, hariIni, countBaru);
+
+    return { ok: true };
+}
+
 // Bungkus kirimEmail() supaya kegagalan tetap tidak menggagalkan response ke
 // user, TAPI tidak lagi ditelan diam-diam — selalu tercatat jelas di log
 // server dengan konteks (untuk siapa/tujuan apa) supaya gampang di-grep.
@@ -1219,6 +1486,15 @@ function kirimEmailAman(payload, konteks) {
 app.post('/api/password/forgot', ah(async (req, res) => {
     const email = normEmail(req.body.email);
     if (!email) return res.status(400).json({ error: 'Email wajib diisi' });
+
+    // Jeda 1 menit & maksimal 3x/hari per email — dicek SEBELUM tau apakah
+    // emailnya terdaftar atau tidak (supaya respons ttp tidak membocorkan
+    // status pendaftaran email lewat perbedaan pesan/waktu), dan berlaku utk
+    // pengiriman pertama maupun klik "Kirim ulang" di halaman otp.html
+    // (keduanya memanggil endpoint yang sama ini).
+    const jeda = await cekJedaOtp(email, 'password_reset');
+    if (!jeda.ok) return res.status(429).json({ error: jeda.error, retryAfterSeconds: jeda.retryAfterSeconds });
+
     const user = await db.prepare('SELECT kode,nama FROM users WHERE email=?').get(email);
     if (user) {
         const otp = genOtp();
@@ -1250,9 +1526,25 @@ app.post('/api/password/verify-otp', ah(async (req, res) => {
     const { otp } = req.body;
     const email = normEmail(req.body.email);
     if (!email || !otp) return res.status(400).json({ error: 'Data tidak lengkap' });
-    const row = await db.prepare('SELECT * FROM password_resets WHERE email=? AND otp=? ORDER BY id DESC LIMIT 1').get(email, otp);
+    // Ambil baris OTP terbaru utk email ini TANPA ikut memfilter by kode, supaya
+    // percobaan kode SALAH tetap bisa dihitung di baris yg sama — proteksi
+    // brute-force tebak 6 digit (lihat MAX_OTP_VERIFY_ATTEMPTS).
+    const row = await db.prepare('SELECT * FROM password_resets WHERE email=? ORDER BY id DESC LIMIT 1').get(email);
     if (!row) return res.status(400).json({ error: 'Kode OTP salah' });
     if (new Date(row.expires_at) < new Date()) return res.status(400).json({ error: 'Kode OTP sudah kedaluwarsa' });
+    if (row.attempts >= MAX_OTP_VERIFY_ATTEMPTS) {
+        await db.prepare('DELETE FROM password_resets WHERE email=?').run(email);
+        return res.status(400).json({ error: 'Terlalu banyak percobaan kode salah. Silakan minta kode OTP baru.' });
+    }
+    if (String(row.otp) !== String(otp)) {
+        const attemptsBaru = row.attempts + 1;
+        if (attemptsBaru >= MAX_OTP_VERIFY_ATTEMPTS) {
+            await db.prepare('DELETE FROM password_resets WHERE email=?').run(email);
+            return res.status(400).json({ error: 'Kode OTP salah. Terlalu banyak percobaan — silakan minta kode OTP baru.' });
+        }
+        await db.prepare('UPDATE password_resets SET attempts=? WHERE id=?').run(attemptsBaru, row.id);
+        return res.status(400).json({ error: `Kode OTP salah. Sisa percobaan: ${MAX_OTP_VERIFY_ATTEMPTS - attemptsBaru}.` });
+    }
     await db.prepare('UPDATE password_resets SET verified=1 WHERE id=?').run(row.id);
     res.json({ message: 'Kode terverifikasi' });
 }));
@@ -1268,6 +1560,10 @@ app.post('/api/password/reset', ah(async (req, res) => {
     const hash = bcrypt.hashSync(password, 10);
     await db.prepare('UPDATE users SET password=? WHERE email=?').run(hash, email);
     await db.prepare('DELETE FROM password_resets WHERE email=?').run(email);
+    // Reset kata sandi via OTP terbukti = identitas terverifikasi, jadi masa
+    // tunggu kunci brute-force login (kalau ada) dianggap selesai di sini —
+    // user bisa langsung login lagi dgn kata sandi barunya tanpa menunggu.
+    await resetLoginLockout(email);
     res.json({ message: 'Kata sandi berhasil diubah' });
 }));
 

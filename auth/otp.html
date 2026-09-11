@@ -475,6 +475,29 @@ function showStage(name) {
 const emailForm = document.getElementById('emailForm');
 const emailMsg = document.getElementById('emailMsg');
 const emailSubmit = document.getElementById('emailSubmit');
+
+// ── Countdown jeda 1 menit sebelum boleh minta kode OTP lagi (server juga
+// menegakkan jeda yg sama di POST /api/password/forgot; ini cuma UX supaya
+// tombol "Kirim ulang" otomatis nonaktif selama jeda berlangsung) ──
+let otpJedaInterval = null;
+function mulaiJedaOtpResend(detik) {
+  if (otpJedaInterval) clearInterval(otpJedaInterval);
+  let sisa = Math.max(0, Math.ceil(detik));
+  otpResend.disabled = true;
+  const tick = () => {
+    if (sisa <= 0) {
+      clearInterval(otpJedaInterval); otpJedaInterval = null;
+      otpResend.disabled = false;
+      otpResend.textContent = 'Kirim ulang';
+      return;
+    }
+    otpResend.textContent = `Kirim ulang (${sisa}d)`;
+    sisa--;
+  };
+  tick();
+  otpJedaInterval = setInterval(tick, 1000);
+}
+
 async function sendOtp() {
   const email = document.getElementById('fp-email').value.trim();
   emailMsg.classList.remove('error', 'success');
@@ -492,6 +515,7 @@ async function sendOtp() {
     showStage('otp');
     otpBoxes.forEach(b => { b.value=''; b.disabled=false; });
     otpBoxes[0].focus();
+    mulaiJedaOtpResend(60); // baru saja berhasil kirim -> tombol "Kirim ulang" jeda 1 menit
     return true;
   } catch (e) {
     emailMsg.classList.add('error');
@@ -596,20 +620,35 @@ function triggerError(message) {
   otpWrap.classList.remove('shake');
   void otpWrap.offsetWidth; // restart animasi shake
   otpWrap.classList.add('error', 'shake');
+  // Kode OTP yg diinputkan salah -> bersihkan semua kotak & fokus ulang ke
+  // kotak pertama supaya user langsung bisa mengetik kode baru.
+  otpBoxes.forEach(b => { b.value = ''; });
+  otpBoxes[0].focus();
 }
 
 otpResend.addEventListener('click', async () => {
+  if (otpResend.disabled) return; // masih dalam jeda
   clearOtpState();
   try {
     const res = await fetch(API_BASE + '/password/forgot', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: fpEmail })
     });
-    if (!res.ok) throw new Error('Gagal mengirim ulang kode');
+    const data = await res.json();
+    if (res.status === 429 && data.retryAfterSeconds != null) {
+      // Kena jeda 1 menit / limit 3x sehari dari server -> sinkronkan
+      // countdown tombol dgn sisa waktu sesungguhnya dari server.
+      otpMsg.classList.add('error');
+      otpMsg.textContent = data.error || 'Mohon tunggu sebelum meminta kode OTP baru.';
+      mulaiJedaOtpResend(data.retryAfterSeconds);
+      return;
+    }
+    if (!res.ok) throw new Error(data.error || 'Gagal mengirim ulang kode');
     otpBoxes.forEach(b => { b.value = ''; b.disabled = false; });
     otpBoxes[0].focus();
     otpMsg.classList.add('success');
     otpMsg.textContent = 'Kode baru telah dikirim ke email Anda.';
+    mulaiJedaOtpResend(60);
   } catch (e) {
     triggerError(e.message || 'Gagal terhubung ke server.');
   }

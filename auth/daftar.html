@@ -787,6 +787,28 @@ const daftarOtpVerifyBtn = document.getElementById('daftarOtpVerifyBtn');
 const daftarOtpResend = document.getElementById('daftarOtpResend');
 const daftarOtpBack = document.getElementById('daftarOtpBack');
 
+// ── Countdown jeda 1 menit sebelum boleh minta kode OTP lagi (server juga
+// menegakkan jeda yg sama di POST /api/signup & /api/signup/resend-otp; ini
+// cuma UX supaya tombol "Kirim ulang" otomatis nonaktif selama jeda) ──
+let daftarOtpJedaInterval = null;
+function mulaiJedaDaftarOtpResend(detik) {
+  if (daftarOtpJedaInterval) clearInterval(daftarOtpJedaInterval);
+  let sisa = Math.max(0, Math.ceil(detik));
+  daftarOtpResend.disabled = true;
+  const tick = () => {
+    if (sisa <= 0) {
+      clearInterval(daftarOtpJedaInterval); daftarOtpJedaInterval = null;
+      daftarOtpResend.disabled = false;
+      daftarOtpResend.textContent = 'Kirim ulang';
+      return;
+    }
+    daftarOtpResend.textContent = `Kirim ulang (${sisa}d)`;
+    sisa--;
+  };
+  tick();
+  daftarOtpJedaInterval = setInterval(tick, 1000);
+}
+
 function showDaftarOtpStage(email) {
   daftarOtpLead.innerHTML = `Kami telah mengirimkan kode verifikasi 6 digit ke <b>${email}</b>. Masukkan kode tersebut untuk menyelesaikan pendaftaran.`;
   daftarFieldsStage.style.display = 'none';
@@ -794,6 +816,7 @@ function showDaftarOtpStage(email) {
   clearDaftarOtpState();
   daftarOtpBoxes.forEach(b => { b.value = ''; b.disabled = false; });
   daftarOtpBoxes[0].focus();
+  mulaiJedaDaftarOtpResend(60); // baru saja berhasil kirim OTP pertama -> jeda 1 menit
 }
 
 function clearDaftarOtpState() {
@@ -809,6 +832,10 @@ function triggerDaftarOtpError(message) {
   daftarOtpWrap.classList.remove('shake');
   void daftarOtpWrap.offsetWidth; // restart animasi shake
   daftarOtpWrap.classList.add('error', 'shake');
+  // Kode OTP yg diinputkan salah -> bersihkan semua kotak & fokus ulang ke
+  // kotak pertama supaya user langsung bisa mengetik kode baru.
+  daftarOtpBoxes.forEach(b => { b.value = ''; });
+  daftarOtpBoxes[0].focus();
 }
 
 daftarOtpBoxes.forEach((box, i) => {
@@ -870,6 +897,7 @@ daftarOtpVerifyBtn.addEventListener('click', async () => {
 });
 
 daftarOtpResend.addEventListener('click', async () => {
+  if (daftarOtpResend.disabled) return; // masih dalam jeda
   clearDaftarOtpState();
   try {
     const res = await fetch(API_BASE + '/signup/resend-otp', {
@@ -877,11 +905,20 @@ daftarOtpResend.addEventListener('click', async () => {
       body: JSON.stringify({ email: daftarPendingEmail })
     });
     const data = await res.json();
+    if (res.status === 429 && data.retryAfterSeconds != null) {
+      // Kena jeda 1 menit / limit 3x sehari dari server -> sinkronkan
+      // countdown tombol dgn sisa waktu sesungguhnya dari server.
+      daftarOtpMsg.classList.add('error');
+      daftarOtpMsg.textContent = data.error || 'Mohon tunggu sebelum meminta kode OTP baru.';
+      mulaiJedaDaftarOtpResend(data.retryAfterSeconds);
+      return;
+    }
     if (!res.ok) throw new Error(data.error || 'Gagal mengirim ulang kode');
     daftarOtpBoxes.forEach(b => { b.value = ''; b.disabled = false; });
     daftarOtpBoxes[0].focus();
     daftarOtpMsg.classList.add('success');
     daftarOtpMsg.textContent = 'Kode baru telah dikirim ke email Anda.';
+    mulaiJedaDaftarOtpResend(60);
   } catch (e) {
     triggerDaftarOtpError(e.message || 'Gagal terhubung ke server.');
   }
