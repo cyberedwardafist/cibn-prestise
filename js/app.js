@@ -423,76 +423,80 @@ document.addEventListener('DOMContentLoaded', () => {
     _doNav(lastPage, lastSub);
 });
 // ══════════════ GENERIC FILTER DROPDOWN (ikon corong, hemat tempat) ══════════════
-// Dipakai untuk filter kelompok (soal/modul/e-book) & filter tipe soal di Library Soal.
-// Beberapa dropdown bisa hidup bersamaan; tiap satu diingat state-nya lewat containerId.
+// Dipakai untuk filter kelompok (soal/modul/e-book), filter grup user (akun), &
+// filter tipe soal di Library Soal. Beberapa dropdown bisa hidup bersamaan; tiap
+// satu diingat state-nya lewat containerId.
+//
+// Tombol trigger (ikon corong) TETAP SAMA seperti sebelumnya. Yang berubah cuma
+// HASIL kliknya: dulu panel kecil nempel/anchor di tombol, sekarang popup
+// pencarian + list terpusat di layar — gaya & markup-nya sengaja disamakan
+// dengan popup "Pilih Modul" di Buat Token CAT (#token-modul-picker-overlay di
+// admin/cat/token-modals.html: modal-header + search-bar + list card). Satu
+// overlay global (#filter-dd-overlay di admin/index_admin.html) dipakai gantian
+// oleh semua containerId, isinya di-render ulang tiap dibuka.
+//
+// Signature renderFilterDropdown() & bentuk callback onSelect TIDAK berubah,
+// jadi semua pemanggil lama (analisa-modul.js, analisa-soal.js, modul.js,
+// library.js, ebook.js, akun.js, js/pages.js) tidak perlu disentuh.
 const _filterDD = {};
+let _filterDDActiveContainer = null, _filterDDSearchQ = '';
 function renderFilterDropdown(containerId, { options, current, onSelect, title, groups }) {
     const wrap = document.getElementById(containerId); if (!wrap) return;
     // Bentuk lama (satu grup): options/current/onSelect langsung. Bentuk baru (multi-grup): groups[].
     const grpList = groups || [{ title, options, current, onSelect }];
-    _filterDD[containerId] = { groups: grpList };
+    _filterDD[containerId] = { groups: grpList, modalTitle: title || (grpList.length === 1 ? grpList[0].title : null) || 'Filter' };
     const isActive = grpList.some(g => g.current && g.current !== 'all');
-    // Panel lama (kalau lagi kebuka) sempat dipindah ke <body> oleh _toggleFilterDD — buang dulu biar gak dobel/nyangkut.
-    const strayPanel = document.getElementById(`${containerId}-panel`);
-    if (strayPanel && strayPanel.parentElement === document.body) strayPanel.remove();
     wrap.innerHTML = `<div class="filter-dd-wrap">
-      <button type="button" class="filter-dd-btn${isActive ? ' active' : ''}" title="${title || 'Filter'}" onclick="_toggleFilterDD('${containerId}')">
+      <button type="button" class="filter-dd-btn${isActive ? ' active' : ''}" title="${title || 'Filter'}" onclick="_openFilterDD('${containerId}')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
         ${isActive ? '<span class="filter-dd-dot"></span>' : ''}
       </button>
-      <div class="filter-dd-panel" id="${containerId}-panel" style="display:none">
-        ${grpList.map((g, gi) => `${g.title ? `<div class="filter-dd-title">${g.title}</div>` : ''}${g.options.map(o => `<div class="filter-dd-item${o.value === g.current ? ' active' : ''}" onclick="_selectFilterDD('${containerId}',${gi},'${o.value}')">${o.label}</div>`).join('')}`).join('')}
-      </div>
     </div>`;
-}
-// Panel dipindah ke <body> + position:fixed saat dibuka, supaya gak kepotong sama
-// overflow-y:auto / transform milik ancestor-nya (mis. .modal), berapapun tinggi/pendek modal-nya.
-function _closeAllFilterDD() {
-    document.querySelectorAll('.filter-dd-panel').forEach(p => { p.style.display = 'none'; });
-}
-function _toggleFilterDD(containerId) {
-    const panel = document.getElementById(`${containerId}-panel`); if (!panel) return;
-    const willOpen = panel.style.display !== 'block';
-    _closeAllFilterDD();
-    if (!willOpen) return;
-    // Cari tombol lewat containerId (bukan closest() dari panel), soalnya panel bisa udah
-    // kepindah ke <body> dari kali sebelumnya dibuka — closest('.filter-dd-wrap') bakal null
-    // dan jatuh ke fallback yang salah, bikin posisi ngaco (kepojok kiri-atas).
-    const containerEl = document.getElementById(containerId);
-    const btn = containerEl ? containerEl.querySelector('.filter-dd-btn') : null;
-    if (btn) {
-        const rect = btn.getBoundingClientRect();
-        document.body.appendChild(panel);
-        panel.style.position = 'fixed';
-        panel.style.zIndex = '600';
-        panel.style.top = (rect.bottom + 8) + 'px';
-        panel.style.left = '-9999px';
-        panel.style.right = 'auto';
-        panel.style.display = 'block';
-        const pw = panel.offsetWidth;
-        let left = rect.right - pw; // rata kanan ke tombol, kayak posisi absolute lama
-        if (left < 8) left = 8;
-        if (left + pw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - pw - 8);
-        panel.style.left = left + 'px';
-        // kalau kepanjangan ke bawah viewport, buka ke atas tombol aja
-        const maxH = parseFloat(getComputedStyle(panel).maxHeight) || 280;
-        if (rect.bottom + 8 + Math.min(panel.scrollHeight, maxH) > window.innerHeight - 8) {
-            panel.style.top = Math.max(8, rect.top - 8 - Math.min(panel.scrollHeight, maxH)) + 'px';
-        }
-    } else {
-        panel.style.display = 'block';
+    // Popup yang lagi kebuka utk containerId ini (mis. abis _selectFilterDD memicu re-render
+    // dari page code) -> ikut refresh isinya biar centang "active" langsung sinkron.
+    if (_filterDDActiveContainer === containerId && document.getElementById('filter-dd-overlay')?.classList.contains('open')) {
+        _renderFilterDDModalBody();
     }
+}
+function _openFilterDD(containerId) {
+    const conf = _filterDD[containerId]; if (!conf) return;
+    _filterDDActiveContainer = containerId;
+    _filterDDSearchQ = '';
+    const titleEl = document.getElementById('filter-dd-modal-title');
+    if (titleEl) titleEl.textContent = conf.modalTitle;
+    const searchEl = document.getElementById('filter-dd-modal-search');
+    if (searchEl) searchEl.value = '';
+    _renderFilterDDModalBody();
+    openModal('filter-dd-overlay');
+    setTimeout(() => document.getElementById('filter-dd-modal-search')?.focus(), 60);
+}
+function _filterDDModalSearch(v) {
+    _filterDDSearchQ = (v || '').toLowerCase();
+    _renderFilterDDModalBody();
+}
+function _renderFilterDDModalBody() {
+    const body = document.getElementById('filter-dd-modal-body'); if (!body) return;
+    const conf = _filterDD[_filterDDActiveContainer]; if (!conf) { body.innerHTML = ''; return; }
+    const q = _filterDDSearchQ;
+    const html = conf.groups.map((g, gi) => {
+        const opts = q ? g.options.filter(o => (o.label || '').toLowerCase().includes(q)) : g.options;
+        if (!opts.length) return '';
+        return `${g.title ? `<div class="filter-dd-modal-group-ttl">${g.title}</div>` : ''}${opts.map(o => `
+          <div class="filter-dd-modal-item${o.value === g.current ? ' active' : ''}" onclick="_selectFilterDD('${_filterDDActiveContainer}',${gi},'${o.value}')">
+            <span>${o.label}</span>
+            ${o.value === g.current ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+          </div>`).join('')}`;
+    }).join('');
+    body.innerHTML = html || '<p style="color:var(--text-sub);font-size:13px;padding:8px 4px">Tidak ada pilihan yang cocok.</p>';
 }
 function _selectFilterDD(containerId, groupIdx, value) {
     const conf = _filterDD[containerId]; if (!conf) return;
-    const panel = document.getElementById(`${containerId}-panel`); if (panel) panel.style.display = 'none';
+    _closeAllFilterDD();
     conf.groups[groupIdx].onSelect(value);
 }
-document.addEventListener('click', e => {
-    if (!e.target.closest('.filter-dd-wrap') && !e.target.closest('.filter-dd-panel')) _closeAllFilterDD();
-});
-window.addEventListener('resize', _closeAllFilterDD);
-document.addEventListener('scroll', e => {
-    // reposisi ketutup aja kalau area yg discroll bukan si panel-nya sendiri (biar list di dalam panel tetep bisa discroll)
-    if (!e.target.closest || !e.target.closest('.filter-dd-panel')) _closeAllFilterDD();
-}, true);
+// Dipanggil closeModal() tiap modal APAPUN ditutup (jaga2 ada filter popup nyangkut
+// kebuka), jadi TIDAK boleh manggil closeModal('filter-dd-overlay') balik -> infinite loop.
+// Cukup lepas class 'open'-nya langsung.
+function _closeAllFilterDD() {
+    document.getElementById('filter-dd-overlay')?.classList.remove('open');
+}

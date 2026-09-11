@@ -181,6 +181,11 @@
    dengan leave-confirm-overlay biar selalu menang tampil paling depan. */
 #confirm-overlay { z-index: 600; }
 
+/* Popup filter Kelompok/Grup/Tipe (renderFilterDropdown, admin) — perlu tetap tampil
+   di ATAS modal lain, termasuk saat dibuka dari dalam popup "Pilih Modul" (mis. filter
+   Kelompok di dalam token-modul-picker-overlay saat Buat Token CAT). */
+#filter-dd-overlay { z-index: 610; }
+
 /* ── SOAL NAV PANEL ── */
 .soal-nav-panel {
     position: fixed;

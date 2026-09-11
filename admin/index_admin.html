@@ -60,18 +60,21 @@
 .lib-card{background:rgba(255,255,255,0.6);border:1.5px solid rgba(255,255,255,0.8);border-radius:14px;padding:16px;margin-bottom:10px;box-shadow:0 2px 10px rgba(19,50,89,0.05)}
 .lib-type-btn{padding:7px 16px;border-radius:20px;border:1.5px solid rgba(19,50,89,0.12);background:rgba(255,255,255,0.5);color:var(--text-sub);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s}
 .lib-type-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
-/* ── FILTER DROPDOWN (ikon corong ringkas, dipakai untuk filter kelompok & tipe soal) ── */
+/* ── FILTER DROPDOWN (ikon corong ringkas, dipakai untuk filter kelompok & tipe soal) ──
+   Tombolnya tetap ikon corong kecil seperti semula; yang berubah cuma HASIL kliknya:
+   dulu panel kecil nempel di tombol, sekarang popup pencarian + list, gaya sama
+   seperti "Pilih Modul" di Buat Token CAT (lihat #filter-dd-overlay). */
 .filter-dd-wrap{position:relative;flex-shrink:0}
 .filter-dd-btn{position:relative;width:38px;height:38px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(255,255,255,0.5);color:var(--text-sub);border:1.5px solid rgba(19,50,89,0.12);cursor:pointer;transition:all 0.2s}
 .filter-dd-btn:hover{background:rgba(19,50,89,0.08)}
 .filter-dd-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 .filter-dd-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--warning);border:1.5px solid #fff}
-.filter-dd-panel{position:absolute;top:calc(100% + 8px);right:0;min-width:190px;max-height:280px;overflow-y:auto;background:#fff;border:1.5px solid rgba(19,50,89,0.1);border-radius:14px;box-shadow:0 12px 32px rgba(19,50,89,0.18);padding:6px;z-index:50}
-.filter-dd-title{font-size:10.5px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.04em;padding:8px 10px 4px}
-.filter-dd-title:not(:first-child){margin-top:4px;border-top:1px solid rgba(19,50,89,0.08);padding-top:12px}
-.filter-dd-item{padding:9px 10px;border-radius:9px;font-size:12.5px;font-weight:600;color:var(--blue);cursor:pointer;transition:background 0.15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.filter-dd-item:hover{background:rgba(19,50,89,0.06)}
-.filter-dd-item.active{background:var(--blue);color:#fff}
+.filter-dd-modal-group-ttl{font-weight:700;color:var(--blue);font-size:11px;text-transform:uppercase;letter-spacing:0.06em;margin:14px 2px 8px}
+.filter-dd-modal-group-ttl:first-child{margin-top:2px}
+.filter-dd-modal-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:12px;border:1.5px solid rgba(19,50,89,0.09);background:rgba(255,255,255,0.55);cursor:pointer;transition:all 0.18s;margin-bottom:8px;font-weight:600;font-size:13.5px;color:var(--blue)}
+.filter-dd-modal-item:hover{border-color:rgba(19,50,89,0.24);background:rgba(255,255,255,0.85)}
+.filter-dd-modal-item.active{border-color:var(--accent);background:rgba(26,90,160,0.08)}
+.filter-dd-modal-item svg{color:var(--accent);flex-shrink:0}
 /* E-BOOK — grid kartu library dengan poster, form Buat Buku, & list Modul e-book */
 .ebook-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;margin-top:14px}
 .ebook-card{background:rgba(255,255,255,0.65);border:1.5px solid rgba(255,255,255,0.85);border-radius:14px;overflow:hidden;box-shadow:0 2px 10px rgba(19,50,89,0.06);transition:transform 0.2s,box-shadow 0.2s;display:flex;flex-direction:column}
@@ -665,6 +668,18 @@ body.soal-building #side-dock-wrap.side-dock-right{
 
 <!-- GENERIC CONFIRM -->
 <div class="overlay" id="confirm-overlay"><div class="modal modal-sm"><div class="confirm-icon danger" id="confirm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></div><div class="confirm-title" id="confirm-title">Konfirmasi</div><div class="confirm-msg" id="confirm-msg">Yakin?</div><div class="confirm-btns"><button class="btn btn-secondary" onclick="handleConfirmNo()">Batal</button><button class="btn btn-primary" id="confirm-yes-btn" onclick="handleConfirmYes()">Ya, Lanjutkan</button></div></div></div>
+
+<!-- FILTER KELOMPOK/GRUP/TIPE (generik, dipakai renderFilterDropdown() di js/app.js) —
+     tampilan popup pencarian + list, pola sama seperti "Pilih Modul" di Buat Token CAT
+     (lihat token-modul-picker-overlay di admin/cat/token-modals.html). Satu overlay ini
+     dipakai bareng oleh SEMUA filter kelompok/grup/tipe di seluruh halaman admin
+     (library, modul, e-book, akun, analisa soal/modul, dst) — isinya diganti-ganti
+     lewat _openFilterDD()/_renderFilterDDModalBody(), bukan dibuat ulang per halaman. -->
+<div class="overlay" id="filter-dd-overlay"><div class="modal modal-lg">
+  <div class="modal-header"><div class="modal-title" id="filter-dd-modal-title">Filter</div><button class="modal-close" onclick="_closeAllFilterDD()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="search-bar" style="margin-bottom:12px"><div class="search-input-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" id="filter-dd-modal-search" placeholder="Cari pilihan..." oninput="_filterDDModalSearch(this.value)"></div></div>
+  <div id="filter-dd-modal-body" style="max-height:60vh;overflow-y:auto"></div>
+</div></div>
 
 <!-- Slot untuk fragmen modal yang di-lazy-load per tab (lihat ensureAdminPageModule di js/app.js). Modal khusus 1 tab (mis. form user, QR token, form paket) di-fetch dan di-APPEND ke sini saat tab terkait dibuka — TIDAK ikut termuat di awal. -->
 <div id="lazy-modals-slot"></div>
