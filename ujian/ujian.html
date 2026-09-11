@@ -594,7 +594,7 @@ function _loadExamPayload() {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-  if (!getUser() || !getJWT()) { window.location.href = 'index.html'; return; }
+  if (!getUser() || !getJWT()) { window.location.href = 'index'; return; }
 
   // Ambil data dari IndexedDB (kapasitas besar)
   // BUG YANG DIPERBAIKI: sebelumnya await ini TIDAK dibungkus try/catch. Di
@@ -628,7 +628,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         <div style="font-size:40px;margin-bottom:16px">⚠️</div>
         <div style="font-family:var(--font-head);font-size:18px;font-weight:700;margin-bottom:8px">Data Ujian Tidak Ditemukan</div>
         <div style="font-size:13px;opacity:0.8;margin-bottom:24px">Sesi mungkin telah berakhir atau storage penuh.</div>
-        <button onclick="window.location.href='index_user.html'" style="padding:12px 24px;border-radius:12px;border:none;background:#fff;color:#133259;font-weight:700;font-size:14px;cursor:pointer">← Kembali ke Beranda</button>
+        <button onclick="window.location.href='index_user'" style="padding:12px 24px;border-radius:12px;border:none;background:#fff;color:#133259;font-weight:700;font-size:14px;cursor:pointer">← Kembali ke Beranda</button>
       </div>`;
     return;
   }
@@ -761,7 +761,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         <div style="font-family:var(--font-head);font-size:18px;font-weight:700;margin-bottom:8px">Gagal Memuat Ujian</div>
         <div style="font-size:13px;opacity:0.8;margin-bottom:8px">${e.message||'Terjadi kesalahan tidak dikenal'}</div>
         <div style="font-size:11px;opacity:0.6;margin-bottom:24px">Coba refresh atau masukkan token kembali.</div>
-        <button onclick="window.location.href='index_user.html'" style="padding:12px 24px;border-radius:12px;border:none;background:#fff;color:#133259;font-weight:700;font-size:14px;cursor:pointer">← Kembali ke Beranda</button>
+        <button onclick="window.location.href='index_user'" style="padding:12px 24px;border-radius:12px;border:none;background:#fff;color:#133259;font-weight:700;font-size:14px;cursor:pointer">← Kembali ke Beranda</button>
       </div>`;
     return;
   }

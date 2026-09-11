@@ -386,21 +386,21 @@ input{font-family:inherit}
 
 <nav class="navbar">
   <div class="navbar-inner">
-    <a href="index.html" class="brand">CIBN PRESTISE</a>
+    <a href="index" class="brand">CIBN PRESTISE</a>
     <div class="nav-links">
-      <a href="index.html" data-page="index.html">Home</a>
-      <a href="paket.html" data-page="paket.html">Paket</a>
-      <a href="testimoni.html" data-page="testimoni.html">Testimoni</a>
+      <a href="index" data-page="index">Home</a>
+      <a href="paket" data-page="paket">Paket</a>
+      <a href="testimoni" data-page="testimoni">Testimoni</a>
     </div>
-    <a href="masuk.html" class="nav-cta">LogIn</a>
+    <a href="masuk" class="nav-cta">LogIn</a>
     <button class="nav-toggle" aria-label="Buka menu" aria-expanded="false" aria-controls="mobileMenu"><span></span><span></span><span></span></button>
   </div>
 </nav>
 <div class="mobile-menu" id="mobileMenu">
-  <a href="index.html" data-page="index.html">Home</a>
-  <a href="paket.html" data-page="paket.html">Paket</a>
-  <a href="testimoni.html" data-page="testimoni.html">Testimoni</a>
-  <a href="masuk.html" data-page="masuk.html">LogIn</a>
+  <a href="index" data-page="index">Home</a>
+  <a href="paket" data-page="paket">Paket</a>
+  <a href="testimoni" data-page="testimoni">Testimoni</a>
+  <a href="masuk" data-page="masuk">LogIn</a>
 </div>
 
 <!-- ================= AUTH (DAFTAR / MASUK) ================= -->
@@ -507,7 +507,7 @@ input{font-family:inherit}
         </div>
         <div class="field-row">
           <label class="check-row"><input type="checkbox"> Ingat saya</label>
-          <a href="otp.html" class="link-inline">Lupa kata sandi?</a>
+          <a href="otp" class="link-inline">Lupa kata sandi?</a>
         </div>
         <p class="otp-msg" id="masukMsg" style="margin:0;font-size:13px;min-height:18px"></p>
         <button type="submit" class="btn btn-gold btn-block">Masuk & Lanjut ke Pembayaran</button>
@@ -704,7 +704,7 @@ function goToPembayaran() {
   if (selectedPaketHarga) params.set('harga', selectedPaketHarga);
   if (selectedPaketKode) params.set('kode', selectedPaketKode);
   const query = params.toString() ? `?${params.toString()}` : '';
-  window.location.href = `pembayaran.html${query}`;
+  window.location.href = `pembayaran${query}`;
 }
 
 // ===== Tab switch: Daftar <-> Masuk =====
@@ -860,7 +860,7 @@ daftarOtpVerifyBtn.addEventListener('click', async () => {
     daftarOtpMsg.textContent = selectedPaketName
       ? 'Pendaftaran berhasil! Akun Anda sudah aktif. Mengarahkan ke halaman pembayaran…'
       : 'Pendaftaran berhasil! Akun Anda sudah aktif. Mengarahkan ke akun Anda…';
-    setTimeout(() => { selectedPaketName ? goToPembayaran() : (window.location.href = 'index_user.html'); }, 1200);
+    setTimeout(() => { selectedPaketName ? goToPembayaran() : (window.location.href = 'index_user'); }, 1200);
   } catch (e) {
     triggerDaftarOtpError(e.message || 'Gagal terhubung ke server.');
   } finally {
@@ -922,9 +922,9 @@ masukForm.addEventListener('submit', async () => {
       masukMsg.style.color = '#1f8a4c';
       masukMsg.textContent = 'Berhasil masuk! Mengarahkan ke halaman pembayaran…';
       setTimeout(goToPembayaran, 900);
-    } else if (data.user.role === 'admin') window.location.href = 'index_admin.html';
-    else if (data.user.role === 'review') window.location.href = 'index_review.html';
-    else window.location.href = 'index_user.html';
+    } else if (data.user.role === 'admin') window.location.href = 'index_admin';
+    else if (data.user.role === 'review') window.location.href = 'index_review';
+    else window.location.href = 'index_user';
   } catch (e) {
     masukMsg.textContent = e.message || 'Gagal terhubung ke server. Pastikan server aktif.';
     masukBtn.disabled = false;

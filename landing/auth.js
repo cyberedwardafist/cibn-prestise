@@ -63,9 +63,9 @@ async function doLogin() {
     localStorage.setItem('cbn_token', data.token);
     localStorage.setItem('cbn_user', JSON.stringify(data.user));
     // Redirect sesuai role
-    if (data.user.role === 'admin') window.location.href = 'index_admin.html';
-    else if (data.user.role === 'review') window.location.href = 'index_review.html';
-    else window.location.href = 'index_user.html';
+    if (data.user.role === 'admin') window.location.href = 'index_admin';
+    else if (data.user.role === 'review') window.location.href = 'index_review';
+    else window.location.href = 'index_user';
   } catch(e) {
     err.style.display = 'block';
     err.textContent = e.message || 'Gagal terhubung ke server. Pastikan server aktif.';

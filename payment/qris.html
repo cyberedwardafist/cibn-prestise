@@ -264,21 +264,21 @@ ul{list-style:none}
 
 <nav class="navbar">
   <div class="navbar-inner">
-    <a href="index.html" class="brand">CIBN PRESTISE</a>
+    <a href="index" class="brand">CIBN PRESTISE</a>
     <div class="nav-links">
-      <a href="index.html" data-page="index.html">Home</a>
-      <a href="paket.html" data-page="paket.html">Paket</a>
-      <a href="testimoni.html" data-page="testimoni.html">Testimoni</a>
+      <a href="index" data-page="index">Home</a>
+      <a href="paket" data-page="paket">Paket</a>
+      <a href="testimoni" data-page="testimoni">Testimoni</a>
     </div>
-    <a href="masuk.html" class="nav-cta">LogIn</a>
+    <a href="masuk" class="nav-cta">LogIn</a>
     <button class="nav-toggle" aria-label="Buka menu" aria-expanded="false" aria-controls="mobileMenu"><span></span><span></span><span></span></button>
   </div>
 </nav>
 <div class="mobile-menu" id="mobileMenu">
-  <a href="index.html" data-page="index.html">Home</a>
-  <a href="paket.html" data-page="paket.html">Paket</a>
-  <a href="testimoni.html" data-page="testimoni.html">Testimoni</a>
-  <a href="masuk.html" data-page="masuk.html">LogIn</a>
+  <a href="index" data-page="index">Home</a>
+  <a href="paket" data-page="paket">Paket</a>
+  <a href="testimoni" data-page="testimoni">Testimoni</a>
+  <a href="masuk" data-page="masuk">LogIn</a>
 </div>
 
 <!-- ================= PEMBAYARAN QRIS ================= -->
@@ -288,7 +288,7 @@ ul{list-style:none}
   <div class="container qris-inner">
 
     <div class="qris-card glass reveal">
-      <a href="pembayaran.html" class="qris-back" id="qrisBack">
+      <a href="pembayaran" class="qris-back" id="qrisBack">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         Ganti Metode Pembayaran
       </a>
@@ -387,7 +387,7 @@ document.getElementById('orderPkgName').textContent = selectedPaketName;
 document.getElementById('orderPkgPrice').textContent = selectedPaketHarga;
 
 const qrisBack = document.getElementById('qrisBack');
-qrisBack.href = `pembayaran.html?paket=${encodeURIComponent(selectedPaketName)}&harga=${encodeURIComponent(selectedPaketHarga)}${selectedPaketKode ? '&kode=' + encodeURIComponent(selectedPaketKode) : ''}`;
+qrisBack.href = `pembayaran?paket=${encodeURIComponent(selectedPaketName)}&harga=${encodeURIComponent(selectedPaketHarga)}${selectedPaketKode ? '&kode=' + encodeURIComponent(selectedPaketKode) : ''}`;
 
 // ===== Hitung mundur kode QRIS (demo tampilan — kode QR statis, belum tersambung gateway) =====
 const qrisTimer = document.getElementById('qrisTimer');
@@ -422,7 +422,7 @@ function showQrisSuccess(paketNama) {
     </div>
     <p class="qris-status success">Pembayaran berhasil! ${paketNama || selectedPaketName} sudah aktif.</p>
     <p class="qris-note">Mengarahkan ke halaman utama…</p>`;
-  setTimeout(() => { window.location.href = 'index.html'; }, 2200);
+  setTimeout(() => { window.location.href = 'index'; }, 2200);
 }
 
 function pollQrisStatus() {
@@ -513,7 +513,7 @@ qrisConfirmBtn.addEventListener('click', async () => {
       </div>
       <p class="qris-status success">Konfirmasi diterima! ${selectedPaketName} akan diaktifkan admin setelah diverifikasi.</p>
       <p class="qris-note">Mengarahkan ke halaman utama…</p>`;
-    setTimeout(() => { window.location.href = 'index.html'; }, 2200);
+    setTimeout(() => { window.location.href = 'index'; }, 2200);
   } catch (e) {
     qrisStatus.textContent = e.message || 'Gagal terhubung ke server.';
     qrisStatus.classList.add('error');

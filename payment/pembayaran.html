@@ -351,21 +351,21 @@ input{font-family:inherit}
 
 <nav class="navbar">
   <div class="navbar-inner">
-    <a href="index.html" class="brand">CIBN PRESTISE</a>
+    <a href="index" class="brand">CIBN PRESTISE</a>
     <div class="nav-links">
-      <a href="index.html" data-page="index.html">Home</a>
-      <a href="paket.html" data-page="paket.html">Paket</a>
-      <a href="testimoni.html" data-page="testimoni.html">Testimoni</a>
+      <a href="index" data-page="index">Home</a>
+      <a href="paket" data-page="paket">Paket</a>
+      <a href="testimoni" data-page="testimoni">Testimoni</a>
     </div>
-    <a href="masuk.html" class="nav-cta">LogIn</a>
+    <a href="masuk" class="nav-cta">LogIn</a>
     <button class="nav-toggle" aria-label="Buka menu" aria-expanded="false" aria-controls="mobileMenu"><span></span><span></span><span></span></button>
   </div>
 </nav>
 <div class="mobile-menu" id="mobileMenu">
-  <a href="index.html" data-page="index.html">Home</a>
-  <a href="paket.html" data-page="paket.html">Paket</a>
-  <a href="testimoni.html" data-page="testimoni.html">Testimoni</a>
-  <a href="masuk.html" data-page="masuk.html">LogIn</a>
+  <a href="index" data-page="index">Home</a>
+  <a href="paket" data-page="paket">Paket</a>
+  <a href="testimoni" data-page="testimoni">Testimoni</a>
+  <a href="masuk" data-page="masuk">LogIn</a>
 </div>
 
 <!-- ================= PEMBAYARAN ================= -->
@@ -375,7 +375,7 @@ input{font-family:inherit}
   <div class="container otp-inner">
 
     <div class="pay-card glass reveal">
-      <a href="daftar.html" class="pay-back" id="payBack">
+      <a href="daftar" class="pay-back" id="payBack">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         Kembali
       </a>
@@ -502,7 +502,7 @@ document.getElementById('orderPkgPrice').textContent = selectedPaketHarga;
 
 // panah kembali: bawa serta konteks paket ke halaman daftar
 const payBack = document.getElementById('payBack');
-payBack.href = `daftar.html?paket=${encodeURIComponent(selectedPaketName)}&harga=${encodeURIComponent(selectedPaketHarga)}${selectedPaketKode ? '&kode=' + encodeURIComponent(selectedPaketKode) : ''}`;
+payBack.href = `daftar?paket=${encodeURIComponent(selectedPaketName)}&harga=${encodeURIComponent(selectedPaketHarga)}${selectedPaketKode ? '&kode=' + encodeURIComponent(selectedPaketKode) : ''}`;
 
 // ===== Kirim permintaan aktivasi paket ke backend asli (menunggu verifikasi admin) =====
 const PAY_API_BASE = window.location.origin + '/api';
@@ -790,7 +790,7 @@ payForm.addEventListener('submit', async () => {
   if (method === 'qris') {
     paySubmit.disabled = true;
     paySubmit.textContent = 'Mengarahkan…';
-    window.location.href = `qris.html?paket=${encodeURIComponent(selectedPaketName)}&harga=${encodeURIComponent(selectedPaketHarga)}${selectedPaketKode ? '&kode=' + encodeURIComponent(selectedPaketKode) : ''}`;
+    window.location.href = `qris?paket=${encodeURIComponent(selectedPaketName)}&harga=${encodeURIComponent(selectedPaketHarga)}${selectedPaketKode ? '&kode=' + encodeURIComponent(selectedPaketKode) : ''}`;
     return;
   }
 

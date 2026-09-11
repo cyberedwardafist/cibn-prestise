@@ -48,9 +48,9 @@
     (function(){
         var token = localStorage.getItem('cbn_token');
         var user  = JSON.parse(localStorage.getItem('cbn_user') || 'null');
-        if (!token || !user) { window.location.replace('index.html'); return; }
-        if (user.role === 'admin') { window.location.replace('index_admin.html'); return; }
-        if (user.role === 'review') { window.location.replace('index_review.html'); return; }
+        if (!token || !user) { window.location.replace('index'); return; }
+        if (user.role === 'admin') { window.location.replace('index_admin'); return; }
+        if (user.role === 'review') { window.location.replace('index_review'); return; }
     })();
     </script>
     <style>
@@ -1341,7 +1341,7 @@ let _userInfo = null;
 document.addEventListener('DOMContentLoaded', async () => {
     buildParticles();
     const u = Auth.getUser();
-    if (!u) { window.location.replace('index.html'); return; }
+    if (!u) { window.location.replace('index'); return; }
     // Set display from token
     document.getElementById('display-name').textContent = u.nama || u.email;
     document.getElementById('display-email').textContent = u.email;
@@ -1518,7 +1518,7 @@ async function savePassword() {
 }
 
 function handleLogout() { document.getElementById('logout-overlay').classList.add('open'); }
-function confirmLogout() { Auth.clear(); window.location.replace('index.html'); }
+function confirmLogout() { Auth.clear(); window.location.replace('index'); }
 
 async function loadMyPaketsStatus() {
     try {
@@ -1906,7 +1906,7 @@ async function startUjian() {
         sessionStorage.removeItem('cbn_ujian_data');
         localStorage.removeItem('cbn_ujian_data_ls');
         
-        window.location.href = 'ujian.html';
+        window.location.href = 'ujian';
     } catch(e) {
         console.error(e);
         showToast('Gagal menyiapkan data: ' + e.message, 'danger');

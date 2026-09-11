@@ -50,9 +50,9 @@ async function apiFetch(path, options = {}) {
         // supaya user tahu kenapa data tiba-tiba kosong / tombol tidak merespons.
         if (res.status === 401) {
             Auth.clearSession();
-            if (!location.pathname.endsWith('login.html')) {
+            if (!location.pathname.endsWith('masuk')) {
                 showToastSafe('Sesi berakhir, silakan login kembali', 'danger');
-                setTimeout(() => { location.href = 'login.html'; }, 1200);
+                setTimeout(() => { location.href = 'masuk'; }, 1200);
             }
         }
         throw new Error((data && data.error) || `HTTP ${res.status}`);

@@ -25,7 +25,7 @@ function glassApplyNav(D) {
       const buildHref = m => {
         if (!m.href) return '#';
         // Di sub-halaman, link anchor (#fitur dst) harus mengarah balik ke landing utama.
-        if (isSub && m.href.startsWith('#')) return 'landing.html' + m.href;
+        if (isSub && m.href.startsWith('#')) return 'landing' + m.href;
         return m.href;
       };
       const renderLinks = (container, tag) => {
@@ -37,7 +37,7 @@ function glassApplyNav(D) {
       if (mobileMenu) {
         const closeBtn = mobileMenu.querySelector('.nav-mobile-close');
         mobileMenu.innerHTML = n.menus.map(m => `<a href="${GlassEsc(buildHref(m))}" onclick="closeMobileMenu()">${GlassEsc(m.text)}</a>`).join('') +
-          `<button class="btn-primary" onclick="closeMobileMenu();${isSub ? "location.href='landing.html'" : 'openLogin()'}" style="margin-top:1rem">${GlassEsc(n.cta || 'Masuk')}</button>`;
+          `<button class="btn-primary" onclick="closeMobileMenu();${isSub ? "location.href='landing'" : 'openLogin()'}" style="margin-top:1rem">${GlassEsc(n.cta || 'Masuk')}</button>`;
         if (closeBtn) mobileMenu.prepend(closeBtn);
       }
       // Tandai menu yang cocok dengan halaman saat ini sebagai "current"

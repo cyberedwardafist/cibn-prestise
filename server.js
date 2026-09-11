@@ -39,6 +39,43 @@ function safeFolderName(name) {
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 
+// ── REDIRECT URL LAMA (*.html) → URL BARU TANPA EKSTENSI ────────────────────
+// Semua URL halaman publik sekarang TANPA ekstensi .html (mis. /index_admin,
+// bukan /index_admin.html). Supaya link lama yang masih nyantol (bookmark,
+// hasil Google, dll) tidak mati, path *.html yang dikenal di sini di-301-
+// redirect ke versi bersihnya, query string ikut dibawa. Ditaruh PALING ATAS
+// (sebelum static/route lain) supaya static middleware tidak keburu serve
+// file *.html-nya langsung sebelum sempat di-redirect. Fetch fragmen internal
+// lazy-loader (mis. /admin/soal/soal.html) tidak kena karena path-nya selalu
+// berprefix folder modul, bukan salah satu key di bawah ini.
+const OLD_HTML_REDIRECTS = {
+    '/index_admin.html': '/index_admin',
+    '/index_review.html': '/index_review',
+    '/index_user.html': '/index_user',
+    '/ujian.html': '/ujian',
+    '/landing.html': '/landing',
+    '/login.html': '/masuk',
+    '/masuk.html': '/masuk',
+    '/daftar.html': '/daftar',
+    '/otp.html': '/otp',
+    '/index.html': '/',
+    '/info-paket.html': '/info-paket',
+    '/kebijakan-privasi.html': '/kebijakan-privasi',
+    '/materi.html': '/materi',
+    '/paket.html': '/paket',
+    '/syarat-ketentuan.html': '/syarat-ketentuan',
+    '/tentang.html': '/tentang',
+    '/testimoni.html': '/testimoni',
+    '/pembayaran.html': '/pembayaran',
+    '/qris.html': '/qris',
+};
+app.use((req, res, next) => {
+    const target = OLD_HTML_REDIRECTS[req.path];
+    if (!target || (req.method !== 'GET' && req.method !== 'HEAD')) return next();
+    const qs = req.url.slice(req.path.length);
+    res.redirect(301, target + qs);
+});
+
 // ── UPLOAD CONFIG (SEMUA UPLOAD FILE PAKAI PRESIGNED URL — LIHAT BAGIAN "GENERIC
 //    PRESIGNED UPLOAD" DI BAWAH). Tidak ada lagi multer/memoryStorage: server
 //    TIDAK PERNAH menerima isi file (foto/video/PDF) di body request-nya sendiri.
@@ -1026,7 +1063,7 @@ app.post('/api/pembayaran/create', auth(['user', 'admin', 'review']), ah(async (
                     body: JSON.stringify({
                         transaction_details: { order_id: orderId, gross_amount: jumlah },
                         customer_details: { first_name: firstName, last_name: lastName, email: user.email },
-                        callbacks: { finish: `${host}/pembayaran.html?status=selesai&order_id=${orderId}` }
+                        callbacks: { finish: `${host}/pembayaran?status=selesai&order_id=${orderId}` }
                     })
                 });
                 const result = await r.json();
@@ -1057,8 +1094,8 @@ app.post('/api/pembayaran/create', auth(['user', 'admin', 'review']), ah(async (
                     body: JSON.stringify({
                         external_id: orderId, amount: jumlah, payer_email: user.email,
                         description: `Pembayaran paket ${paket.nama} - CIBN PRESTISE`,
-                        success_redirect_url: `${host}/pembayaran.html?status=selesai&order_id=${orderId}`,
-                        failure_redirect_url: `${host}/pembayaran.html?status=gagal&order_id=${orderId}`
+                        success_redirect_url: `${host}/pembayaran?status=selesai&order_id=${orderId}`,
+                        failure_redirect_url: `${host}/pembayaran?status=gagal&order_id=${orderId}`
                     })
                 });
                 const result = await r.json();
@@ -2406,30 +2443,37 @@ LAZY_MODULES.forEach((mod) => {
 
 // ── RAPIKAN FOLDER: shell tiap modul kini disimpan SATU FOLDER bareng
 // fragmen-nya sendiri (mis. admin/index_admin.html satu tempat dengan
-// admin/home.js, dst) — bukan lagi tercecer di root. URL publiknya
-// TIDAK berubah sama sekali (masih /index_admin.html, /ujian.html, dst)
-// supaya semua href/window.location.href yang sudah ada di seluruh
-// halaman tetap jalan tanpa perlu diubah satu-satu.
-app.get('/index_admin.html',  (req, res) => res.sendFile(path.join(__dirname, 'admin',  'index_admin.html')));
-app.get('/index_review.html', (req, res) => res.sendFile(path.join(__dirname, 'review', 'index_review.html')));
-app.get('/index_user.html',   (req, res) => res.sendFile(path.join(__dirname, 'user',   'index_user.html')));
-app.get('/ujian.html',        (req, res) => res.sendFile(path.join(__dirname, 'ujian',  'ujian.html')));
-app.get('/landing.html',      (req, res) => res.sendFile(path.join(__dirname, 'landing','landing.html')));
+// admin/home.js, dst) — bukan lagi tercecer di root.
+// URL publik SEKARANG TANPA ekstensi .html (mis. /index_admin, bukan lagi
+// /index_admin.html) — file fisiknya tetap .html seperti biasa (cuma URL-nya
+// yang "bersih"), jadi res.sendFile() di bawah tetap mengarah ke *.html asli.
+app.get('/index_admin',  (req, res) => res.sendFile(path.join(__dirname, 'admin',  'index_admin.html')));
+app.get('/index_review', (req, res) => res.sendFile(path.join(__dirname, 'review', 'index_review.html')));
+app.get('/index_user',   (req, res) => res.sendFile(path.join(__dirname, 'user',   'index_user.html')));
+app.get('/ujian',        (req, res) => res.sendFile(path.join(__dirname, 'ujian',  'ujian.html')));
+app.get('/landing',      (req, res) => res.sendFile(path.join(__dirname, 'landing','landing.html')));
 
-// /login.html tetap di-redirect di server SEBELUM static folder auth/
-// dipasang, supaya perilakunya sama persis seperti sebelumnya (redirect
-// beneran di server, bukan halaman meta-refresh yang ke-serve duluan).
-app.get('/login.html', (req, res) => res.redirect('/masuk.html'));
+// /login tetap di-redirect di server SEBELUM static folder auth/ dipasang,
+// supaya perilakunya sama persis seperti sebelumnya (redirect beneran di
+// server, bukan halaman meta-refresh yang ke-serve duluan).
+app.get('/login', (req, res) => res.redirect('/masuk'));
+
+// Banyak halaman (admin/user/review/public) punya link/redirect relatif ke
+// "index" (bekas "index.html") — dari URL root manapun (semua halaman kini
+// path-nya rata di root, tanpa subfolder), relatif itu resolve ke /index.
+// Arahkan balik ke beranda sebenarnya di /.
+app.get('/index', (req, res) => res.redirect(301, '/'));
 
 // ── Halaman publik (sebelum login), alur masuk/daftar, dan alur
 // pembayaran kini dikelompokkan per folder (public/, auth/, payment/)
 // supaya lebih mudah ditemukan & di-maintain. Dipasang tanpa prefix di
-// URL (persis seperti dulu semua file ini ada langsung di root), jadi
-// semua tautan lama (index.html, masuk.html, pembayaran.html, dst)
-// tetap resolve ke path yang sama seperti sebelumnya.
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.static(path.join(__dirname, 'auth')));
-app.use(express.static(path.join(__dirname, 'payment')));
+// URL (persis seperti dulu semua file ini ada langsung di root). Opsi
+// `extensions:['html']` bikin request TANPA ekstensi (mis. /paket,
+// /masuk, /pembayaran) otomatis resolve ke file *.html aslinya, jadi
+// URL publiknya bersih tanpa perlu route manual satu-satu per halaman.
+app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
+app.use(express.static(path.join(__dirname, 'auth'), { extensions: ['html'] }));
+app.use(express.static(path.join(__dirname, 'payment'), { extensions: ['html'] }));
 
 app.use(express.static(__dirname));
 app.use('/css', express.static(path.join(__dirname, 'css')));

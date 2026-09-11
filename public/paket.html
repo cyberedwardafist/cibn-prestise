@@ -597,21 +597,21 @@ input{font-family:inherit}
 
 <nav class="navbar">
   <div class="navbar-inner">
-    <a href="index.html" class="brand">CIBN PRESTISE</a>
+    <a href="index" class="brand">CIBN PRESTISE</a>
     <div class="nav-links">
-      <a href="index.html" data-page="index.html">Home</a>
-      <a href="paket.html" data-page="paket.html">Paket</a>
-      <a href="testimoni.html" data-page="testimoni.html">Testimoni</a>
+      <a href="index" data-page="index">Home</a>
+      <a href="paket" data-page="paket">Paket</a>
+      <a href="testimoni" data-page="testimoni">Testimoni</a>
     </div>
-    <a href="masuk.html" class="nav-cta">LogIn</a>
+    <a href="masuk" class="nav-cta">LogIn</a>
     <button class="nav-toggle" aria-label="Buka menu" aria-expanded="false" aria-controls="mobileMenu"><span></span><span></span><span></span></button>
   </div>
 </nav>
 <div class="mobile-menu" id="mobileMenu">
-  <a href="index.html" data-page="index.html">Home</a>
-  <a href="paket.html" data-page="paket.html">Paket</a>
-  <a href="testimoni.html" data-page="testimoni.html">Testimoni</a>
-  <a href="masuk.html" data-page="masuk.html">LogIn</a>
+  <a href="index" data-page="index">Home</a>
+  <a href="paket" data-page="paket">Paket</a>
+  <a href="testimoni" data-page="testimoni">Testimoni</a>
+  <a href="masuk" data-page="masuk">LogIn</a>
 </div>
 
 <header class="page-header container">
@@ -643,7 +643,7 @@ input{font-family:inherit}
   <div class="footer-main">
     <div class="container footer-grid">
       <div class="footer-brand">
-        <a href="index.html" class="brand">CIBN PRESTISE</a>
+        <a href="index" class="brand">CIBN PRESTISE</a>
         <p id="footerDesc">Manajemen investasi dan edukasi pasar dengan standar prestise — riset mendalam, teknologi presisi, pendampingan personal.</p>
         <div class="footer-social">
           <a href="#" id="footerInstagram" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg></a>
@@ -654,9 +654,9 @@ input{font-family:inherit}
       <div class="footer-col">
         <h4>Navigasi</h4>
         <ul>
-          <li><a href="index.html">Home</a></li>
-          <li><a href="paket.html">Paket</a></li>
-          <li><a href="testimoni.html">Testimoni</a></li>
+          <li><a href="index">Home</a></li>
+          <li><a href="paket">Paket</a></li>
+          <li><a href="testimoni">Testimoni</a></li>
         </ul>
       </div>
       <div class="footer-col">
@@ -664,8 +664,8 @@ input{font-family:inherit}
         <ul>
           <li><a href="#">Tentang Kami</a></li>
           <li><a href="#">Karier</a></li>
-          <li><a href="kebijakan-privasi.html">Kebijakan Privasi</a></li>
-          <li><a href="syarat-ketentuan.html">Syarat & Ketentuan</a></li>
+          <li><a href="kebijakan-privasi">Kebijakan Privasi</a></li>
+          <li><a href="syarat-ketentuan">Syarat & Ketentuan</a></li>
         </ul>
       </div>
       <div class="footer-col">
@@ -822,7 +822,7 @@ if (navToggle && mobileMenu) {
 
 // ===== Active nav link by current page (desktop pill nav + mobile fullscreen menu) =====
 (function highlightActive() {
-  const path = location.pathname.split('/').pop() || 'index.html';
+  const path = location.pathname.split('/').pop() || 'index';
   document.querySelectorAll('.nav-links a[data-page], .mobile-menu a[data-page]').forEach(a => {
     if (a.dataset.page === path) a.classList.add('active');
   });
@@ -1006,7 +1006,7 @@ if (footerSpot) {
         <p class="pkg-desc">${p.desc}</p>
         <div class="pkg-price"><b>${p.price}</b> <span>${p.period}</span></div>
         <ul class="pkg-features">${p.features.map(f => `<li>${f}</li>`).join('')}</ul>
-        <div class="pkg-cta" onclick="location.href='info-paket.html?id=${p.id}'">Pilih Paket</div>
+        <div class="pkg-cta" onclick="location.href='info-paket?id=${p.id}'">Pilih Paket</div>
       </div>`;
   }
 

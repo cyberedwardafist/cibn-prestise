@@ -681,7 +681,7 @@ async function submitAkunAdmin(){
     if(pw&&pw.length<6){showToast('Password minimal 6 karakter','danger');return;}
     try{const data={nama,email};if(pw)data.password=pw;await MeAPI.update(data);const u=Auth.getUser();Auth.setSession(Auth.getToken(),{...u,nama,email});clearDirty();renderAkunAdmin();showToast('Profil diperbarui!','success');if(document.getElementById('aa-pw'))document.getElementById('aa-pw').value='';if(document.getElementById('aa-pwk'))document.getElementById('aa-pwk').value='';}catch(e){showToast('Gagal: '+e.message,'danger');}
 }
-function handleLogout(){showConfirm('Keluar','Yakin ingin keluar?','warning',()=>{Auth.clearSession();showToast('Sampai jumpa!');setTimeout(()=>window.location.href='index.html',1200);});}
+function handleLogout(){showConfirm('Keluar','Yakin ingin keluar?','warning',()=>{Auth.clearSession();showToast('Sampai jumpa!');setTimeout(()=>window.location.href='index',1200);});}
 
 
 // (Modul KEUANGAN dipindah sepenuhnya ke admin/keuangan.js + admin/paket-form.js — real payment gateway, lihat file tsb)

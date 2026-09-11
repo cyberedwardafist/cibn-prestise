@@ -1477,7 +1477,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const user = getMe();
   const token = localStorage.getItem('cbn_token');
   if (!user || !token || user.role !== 'review') {
-    window.location.href = 'index.html';
+    window.location.href = 'index';
     return;
   }
   let lastPage = 'home';
