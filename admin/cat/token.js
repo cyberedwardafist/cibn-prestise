@@ -143,11 +143,12 @@ function _renderGrupMasterCard(masterTok){
     if(!wrap)return;
     if(!masterTok){wrap.style.display='none';wrap.innerHTML='';return;}
     wrap.style.display='block';
+    const namaGrupTxt=masterTok.grub_token?` di grup "${String(masterTok.grub_token).replace(/</g,'&lt;')}"`:'';
     wrap.innerHTML=`<div class="card" style="border:1.5px dashed var(--blue);background:rgba(19,50,89,0.04)">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
             <div style="min-width:200px">
                 <div class="switch-label" style="margin-bottom:2px">🔑 Kode Master Grup</div>
-                <div class="switch-desc" style="margin-bottom:8px">1 kode/QR ini mewakili seluruh ${_genTokens.length} token asli di grup "${(masterTok.grub_token||'').replace(/</g,'&lt;')}". Tiap peserta yang scan/input kode ini otomatis dapat 1 token asli yang masih tersedia — otomatis gagal kalau semua token asli sudah habis dipakai.</div>
+                <div class="switch-desc" style="margin-bottom:8px">1 kode/QR ini mewakili seluruh ${_genTokens.length} token asli${namaGrupTxt}. Tiap peserta yang scan/input kode ini otomatis dapat 1 token asli yang masih tersedia — otomatis gagal kalau semua token asli sudah habis dipakai.</div>
                 <code style="font-family:monospace;font-weight:700;font-size:15px;color:var(--blue);letter-spacing:0.08em">${masterTok.kode}</code>
             </div>
             <div style="display:flex;gap:8px;flex-shrink:0">
@@ -217,16 +218,83 @@ async function _initListToken(){
 }
 let _listTokenData=[],_ltSearch='',_ltFilter='',_ltGrubFilter='',_ltFilteredData=[];
 function _ltDateKey(tk){ return _localDateStr(tk.created_at||tk.token_created_at)||'0000-00-00'; }
+// Kelompokkan array token (yg sudah dipisah per-hari) menjadi daftar tampilan:
+// - token dgn grub_id yg punya Kode Master (dan >1 anggota) -> 1 entri {type:'master', tk, children}
+//   (token asli anggotanya DISEMBUNYIKAN dari list utama, cuma nongol saat master-nya diklik)
+// - token lain (tanpa grub_id, ATAU grup lama tanpa master/is_master) -> tampil apa adanya spt biasa
+// Urutan entri mengikuti kemunculan PERTAMA tiap grup di dalam `items`.
+function _ltBuildDisplayEntries(items){
+    const byGrub={};
+    items.forEach(t=>{ if(t.grub_id)(byGrub[t.grub_id]=byGrub[t.grub_id]||[]).push(t); });
+    const handled=new Set(), out=[];
+    items.forEach(t=>{
+        if(t.grub_id){
+            if(handled.has(t.grub_id))return;
+            const groupItems=byGrub[t.grub_id];
+            const master=groupItems.find(x=>x.is_master);
+            if(master&&groupItems.length>1){
+                handled.add(t.grub_id);
+                out.push({type:'master',tk:master,children:groupItems.filter(x=>!x.is_master)});
+                return;
+            }
+        }
+        out.push({type:'single',tk:t});
+    });
+    return out;
+}
+function _ltChevronSvg(gid){
+    return `<svg class="lt-chevron" data-grub="${gid}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14" style="transition:transform .2s;flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>`;
+}
+function _ltRowHtml(tk,opt){
+    opt=opt||{};
+    const num=opt.num!=null?opt.num:'';
+    const child=!!opt.child;
+    const kodeCell=child
+        ?`<span style="display:inline-flex;align-items:center;gap:4px;padding-left:20px;color:var(--text-sub)">↳ <code style="font-family:monospace;font-weight:700;font-size:12px;color:var(--blue)">${tk.kode}</code></span>`
+        :(opt.master
+            ?`<span style="display:inline-flex;align-items:center;gap:6px;cursor:pointer" onclick="_ltToggleGrup('${tk.grub_id}')">${_ltChevronSvg(tk.grub_id)}<code style="font-family:monospace;font-weight:700;font-size:12px;color:var(--blue)">${tk.kode}</code> <span class="history-badge" style="background:rgba(19,50,89,.12);color:var(--blue)">Master Grup</span> <span style="font-size:11px;color:var(--text-sub)">(${opt.jumlahAnggota} token)</span></span>`
+            :`<code style="font-family:monospace;font-weight:700;font-size:12px;color:var(--blue)">${tk.kode}</code>`);
+    const trAttrs=child?` class="lt-child-row" data-parent-grub="${tk.grub_id}" style="display:none;background:rgba(19,50,89,.025)"`:'';
+    return `<tr${trAttrs}><td>${num}</td><td>${kodeCell}</td><td class="hide-mobile" style="font-size:12px">${tk.modul_kode||'-'}</td><td class="hide-mobile" style="font-size:11px">${tk.aktivasi?new Date(tk.aktivasi).toLocaleDateString('id-ID'):'-'}</td><td class="hide-mobile" style="font-size:11px">${tk.expired?new Date(tk.expired).toLocaleDateString('id-ID'):'-'}</td><td class="hide-mobile"><span class="history-badge" style="${tk.izinkan_review?'background:rgba(22,163,74,.12);color:#16a34a':'background:rgba(19,50,89,.08);color:var(--text-sub)'}">${tk.izinkan_review?'✓ Ya':'Tidak'}</span></td><td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="openTokenQR('${tk.kode}','${tk.modul_kode||''}')">QR</button> <button class="btn-icon danger" onclick="hapusListToken('${tk.kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></td></tr>`;
+}
+function _ltCardHtml(tk,opt){
+    opt=opt||{};
+    const child=!!opt.child;
+    return SwipeCards.buildSwipeCardHtml({
+        title:(child?'↳ ':'')+tk.kode+(opt.master?' · Master Grup':''),
+        sub:opt.master?`${opt.jumlahAnggota} token di dalam grup · ketuk untuk buka`:((tk.modul_kode||'-')+(tk.expired?` · exp ${new Date(tk.expired).toLocaleDateString('id-ID')}`:'')),
+        leftActions:opt.master?[]:[{icon:'qr',label:'QR',cls:'act-secondary',onClick:`openTokenQR('${tk.kode}','${tk.modul_kode||''}')`}],
+        rightActions:opt.master?[]:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`hapusListToken('${tk.kode}')`}],
+        onTapAttr:opt.master?`onclick="_ltToggleGrup('${tk.grub_id}')"`:''
+    });
+}
+function _ltToggleGrup(gid){
+    document.querySelectorAll('.lt-child-row[data-parent-grub="'+gid+'"]').forEach(function(el){el.style.display=el.style.display==='none'?'':'none';});
+    document.querySelectorAll('.lt-child-card[data-parent-grub="'+gid+'"]').forEach(function(el){el.style.display=el.style.display==='none'?'':'none';});
+    document.querySelectorAll('.lt-chevron[data-grub="'+gid+'"]').forEach(function(el){el.style.transform=el.style.transform==='rotate(180deg)'?'':'rotate(180deg)';});
+}
 function _ltGroupHtml(group){
     const items=group.items;
     const label=group.key==='0000-00-00'?'Tanggal Tidak Diketahui':new Date(group.key).toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-    const rows=items.map((tk,i)=>`<tr><td>${i+1}</td><td><code style="font-family:monospace;font-weight:700;font-size:12px;color:var(--blue)">${tk.kode}</code>${tk.is_master?' <span class="history-badge" style="background:rgba(19,50,89,.12);color:var(--blue)">Master Grup</span>':''}</td><td class="hide-mobile" style="font-size:12px">${tk.modul_kode||'-'}</td><td class="hide-mobile" style="font-size:11px">${tk.aktivasi?new Date(tk.aktivasi).toLocaleDateString('id-ID'):'-'}</td><td class="hide-mobile" style="font-size:11px">${tk.expired?new Date(tk.expired).toLocaleDateString('id-ID'):'-'}</td><td class="hide-mobile"><span class="history-badge" style="${tk.izinkan_review?'background:rgba(22,163,74,.12);color:#16a34a':'background:rgba(19,50,89,.08);color:var(--text-sub)'}">${tk.izinkan_review?'✓ Ya':'Tidak'}</span></td><td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="openTokenQR('${tk.kode}','${tk.modul_kode||''}')">QR</button> <button class="btn-icon danger" onclick="hapusListToken('${tk.kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></td></tr>`).join('');
-    const cards=items.map(tk=>SwipeCards.buildSwipeCardHtml({
-        title:tk.kode+(tk.is_master?' · Master Grup':''),
-        sub:(tk.modul_kode||'-')+(tk.expired?` · exp ${new Date(tk.expired).toLocaleDateString('id-ID')}`:''),
-        leftActions:[{icon:'qr',label:'QR',cls:'act-secondary',onClick:`openTokenQR('${tk.kode}','${tk.modul_kode||''}')`}],
-        rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`hapusListToken('${tk.kode}')`}]
-    })).join('');
+    const entries=_ltBuildDisplayEntries(items);
+    let n=0;
+    const rows=entries.map(e=>{
+        if(e.type==='master'){
+            n++;
+            const masterRow=_ltRowHtml(e.tk,{num:n,master:true,jumlahAnggota:e.children.length});
+            const childRows=e.children.map(c=>_ltRowHtml(c,{child:true})).join('');
+            return masterRow+childRows;
+        }
+        n++; return _ltRowHtml(e.tk,{num:n});
+    }).join('');
+    const cards=entries.map(e=>{
+        if(e.type==='master'){
+            const masterCard=_ltCardHtml(e.tk,{master:true,jumlahAnggota:e.children.length});
+            const childCards=`<div class="lt-child-card" data-parent-grub="${e.tk.grub_id}" style="display:none">${e.children.map(c=>_ltCardHtml(c,{child:true})).join('')}</div>`;
+            return masterCard+childCards;
+        }
+        return _ltCardHtml(e.tk,{});
+    }).join('');
     return `<div class="section-sub" style="font-weight:700;color:var(--blue);text-transform:none;margin:18px 0 8px">${label} <span style="font-weight:500;color:var(--text-sub);font-size:11px">(${items.length} token)</span></div>
     <div class="card" style="padding:0;overflow:hidden"><div class="table-wrap aksi-swipe-wrap"><table><thead><tr><th>#</th><th>Kode Token</th><th class="hide-mobile">Modul</th><th class="hide-mobile">Aktivasi</th><th class="hide-mobile">Expired</th><th class="hide-mobile">Review</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table></div><div class="swipe-list">${cards}</div></div>`;
 }

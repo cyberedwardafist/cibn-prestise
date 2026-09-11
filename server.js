@@ -1878,7 +1878,14 @@ app.post('/api/tokens/generate', auth(['admin']), ah(async (req, res) => {
     // walau `grubToken` (nama) yang diketik admin sama persis dgn grup yang
     // sudah ada — lihat komentar genGrubId()/grupKeyOf() & kolom grub_id di
     // db/schema.sql. Ini yg jadi kunci pengelompokan sesungguhnya, BUKAN nama.
-    const grubId = grubToken ? genGrubId() : null;
+    // PENTING: sejak perubahan ini, grub_id (dan Kode Master-nya) dibuat untuk
+    // SETIAP batch yang menghasilkan >1 token asli — TIDAK LAGI cuma kalau
+    // switch "Aktifkan Grup Token" (grubToken/nama) dinyalakan admin. Nama grup
+    // (grubToken) sekarang murni LABEL opsional, terpisah dari mekanisme
+    // bundling-nya sendiri. Batch dgn jumlah=1 tetap tanpa grub_id/master (1
+    // token tunggal tidak butuh dibundel apa pun).
+    const jumlahCount = Math.min(Math.max(parseInt(jumlah) || 1, 1), 200);
+    const grubId = (jumlahCount > 1) ? genGrubId() : null;
     // batas_keluar: null/undefined = perlindungan keluar DIMATIKAN. Angka = batas maksimal
     // pelanggaran (keluar dari ujian) yang ditoleransi sebelum ujian otomatis diselesaikan.
     const batasKeluar = (batas_keluar === null || batas_keluar === undefined || batas_keluar === '') ? null : Math.max(1, parseInt(batas_keluar) || 3);
@@ -1889,12 +1896,13 @@ app.post('/api/tokens/generate', auth(['admin']), ah(async (req, res) => {
         const tokens = await transaction(async (tdb) => {
             const insert = tdb.prepare('INSERT INTO tokens (kode,modul_kode,aktivasi,expired,izinkan_review,grub_token,batas_keluar,grub_id,is_master) VALUES (?,?,?,?,?,?,?,?,?)');
             const checkExist = tdb.prepare('SELECT id FROM tokens WHERE kode=?');
-            const count = Math.min(jumlah, 200); const result = [];
+            const count = jumlahCount; const result = [];
             for (let i = 0; i < count; i++) {
                 let kode, tries = 0; do { kode = genTokenKode(); tries++; } while ((await checkExist.get(kode)) && tries < 10);
                 await insert.run(kode, modul_kode, akt, exp, izinReview, grubToken, batasKeluar, grubId, 0); result.push({ kode, modul_kode, aktivasi: akt, expired: exp, izinkan_review: izinReview, grub_token: grubToken, batas_keluar: batasKeluar, grub_id: grubId, is_master: false });
             }
-            // Kode Master Grup: 1 baris tambahan per batch, HANYA kalau Grup Token aktif.
+            // Kode Master Grup: 1 baris tambahan per batch, HANYA kalau batch ini
+            // menghasilkan >1 token asli (grubId terisi — lihat komentar di atas).
             // Bukan salah satu dari `jumlah` token asli yang diminta admin — teksnya
             // sengaja dibuat dgn genTokenKode() yang sama persis dgn token asli (tidak
             // ada embel-embel/prefix apa pun), pembeda cuma internal (is_master=1).
