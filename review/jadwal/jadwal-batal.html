@@ -287,3 +287,69 @@
     </div>
   </div>
 </div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     PENGAJUAN PEMBATALAN DARI MURID (status "murid_batal") — KHUSUS akun
+     review/guru, kebalikan arah dari #jdw-batal-tentor-overlay di atas: di
+     sini MURID yang minta batal sesi yang sudah terisi di jam guru, jadi
+     guru yang harus memutuskan (bukan cuma "Tarik" seperti pengajuan
+     miliknya sendiri). Dipicu dari tombol "Cek" pada baris jam terisi di
+     blok "Jam Tersedia" (lihat JadwalPage.bukaBatalMurid &
+     _jdwKetersediaanBlockHtml di review/jadwal.js). Tombol TOLAK (jadwal
+     tetap berlaku seperti semula) / SETUJU (jadwal dibatalkan, jam ini
+     kosong lagi) — lihat JadwalPage.tolakBatalMurid & setujuBatalMurid.
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="overlay overlay-fullscreen" id="jdw-batal-murid-overlay">
+  <div class="modal modal-fullscreen">
+    <div class="jdw-modal-header">
+      <button class="jdw-icon-btn" onclick="JadwalPage.closeBatalMuridOverlay()" aria-label="Kembali">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="jdw-modal-title-wrap">
+        <div class="jdw-modal-title">Pengajuan Pembatalan dari Murid</div>
+        <div class="jdw-modal-subtitle">Tinjau lalu pilih salah satu</div>
+      </div>
+      <span style="width:32px"></span>
+    </div>
+    <div class="jdw-modal-body">
+      <div class="jdw-resejuel-compare" id="jdw-batal-murid-compare"></div>
+      <div class="jdw-form-section jdw-resejuel-actions" style="margin-bottom:0">
+        <button class="jdw-btn jdw-btn-secondary jdw-btn-block" onclick="JadwalPage.tolakBatalMurid()">TOLAK</button>
+        <button class="jdw-btn jdw-btn-primary jdw-btn-block" onclick="JadwalPage.setujuBatalMurid()">SETUJU</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     PENGAJUAN JADWAL ULANG DARI MURID (status "murid_reschedule") — KHUSUS
+     akun review/guru, kebalikan arah dari #jdw-resejuel-overlay di atas: di
+     sini MURID yang menawarkan tanggal/jam baru buat sesi yang sudah
+     terisi di jam guru, jadwal lama tetap berlaku sampai guru memutuskan.
+     Dipicu dari tombol "Cek" pada baris jam terisi di blok "Jam Tersedia"
+     (lihat JadwalPage.bukaResejuelMurid & _jdwKetersediaanBlockHtml di
+     review/jadwal.js). Tombol TOLAK (jadwal lama tetap berlaku, tawaran
+     murid dibuang) / SETUJU (jadwal ikut yang baru dari murid) — lihat
+     JadwalPage.tolakResejuelMurid & setujuResejuelMurid.
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="overlay overlay-fullscreen" id="jdw-resejuel-murid-overlay">
+  <div class="modal modal-fullscreen">
+    <div class="jdw-modal-header">
+      <button class="jdw-icon-btn" onclick="JadwalPage.closeResejuelMuridOverlay()" aria-label="Kembali">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="jdw-modal-title-wrap">
+        <div class="jdw-modal-title">Jadwal Ulang dari Murid</div>
+        <div class="jdw-modal-subtitle">Tinjau lalu pilih salah satu</div>
+      </div>
+      <span style="width:32px"></span>
+    </div>
+    <div class="jdw-modal-body">
+      <div class="jdw-resejuel-compare" id="jdw-resejuel-murid-compare"></div>
+      <div class="jdw-form-section jdw-resejuel-actions" style="margin-bottom:0">
+        <button class="jdw-btn jdw-btn-secondary jdw-btn-block" onclick="JadwalPage.tolakResejuelMurid()">TOLAK</button>
+        <button class="jdw-btn jdw-btn-primary jdw-btn-block" onclick="JadwalPage.setujuResejuelMurid()">SETUJU</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -463,6 +463,12 @@
     .jdw-status-badge.butuh_persetujuan { background:rgba(220,38,38,.10); color:var(--danger); }
     .jdw-status-badge.pengajuan_batal_tentor { background:rgba(124,58,237,.12); color:#7c3aed; }
     .jdw-status-badge.feedback { background:rgba(217,119,6,.12); color:var(--warning); }
+    /* murid_batal/murid_reschedule: request masuk dari MURID (bukan dari
+       akun guru sendiri) buat sesi yang sudah terisi — warna sama dengan
+       pasangan arah-sebaliknya (pengajuan_pembatalan/resejuel) supaya tetap
+       konsisten secara makna (merah=pembatalan, ungu=jadwal ulang). */
+    .jdw-status-badge.murid_batal { background:rgba(220,38,38,.10); color:var(--danger); }
+    .jdw-status-badge.murid_reschedule { background:rgba(124,58,237,.12); color:#7c3aed; }
 
     /* ── JADWAL: halaman fullscreen bandingkan jadwal lama vs baru (resejuel) —
        resume LAMA (diajukan user) di atas, resume BARU (diajukan tentor,
