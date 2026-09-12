@@ -640,10 +640,7 @@
 <div class="page" id="page-bahas"></div>
 
     <!-- LAPORAN -->
-    <div class="page" id="page-laporan">
-      <div class="section-title">Laporan</div>
-      <div class="section-sub">Data laporan</div>
-    </div>
+<div class="page" id="page-laporan"></div>
 
     <!-- EBOOK -->
 <div class="page" id="page-ebook"></div>
@@ -668,6 +665,10 @@
        elemen itu, bukan ke layar sungguhan. Lihat juga catatan yang sama
        persis di user/index_user.html (#jdw-overlays-root). -->
   <div id="jdw-overlays-root"></div>
+
+  <!-- Overlay Laporan Pembelajaran — sama alasannya dgn #jdw-overlays-root
+       di atas (#page-laporan pakai class .page yang ber-transform). -->
+  <div id="laporan-overlays-root"></div>
 
   <!-- TASKBAR -->
   <div class="dock-wrap">
@@ -790,9 +791,9 @@ function renderPage(id) {
     else if (id === 'ebook') EbookLib.load();
     else if (id === 'jadwal') loadJadwal();
     else if (id === 'bahas') renderBahas();
+    else if (id === 'laporan') loadLaporan();
     // halaman baru (kosong, siap diisi)
     // else if (id === 'keuangan') renderKeuangan();
-    // else if (id === 'laporan') renderLaporan();
   }).catch(err => {
     console.error('[lazy-load] Gagal memuat modul halaman "'+id+'":', err);
     showToast('Gagal memuat halaman ini, coba muat ulang', 'danger');
@@ -801,8 +802,8 @@ function renderPage(id) {
 
 // ── LAZY-LOAD PER TAB ────────────────────────────────────────────────────
 // 'home' tidak ada di sini karena sudah dimuat eager (bagian dari script ini).
-// keuangan/laporan belum diimplementasikan (lihat renderPage di atas) jadi
-// tidak butuh modul apa pun.
+// keuangan belum diimplementasikan (lihat renderPage di atas) jadi tidak
+// butuh modul apa pun.
 const REVIEW_PAGE_MODULES = {
     // akun butuh review/riwayat.js juga: tombol "Lihat Riwayat" di daftar user
     // manggil openRiwayatUser() yang didefinisikan di riwayat.js. Modal-nya
@@ -845,6 +846,16 @@ const REVIEW_PAGE_MODULES = {
         html: 'review/bahas/bahas.html',
         js: ['review/jadwal/jadwal.js', 'review/riwayat/riwayat.js', 'review/bahas/bahas.js'],
         needsModals: true,
+    },
+    // laporan: list sesi "selesai" (JadwalStore) -> tap kartu buka overlay
+    // isi/lihat Laporan Pembelajaran (laporan-form.html), ditaruh di
+    // #laporan-overlays-root (di LUAR #page-laporan) — sama alasannya kayak
+    // jdw-overlays-root. Lihat catatan panjang di review/laporan/laporan.js.
+    laporan: {
+        html: 'review/laporan/laporan.html',
+        htmlAppend: ['review/laporan/laporan-form.html'],
+        htmlAppendTarget: 'laporan-overlays-root',
+        js: ['review/jadwal/jadwal.js', 'review/laporan/laporan.js'],
     },
 };
 // Fragmen modal bersama (dipakai lintas dock) yang di-load ke #review-modals-root.
