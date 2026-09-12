@@ -1,0 +1,28 @@
+<!-- ══════════════════════════════════════════════════════════════════════
+     review/jadwal-request.html — overlay HALAMAN: LIST REQUEST (khusus akun
+     REVIEW/GURU). Dibuka lewat tombol REQUEST pada blok "Jam Tersedia" di
+     #jdw-status-list (lihat review/jadwal.js: _jdwKetersediaanBlockHtml &
+     JadwalPage.openRequestSlot). Isinya daftar murid yang mengajukan masuk
+     ke 1 jam tersedia tertentu (GuruRequestStore), diurutkan dari yang
+     PALING AWAL mengajukan. Tentor cuma bisa pilih SATU (radio, tap lagi buat
+     batal pilih) lalu tekan TERIMA — request murid lain di jam yang sama
+     otomatis ikut ditutup begitu salah satu diterima (lihat
+     JadwalPage.terimaRequestSelected). ══════════════════════════════════ -->
+<div class="overlay overlay-fullscreen" id="jdw-request-overlay">
+  <div class="modal modal-fullscreen">
+    <div class="jdw-modal-header">
+      <button class="jdw-icon-btn" onclick="JadwalPage.closeRequestOverlay()" aria-label="Kembali">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="jdw-modal-title">List Request</div>
+      <span style="width:32px"></span>
+    </div>
+    <div class="jdw-modal-body">
+      <div class="jdw-request-date-label" id="jdw-request-date-label"></div>
+      <div class="jdw-request-list" id="jdw-request-list"></div>
+      <div class="jdw-form-section jdw-ajukan-submit-section" style="margin-bottom:0">
+        <button class="jdw-btn jdw-btn-primary jdw-btn-block" id="jdw-request-terima-btn" onclick="JadwalPage.terimaRequestSelected()" disabled>TERIMA</button>
+      </div>
+    </div>
+  </div>
+</div>

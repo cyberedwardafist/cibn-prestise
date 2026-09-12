@@ -289,6 +289,98 @@ const JadwalStore = (function () {
 })();
 
 /* ══════════════════════════════════════════
+   KETERSEDIAAN TENTOR (khusus akun REVIEW/GURU) — dummy localStorage,
+   sama pola CRUD-nya kayak JadwalStore di atas supaya nanti gampang
+   diganti apiFetch('/review/ketersediaan', ...) tanpa ubah UI. Menyimpan
+   jam berapa saja (id di JDW_SLOTS) yang tentor tandai TERSEDIA pada
+   suatu tanggal — dipakai form \"Atur Ketersediaan\" (lihat
+   JadwalPage.openAjukanOverlay / _isKetersediaan di bawah), BUKAN form
+   pengajuan sesi (form itu tetap dipakai murni di sisi User).
+   ══════════════════════════════════════════ */
+const GuruKetersediaanStore = (function () {
+    const KEY = 'cbn_review_ketersediaan_dummy_v1';
+    let _cache = null;
+    // Seed contoh 2 tanggal ke depan biar fitur List/Edit/Hapus/Request di
+    // #jdw-status-list langsung kelihatan isinya pas pertama kali dibuka
+    // (bukan mulai dari kosong total) — sekali dibuat, tidak akan ditimpa lagi
+    // (sama pola-nya kayak JadwalStore._seed di atas).
+    function _seed() {
+        const iso = (offsetDays) => { const d = new Date(); d.setDate(d.getDate() + offsetDays); d.setHours(0, 0, 0, 0); const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 10); };
+        const map = { [iso(2)]: ['slot2', 'slot4'], [iso(5)]: ['slot1'] };
+        localStorage.setItem(KEY, JSON.stringify(map));
+        return map;
+    }
+    function _load() {
+        if (_cache) return _cache;
+        let raw = null;
+        try { raw = localStorage.getItem(KEY); } catch (e) {}
+        if (raw === null) { _cache = _seed(); return _cache; }
+        try { _cache = JSON.parse(raw); } catch (e) { _cache = null; }
+        if (!_cache || typeof _cache !== 'object') _cache = {};
+        return _cache;
+    }
+    function _save() { try { localStorage.setItem(KEY, JSON.stringify(_cache)); } catch (e) {} }
+    return {
+        getByDate(tanggal) { return (_load()[tanggal] || []).slice(); },
+        setByDate(tanggal, slotIds) {
+            const map = _load();
+            if (slotIds && slotIds.length) map[tanggal] = slotIds.slice();
+            else delete map[tanggal]; // kosong -> hapus entri, dianggap belum diatur
+            _save();
+        },
+        // Semua tanggal yang punya minimal 1 jam tersedia -> dipakai
+        // _jdwAllEntryDates() biar tanggal ketersediaan tanpa pengajuan murid
+        // sama sekali tetap kelihatan di #jdw-status-list.
+        allDates() { return Object.keys(_load()).sort(); },
+    };
+})();
+
+/* ══════════════════════════════════════════
+   REQUEST MASUK KE JAM TERSEDIA (khusus akun REVIEW/GURU) — dummy
+   localStorage juga, isinya "murid mana saja yang mau masuk ke jam X di
+   tanggal Y ini" (beda dari JadwalStore yang isinya pengajuan yang SUDAH
+   diproses/dimiliki 1 murid tertentu). Dipakai halaman List Request (lihat
+   review/jadwal-request.html & JadwalPage.openRequestSlot/terimaRequest di
+   bawah). Diurutkan dari yang paling awal mengajukan (createdAt) — itu
+   urutan yang ditampilkan ke tentor, BUKAN berarti otomatis diprioritaskan;
+   tentor tetap bebas pilih salah satu (biasanya yang paling awal).
+   ══════════════════════════════════════════ */
+const GuruRequestStore = (function () {
+    const KEY = 'cbn_review_ketersediaan_request_dummy_v1';
+    let _cache = null;
+    function _seed() {
+        const iso = (offsetDays) => { const d = new Date(); d.setDate(d.getDate() + offsetDays); d.setHours(0, 0, 0, 0); const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 10); };
+        // Contoh: 2 murid rebutan jam yang sama (slot2, H+2) buat demo halaman
+        // List Request sejak pertama kali dibuka.
+        const arr = [
+            { id: 'req_seed1', tanggal: iso(2), slotId: 'slot2', nama: 'Dewi Anggraini', materiId: 'twk', createdAt: Date.now() - 200000000 },
+            { id: 'req_seed2', tanggal: iso(2), slotId: 'slot2', nama: 'Fajar Nugroho', materiId: 'tiu', createdAt: Date.now() - 100000000 },
+        ];
+        localStorage.setItem(KEY, JSON.stringify(arr));
+        return arr;
+    }
+    function _load() {
+        if (_cache) return _cache;
+        let raw = null;
+        try { raw = localStorage.getItem(KEY); } catch (e) {}
+        if (raw === null) { _cache = _seed(); return _cache; }
+        try { _cache = JSON.parse(raw); } catch (e) { _cache = null; }
+        if (!Array.isArray(_cache)) _cache = [];
+        return _cache;
+    }
+    function _save() { try { localStorage.setItem(KEY, JSON.stringify(_cache)); } catch (e) {} }
+    return {
+        byKey(tanggal, slotId) { return _load().filter(r => r.tanggal === tanggal && r.slotId === slotId).sort((a, b) => a.createdAt - b.createdAt); },
+        countByKey(tanggal, slotId) { return _load().filter(r => r.tanggal === tanggal && r.slotId === slotId).length; },
+        removeByKey(tanggal, slotId) {
+            const arr = _load().filter(r => !(r.tanggal === tanggal && r.slotId === slotId));
+            _cache = arr;
+            _save();
+        },
+    };
+})();
+
+/* ══════════════════════════════════════════
    HELPERS TANGGAL
    ══════════════════════════════════════════ */
 function _jdwToIso(d) {
@@ -303,6 +395,10 @@ function _jdwToIso(d) {
 // seperti urutan _jdwWeekDates biasa.
 function _jdwAllEntryDates() {
     const isoSet = new Set(JadwalStore.all().map(e => e.tanggal));
+    // Akun review/guru: tanggal yang cuma punya ketersediaan (belum ada
+    // pengajuan murid sama sekali) tetap harus kelihatan di #jdw-status-list
+    // biar blok "Jam Tersedia"-nya bisa diakses (lihat _jdwKetersediaanBlockHtml).
+    GuruKetersediaanStore.allDates().forEach(iso => isoSet.add(iso));
     return Array.from(isoSet).sort().map(iso => new Date(iso + 'T00:00:00'));
 }
 function _jdwWeekDates(ref) {
@@ -939,15 +1035,46 @@ function _jdwRestoreViewState() {
 // kalender di-tap (overlay id="jdw-day-content"). Sekarang tampil langsung
 // di depan, jadi tap Edit/Jadwal Ulang di sini langsung ke halaman Ajukan
 // Jadwal yang sudah disiapkan (lihat JadwalPage.editEntry/resejadwalEntry).
-function _jdwDayGroupHtml(d, entries, isToday) {
+// Blok "Jam Tersedia" (khusus akun review/guru) — tampil di ATAS daftar
+// pengajuan murid pada tanggal yang sama, isinya jam-jam yang tentor tandai
+// tersedia lewat "Atur Ketersediaan" (GuruKetersediaanStore). 3 aksi per jam:
+//   - REQUEST: buka halaman List Request berisi murid yang mengajukan masuk
+//     ke jam ini, diurutkan dari yang paling awal mengajukan, tentor pilih
+//     SATU lalu Terima (lihat GuruRequestStore & JadwalPage.openRequestSlot).
+//   - EDIT: buka lagi form Atur Ketersediaan tanggal ini, tapi jam yang SUDAH
+//     tersedia selain jam ini dikunci (tidak bisa diklik) — tentor cuma bisa
+//     geser jam ini ke jam lain yang masih kosong di tanggal yang sama
+//     (lihat JadwalPage.editKetersediaanSlot & _editingKetersediaanSlot).
+//   - HAPUS: langsung menandai jam ini TIDAK tersedia lagi di tanggal ini.
+function _jdwKetersediaanBlockHtml(iso, slotIds) {
+    const rows = slotIds.slice().sort((a, b) => _jdwSlotIndex(a) - _jdwSlotIndex(b)).map(slotId => {
+        const slot = JDW_SLOTS.find(s => s.id === slotId);
+        const reqCount = GuruRequestStore.countByKey(iso, slotId);
+        return `<div class="jdw-avail-row">
+            <span class="jdw-avail-row-label">${slot ? slot.label : slotId}</span>
+            <div class="jdw-avail-row-btns">
+                <button class="jdw-btn jdw-btn-secondary jdw-btn-sm" onclick="JadwalPage.openRequestSlot('${iso}','${slotId}')">REQUEST${reqCount ? ` (${reqCount})` : ''}</button>
+                <button class="jdw-btn jdw-btn-secondary jdw-btn-sm" onclick="JadwalPage.editKetersediaanSlot('${iso}','${slotId}')">EDIT</button>
+                <button class="jdw-btn jdw-btn-danger jdw-btn-sm" onclick="JadwalPage.hapusKetersediaanSlot('${iso}','${slotId}')">HAPUS</button>
+            </div>
+        </div>`;
+    }).join('');
+    return `<div class="jdw-avail-block">
+        <div class="jdw-avail-block-title">Jam Tersedia</div>
+        <div class="jdw-avail-list">${rows}</div>
+    </div>`;
+}
+function _jdwDayGroupHtml(d, entries, isToday, avail) {
     const iso = _jdwToIso(d);
     const label = _jdwFmtDateLong(iso);
+    avail = avail || [];
+    const availBlock = avail.length ? _jdwKetersediaanBlockHtml(iso, avail) : '';
     const head = `<div class="jdw-status-day-head">
         <div class="jdw-status-day-label">${label}${isToday ? '<span class="jdw-status-day-today">Hari ini</span>' : ''}</div>
         <div class="jdw-status-day-count">${entries.length ? entries.length + ' pengajuan' : ''}</div>
     </div>`;
     if (!entries.length) {
-        return `<div class="jdw-status-day">${head}<div class="jdw-status-day-empty">Belum ada pengajuan</div></div>`;
+        return `<div class="jdw-status-day">${head}${availBlock}${availBlock ? '' : '<div class="jdw-status-day-empty">Belum ada pengajuan</div>'}</div>`;
     }
     const rows = entries.map(e => {
         const slot = JDW_SLOTS.find(s => s.id === e.slotId);
@@ -965,7 +1092,7 @@ function _jdwDayGroupHtml(d, entries, isToday) {
         </tr>`;
     }).join('');
     const cards = entries.map(e => JadwalPage._entryCardHtml(e)).join('');
-    return `<div class="jdw-status-day">${head}
+    return `<div class="jdw-status-day">${head}${availBlock}
         <div class="aksi-swipe-wrap"><div class="glass" style="padding:0;overflow:hidden"><table class="jdw-entry-table"><thead><tr><th>Jam</th><th>Tentor</th><th>Materi</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table></div></div>
         <div class="swipe-list">${cards}</div>
     </div>`;
@@ -1071,17 +1198,22 @@ function _jdwRenderStatusList() {
     wrap.innerHTML = weekDates.map(d => {
         const iso = _jdwToIso(d);
         const entries = _jdwStatusListEntriesForDate(iso);
-        // Tanggal yang sama sekali tidak punya jadwal/pengajuan/status TIDAK
-        // perlu ditampilkan di list ini (dulu masih nongol dengan placeholder
-        // "Belum ada pengajuan") — langsung skip di sini sebelum cek lainnya.
-        if (!entries.length) return '';
+        // Blok "Jam Tersedia" (akun review/guru) cuma relevan di view "Minggu
+        // Ini" — tidak ada gunanya edit/hapus/lihat request buat jam yang
+        // tanggalnya sudah lewat, jadi TIDAK ditampilkan di "Riwayat".
+        const avail = (JadwalPage.currentView !== 'riwayat') ? GuruKetersediaanStore.getByDate(iso) : [];
+        // Tanggal yang sama sekali tidak punya jadwal/pengajuan/status DAN
+        // tidak punya jam tersedia TIDAK perlu ditampilkan di list ini (dulu
+        // masih nongol dengan placeholder "Belum ada pengajuan") — langsung
+        // skip di sini sebelum cek lainnya.
+        if (!entries.length && !avail.length) return '';
         // Catatan: filter mana yang boleh nongol di "Minggu Ini" vs "Riwayat"
         // (termasuk tanggal yang sudah lewat, dan entri "batal" yang ketimpa
         // pengajuan baru di jam yang sama) sudah sepenuhnya ditangani per-entri
         // di dalam _jdwStatusListEntriesForDate. Kalau `entries` di tanggal ini
         // sudah kosong untuk view sekarang, langsung ke-skip lewat pengecekan
         // `!entries.length` di atas — tidak perlu pengecekan tanggal lagi di sini.
-        return _jdwDayGroupHtml(d, entries, iso === todayIso);
+        return _jdwDayGroupHtml(d, entries, iso === todayIso, avail);
     }).filter(Boolean).join('');
     // Kartu swipe-list yang punya aksi (Edit/Jadwal Ulang/Batal) perlu di-bind gesture-nya.
     wrap.querySelectorAll('.swipe-list').forEach(el => { if (window.SwipeCards) SwipeCards.bindSwipeList(el); });
@@ -1440,10 +1572,14 @@ const JadwalPage = {
     _rescheduleOriginalTentor: null, // tentorId SEBELUM form Jadwal Ulang ini dibuka — jadi acuan "ganti" atau "tetap sama"
     _rescheduleTentorAlreadyChanged: false, // true kalau tentor SUDAH pernah diganti (baik sesi sebelumnya yang tersimpan di entri, ATAU baru saja dikonfirmasi di sesi form ini)
     _pendingTentorChangeId: null, // tentorId yang lagi nunggu konfirmasi popup "Yakin Ganti Tentor?"
-    openAjukanOverlay(entryId, lockTentor) {
+    openAjukanOverlay(entryId, lockTentor, editingKetersediaanSlot) {
         _jdwAutoExpirePending(); // bebasin slot yang barusan auto-tertolak sebelum dihitung "terisi"
         _jdwAutoAdvanceStatus();
         this.editingId = entryId || null;
+        // Dipakai HANYA saat form ini dibuka lewat tombol EDIT pada blok "Jam
+        // Tersedia" (lihat JadwalPage.editKetersediaanSlot) — jam lain yang
+        // sudah tersedia selain jam ini ikut dikunci di _renderSlotGrid.
+        this._editingKetersediaanSlot = editingKetersediaanSlot || null;
         this._tentorLocked = !!lockTentor;
         this._excludedTentorId = null;
         const existing = entryId ? JadwalStore.get(entryId) : null;
@@ -1474,9 +1610,27 @@ const JadwalPage = {
         // (bukan nerusin grid sebulan dari sesi sebelumnya).
         this.rescheduleExpanded = false;
         this.rescheduleMonthRef = null;
-        document.getElementById('jdw-ajukan-title').textContent = existing ? (isReschedule ? 'Jadwal Ulang' : 'Ubah Pengajuan') : 'Ajukan Jadwal';
-        document.getElementById('jdw-submit-btn').textContent = existing ? (isReschedule ? 'AJUKAN ULANG' : 'EDIT PENGAJUAN') : 'AJUKAN';
+        // ══ AKUN REVIEW/GURU: tap tanggal KOSONG (bukan edit/jadwal-ulang sesi
+        // murid yang sudah ada) bukan "ajukan sesi" tapi "atur ketersediaan" —
+        // guru menandai jam berapa saja yang dia bisa di tanggal itu, TANPA
+        // perlu pilih tentor (dia sendiri) atau pilih materi. lihat
+        // GuruKetersediaanStore & _renderSlotGrid/toggleSlotKetersediaan/
+        // _submitKetersediaan di bawah. Mode ini TIDAK berlaku saat
+        // editingId ada (edit/jadwal-ulang sesi milik murid tetap pakai
+        // form pengajuan biasa, lengkap tentor+materi, karena sesi itu
+        // sudah dipesan murid).
+        this._isKetersediaan = !existing;
+        this.pickedSlotsGuru = this._isKetersediaan ? GuruKetersediaanStore.getByDate(this.selectedDate) : [];
+
+        document.getElementById('jdw-ajukan-title').textContent = this._isKetersediaan ? (this._editingKetersediaanSlot ? 'Edit Jam Tersedia' : 'Atur Ketersediaan') : (existing ? (isReschedule ? 'Jadwal Ulang' : 'Ubah Pengajuan') : 'Ajukan Jadwal');
+        document.getElementById('jdw-submit-btn').textContent = this._isKetersediaan ? 'SIMPAN' : (existing ? (isReschedule ? 'AJUKAN ULANG' : 'EDIT PENGAJUAN') : 'AJUKAN');
         this._updateAjukanDateLabel();
+        const slotLabelEl = document.getElementById('jdw-slot-label');
+        if (slotLabelEl) slotLabelEl.textContent = this._isKetersediaan ? 'Tandai Jam Tersedia' : 'Pilih Jam';
+        const tentorSection = document.getElementById('jdw-tentor-section');
+        const materiSection = document.getElementById('jdw-materi-section');
+        if (tentorSection) tentorSection.style.display = this._isKetersediaan ? 'none' : '';
+        if (materiSection) materiSection.style.display = this._isKetersediaan ? 'none' : '';
 
         // Kalender pilih-tanggal & bagian alasan cuma nongol pas mode Jadwal Ulang.
         const dateSection = document.getElementById('jdw-reschedule-date-section');
@@ -1487,9 +1641,8 @@ const JadwalPage = {
         if (alasanEl) alasanEl.value = '';
         if (isReschedule) this._renderRescheduleCalendar();
 
-        this._renderTentorPicker();
+        if (!this._isKetersediaan) { this._renderTentorPicker(); this._renderMateriGrid(); }
         this._renderSlotGrid();
-        this._renderMateriGrid();
         this._refreshSubmitBtn();
         const overlay = document.getElementById('jdw-ajukan-overlay');
         overlay.classList.add('open');
@@ -1500,6 +1653,7 @@ const JadwalPage = {
     },
     closeAjukanOverlay() {
         document.getElementById('jdw-ajukan-overlay').classList.remove('open');
+        this._editingKetersediaanSlot = null;
         _jdwSyncPageScrollLock();
         _jdwSaveState();
     },
@@ -1596,6 +1750,34 @@ const JadwalPage = {
     },
     _renderSlotGrid() {
         const activeDate = this._activeDate();
+        const isToday = activeDate === _jdwToIso(new Date());
+        const now = new Date();
+        // ══ Mode ATUR KETERSEDIAAN (akun review/guru, tap tanggal kosong) —
+        // multi-pilih (toggle nyala/mati per jam), TIDAK ada konsep "terisi
+        // punya orang lain" atau kunci per-tentor sama sekali (ini jam milik
+        // tentor itu sendiri). Cuma jam yang jam-mulainya sudah lewat hari ini
+        // yang dikunci. ══
+        if (this._isKetersediaan) {
+            document.getElementById('jdw-slot-grid').innerHTML = JDW_SLOTS.map(s => {
+                const past = isToday && (() => { const start = _jdwSlotStartDate(activeDate, s.id); return start && start <= now; })();
+                const selected = this.pickedSlotsGuru.includes(s.id);
+                const isEditingThis = this._editingKetersediaanSlot === s.id;
+                // Mode EDIT 1 jam spesifik (dibuka dari tombol EDIT di blok "Jam
+                // Tersedia"): jam LAIN yang sudah tersedia (selain jam yang
+                // sedang diedit) dikunci total, tidak bisa diklik — tentor cuma
+                // bisa geser jam ini ke jam yang masih kosong, tidak boleh ubah
+                // jam2 lain sekaligus lewat form yang sama. Lihat
+                // JadwalPage.editKetersediaanSlot & toggleSlotKetersediaan.
+                const lockedByEdit = !!(this._editingKetersediaanSlot && selected && !isEditingThis);
+                const disabled = past || lockedByEdit;
+                const tag = past ? ' <small>(sudah lewat)</small>' : (lockedByEdit ? ' <small>(terkunci)</small>' : '');
+                return `<div class="jdw-chip${selected ? ' selected' : ''}${disabled ? ' disabled' : ''}" ${disabled ? '' : `onclick="JadwalPage.toggleSlotKetersediaan('${s.id}')"`}>
+                    <span>${s.label}${tag}</span>
+                    <span class="jdw-chip-check"></span>
+                </div>`;
+            }).join('');
+            return;
+        }
         // Jam yang sudah dipakai entri lain (selain yang sedang diedit) di tanggal ini -> dikunci, tidak boleh dobel.
         const takenSlotIds = new Set(
             JadwalStore.byDate(activeDate)
@@ -1605,8 +1787,6 @@ const JadwalPage = {
         // Kalau tanggal yang dipilih adalah HARI INI, jam yang jam-mulainya sudah
         // lewat dari sekarang ikut dikunci — nggak masuk akal ngajuin jam yang
         // udah kelewatan.
-        const isToday = activeDate === _jdwToIso(new Date());
-        const now = new Date();
         document.getElementById('jdw-slot-grid').innerHTML = JDW_SLOTS.map(s => {
             const taken = takenSlotIds.has(s.id);
             const past = isToday && (() => { const start = _jdwSlotStartDate(activeDate, s.id); return start && start <= now; })();
@@ -1619,6 +1799,34 @@ const JadwalPage = {
                 <span class="jdw-chip-check"></span>
             </div>`;
         }).join('');
+    },
+    /* ── Toggle 1 jam nyala/mati di mode Atur Ketersediaan (lihat
+       _isKetersediaan) — beda dari pickSlot yang single-select ganti total,
+       ini nambah/ngurang dari daftar this.pickedSlotsGuru. ── */
+    toggleSlotKetersediaan(id) {
+        // Mode edit 1 jam spesifik (this._editingKetersediaanSlot terisi):
+        // klik jam yang lagi diedit sendiri = batalkan/hapus jam itu. Klik jam
+        // LAIN yang masih kosong = PINDAHKAN (jam lama dilepas, jam baru yang
+        // dipasang), acuan "yang sedang diedit" ikut pindah ke jam baru itu
+        // supaya bisa dipindah lagi kalau user belum yakin sebelum Simpan.
+        if (this._editingKetersediaanSlot) {
+            if (id === this._editingKetersediaanSlot) {
+                const idx = this.pickedSlotsGuru.indexOf(id);
+                if (idx !== -1) this.pickedSlotsGuru.splice(idx, 1);
+            } else {
+                const oldIdx = this.pickedSlotsGuru.indexOf(this._editingKetersediaanSlot);
+                if (oldIdx !== -1) this.pickedSlotsGuru.splice(oldIdx, 1);
+                if (!this.pickedSlotsGuru.includes(id)) this.pickedSlotsGuru.push(id);
+                this._editingKetersediaanSlot = id;
+            }
+            this._renderSlotGrid();
+            this._refreshSubmitBtn();
+            return;
+        }
+        const idx = this.pickedSlotsGuru.indexOf(id);
+        if (idx === -1) this.pickedSlotsGuru.push(id); else this.pickedSlotsGuru.splice(idx, 1);
+        this._renderSlotGrid();
+        this._refreshSubmitBtn();
     },
     /* ── Box "Pilih Tentor" di halaman Ajukan Jadwal — nampilin placeholder
        "+ Pilih Tentor" kalau belum kepilih, atau kartu nama tentor + materi
@@ -1909,6 +2117,9 @@ const JadwalPage = {
     },
     _refreshSubmitBtn() {
         const btn = document.getElementById('jdw-submit-btn');
+        // Mode Atur Ketersediaan boleh disimpan walau kosong (artinya "tidak
+        // ada jam available" di tanggal itu) — tidak wajib pilih apa pun dulu.
+        if (this._isKetersediaan) { btn.disabled = false; return; }
         let ok = !!(this.pickedTentor && this.pickedSlot && this.pickedMateri);
         if (this._isReschedule) {
             const alasanEl = document.getElementById('jdw-reschedule-alasan');
@@ -1916,7 +2127,106 @@ const JadwalPage = {
         }
         btn.disabled = !ok;
     },
+    /* ── Simpan mode Atur Ketersediaan (akun review/guru) — beda total dari
+       submitAjukan (form pengajuan sesi murid): tidak ada status/kuota/race-
+       condition, cuma nyimpen daftar jam tersedia utk tanggal ini. ── */
+    _submitKetersediaan() {
+        const targetDate = this._activeDate();
+        GuruKetersediaanStore.setByDate(targetDate, this.pickedSlotsGuru);
+        showToast(this.pickedSlotsGuru.length ? '✓ Ketersediaan tanggal ini tersimpan' : '✓ Tanggal ini ditandai tidak tersedia');
+        this.closeAjukanOverlay();
+        _jdwRenderWeek();
+        _jdwRenderStatusList();
+        _jdwSaveState();
+    },
+    /* ══════ Blok "Jam Tersedia" di #jdw-status-list (akun review/guru) —
+       lihat _jdwKetersediaanBlockHtml buat tombolnya. ══════ */
+    // HAPUS: langsung lepas jam ini dari ketersediaan tanggal tsb (dengan
+    // konfirmasi dulu lewat showConfirm, karena aksinya destruktif & tidak
+    // ada "undo").
+    hapusKetersediaanSlot(tanggal, slotId) {
+        const slot = JDW_SLOTS.find(s => s.id === slotId);
+        showConfirm('Hapus Jam Tersedia?', `Jam ${slot ? slot.label : ''} pada tanggal ini akan ditandai TIDAK tersedia lagi.`, 'danger', () => {
+            const sisa = GuruKetersediaanStore.getByDate(tanggal).filter(id => id !== slotId);
+            GuruKetersediaanStore.setByDate(tanggal, sisa);
+            showToast('✓ Jam dihapus dari ketersediaan');
+            _jdwRenderWeek();
+            _jdwRenderStatusList();
+        });
+    },
+    // EDIT: buka lagi form Atur Ketersediaan tanggal ini, dengan jam-jam lain
+    // yang sudah tersedia dikunci (lihat _editingKetersediaanSlot di
+    // openAjukanOverlay/_renderSlotGrid/toggleSlotKetersediaan).
+    editKetersediaanSlot(tanggal, slotId) {
+        this.selectedDate = tanggal;
+        this.openAjukanOverlay(null, false, slotId);
+    },
+    // REQUEST: buka halaman List Request (jadwal-request.html) buat jam ini.
+    openRequestSlot(tanggal, slotId) {
+        this._requestTanggal = tanggal;
+        this._requestSlotId = slotId;
+        this._requestPickedId = null;
+        this._renderRequestList();
+        document.getElementById('jdw-request-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
+    },
+    closeRequestOverlay() {
+        document.getElementById('jdw-request-overlay').classList.remove('open');
+        _jdwSyncPageScrollLock();
+    },
+    // Render isi halaman List Request — diurutkan dari yang paling awal
+    // mengajukan (GuruRequestStore.byKey sudah sort createdAt ASC).
+    _renderRequestList() {
+        const slot = JDW_SLOTS.find(s => s.id === this._requestSlotId);
+        const dateLabel = document.getElementById('jdw-request-date-label');
+        if (dateLabel) dateLabel.textContent = `${_jdwFmtDateLong(this._requestTanggal)} · ${slot ? slot.label : ''}`;
+        const list = GuruRequestStore.byKey(this._requestTanggal, this._requestSlotId);
+        const wrap = document.getElementById('jdw-request-list');
+        if (!wrap) return;
+        if (!list.length) {
+            wrap.innerHTML = `<div class="jdw-status-day-empty">Belum ada murid yang mengajukan jam ini</div>`;
+        } else {
+            wrap.innerHTML = list.map((r, i) => {
+                const materi = JDW_MATERI.find(m => m.id === r.materiId);
+                const selected = this._requestPickedId === r.id;
+                return `<div class="jdw-request-row${selected ? ' selected' : ''}" onclick="JadwalPage.pickRequestUser('${r.id}')">
+                    <span class="jdw-request-radio"></span>
+                    <div class="jdw-request-info">
+                        <div class="jdw-request-name">${i === 0 ? '#1 · ' : `#${i + 1} · `}${r.nama}</div>
+                        <div class="jdw-request-materi">Materi: ${materi ? materi.label : '-'}</div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+        const btn = document.getElementById('jdw-request-terima-btn');
+        if (btn) btn.disabled = !this._requestPickedId;
+    },
+    pickRequestUser(id) {
+        this._requestPickedId = (this._requestPickedId === id) ? null : id;
+        this._renderRequestList();
+    },
+    // TERIMA: jam ini otomatis dianggap terisi -> dilepas dari daftar
+    // ketersediaan tanggal itu (tidak available lagi buat murid lain), request
+    // yang lain di jam yang sama ikut dibuang (kalah/kalau mau dipilih lagi
+    // guru harus atur ulang ketersediaannya).
+    terimaRequestSelected() {
+        if (!this._requestPickedId) return;
+        const list = GuruRequestStore.byKey(this._requestTanggal, this._requestSlotId);
+        const picked = list.find(r => r.id === this._requestPickedId);
+        if (!picked) return;
+        showConfirm('Terima Request Ini?', `${picked.nama} akan dijadwalkan pada jam ini. Request murid lain di jam yang sama akan otomatis ditutup.`, 'warning', () => {
+            JadwalStore.add({ tanggal: this._requestTanggal, slotId: this._requestSlotId, materiId: picked.materiId, tentorId: null, status: 'acc' });
+            GuruRequestStore.removeByKey(this._requestTanggal, this._requestSlotId);
+            const sisa = GuruKetersediaanStore.getByDate(this._requestTanggal).filter(id => id !== this._requestSlotId);
+            GuruKetersediaanStore.setByDate(this._requestTanggal, sisa);
+            showToast(`✓ Request ${picked.nama} diterima`);
+            this.closeRequestOverlay();
+            _jdwRenderWeek();
+            _jdwRenderStatusList();
+        }, { yesLabel: 'Ya, Terima' });
+    },
     submitAjukan() {
+        if (this._isKetersediaan) return this._submitKetersediaan();
         if (!this.pickedTentor || !this.pickedSlot || !this.pickedMateri) return;
         // Simulasi race-condition ala server: cek ULANG persis saat mau submit (bukan
         // cuma pas grid dirender tadi) apakah jam+tanggal ini KEBURU diambil pengajuan

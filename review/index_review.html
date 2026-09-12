@@ -358,6 +358,26 @@
     .jdw-status-day-today { display:inline-block; margin-left:6px; font-family:var(--font-body); font-size:10px; font-weight:700; color:#fff; background:linear-gradient(135deg,var(--accent),var(--accent2)); padding:2px 8px; border-radius:20px; vertical-align:middle; }
     .jdw-status-day-count { font-size:11px; font-weight:700; color:var(--text-sub); white-space:nowrap; flex-shrink:0; }
     .jdw-status-day-empty { font-size:12px; color:var(--text-sub); padding:13px 14px; border-radius:12px; background:rgba(19,50,89,.04); border:1.5px dashed rgba(19,50,89,.14); text-align:center; }
+    /* Blok "Jam Tersedia" (khusus akun review/guru) di dalam #jdw-status-list
+       — lihat _jdwKetersediaanBlockHtml di review/jadwal.js. */
+    .jdw-avail-block { margin-bottom:10px; padding:12px; border-radius:14px; background:rgba(26,90,160,.05); border:1.5px solid rgba(26,90,160,.14); }
+    .jdw-avail-block-title { font-size:11px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; color:var(--accent); margin-bottom:8px; }
+    .jdw-avail-list { display:flex; flex-direction:column; gap:8px; }
+    .jdw-avail-row { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; padding:8px 10px; border-radius:10px; background:rgba(255,255,255,.7); }
+    .jdw-avail-row-label { font-size:12.5px; font-weight:700; color:var(--blue); }
+    .jdw-avail-row-btns { display:flex; gap:6px; flex-wrap:wrap; }
+    /* Halaman List Request (review/jadwal-request.html). */
+    .jdw-request-date-label { font-size:12.5px; font-weight:700; color:var(--blue); margin-bottom:12px; }
+    .jdw-request-list { display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
+    .jdw-request-row { display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:14px; border:1.5px solid rgba(19,50,89,.12); background:rgba(255,255,255,.6); cursor:pointer; transition:all .2s; }
+    .jdw-request-row:hover { background:rgba(255,255,255,.9); }
+    .jdw-request-row.selected { border-color:var(--accent); background:rgba(26,90,160,.08); }
+    .jdw-request-radio { width:18px; height:18px; border-radius:50%; border:1.5px solid rgba(19,50,89,.2); flex-shrink:0; position:relative; }
+    .jdw-request-row.selected .jdw-request-radio { border-color:var(--accent); background:var(--accent); }
+    .jdw-request-row.selected .jdw-request-radio::after { content:''; position:absolute; top:4px; left:4px; width:8px; height:8px; border-radius:50%; background:#fff; }
+    .jdw-request-info { display:flex; flex-direction:column; gap:2px; }
+    .jdw-request-name { font-size:13.5px; font-weight:700; color:var(--blue); }
+    .jdw-request-materi { font-size:11.5px; color:var(--text-sub); }
 
     /* ── JADWAL: halaman fullscreen (detail tanggal & form ajukan) ── */
     .overlay-fullscreen { padding:0; align-items:stretch; justify-content:stretch; background:var(--bg); backdrop-filter:none; }
@@ -773,6 +793,7 @@ const REVIEW_PAGE_MODULES = {
             'review/jadwal/jadwal-tentor.html',
             'review/jadwal/jadwal-sesi.html',
             'review/jadwal/jadwal-batal.html',
+            'review/jadwal/jadwal-request.html',
         ],
         htmlAppendTarget: 'jdw-overlays-root',
         js: ['review/jadwal/jadwal.js'],
