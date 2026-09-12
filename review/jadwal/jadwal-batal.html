@@ -71,6 +71,23 @@
   </div>
 </div>
 
+<!-- ══════ KONFIRMASI "TARIK PENGAJUAN" JADWAL ULANG DARI TENTOR (status
+     resejuel) — sama polanya lagi kayak dua di atas, dipicu dari swipe-action
+     "Tarik Pengajuan" di kartu list ATAU tombol TARIK PENGAJUAN di dalam
+     halaman Cek (#jdw-resejuel-overlay). Balik ke status "acc" & buang field
+     `reschedule` lewat JadwalPage.confirmTarikResejuel. ══════ -->
+<div class="overlay confirm-overlay" id="jdw-tarikresejuel-overlay" onclick="if(event.target===this){this.classList.remove('open');_jdwSyncPageScrollLock();}">
+  <div class="modal" style="max-width:300px;text-align:center">
+    <div class="confirm-icon warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div>
+    <div class="confirm-title">Tarik Pengajuan?</div>
+    <div class="confirm-msg">Pengajuan jadwal ulang ke murid ini akan ditarik, jadwal lama tetap berlaku seperti semula. Murid tidak perlu memutuskan lagi.</div>
+    <div class="confirm-btns">
+      <button class="btn-secondary" onclick="document.getElementById('jdw-tarikresejuel-overlay').classList.remove('open');_jdwSyncPageScrollLock()" style="flex:1;padding:11px">Tidak</button>
+      <button class="btn-primary" onclick="JadwalPage.confirmTarikResejuel()" style="flex:1;margin-top:0">Ya, Tarik</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══════ KONFIRMASI SETELAH TOLAK JADWAL ULANG DARI TENTOR: "Ajukan Jadwal
      Lain?" — muncul otomatis begitu JadwalPage.tolakResejuel() selesai
      (jadwal lama sudah dipertahankan). Kalau "Ya, Ajukan" -> lanjut buka
@@ -199,8 +216,14 @@
     <div class="jdw-modal-body">
       <div class="jdw-resejuel-compare" id="jdw-resejuel-compare"></div>
       <div class="jdw-form-section jdw-resejuel-actions" style="margin-bottom:0">
-        <button class="jdw-btn jdw-btn-secondary jdw-btn-block" onclick="JadwalPage.tolakResejuel()">TOLAK</button>
-        <button class="jdw-btn jdw-btn-primary jdw-btn-block" onclick="JadwalPage.setujuResejuel()">SETUJU</button>
+        <!-- Halaman ini dibuka dari akun review/guru sendiri (tombol "Cek" di
+             kartu status "resejuel" milik guru) — TOLAK/SETUJU DIHAPUS di sini
+             karena itu keputusan MURID (tombolnya masih ada di sisi user,
+             lihat user/jadwal-batal.html), bukan guru yang mengajukan.
+             Guru cuma bisa TARIK pengajuannya sendiri sebelum murid sempat
+             memutuskan — lihat JadwalPage.tarikResejuel & swipe-action "Tarik
+             Pengajuan" yang sama di kartu list (review/jadwal.js). -->
+        <button class="jdw-btn jdw-btn-danger jdw-btn-block" onclick="JadwalPage.tarikResejuel(JadwalPage._resejuelTargetId)">TARIK PENGAJUAN</button>
       </div>
     </div>
   </div>
@@ -234,8 +257,10 @@
     <div class="jdw-modal-body">
       <div class="jdw-resejuel-compare" id="jdw-batal-tentor-compare"></div>
       <div class="jdw-form-section jdw-resejuel-actions" style="margin-bottom:0">
-        <button class="jdw-btn jdw-btn-secondary jdw-btn-block" onclick="JadwalPage.tolakBatalTentor()">TOLAK</button>
-        <button class="jdw-btn jdw-btn-primary jdw-btn-block" onclick="JadwalPage.setujuBatalTentor()">SETUJU</button>
+        <!-- Sama alasannya kayak #jdw-resejuel-overlay di atas: TOLAK/SETUJU
+             dihapus di sisi guru (itu keputusan murid), diganti satu tombol
+             TARIK PENGAJUAN -> JadwalPage.tarikBatalTentor. -->
+        <button class="jdw-btn jdw-btn-danger jdw-btn-block" onclick="JadwalPage.tarikBatalTentor(JadwalPage._batalTentorTargetId)">TARIK PENGAJUAN</button>
       </div>
     </div>
   </div>

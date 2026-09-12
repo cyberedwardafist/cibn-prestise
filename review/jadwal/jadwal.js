@@ -781,7 +781,7 @@ const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 
 // #page-jadwal di baliknya tetap ikut dikunci scroll-nya biar konsisten -
 // tidak masuk akal halaman di belakang masih bisa discroll pas ada dialog
 // konfirmasi kecil nongol di tengah layar.
-const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-tarikbataltentor-overlay', 'jdw-lewat-overlay', 'jdw-tolak-ajukan-overlay', 'jdw-keluar-ajukan-overlay', 'jdw-batal-pilihan-overlay', 'jdw-reschedule-harih-overlay', 'jdw-batal-kuota-habis-overlay', 'jdw-tentor-ganti-confirm-overlay', 'jdw-tentor-ganti-terpakai-overlay', 'jdw-batal-tentor-setuju-overlay'];
+const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-tarikbataltentor-overlay', 'jdw-tarikresejuel-overlay', 'jdw-lewat-overlay', 'jdw-tolak-ajukan-overlay', 'jdw-keluar-ajukan-overlay', 'jdw-batal-pilihan-overlay', 'jdw-reschedule-harih-overlay', 'jdw-batal-kuota-habis-overlay', 'jdw-tentor-ganti-confirm-overlay', 'jdw-tentor-ganti-terpakai-overlay', 'jdw-batal-tentor-setuju-overlay'];
 // Ada popup/overlay APAPUN di halaman Jadwal yang lagi kebuka (dialog kecil
 // maupun fullscreen, semuanya sudah kedaftar di JDW_SCROLL_LOCK_OVERLAY_IDS
 // di atas) -> dipakai buat nahan render kalender/list minggu di BELAKANG
@@ -1771,9 +1771,16 @@ const JadwalPage = {
        selesai/batal/lain -> tanpa aksi apa pun (sweep/tombol dihilangkan total) ── */
     _entryActions(e) {
         if (e.status === 'resejuel') {
+            // "Cek" (kiri) buka resume perbandingan (JadwalPage.bukaResejuel,
+            // sekarang READ-ONLY di sisi guru — tombol TOLAK/SETUJU di
+            // dalamnya sudah diganti TARIK PENGAJUAN, lihat review/jadwal-
+            // batal.html). "Tarik Pengajuan" (kanan) -> jalan pintas yang
+            // sama tanpa perlu buka halaman Cek dulu, lihat JadwalPage.
+            // tarikResejuel — sama polanya kayak "Tarik Pembatalan" di
+            // status pengajuan_batal_tentor di bawah.
             return {
                 left: [{ icon: 'check', label: 'Cek', cls: 'act-primary', onClick: `JadwalPage.bukaResejuel('${e.id}')` }],
-                right: [],
+                right: [{ icon: 'refresh', label: 'Tarik Pengajuan', cls: 'act-primary', onClick: `JadwalPage.tarikResejuel('${e.id}')` }],
             };
         }
         if (e.status === 'pengajuan_batal_tentor') {
@@ -3068,6 +3075,39 @@ const JadwalPage = {
         JadwalStore.update(this._resejuelTargetId, { tanggal: e.reschedule.tanggal, slotId: e.reschedule.slotId, materiId: e.reschedule.materiId, status: 'acc', reschedule: null, freeCancelEligible: true });
         this.closeResejuelOverlay();
         showToast('✓ Jadwal ulang disetujui, jadwal baru sudah aktif');
+        _jdwRenderWeek();
+        _jdwRenderStatusList();
+    },
+    /* ── "Tarik Pengajuan" — KHUSUS status resejuel, dipakai dari akun guru
+       sendiri (bukan murid) buat batal-membatalkan pengajuan jadwal ulang
+       yang dia ajukan, sebelum sempat diputuskan murid. Sama persis
+       polanya kayak tarikBatal/tarikBatalTentor: dialog konfirmasi dulu
+       (jdw-tarikresejuel-overlay), baru balik status ke "acc" & buang
+       field `reschedule`-nya. Dipanggil dari swipe-action "Tarik Pengajuan"
+       di kartu list, ATAU tombol TARIK PENGAJUAN di dalam halaman Cek
+       (lihat review/jadwal-batal.html #jdw-resejuel-overlay) — keduanya
+       boleh dipanggil walau overlay Cek masih terbuka di belakangnya, sama
+       kayak pola jdw-tolak-ajukan-overlay menumpuk di atas jdw-resejuel-
+       overlay. freeCancelEligible ikut diset true, sama alasannya kayak
+       tolakResejuel: jadwal ini tetap "diutak-atik" tentor duluan. ── */
+    _tarikResejuelTargetId: null,
+    tarikResejuel(id) {
+        this._tarikResejuelTargetId = id;
+        document.getElementById('jdw-tarikresejuel-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
+    },
+    confirmTarikResejuel() {
+        document.getElementById('jdw-tarikresejuel-overlay').classList.remove('open');
+        _jdwSyncPageScrollLock();
+        if (!this._tarikResejuelTargetId) return;
+        JadwalStore.update(this._tarikResejuelTargetId, { status: 'acc', reschedule: null, freeCancelEligible: true });
+        this._tarikResejuelTargetId = null;
+        // Kalau ditarik dari dalam halaman Cek (bukan swipe-action di list),
+        // overlay itu masih kebuka di belakang konfirmasi ini — tutup juga
+        // sekalian biar tidak nyangkut nampilin resume yang datanya sudah
+        // tidak berlaku lagi.
+        this.closeResejuelOverlay();
+        showToast('Pengajuan jadwal ulang ditarik, jadwal lama tetap berlaku');
         _jdwRenderWeek();
         _jdwRenderStatusList();
     },
