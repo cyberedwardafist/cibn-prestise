@@ -276,27 +276,6 @@ const JadwalStore = (function () {
             //     dipakai sampai guru memutuskan — sama pola dengan `reschedule`
             //     di seed_resejuel (arah kebalikannya) di atas.
             { id: 'seed_murid_reschedule', tanggal: _todayIso(5), slotId: 'slot1', materiId: 'twk', tentorId: null, nama: 'Bagas Wirawan', status: 'murid_reschedule', rescheduleMurid: { tanggal: _todayIso(7), slotId: 'slot3' }, alasanRescheduleMurid: 'Ada acara keluarga di jam yang sama', createdAt: Date.now() - 1000000 },
-            // ══ Tiga contoh di bawah ini masih di blok "Jam Tersedia" (field
-            // `nama` juga), tapi kebalikannya lagi dari 2 di atas: yang
-            // mengajukan/terisi normal di sini GURU sendiri (bukan murid) —
-            // dipakai buat demo tombol Jadwal Ulang/Batal/Tarik milik guru
-            // PERSIS di jam yang sudah terisi murid beneran (bukan cuma di
-            // JadwalStore sisi guru-sebagai-murid seperti seed_acc1 dkk di
-            // atas). Tanggal sengaja dipilih yang TIDAK dipakai seed acc/
-            // resejuel/pengajuan_batal_tentor lain manapun di atas, biar
-            // tidak numpuk 2 baris di jam yang sama pada tanggal yang sama.
-            //   - acc biasa (terisi normal) -> tombol Jadwal Ulang + Batal.
-            { id: 'seed_terisi_acc', tanggal: _todayIso(3), slotId: 'slot2', materiId: 'tkp', tentorId: null, nama: 'Rangga Saputra', status: 'acc', createdAt: Date.now() - 700000 },
-            //   - resejuel (guru sendiri yang mengajukan jadwal ulang ke murid
-            //     ini) -> tombol "Tarik Pengajuan" (JadwalPage.tarikResejuel),
-            //     field `reschedule` sama persis bentuknya kayak yang dibuat
-            //     JadwalPage.submitGuruJadwalUlang.
-            { id: 'seed_terisi_resejuel', tanggal: _todayIso(4), slotId: 'slot3', materiId: 'twk', tentorId: null, nama: 'Intan Permata', status: 'resejuel', reschedule: { tanggal: _todayIso(6), slotId: 'slot5', materiId: 'twk', alasan: 'Guru ada jadwal ujian dinas mendadak' }, createdAt: Date.now() - 600000 },
-            //   - pengajuan_batal_tentor (guru sendiri yang mengajukan batal ke
-            //     murid ini) -> tombol "Tarik Pembatalan" (JadwalPage.
-            //     tarikBatalTentor), field `alasanBatalTentor` sama persis
-            //     bentuknya kayak yang dibuat JadwalPage.submitGuruBatal.
-            { id: 'seed_terisi_batal_tentor', tanggal: _todayIso(9), slotId: 'slot1', materiId: 'toefl_reading', tentorId: null, nama: 'Yoga Pratama', status: 'pengajuan_batal_tentor', alasanBatalTentor: 'Ada agenda pelatihan guru mendadak', createdAt: Date.now() - 500000 },
         ];
         localStorage.setItem(KEY, JSON.stringify(arr));
         return arr;
@@ -356,11 +335,7 @@ const GuruKetersediaanStore = (function () {
     // (sama pola-nya kayak JadwalStore._seed di atas).
     function _seed() {
         const iso = (offsetDays) => { const d = new Date(); d.setDate(d.getDate() + offsetDays); d.setHours(0, 0, 0, 0); const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 10); };
-        // H+3/slot2, H+4/slot3, H+9/slot1 ditambahkan supaya jam yang dipakai
-        // seed_terisi_acc/seed_terisi_resejuel/seed_terisi_batal_tentor
-        // (JadwalStore._seed di atas) ikut kelihatan "ditandai tersedia" oleh
-        // guru, bukan cuma nongol dari sisi terisinya saja.
-        const map = { [iso(2)]: ['slot2', 'slot4'], [iso(3)]: ['slot2'], [iso(4)]: ['slot3'], [iso(5)]: ['slot1'], [iso(9)]: ['slot1'] };
+        const map = { [iso(2)]: ['slot2', 'slot4'], [iso(5)]: ['slot1'] };
         localStorage.setItem(KEY, JSON.stringify(map));
         return map;
     }
@@ -473,16 +448,29 @@ const GuruPengaturanStore = (function () {
 // jam yang sudah diatur manual/beda tetap aman. No-op cepat kalau switch
 // mati atau belum ada hari/jam dipilih. Mengembalikan jumlah tanggal yang
 // BERUBAH (dapat tambahan jam baru) — dipakai buat pesan toast pemanggil.
+// Khusus tanggal HARI INI (i===0): jam yang jam-mulainya sudah lewat dari
+// sekarang SENGAJA di-skip dari cfg.smartSelectionSlots sebelum di-union —
+// sama seperti aturan "sudah lewat" di form Atur Ketersediaan manual
+// (_renderSlotGrid), Smart Selection tidak boleh menyalakan jam yang
+// jam-mulainya sudah kelewatan hari ini.
 function _jdwApplySmartSelection() {
     const cfg = GuruPengaturanStore.get();
     if (!cfg.smartSelectionActive || !cfg.smartSelectionDays.length || !cfg.smartSelectionSlots.length) return 0;
     let changed = 0;
+    const now = new Date();
     for (let i = 0; i < 30; i++) {
         const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + i);
         if (!cfg.smartSelectionDays.includes(d.getDay())) continue;
         const iso = _jdwToIso(d);
+        const slotsToApply = i === 0
+            ? cfg.smartSelectionSlots.filter(slotId => {
+                const start = _jdwSlotStartDate(iso, slotId);
+                return !start || start > now; // jam yang belum lewat aja yang boleh masuk
+            })
+            : cfg.smartSelectionSlots;
+        if (!slotsToApply.length) continue;
         const existing = GuruKetersediaanStore.getByDate(iso);
-        const merged = Array.from(new Set([...existing, ...cfg.smartSelectionSlots]));
+        const merged = Array.from(new Set([...existing, ...slotsToApply]));
         if (merged.length !== existing.length) {
             GuruKetersediaanStore.setByDate(iso, merged);
             changed++;
