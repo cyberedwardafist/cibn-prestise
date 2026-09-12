@@ -1193,46 +1193,82 @@ function _jdwKetersediaanBlockHtml(iso, slotIds) {
     const bookedBySlot = {};
     _jdwGuruBookedEntriesForDate(iso).forEach(e => { bookedBySlot[e.slotId] = e; });
     const allSlotIds = Array.from(new Set([...slotIds, ...Object.keys(bookedBySlot)]));
-    const rows = allSlotIds.slice().sort((a, b) => _jdwSlotIndex(a) - _jdwSlotIndex(b)).map(slotId => {
+    // ══ Baris di sini SEKARANG dual-render, PERSIS pola yang sudah dipakai
+    // di tab Riwayat (lihat _jdwDayGroupHtml bagian isRiwayat): <table>
+    // (.aksi-swipe-wrap) buat layar lebar >768px, ATAU daftar swipe-card
+    // (.swipe-list, SwipeCards.buildSwipeCardHtml) buat mobile ≤768px —
+    // keduanya di-render SEKALIGUS, CSS (css/base.css) yang mengatur mana
+    // yang tampil sesuai lebar layar (.swipe-list defaultnya display:none,
+    // BARU muncul di media query ≤768px). WAJIB dua-duanya dirender: kalau
+    // cuma .swipe-list yang dipakai (tanpa tabel), blok ini akan HILANG
+    // TOTAL di layar >768px (tablet/desktop), bukan cuma "tidak bisa
+    // di-swipe" tapi beneran kosong tak kelihatan sama sekali.
+    //
+    // Soal leftActions vs rightActions (sudah dicek CSS-nya, .sw-left/
+    // .sw-right): param `leftActions` VISUALNYA nongol di KANAN kartu,
+    // param `rightActions` VISUALNYA nongol di KIRI kartu (kebalik dari
+    // nama parameternya — quirk lama, lihat catatan di _entryActions atas).
+    // Jadi di bawah ini aksi BERBAHAYA (Batal/Hapus) didaftarkan lewat
+    // `rightActions` supaya muncul di KIRI, sisanya lewat `leftActions`
+    // supaya muncul di KANAN — sesuai permintaan tampilan terbaru. Untuk
+    // versi <table>, urutan tombol disamakan (kiri dulu baru kanan) biar
+    // konsisten walau di tabel semua tombol memang selalu kelihatan. ══
+    const btnCls = (a) => a.cls === 'act-danger' ? 'jdw-btn-danger' : (a.cls === 'act-primary' ? 'jdw-btn-primary' : 'jdw-btn-secondary');
+    const tableRows = [];
+    const cardRows = [];
+    allSlotIds.slice().sort((a, b) => _jdwSlotIndex(a) - _jdwSlotIndex(b)).forEach(slotId => {
         const slot = JDW_SLOTS.find(s => s.id === slotId);
         const booked = bookedBySlot[slotId];
+        const jam = slot ? slot.label : slotId;
+        let murid = '-', materiLabel = '-', statusBadge = '-', kode, leftActions = [], rightActions = [];
         if (booked) {
             const materi = JDW_MATERI.find(m => m.id === booked.materiId);
-            const statusTag = booked.status === 'resejuel' ? ' <small>(menunggu jadwal ulang)</small>' : (booked.status === 'pengajuan_batal_tentor' ? ' <small>(menunggu pembatalan)</small>' : '');
-            const busy = booked.status !== 'acc';
+            murid = booked.nama || 'Murid';
+            materiLabel = materi ? materi.label : '-';
+            statusBadge = `<span class="jdw-status-badge ${booked.status}">${JDW_STATUS_LABEL[booked.status] || booked.status}</span>`;
+            kode = booked.id;
             // Selagi guru sendiri masih menunggu keputusan murid atas pengajuan
-            // jadwal ulang / pembatalan yang DIA ajukan, kasih jalan buat
-            // menarik kembali pengajuan itu (tarikResejuel/tarikBatalTentor
-            // sudah ada & jalan sejak versi swipe-card lama, cuma belum
-            // ditautkan lagi ke blok Jam Tersedia ini setelah redesain).
-            let tarikBtn = '';
+            // jadwal ulang / pembatalan yang DIA ajukan, cuma satu aksi yang
+            // relevan: menarik kembali pengajuan itu (tarikResejuel/
+            // tarikBatalTentor, sudah ada & jalan sejak versi lama) — Batal/
+            // Jadwal Ulang baru TIDAK ditampilkan sama sekali selama masih
+            // menunggu (bukan sekadar dikunci/disabled seperti sebelumnya).
             if (booked.status === 'resejuel') {
-                tarikBtn = `<button class="jdw-btn jdw-btn-primary jdw-btn-sm" onclick="JadwalPage.tarikResejuel('${booked.id}')">TARIK PENGAJUAN</button>`;
+                leftActions = [{ icon: 'refresh', label: 'Tarik Pengajuan', cls: 'act-primary', onClick: `JadwalPage.tarikResejuel('${booked.id}')` }];
             } else if (booked.status === 'pengajuan_batal_tentor') {
-                tarikBtn = `<button class="jdw-btn jdw-btn-primary jdw-btn-sm" onclick="JadwalPage.tarikBatalTentor('${booked.id}')">TARIK PEMBATALAN</button>`;
+                leftActions = [{ icon: 'refresh', label: 'Tarik Pembatalan', cls: 'act-primary', onClick: `JadwalPage.tarikBatalTentor('${booked.id}')` }];
+            } else {
+                leftActions = [{ icon: 'refresh', label: 'Jadwal Ulang', cls: 'act-primary', onClick: `JadwalPage.guruAjukanJadwalUlang('${booked.id}')` }];
+                rightActions = [{ icon: 'trash', label: 'Batal', cls: 'act-danger', onClick: `JadwalPage.guruAjukanBatal('${booked.id}')` }];
             }
-            return `<div class="jdw-avail-row">
-                <span class="jdw-avail-row-label">${slot ? slot.label : slotId} <small>· ${booked.nama || 'Murid'}${materi ? ' · ' + materi.label : ''}</small>${statusTag}</span>
-                <div class="jdw-avail-row-btns">
-                    <button class="jdw-btn jdw-btn-danger jdw-btn-sm"${busy ? ' disabled' : ''} onclick="JadwalPage.guruAjukanBatal('${booked.id}')">BATAL</button>
-                    <button class="jdw-btn jdw-btn-secondary jdw-btn-sm"${busy ? ' disabled' : ''} onclick="JadwalPage.guruAjukanJadwalUlang('${booked.id}')">AJUKAN JADWAL ULANG</button>
-                    ${tarikBtn}
-                </div>
-            </div>`;
+        } else {
+            const reqCount = GuruRequestStore.countByKey(iso, slotId);
+            statusBadge = reqCount ? `<span class="jdw-status-badge pending">${reqCount} Request</span>` : `<span class="jdw-status-badge acc">Tersedia</span>`;
+            kode = `avail_${iso}_${slotId}`;
+            leftActions = [
+                { icon: 'eye', label: 'Request', cls: 'act-edit', onClick: `JadwalPage.openRequestSlot('${iso}','${slotId}')` },
+                { icon: 'edit', label: 'Edit', cls: 'act-edit', onClick: `JadwalPage.editKetersediaanSlot('${iso}','${slotId}')` },
+            ];
+            rightActions = [{ icon: 'trash', label: 'Hapus', cls: 'act-danger', onClick: `JadwalPage.hapusKetersediaanSlot('${iso}','${slotId}')` }];
         }
-        const reqCount = GuruRequestStore.countByKey(iso, slotId);
-        return `<div class="jdw-avail-row">
-            <span class="jdw-avail-row-label">${slot ? slot.label : slotId}</span>
-            <div class="jdw-avail-row-btns">
-                <button class="jdw-btn jdw-btn-secondary jdw-btn-sm" onclick="JadwalPage.openRequestSlot('${iso}','${slotId}')">REQUEST${reqCount ? ` (${reqCount})` : ''}</button>
-                <button class="jdw-btn jdw-btn-secondary jdw-btn-sm" onclick="JadwalPage.editKetersediaanSlot('${iso}','${slotId}')">EDIT</button>
-                <button class="jdw-btn jdw-btn-danger jdw-btn-sm" onclick="JadwalPage.hapusKetersediaanSlot('${iso}','${slotId}')">HAPUS</button>
-            </div>
-        </div>`;
-    }).join('');
+        const allBtns = [...leftActions, ...rightActions].map(a => `<button class="jdw-btn ${btnCls(a)} jdw-btn-sm" onclick="${a.onClick}">${a.label}</button>`).join('');
+        tableRows.push(`<tr>
+            <td>${jam}</td>
+            <td>${murid}</td>
+            <td>${materiLabel}</td>
+            <td>${statusBadge}</td>
+            <td><div style="display:flex;gap:6px;flex-wrap:wrap">${allBtns}</div></td>
+        </tr>`);
+        cardRows.push(SwipeCards.buildSwipeCardHtml({
+            title: jam,
+            sub: booked ? [murid, materiLabel !== '-' ? materiLabel : null].filter(Boolean).join(' · ') : 'Belum ada murid',
+            kode, leftActions, rightActions,
+        }));
+    });
     return `<div class="jdw-avail-block">
         <div class="jdw-avail-block-title">Jam Tersedia</div>
-        <div class="jdw-avail-list">${rows}</div>
+        <div class="aksi-swipe-wrap"><div class="glass" style="padding:0;overflow:hidden"><table class="jdw-entry-table"><thead><tr><th>Jam</th><th>Murid</th><th>Materi</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${tableRows.join('')}</tbody></table></div></div>
+        <div class="swipe-list">${cardRows.join('')}</div>
     </div>`;
 }
 function _jdwDayGroupHtml(d, entries, isToday, avail, isRiwayat) {
