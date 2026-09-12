@@ -2605,6 +2605,18 @@ const JadwalPage = {
     _guruResejuelEntryId: null,
     _guruResejuelDate: null,
     _guruResejuelSlot: null,
+    _guruResejuelExpanded: false,   // true kalau kalender mini form ini lagi mode grid sebulan (toggle "1 Bulan")
+    _guruResejuelWeekRef: null,     // tanggal acuan minggu yang ditampilkan di strip kalender mini
+    _guruResejuelMonthRef: null,    // tanggal acuan bulan yang ditampilkan pas grid sebulan kebuka
+    // Kalender pilih-tanggal di form ini SEKARANG PERSIS sama kayak kalender
+    // mini "Jadwal Ulang" di sisi murid (lihat _renderRescheduleCalendar/
+    // toggleRescheduleExpand/rescheduleNav/pickRescheduleDate di atas) —
+    // strip 1 minggu default, bisa dibuka jadi grid sebulan lewat tombol
+    // "1 Bulan", reuse _jdwMonthGridHtml yang sama. Bedanya cuma state &
+    // id elemennya sendiri (prefix jdw-gururesejuel-) supaya tidak
+    // bentrok/timpa sama punya form Jadwal Ulang murid (keduanya bisa saja
+    // ke-render dalam DOM yang sama). Tanggal paling awal yang boleh
+    // dipilih tetap BESOK (bukan hari ini) — dijaga di pickGuruResejuelDate.
     guruAjukanJadwalUlang(id) {
         const e = JadwalStore.get(id);
         if (!e || e.status !== 'acc') return;
@@ -2613,9 +2625,11 @@ const JadwalPage = {
         this._guruResejuelEntryId = id;
         this._guruResejuelDate = null;
         this._guruResejuelSlot = null;
+        this._guruResejuelExpanded = false;
+        this._guruResejuelMonthRef = null;
+        this._guruResejuelWeekRef = new Date(Date.now() + 86400000); // strip minggu default nampilin minggu yang isi "besok"
         const slot = JDW_SLOTS.find(s => s.id === e.slotId);
         const materi = JDW_MATERI.find(m => m.id === e.materiId);
-        const minDate = _jdwToIso(new Date(Date.now() + 86400000));
         document.getElementById('jdw-sesi-title').textContent = 'Ajukan Jadwal Ulang';
         document.getElementById('jdw-sesi-body').innerHTML = `
             <div class="jdw-form-section">
@@ -2630,8 +2644,26 @@ const JadwalPage = {
                 </div>
             </div>
             <div class="jdw-form-section">
-                <div class="jdw-form-label">Pilih Tanggal Baru</div>
-                <input type="date" id="jdw-gururesejuel-date" min="${minDate}" style="width:100%;padding:12px 14px;border-radius:12px;border:1.5px solid rgba(19,50,89,.12);background:rgba(255,255,255,.6);font-family:var(--font-body);font-size:13.5px;color:var(--blue);outline:none;box-sizing:border-box" onchange="JadwalPage._pickGuruResejuelDate(this.value)">
+                <div class="glass jdw-week-card" style="padding:14px 10px 10px;margin-bottom:0">
+                    <div class="jdw-week-caption-row">
+                        <div class="jdw-week-caption">Pilih Tanggal Baru</div>
+                        <button type="button" class="jdw-cal-toggle-btn" id="jdw-gururesejuel-toggle-btn" onclick="JadwalPage.toggleGuruResejuelExpand()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>
+                            <span id="jdw-gururesejuel-toggle-label">1 Bulan</span>
+                        </button>
+                    </div>
+                    <div class="jdw-riwayat-nav" id="jdw-gururesejuel-cal-nav" style="margin-bottom:10px;display:none">
+                        <button type="button" class="jdw-icon-btn" id="jdw-gururesejuel-prev-btn" onclick="JadwalPage.guruResejuelNav('older')" aria-label="Sebelumnya">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+                        </button>
+                        <div class="jdw-riwayat-caption" id="jdw-gururesejuel-caption">-</div>
+                        <button type="button" class="jdw-icon-btn" onclick="JadwalPage.guruResejuelNav('newer')" aria-label="Berikutnya">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                    </div>
+                    <div class="jdw-week-strip" id="jdw-gururesejuel-strip"></div>
+                    <div class="jdw-month-grid" id="jdw-gururesejuel-month-grid" style="display:none"></div>
+                </div>
             </div>
             <div class="jdw-form-section">
                 <div class="jdw-form-label">Pilih Jam Baru</div>
@@ -2648,12 +2680,87 @@ const JadwalPage = {
         if (sesiFooter) { sesiFooter.innerHTML = ''; sesiFooter.style.display = 'none'; }
         document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(200px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
+        this._renderGuruResejuelCalendar();
         _jdwSyncPageScrollLock();
     },
-    _pickGuruResejuelDate(iso) {
-        if (!iso) return;
+    // Sama persis polanya kayak _renderRescheduleCalendar (sisi murid) — lihat
+    // catatan di sana. Tanggal HARI INI ikut dianggap "tidak bisa dipilih"
+    // (bukan cuma yang sudah lewat), karena batas paling awal jadwal baru
+    // dari guru memang BESOK — makanya dipakai `todayIso` (bukan kemarin)
+    // sebagai batas isPast di sini.
+    _renderGuruResejuelCalendar() {
+        const strip = document.getElementById('jdw-gururesejuel-strip');
+        const monthGrid = document.getElementById('jdw-gururesejuel-month-grid');
+        const caption = document.getElementById('jdw-gururesejuel-caption');
+        const toggleLabel = document.getElementById('jdw-gururesejuel-toggle-label');
+        const toggleBtn = document.getElementById('jdw-gururesejuel-toggle-btn');
+        const prevBtn = document.getElementById('jdw-gururesejuel-prev-btn');
+        const navWrap = document.getElementById('jdw-gururesejuel-cal-nav');
+        if (!strip) return;
+        const todayIso = _jdwToIso(new Date());
+        const e = JadwalStore.get(this._guruResejuelEntryId);
+        const hasEntriesFn = iso => e ? JadwalStore.byDate(iso).some(o => o.id !== e.id && o.nama && o.nama === e.nama && o.status !== 'batal' && o.status !== 'ditolak') : false;
+        if (this._guruResejuelExpanded) {
+            if (!this._guruResejuelMonthRef) this._guruResejuelMonthRef = new Date(this._guruResejuelDate ? this._guruResejuelDate + 'T00:00:00' : (this._guruResejuelWeekRef || new Date()));
+            const ref = this._guruResejuelMonthRef;
+            strip.style.display = 'none';
+            if (monthGrid) monthGrid.style.display = '';
+            if (navWrap) navWrap.style.display = 'flex';
+            if (caption) caption.textContent = `${JDW_MONTH_NAMES[ref.getMonth()]} ${ref.getFullYear()}`;
+            const now = new Date();
+            if (prevBtn) prevBtn.disabled = ref.getFullYear() === now.getFullYear() && ref.getMonth() === now.getMonth();
+            if (toggleLabel) toggleLabel.textContent = '1 Minggu';
+            if (toggleBtn) toggleBtn.classList.add('active');
+            if (monthGrid) monthGrid.innerHTML = _jdwMonthGridHtml(ref, {
+                selectedIso: this._guruResejuelDate,
+                hasEntriesFn,
+                onClickFn: iso => iso <= todayIso ? `JadwalPage.openPastDayInfo('${iso}')` : `JadwalPage.pickGuruResejuelDate('${iso}')`,
+                pastClickFn: iso => `JadwalPage.openPastDayInfo('${iso}')`,
+                futureLockedClickFn: iso => `JadwalPage.openFutureLockedDayInfo('${iso}')`,
+            });
+            return;
+        }
+        if (monthGrid) monthGrid.style.display = 'none';
+        if (navWrap) navWrap.style.display = 'none';
+        if (toggleLabel) toggleLabel.textContent = '1 Bulan';
+        if (toggleBtn) toggleBtn.classList.remove('active');
+        strip.style.display = '';
+        const weekDates = _jdwWeekDates(this._guruResejuelWeekRef || new Date(Date.now() + 86400000));
+        if (caption) caption.textContent = _jdwFmtWeekRange(weekDates);
+        strip.innerHTML = weekDates.map(d => {
+            const iso = _jdwToIso(d);
+            const isSelected = iso === this._guruResejuelDate;
+            const isPast = iso <= todayIso; // besok = batas paling awal, hari ini ikut dianggap "lewat" di form ini
+            const hasEntries = hasEntriesFn(iso);
+            const onclick = isPast ? `JadwalPage.openPastDayInfo('${iso}')` : `JadwalPage.pickGuruResejuelDate('${iso}')`;
+            return `<div class="jdw-day${isSelected ? ' is-today' : ''}${hasEntries ? ' has-entries' : ''}${isPast ? ' is-past' : ''}" onclick="${onclick}">
+                <div class="jdw-day-name">${JDW_DAY_SHORT[d.getDay()]}</div>
+                <div class="jdw-day-num-wrap"><span>${d.getDate()}</span></div>
+            </div>`;
+        }).join('');
+    },
+    toggleGuruResejuelExpand() {
+        this._guruResejuelExpanded = !this._guruResejuelExpanded;
+        if (this._guruResejuelExpanded && !this._guruResejuelMonthRef) {
+            this._guruResejuelMonthRef = new Date(this._guruResejuelDate ? this._guruResejuelDate + 'T00:00:00' : (this._guruResejuelWeekRef || new Date()));
+        }
+        this._renderGuruResejuelCalendar();
+    },
+    guruResejuelNav(dir) {
+        if (!this._guruResejuelExpanded) return;
+        const ref = new Date(this._guruResejuelMonthRef || new Date());
+        ref.setMonth(ref.getMonth() + (dir === 'older' ? -1 : 1));
+        const now = new Date();
+        if (ref.getFullYear() < now.getFullYear() || (ref.getFullYear() === now.getFullYear() && ref.getMonth() < now.getMonth())) return;
+        this._guruResejuelMonthRef = ref;
+        this._renderGuruResejuelCalendar();
+    },
+    pickGuruResejuelDate(iso) {
+        const todayIso = _jdwToIso(new Date());
+        if (!iso || iso <= todayIso) return; // batas paling awal BESOK, hari ini & yang sudah lewat tidak bisa dipilih
         this._guruResejuelDate = iso;
         this._guruResejuelSlot = null;
+        this._renderGuruResejuelCalendar();
         this._renderGuruResejuelSlotGrid();
         this._refreshGuruResejuelBtn();
     },
@@ -2709,6 +2816,7 @@ const JadwalPage = {
         });
         this.closeSesiOverlay();
         this._guruResejuelEntryId = null; this._guruResejuelDate = null; this._guruResejuelSlot = null;
+        this._guruResejuelExpanded = false; this._guruResejuelMonthRef = null; this._guruResejuelWeekRef = null;
         showToast('✓ Pengajuan jadwal ulang dikirim, menunggu persetujuan murid');
         _jdwRenderWeek();
         _jdwRenderStatusList();
