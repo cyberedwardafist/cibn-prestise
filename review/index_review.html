@@ -482,6 +482,12 @@
     .bahas-dot { opacity:.5; }
     .bahas-card-actions { display:flex; flex-direction:column; gap:8px; margin-top:16px; }
 
+    /* ── LAPORAN: list kartu sesi "selesai" (lihat review/laporan/laporan.js)
+       — sama pola gap-nya kayak .jdw-status-list di atas, TANPA ini kartu2
+       swipe-card jadi dempet karena .swipe-card sendiri tidak punya margin
+       bawaan (lihat css/base.css). ── */
+    #lap-list { display:flex; flex-direction:column; gap:16px; padding-bottom:4px; }
+
     /* ── JADWAL: halaman fullscreen bandingkan jadwal lama vs baru (resejuel) —
        resume LAMA (diajukan user) di atas, resume BARU (diajukan tentor,
        termasuk alasan tentor) di bawah, tiap resume nampilin nama tentornya
