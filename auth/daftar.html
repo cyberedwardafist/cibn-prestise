@@ -746,6 +746,19 @@ const daftarBtn = daftarForm.querySelector('button[type="submit"]');
 let daftarPendingEmail = '';
 
 daftarForm.addEventListener('submit', async () => {
+  // Pendaftaran hanya boleh dilanjutkan jika paket keanggotaan sudah dipilih
+  // (dikirim lewat query string ?paket=... dari halaman index/paket). Kalau
+  // belum ada paket terpilih, jangan proses form — arahkan dulu ke halaman
+  // Paket supaya user memilih paket terlebih dahulu.
+  if (!selectedPaketName) {
+    daftarMsg.classList.remove('success');
+    daftarMsg.classList.add('error');
+    daftarMsg.style.color = '#c0392b';
+    daftarMsg.textContent = 'Silakan pilih paket keanggotaan terlebih dahulu. Mengarahkan ke halaman Paket…';
+    daftarBtn.disabled = true;
+    setTimeout(() => { window.location.href = 'paket'; }, 1500);
+    return;
+  }
   const nama = document.getElementById('daftar-nama').value.trim();
   const email = document.getElementById('daftar-email').value.trim();
   const wa = document.getElementById('daftar-wa').value.trim();
