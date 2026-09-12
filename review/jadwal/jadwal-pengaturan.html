@@ -2,7 +2,7 @@
      review/jadwal-pengaturan.html — Popup PENGATURAN (khusus akun
      review/guru), dipicu tombol "PENGATURAN" di header tab Jadwal (lihat
      review/jadwal.html, gantiin 2 badge Kuota Pengajuan/Pembatalan punya
-     murid yang tidak relevan di sini). Isinya 2 switch:
+     murid yang tidak relevan di sini). Isinya 3 switch:
        - Smart Selection: pilih hari (Senin-Minggu) + jam (JDW_SLOTS) lewat
          2 grid chip TERPISAH (bukan nested per hari), lalu tombol Terapkan
          otomatis menyalakan ketersediaan (GuruKetersediaanStore) di semua
@@ -14,6 +14,13 @@
          Request manual. Ikut dijalankan ulang tiap render list (lihat
          _jdwApplyInstantPick di review/jadwal.js) supaya request baru yang
          nongol otomatis kepilih juga.
+       - Cancel Accepted: begitu aktif, otomatis MENYETUJUI tiap pengajuan
+         pembatalan dari murid (status "murid_batal", tombol "Cek" di blok
+         Jam Tersedia -> JadwalPage.bukaBatalMurid) tanpa perlu buka
+         popupnya & tekan Setuju manual satu-satu. Ikut dijalankan ulang
+         tiap render list (lihat _jdwApplyCancelAccepted di
+         review/jadwal.js) supaya pengajuan pembatalan baru yang nongol
+         otomatis ikut disetujui juga.
      Semua state (aktif/tidak + pilihan hari/jam) disimpan di
      GuruPengaturanStore (localStorage, dummy — lihat review/jadwal.js).
      ══════════════════════════════════════════════════════════════════════ -->
@@ -60,6 +67,18 @@
         </div>
         <label class="switch">
           <input type="checkbox" id="jdw-pengaturan-instant-toggle" onchange="JadwalPage.toggleInstantPick(this.checked)">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+
+      <!-- ══ CANCEL ACCEPTED ══ -->
+      <div class="switch-row" style="margin-top:14px">
+        <div>
+          <div class="switch-label">Cancel Accepted</div>
+          <div class="switch-desc">Otomatis menyetujui setiap pengajuan pembatalan yang masuk dari murid, tanpa perlu buka & konfirmasi Setuju secara manual.</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="jdw-pengaturan-cancelaccepted-toggle" onchange="JadwalPage.toggleCancelAccepted(this.checked)">
           <span class="switch-slider"></span>
         </label>
       </div>

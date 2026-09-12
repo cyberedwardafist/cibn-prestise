@@ -411,16 +411,17 @@ const GuruRequestStore = (function () {
 
 /* ══════════════════════════════════════════
    PENGATURAN (khusus akun REVIEW/GURU) — dummy localStorage juga, isinya
-   status 2 switch di popup "PENGATURAN" (lihat review/jadwal-pengaturan.html
+   status 3 switch di popup "PENGATURAN" (lihat review/jadwal-pengaturan.html
    & JadwalPage.openPengaturanOverlay di bawah):
      - smartSelectionActive/Days/Slots -> dipakai _jdwApplySmartSelection().
      - instantPickActive -> dipakai _jdwApplyInstantPick().
+     - cancelAcceptedActive -> dipakai _jdwApplyCancelAccepted().
    ══════════════════════════════════════════ */
 const GuruPengaturanStore = (function () {
     const KEY = 'cbn_review_pengaturan_dummy_v1';
     let _cache = null;
     function _default() {
-        return { smartSelectionActive: false, smartSelectionDays: [], smartSelectionSlots: [], instantPickActive: false };
+        return { smartSelectionActive: false, smartSelectionDays: [], smartSelectionSlots: [], instantPickActive: false, cancelAcceptedActive: false };
     }
     function _load() {
         if (_cache) return _cache;
@@ -505,6 +506,29 @@ function _jdwApplyInstantPick() {
             GuruKetersediaanStore.setByDate(iso, sisa);
             accepted++;
         });
+    });
+    return accepted;
+}
+
+// Cancel Accepted: buat tiap entri berstatus "murid_batal" (murid mengajukan
+// pembatalan sesi yang sudah terisi di jam guru — lihat blok
+// PENGAJUAN PEMBATALAN DARI MURID / JadwalPage.setujuBatalMurid), otomatis
+// SETUJU begitu saja — proses SAMA PERSIS kayak JadwalPage.setujuBatalMurid
+// (entrinya jadi status 'batal', batalOleh:'murid', jam itu lepas dari
+// daftar "terisi" & balik jadi jam kosong biasa), cuma dipilihkan otomatis
+// tanpa guru buka popup "Cek" & tekan Setuju satu-satu. No-op cepat kalau
+// switch mati. Dipanggil silent (tanpa toast) tiap _jdwRenderStatusList
+// supaya pengajuan pembatalan baru yang nongol ikut otomatis disetujui,
+// JUGA dipanggil manual begitu switch dinyalakan (lihat
+// JadwalPage.toggleCancelAccepted) buat proses yang sudah nunggu —
+// pemanggil itu yang tampilkan toast pakai angka balikan ini.
+function _jdwApplyCancelAccepted() {
+    const cfg = GuruPengaturanStore.get();
+    if (!cfg.cancelAcceptedActive) return 0;
+    let accepted = 0;
+    JadwalStore.all().filter(e => e.status === 'murid_batal').forEach(e => {
+        JadwalStore.update(e.id, { status: 'batal', batalOleh: 'murid', alasanBatal: e.alasanBatalMurid || null, alasanBatalMurid: null });
+        accepted++;
     });
     return accepted;
 }
@@ -1441,6 +1465,12 @@ function _jdwRenderStatusList() {
     // toast — toast cuma dipicu dari toggle manual di JadwalPage.toggleInstantPick).
     // Fungsi ini sendiri sudah no-op cepat kalau instantPickActive false.
     _jdwApplyInstantPick();
+    // Cancel Accepted (akun review/guru): kalau aktif, proses dulu semua
+    // pengajuan pembatalan dari murid (status "murid_batal") SEBELUM render
+    // (silent, tanpa toast — toast cuma dipicu dari toggle manual di
+    // JadwalPage.toggleCancelAccepted). Fungsi ini sendiri sudah no-op
+    // cepat kalau cancelAcceptedActive false.
+    _jdwApplyCancelAccepted();
     const wrap = document.getElementById('jdw-status-list');
     if (!wrap) return;
     const todayIso = _jdwToIso(new Date());
@@ -1638,9 +1668,10 @@ const JadwalPage = {
     riwayatMonthOffset: 0,   // sama kayak riwayatWeekOffset tapi buat grid "1 Bulan" saat Riwayat: 0 = bulan ini, 1 = bulan lalu, dst
     riwayatDateFilter: null, // 'YYYY-MM-DD' kalau lagi difilter ke 1 tanggal spesifik (tap tanggal di kalender atas saat Riwayat), null = tampil 1 minggu penuh
 
-    /* ══════ Popup PENGATURAN (khusus akun review/guru) — Smart Selection
-       & Instant Pick. Lihat review/jadwal-pengaturan.html & GuruPengaturanStore/
-       _jdwApplySmartSelection/_jdwApplyInstantPick di atas. ══════ */
+    /* ══════ Popup PENGATURAN (khusus akun review/guru) — Smart Selection,
+       Instant Pick & Cancel Accepted. Lihat review/jadwal-pengaturan.html &
+       GuruPengaturanStore/_jdwApplySmartSelection/_jdwApplyInstantPick/
+       _jdwApplyCancelAccepted di atas. ══════ */
     _pengaturanDays: [],  // draft pilihan hari (id Date.getDay()) SELAGI popup terbuka — baru ikut disimpan begitu TERAPKAN ditekan
     _pengaturanSlots: [], // draft pilihan jam (slotId) SELAGI popup terbuka
     openPengaturanOverlay() {
@@ -1653,6 +1684,8 @@ const JadwalPage = {
         if (smartWrap) smartWrap.style.display = cfg.smartSelectionActive ? '' : 'none';
         const instantToggle = document.getElementById('jdw-pengaturan-instant-toggle');
         if (instantToggle) instantToggle.checked = cfg.instantPickActive;
+        const cancelAcceptedToggle = document.getElementById('jdw-pengaturan-cancelaccepted-toggle');
+        if (cancelAcceptedToggle) cancelAcceptedToggle.checked = cfg.cancelAcceptedActive;
         this._renderPengaturanHariGrid();
         this._renderPengaturanJamGrid();
         this._refreshPengaturanTerapkanBtn();
@@ -1740,6 +1773,19 @@ const JadwalPage = {
             showToast(accepted ? `✓ Instant Pick aktif — ${accepted} request otomatis diterima` : '✓ Instant Pick diaktifkan');
         } else {
             showToast('Instant Pick dimatikan');
+        }
+    },
+    // Switch Cancel Accepted di-ON -> langsung proses semua pengajuan
+    // pembatalan dari murid yang sudah nunggu (lihat _jdwApplyCancelAccepted).
+    toggleCancelAccepted(checked) {
+        GuruPengaturanStore.save({ cancelAcceptedActive: checked });
+        if (checked) {
+            const accepted = _jdwApplyCancelAccepted();
+            _jdwRenderWeek();
+            _jdwRenderStatusList();
+            showToast(accepted ? `✓ Cancel Accepted aktif — ${accepted} pengajuan pembatalan otomatis disetujui` : '✓ Cancel Accepted diaktifkan');
+        } else {
+            showToast('Cancel Accepted dimatikan');
         }
     },
 
