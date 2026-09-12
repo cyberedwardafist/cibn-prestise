@@ -488,18 +488,40 @@ function _jdwToIso(d) {
     x.setMinutes(x.getMinutes() - x.getTimezoneOffset());
     return x.toISOString().slice(0, 10);
 }
+// Jam yang statusnya salah satu ini berarti jam itu "milik" tentor (sudah
+// terisi murid), bukan lagi jam kosong di GuruKetersediaanStore (yang
+// dilepas begitu request diterima, lihat terimaRequestSelected/
+// _jdwApplyInstantPick) — dipakai supaya jam yang sudah terisi TETAP
+// tampil di blok "Jam Tersedia" (baris beda, lihat _jdwKetersediaanBlockHtml)
+// dan tanggalnya TIDAK hilang dari daftar/kalender guru (lihat
+// _jdwAllEntryDates & _jdwGuruDateHasContent) walau tidak ada jam kosong
+// tersisa di tanggal itu. "resejuel"/"pengajuan_batal_tentor" ikut
+// dihitung karena keduanya masih jadwal aktif milik tentor, cuma lagi
+// nunggu keputusan MURID (lihat bukaResejuel/bukaBatalTentor).
+function _jdwGuruBookedEntriesForDate(iso) {
+    return JadwalStore.byDate(iso).filter(e => e.status === 'acc' || e.status === 'resejuel' || e.status === 'pengajuan_batal_tentor');
+}
+function _jdwGuruDateHasContent(iso) {
+    return GuruKetersediaanStore.getByDate(iso).length > 0 || _jdwGuruBookedEntriesForDate(iso).length > 0;
+}
 // Kumpulin SEMUA tanggal unik yang punya minimal 1 jam ketersediaan diatur
-// (bukan cuma 7 hari minggu berjalan) -> dipakai #jdw-status-list view
-// "minggu" (Minggu Ini) di akun review/guru. CATATAN: dulu fungsi ini ikut
-// menghitung tanggal dari JadwalStore (data pengajuan MURID, dipakai
-// aslinya di sisi User) supaya seed dummy murid "kebawa" muncul di sini —
-// itu cuma sisa copy-paste dari user/jadwal.js waktu awal bikin halaman ini
-// biar cepat, BUKAN desain akun review/guru yang sebenarnya. Sekarang sudah
-// digantikan alur Jam Tersedia + List Request sendiri, jadi JadwalStore
-// TIDAK dipakai lagi di sini — daftar tanggal murni dari ketersediaan yang
-// diatur guru sendiri (GuruKetersediaanStore).
+// ATAU minimal 1 jam yang sudah terisi murid (bukan cuma 7 hari minggu
+// berjalan) -> dipakai #jdw-status-list view "minggu" (Minggu Ini) di akun
+// review/guru. CATATAN: dulu fungsi ini ikut menghitung tanggal dari
+// JadwalStore (SEMUA status pengajuan MURID, dipakai aslinya di sisi User)
+// supaya seed dummy murid "kebawa" muncul di sini — itu cuma sisa
+// copy-paste dari user/jadwal.js waktu awal bikin halaman ini biar cepat,
+// BUKAN desain akun review/guru yang sebenarnya, jadi sempat dilepas total
+// dan hanya pakai GuruKetersediaanStore. Sekarang JadwalStore DIPAKAI LAGI
+// di sini, tapi disaring HANYA status yang berarti "jam ini terisi milik
+// tentor" (_jdwGuruBookedEntriesForDate) — supaya tanggal yang jam
+// kosongnya sudah habis (semua terisi) tetap kelihatan.
 function _jdwAllEntryDates() {
-    return GuruKetersediaanStore.allDates().sort().map(iso => new Date(iso + 'T00:00:00'));
+    const isoSet = new Set(GuruKetersediaanStore.allDates());
+    JadwalStore.all().forEach(e => {
+        if (e.status === 'acc' || e.status === 'resejuel' || e.status === 'pengajuan_batal_tentor') isoSet.add(e.tanggal);
+    });
+    return Array.from(isoSet).sort().map(iso => new Date(iso + 'T00:00:00'));
 }
 function _jdwWeekDates(ref) {
     const d = new Date(ref || new Date());
@@ -1137,18 +1159,55 @@ function _jdwRestoreViewState() {
 // Jadwal yang sudah disiapkan (lihat JadwalPage.editEntry/resejadwalEntry).
 // Blok "Jam Tersedia" (khusus akun review/guru) — tampil di ATAS daftar
 // pengajuan murid pada tanggal yang sama, isinya jam-jam yang tentor tandai
-// tersedia lewat "Atur Ketersediaan" (GuruKetersediaanStore). 3 aksi per jam:
-//   - REQUEST: buka halaman List Request berisi murid yang mengajukan masuk
-//     ke jam ini, diurutkan dari yang paling awal mengajukan, tentor pilih
-//     SATU lalu Terima (lihat GuruRequestStore & JadwalPage.openRequestSlot).
-//   - EDIT: buka lagi form Atur Ketersediaan tanggal ini, tapi jam yang SUDAH
-//     tersedia selain jam ini dikunci (tidak bisa diklik) — tentor cuma bisa
-//     geser jam ini ke jam lain yang masih kosong di tanggal yang sama
-//     (lihat JadwalPage.editKetersediaanSlot & _editingKetersediaanSlot).
-//   - HAPUS: langsung menandai jam ini TIDAK tersedia lagi di tanggal ini.
+// tersedia lewat "Atur Ketersediaan" (GuruKetersediaanStore) DIGABUNG
+// dengan jam-jam yang SUDAH terisi murid (_jdwGuruBookedEntriesForDate) —
+// supaya jam yang barusan diterima requestnya (makanya dilepas dari
+// GuruKetersediaanStore, lihat terimaRequestSelected) tidak hilang begitu
+// saja dari daftar, cuma pindah baris/aksi. 2 macam baris:
+//   - Jam KOSONG (id ada di slotIds, belum ada murid) -> 3 tombol seperti
+//     semula:
+//       - REQUEST: buka halaman List Request berisi murid yang mengajukan
+//         masuk ke jam ini, diurutkan dari yang paling awal mengajukan,
+//         tentor pilih SATU lalu Terima (lihat GuruRequestStore &
+//         JadwalPage.openRequestSlot).
+//       - EDIT: buka lagi form Atur Ketersediaan tanggal ini, tapi jam
+//         yang SUDAH tersedia selain jam ini dikunci (tidak bisa diklik)
+//         — tentor cuma bisa geser jam ini ke jam lain yang masih kosong
+//         di tanggal yang sama (lihat JadwalPage.editKetersediaanSlot &
+//         _editingKetersediaanSlot).
+//       - HAPUS: langsung menandai jam ini TIDAK tersedia lagi di tanggal
+//         ini (konfirmasi dulu lewat showConfirm — kalau "Tidak"/close,
+//         cuma menutup popup, tidak ada perubahan apa-apa; lihat
+//         JadwalPage.hapusKetersediaanSlot).
+//   - Jam TERISI (ada entri di _jdwGuruBookedEntriesForDate) -> nama murid
+//     + 2 tombol pengganti REQUEST:
+//       - BATAL: ajukan pembatalan jadwal ini ke murid (status jadi
+//         "pengajuan_batal_tentor", TANPA motong kuota pembatalan — kuota
+//         3x itu cuma jatah murid) — lihat JadwalPage.guruAjukanBatal.
+//       - AJUKAN JADWAL ULANG: ajukan tanggal/jam baru ke murid (status
+//         jadi "resejuel", field `reschedule` yang baru) — lihat
+//         JadwalPage.guruAjukanJadwalUlang. Kedua tombol dikunci
+//         (disabled) kalau entrinya sendiri sudah berstatus salah satu
+//         dari itu (lagi nunggu keputusan murid, jangan diajukan dobel).
 function _jdwKetersediaanBlockHtml(iso, slotIds) {
-    const rows = slotIds.slice().sort((a, b) => _jdwSlotIndex(a) - _jdwSlotIndex(b)).map(slotId => {
+    const bookedBySlot = {};
+    _jdwGuruBookedEntriesForDate(iso).forEach(e => { bookedBySlot[e.slotId] = e; });
+    const allSlotIds = Array.from(new Set([...slotIds, ...Object.keys(bookedBySlot)]));
+    const rows = allSlotIds.slice().sort((a, b) => _jdwSlotIndex(a) - _jdwSlotIndex(b)).map(slotId => {
         const slot = JDW_SLOTS.find(s => s.id === slotId);
+        const booked = bookedBySlot[slotId];
+        if (booked) {
+            const materi = JDW_MATERI.find(m => m.id === booked.materiId);
+            const statusTag = booked.status === 'resejuel' ? ' <small>(menunggu jadwal ulang)</small>' : (booked.status === 'pengajuan_batal_tentor' ? ' <small>(menunggu pembatalan)</small>' : '');
+            const busy = booked.status !== 'acc';
+            return `<div class="jdw-avail-row">
+                <span class="jdw-avail-row-label">${slot ? slot.label : slotId} <small>· ${booked.nama || 'Murid'}${materi ? ' · ' + materi.label : ''}</small>${statusTag}</span>
+                <div class="jdw-avail-row-btns">
+                    <button class="jdw-btn jdw-btn-danger jdw-btn-sm"${busy ? ' disabled' : ''} onclick="JadwalPage.guruAjukanBatal('${booked.id}')">BATAL</button>
+                    <button class="jdw-btn jdw-btn-secondary jdw-btn-sm"${busy ? ' disabled' : ''} onclick="JadwalPage.guruAjukanJadwalUlang('${booked.id}')">AJUKAN JADWAL ULANG</button>
+                </div>
+            </div>`;
+        }
         const reqCount = GuruRequestStore.countByKey(iso, slotId);
         return `<div class="jdw-avail-row">
             <span class="jdw-avail-row-label">${slot ? slot.label : slotId}</span>
@@ -1168,7 +1227,8 @@ function _jdwDayGroupHtml(d, entries, isToday, avail, isRiwayat) {
     const iso = _jdwToIso(d);
     const label = _jdwFmtDateLong(iso);
     avail = avail || [];
-    const availBlock = avail.length ? _jdwKetersediaanBlockHtml(iso, avail) : '';
+    const bookedCount = _jdwGuruBookedEntriesForDate(iso).length;
+    const availBlock = (avail.length || bookedCount) ? _jdwKetersediaanBlockHtml(iso, avail) : '';
 
     // ══ Riwayat: DIBIARKAN seperti semula (belum diminta diubah) — masih
     // pakai tabel/kartu pengajuan lama dari JadwalStore. ══
@@ -1208,9 +1268,10 @@ function _jdwDayGroupHtml(d, entries, isToday, avail, isRiwayat) {
     // yang sebenarnya, dan sudah sepenuhnya digantikan alur "Jam Tersedia" +
     // List Request di atas. Jadi cukup tampilkan blok ketersediaan guru
     // sendiri saja. ══
+    const countLabel = [avail.length ? `${avail.length} jam tersedia` : null, bookedCount ? `${bookedCount} terisi` : null].filter(Boolean).join(' · ');
     const head = `<div class="jdw-status-day-head">
         <div class="jdw-status-day-label">${label}${isToday ? '<span class="jdw-status-day-today">Hari ini</span>' : ''}</div>
-        <div class="jdw-status-day-count">${avail.length ? avail.length + ' jam tersedia' : ''}</div>
+        <div class="jdw-status-day-count">${countLabel}</div>
     </div>`;
     if (!availBlock) {
         return `<div class="jdw-status-day">${head}<div class="jdw-status-day-empty">Belum ada jam tersedia</div></div>`;
@@ -1435,7 +1496,7 @@ function _jdwRenderWeek() {
         if (toggleLabel) toggleLabel.textContent = '1 Minggu';
         if (toggleBtn) toggleBtn.classList.add('active');
         if (monthGrid) monthGrid.innerHTML = _jdwMonthGridHtml(ref, {
-            hasEntriesFn: iso => GuruKetersediaanStore.getByDate(iso).length > 0,
+            hasEntriesFn: iso => _jdwGuruDateHasContent(iso),
             onClickFn: iso => `JadwalPage.openDay('${iso}')`,
             pastClickFn: iso => `JadwalPage.openPastDayInfo('${iso}')`,
             futureLockedClickFn: iso => `JadwalPage.openFutureLockedDayInfo('${iso}')`,
@@ -1454,7 +1515,7 @@ function _jdwRenderWeek() {
         const iso = _jdwToIso(d);
         const isToday = iso === todayIso;
         const isPast = iso < todayIso;
-        const hasEntries = GuruKetersediaanStore.getByDate(iso).length > 0;
+        const hasEntries = _jdwGuruDateHasContent(iso);
         const onclick = isPast ? `JadwalPage.openPastDayInfo('${iso}')` : `JadwalPage.openDay('${iso}')`;
         return `<div class="jdw-day${isToday ? ' is-today' : ''}${hasEntries ? ' has-entries' : ''}${isPast ? ' is-past' : ''}" onclick="${onclick}">
             <div class="jdw-day-name">${JDW_DAY_SHORT[d.getDay()]}</div>
@@ -2454,6 +2515,205 @@ const JadwalPage = {
             _jdwRenderStatusList();
         }, { yesLabel: 'Ya, Terima' });
     },
+
+    /* ══════ Jam yang SUDAH terisi murid (lihat baris pengganti REQUEST di
+       _jdwKetersediaanBlockHtml) — 2 aksi tentor: BATAL & AJUKAN JADWAL
+       ULANG. Keduanya pakai overlay generik jdw-sesi-overlay yang sama
+       dengan Masuk/Feedback/Ajukan Pembatalan murid (lihat
+       openBatalPengajuan), formnya juga sengaja dibuat mirip form murid
+       (rekap + alasan + tombol submit) — bedanya BATAL di sini TIDAK ada
+       jatah kuota sama sekali (kuota 3x cuma jatah murid), dan hasil
+       submit KEDUANYA cuma "mengajukan" (status resejuel/
+       pengajuan_batal_tentor), MURID yang tetap harus menyetujui lewat
+       halaman yang sudah ada duluan (bukaResejuel/bukaBatalTentor). ══════ */
+
+    // BATAL: form alasan pembatalan -> submit set status "pengajuan_batal_tentor"
+    // (alasanBatalTentor terisi) yang tampilannya di sisi murid sudah dibuat
+    // duluan (JadwalPage.bukaBatalTentor & setujuBatalTentor/tolakBatalTentor).
+    guruAjukanBatal(id) {
+        const e = JadwalStore.get(id);
+        if (!e || e.status !== 'acc') return; // tombol sudah dikunci di HTML kalau lagi nunggu keputusan lain, ini jaga2
+        this._sesiEntryId = id;
+        const slot = JDW_SLOTS.find(s => s.id === e.slotId);
+        const materi = JDW_MATERI.find(m => m.id === e.materiId);
+        document.getElementById('jdw-sesi-title').textContent = 'Ajukan Pembatalan';
+        document.getElementById('jdw-sesi-body').innerHTML = `
+            <div class="jdw-form-section">
+                <div class="jdw-sesi-item-label" style="margin-bottom:10px">Rekap Jadwal</div>
+                <div class="jdw-sesi-item" style="margin-bottom:0">
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                        <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span style="color:var(--text-sub)">Murid</span><span style="font-weight:700;color:var(--blue);text-align:right">${e.nama || '-'}</span></div>
+                        <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span style="color:var(--text-sub)">Tanggal</span><span style="font-weight:700;color:var(--blue);text-align:right">${_jdwFmtDateLong(e.tanggal)}</span></div>
+                        <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span style="color:var(--text-sub)">Jam</span><span style="font-weight:700;color:var(--blue)">${slot ? slot.label : '-'}</span></div>
+                        <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span style="color:var(--text-sub)">Materi</span><span style="font-weight:700;color:var(--blue)">${materi ? materi.label : '-'}</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="jdw-form-section">
+                <div class="jdw-sesi-hint">Pengajuan ini akan dikirim ke murid untuk disetujui, dan <u>tidak memotong jatah pembatalan</u> kamu (jatah 3x itu cuma berlaku buat murid).</div>
+            </div>
+            <div class="jdw-form-section">
+                <div class="jdw-form-label">Alasan Pembatalan</div>
+                <textarea class="jdw-textarea" id="jdw-gurubatal-alasan" placeholder="Tulis alasan kamu mengajukan pembatalan..." oninput="JadwalPage._refreshGuruBatalBtn()"></textarea>
+            </div>
+            <div class="jdw-form-section" style="margin-bottom:0">
+                <label style="display:flex;align-items:flex-start;gap:.5rem;font-size:12.5px;color:var(--text-sub);font-weight:600;cursor:pointer;line-height:1.5">
+                    <input type="checkbox" id="jdw-gurubatal-setuju" style="accent-color:var(--accent);margin-top:2px;flex-shrink:0;width:16px;height:16px" onchange="JadwalPage._refreshGuruBatalBtn()">
+                    Saya yakin ingin mengajukan pembatalan jadwal mentoring ini.
+                </label>
+            </div>`;
+        document.getElementById('jdw-sesi-body').insertAdjacentHTML('beforeend', `
+            <div class="jdw-form-section jdw-ajukan-submit-section" style="margin-bottom:0">
+                <button class="jdw-btn jdw-btn-danger jdw-btn-block" id="jdw-gurubatal-submit" onclick="JadwalPage.submitGuruBatal()" disabled>AJUKAN PEMBATALAN</button>
+            </div>`);
+        const sesiFooter = document.getElementById('jdw-sesi-footer');
+        if (sesiFooter) { sesiFooter.innerHTML = ''; sesiFooter.style.display = 'none'; }
+        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(200px + env(safe-area-inset-bottom))';
+        document.getElementById('jdw-sesi-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
+    },
+    _refreshGuruBatalBtn() {
+        const btn = document.getElementById('jdw-gurubatal-submit');
+        if (!btn) return;
+        const alasanEl = document.getElementById('jdw-gurubatal-alasan');
+        const setujuEl = document.getElementById('jdw-gurubatal-setuju');
+        btn.disabled = !(alasanEl && alasanEl.value.trim() && setujuEl && setujuEl.checked);
+    },
+    submitGuruBatal() {
+        if (!this._sesiEntryId) return;
+        const alasanEl = document.getElementById('jdw-gurubatal-alasan');
+        const setujuEl = document.getElementById('jdw-gurubatal-setuju');
+        const alasan = alasanEl ? alasanEl.value.trim() : '';
+        if (!alasan || !setujuEl || !setujuEl.checked) return;
+        JadwalStore.update(this._sesiEntryId, { status: 'pengajuan_batal_tentor', alasanBatalTentor: alasan });
+        this.closeSesiOverlay();
+        showToast('✓ Pengajuan pembatalan dikirim, menunggu persetujuan murid');
+        _jdwRenderWeek();
+        _jdwRenderStatusList();
+    },
+
+    // AJUKAN JADWAL ULANG: form pilih tanggal baru + jam baru + alasan (TANPA
+    // pilih tentor/pilih murid — keduanya sudah tetap) -> submit set status
+    // "resejuel" + field `reschedule` baru, yang tampilannya di sisi murid
+    // juga sudah ada duluan (JadwalPage.bukaResejuel & setujuResejuel/
+    // tolakResejuel). "Tersedia" di grid jam BUKAN soal ketersediaan tentor
+    // (tentornya sendiri yang mengajukan), tapi soal murid yang sama
+    // (dicocokkan lewat field `nama`, dummy belum punya id murid sendiri)
+    // belum punya jadwal aktif lain di tanggal+jam itu — lihat
+    // _renderGuruResejuelSlotGrid. Batas H-1 sama seperti Jadwal Ulang biasa
+    // (_jdwCanReschedule, dihitung dari tanggal sesi LAMA).
+    _guruResejuelEntryId: null,
+    _guruResejuelDate: null,
+    _guruResejuelSlot: null,
+    guruAjukanJadwalUlang(id) {
+        const e = JadwalStore.get(id);
+        if (!e || e.status !== 'acc') return;
+        if (!_jdwCanReschedule(e.tanggal)) { this.openRescheduleHariHInfo(); return; }
+        this._sesiEntryId = id;
+        this._guruResejuelEntryId = id;
+        this._guruResejuelDate = null;
+        this._guruResejuelSlot = null;
+        const slot = JDW_SLOTS.find(s => s.id === e.slotId);
+        const materi = JDW_MATERI.find(m => m.id === e.materiId);
+        const minDate = _jdwToIso(new Date(Date.now() + 86400000));
+        document.getElementById('jdw-sesi-title').textContent = 'Ajukan Jadwal Ulang';
+        document.getElementById('jdw-sesi-body').innerHTML = `
+            <div class="jdw-form-section">
+                <div class="jdw-sesi-item-label" style="margin-bottom:10px">Jadwal Saat Ini</div>
+                <div class="jdw-sesi-item" style="margin-bottom:0">
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                        <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span style="color:var(--text-sub)">Murid</span><span style="font-weight:700;color:var(--blue);text-align:right">${e.nama || '-'}</span></div>
+                        <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span style="color:var(--text-sub)">Tanggal</span><span style="font-weight:700;color:var(--blue);text-align:right">${_jdwFmtDateLong(e.tanggal)}</span></div>
+                        <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span style="color:var(--text-sub)">Jam</span><span style="font-weight:700;color:var(--blue)">${slot ? slot.label : '-'}</span></div>
+                        <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span style="color:var(--text-sub)">Materi</span><span style="font-weight:700;color:var(--blue)">${materi ? materi.label : '-'}</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="jdw-form-section">
+                <div class="jdw-form-label">Pilih Tanggal Baru</div>
+                <input type="date" id="jdw-gururesejuel-date" min="${minDate}" style="width:100%;padding:12px 14px;border-radius:12px;border:1.5px solid rgba(19,50,89,.12);background:rgba(255,255,255,.6);font-family:var(--font-body);font-size:13.5px;color:var(--blue);outline:none;box-sizing:border-box" onchange="JadwalPage._pickGuruResejuelDate(this.value)">
+            </div>
+            <div class="jdw-form-section">
+                <div class="jdw-form-label">Pilih Jam Baru</div>
+                <div class="jdw-chip-grid" id="jdw-gururesejuel-slotgrid"><div class="jdw-status-day-empty">Pilih tanggal dulu</div></div>
+            </div>
+            <div class="jdw-form-section">
+                <div class="jdw-form-label">Alasan Jadwal Ulang</div>
+                <textarea class="jdw-textarea" id="jdw-gururesejuel-alasan" placeholder="Tulis alasan kamu mengajukan jadwal ulang..." oninput="JadwalPage._refreshGuruResejuelBtn()"></textarea>
+            </div>
+            <div class="jdw-form-section jdw-ajukan-submit-section" style="margin-bottom:0">
+                <button class="jdw-btn jdw-btn-primary jdw-btn-block" id="jdw-gururesejuel-submit" onclick="JadwalPage.submitGuruResejuel()" disabled>AJUKAN JADWAL ULANG</button>
+            </div>`;
+        const sesiFooter = document.getElementById('jdw-sesi-footer');
+        if (sesiFooter) { sesiFooter.innerHTML = ''; sesiFooter.style.display = 'none'; }
+        document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(200px + env(safe-area-inset-bottom))';
+        document.getElementById('jdw-sesi-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
+    },
+    _pickGuruResejuelDate(iso) {
+        if (!iso) return;
+        this._guruResejuelDate = iso;
+        this._guruResejuelSlot = null;
+        this._renderGuruResejuelSlotGrid();
+        this._refreshGuruResejuelBtn();
+    },
+    _renderGuruResejuelSlotGrid() {
+        const wrap = document.getElementById('jdw-gururesejuel-slotgrid');
+        if (!wrap) return;
+        const e = JadwalStore.get(this._guruResejuelEntryId);
+        const iso = this._guruResejuelDate;
+        if (!iso || !e) { wrap.innerHTML = `<div class="jdw-status-day-empty">Pilih tanggal dulu</div>`; return; }
+        // Jam dianggap TIDAK available kalau murid yang SAMA (field `nama`)
+        // sudah punya jadwal aktif (bukan batal/ditolak) di tanggal+jam itu
+        // — bukan soal ketersediaan tentor.
+        const busySlotIds = new Set(
+            JadwalStore.byDate(iso)
+                .filter(o => o.id !== this._guruResejuelEntryId && o.nama && o.nama === e.nama && o.status !== 'batal' && o.status !== 'ditolak')
+                .map(o => o.slotId)
+        );
+        const isToday = iso === _jdwToIso(new Date());
+        const now = new Date();
+        wrap.innerHTML = JDW_SLOTS.map(s => {
+            const busy = busySlotIds.has(s.id);
+            const past = isToday && (() => { const start = _jdwSlotStartDate(iso, s.id); return start && start <= now; })();
+            const disabled = busy || past;
+            const selected = this._guruResejuelSlot === s.id;
+            const tag = busy ? ' <small>(murid sudah ada jadwal)</small>' : (past ? ' <small>(sudah lewat)</small>' : '');
+            return `<div class="jdw-chip${selected ? ' selected' : ''}${disabled ? ' disabled' : ''}" ${disabled ? '' : `onclick="JadwalPage._pickGuruResejuelSlot('${s.id}')"`}>
+                <span>${s.label}${tag}</span>
+                <span class="jdw-chip-check"></span>
+            </div>`;
+        }).join('');
+    },
+    _pickGuruResejuelSlot(slotId) {
+        this._guruResejuelSlot = slotId;
+        this._renderGuruResejuelSlotGrid();
+        this._refreshGuruResejuelBtn();
+    },
+    _refreshGuruResejuelBtn() {
+        const btn = document.getElementById('jdw-gururesejuel-submit');
+        if (!btn) return;
+        const alasanEl = document.getElementById('jdw-gururesejuel-alasan');
+        btn.disabled = !(this._guruResejuelDate && this._guruResejuelSlot && alasanEl && alasanEl.value.trim());
+    },
+    submitGuruResejuel() {
+        if (!this._guruResejuelEntryId || !this._guruResejuelDate || !this._guruResejuelSlot) return;
+        const alasanEl = document.getElementById('jdw-gururesejuel-alasan');
+        const alasan = alasanEl ? alasanEl.value.trim() : '';
+        if (!alasan) return;
+        const e = JadwalStore.get(this._guruResejuelEntryId);
+        if (!e) return;
+        JadwalStore.update(this._guruResejuelEntryId, {
+            status: 'resejuel',
+            reschedule: { tanggal: this._guruResejuelDate, slotId: this._guruResejuelSlot, materiId: e.materiId, alasan },
+        });
+        this.closeSesiOverlay();
+        this._guruResejuelEntryId = null; this._guruResejuelDate = null; this._guruResejuelSlot = null;
+        showToast('✓ Pengajuan jadwal ulang dikirim, menunggu persetujuan murid');
+        _jdwRenderWeek();
+        _jdwRenderStatusList();
+    },
+
     submitAjukan() {
         if (this._isKetersediaan) return this._submitKetersediaan();
         if (!this.pickedTentor || !this.pickedSlot || !this.pickedMateri) return;
