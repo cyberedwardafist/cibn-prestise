@@ -1200,11 +1200,23 @@ function _jdwKetersediaanBlockHtml(iso, slotIds) {
             const materi = JDW_MATERI.find(m => m.id === booked.materiId);
             const statusTag = booked.status === 'resejuel' ? ' <small>(menunggu jadwal ulang)</small>' : (booked.status === 'pengajuan_batal_tentor' ? ' <small>(menunggu pembatalan)</small>' : '');
             const busy = booked.status !== 'acc';
+            // Selagi guru sendiri masih menunggu keputusan murid atas pengajuan
+            // jadwal ulang / pembatalan yang DIA ajukan, kasih jalan buat
+            // menarik kembali pengajuan itu (tarikResejuel/tarikBatalTentor
+            // sudah ada & jalan sejak versi swipe-card lama, cuma belum
+            // ditautkan lagi ke blok Jam Tersedia ini setelah redesain).
+            let tarikBtn = '';
+            if (booked.status === 'resejuel') {
+                tarikBtn = `<button class="jdw-btn jdw-btn-primary jdw-btn-sm" onclick="JadwalPage.tarikResejuel('${booked.id}')">TARIK PENGAJUAN</button>`;
+            } else if (booked.status === 'pengajuan_batal_tentor') {
+                tarikBtn = `<button class="jdw-btn jdw-btn-primary jdw-btn-sm" onclick="JadwalPage.tarikBatalTentor('${booked.id}')">TARIK PEMBATALAN</button>`;
+            }
             return `<div class="jdw-avail-row">
                 <span class="jdw-avail-row-label">${slot ? slot.label : slotId} <small>· ${booked.nama || 'Murid'}${materi ? ' · ' + materi.label : ''}</small>${statusTag}</span>
                 <div class="jdw-avail-row-btns">
                     <button class="jdw-btn jdw-btn-danger jdw-btn-sm"${busy ? ' disabled' : ''} onclick="JadwalPage.guruAjukanBatal('${booked.id}')">BATAL</button>
                     <button class="jdw-btn jdw-btn-secondary jdw-btn-sm"${busy ? ' disabled' : ''} onclick="JadwalPage.guruAjukanJadwalUlang('${booked.id}')">AJUKAN JADWAL ULANG</button>
+                    ${tarikBtn}
                 </div>
             </div>`;
         }
