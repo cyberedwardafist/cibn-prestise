@@ -122,6 +122,19 @@ const JDW_DAY_NAMES = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']
 const JDW_DAY_SHORT = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
 const JDW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 const JDW_MONTH_NAMES = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+// Daftar hari buat grid "Pilih Hari" popup Smart Selection (akun
+// review/guru) — urutan tampil Senin -> Minggu (kebiasaan Indonesia), tapi
+// `id` tetap ikut angka Date.getDay() bawaan JS (0=Minggu...6=Sabtu) biar
+// gampang dicocokkan langsung ke tanggal di _jdwApplySmartSelection.
+const JDW_PENGATURAN_HARI = [
+    { id: 1, label: 'Senin' },
+    { id: 2, label: 'Selasa' },
+    { id: 3, label: 'Rabu' },
+    { id: 4, label: 'Kamis' },
+    { id: 5, label: 'Jumat' },
+    { id: 6, label: 'Sabtu' },
+    { id: 0, label: 'Minggu' },
+];
 
 /* ══════════════════════════════════════════
    DATA LAYER DUMMY (localStorage) — ganti isi fungsi2 ini kalau sudah ada backend
@@ -381,6 +394,93 @@ const GuruRequestStore = (function () {
 })();
 
 /* ══════════════════════════════════════════
+   PENGATURAN (khusus akun REVIEW/GURU) — dummy localStorage juga, isinya
+   status 2 switch di popup "PENGATURAN" (lihat review/jadwal-pengaturan.html
+   & JadwalPage.openPengaturanOverlay di bawah):
+     - smartSelectionActive/Days/Slots -> dipakai _jdwApplySmartSelection().
+     - instantPickActive -> dipakai _jdwApplyInstantPick().
+   ══════════════════════════════════════════ */
+const GuruPengaturanStore = (function () {
+    const KEY = 'cbn_review_pengaturan_dummy_v1';
+    let _cache = null;
+    function _default() {
+        return { smartSelectionActive: false, smartSelectionDays: [], smartSelectionSlots: [], instantPickActive: false };
+    }
+    function _load() {
+        if (_cache) return _cache;
+        let raw = null;
+        try { raw = localStorage.getItem(KEY); } catch (e) {}
+        if (raw === null) { _cache = _default(); return _cache; }
+        try { _cache = JSON.parse(raw); } catch (e) { _cache = null; }
+        if (!_cache || typeof _cache !== 'object') _cache = _default();
+        // Jaga-jaga kalau ada field baru yang belum ada di data lama tersimpan.
+        const def = _default();
+        Object.keys(def).forEach(k => { if (!(k in _cache)) _cache[k] = def[k]; });
+        return _cache;
+    }
+    function _save() { try { localStorage.setItem(KEY, JSON.stringify(_cache)); } catch (e) {} }
+    return {
+        get() { return _load(); },
+        save(patch) { const cur = _load(); Object.assign(cur, patch); _save(); return cur; },
+    };
+})();
+
+// Terapkan Smart Selection: nyalakan ketersediaan (GuruKetersediaanStore)
+// utk ~30 hari ke depan (rentang 1 bulan), di tanggal yang harinya
+// (Date.getDay()) ada di cfg.smartSelectionDays, jam-nya di-UNION-kan
+// (bukan menimpa) dengan ketersediaan yang sudah ada di tanggal itu supaya
+// jam yang sudah diatur manual/beda tetap aman. No-op cepat kalau switch
+// mati atau belum ada hari/jam dipilih. Mengembalikan jumlah tanggal yang
+// BERUBAH (dapat tambahan jam baru) — dipakai buat pesan toast pemanggil.
+function _jdwApplySmartSelection() {
+    const cfg = GuruPengaturanStore.get();
+    if (!cfg.smartSelectionActive || !cfg.smartSelectionDays.length || !cfg.smartSelectionSlots.length) return 0;
+    let changed = 0;
+    for (let i = 0; i < 30; i++) {
+        const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + i);
+        if (!cfg.smartSelectionDays.includes(d.getDay())) continue;
+        const iso = _jdwToIso(d);
+        const existing = GuruKetersediaanStore.getByDate(iso);
+        const merged = Array.from(new Set([...existing, ...cfg.smartSelectionSlots]));
+        if (merged.length !== existing.length) {
+            GuruKetersediaanStore.setByDate(iso, merged);
+            changed++;
+        }
+    }
+    return changed;
+}
+
+// Instant Pick: buat tiap jam yang SUDAH tersedia (GuruKetersediaanStore)
+// dan punya antrean request (GuruRequestStore), otomatis terima request
+// PALING AWAL ngajuin (GuruRequestStore.byKey sudah sort createdAt ASC) —
+// proses SAMA PERSIS kayak JadwalPage.terimaRequestSelected (bikin entri
+// JadwalStore status 'acc', hapus semua request lain di jam yang sama,
+// lepas jam itu dari ketersediaan), cuma dipilihkan otomatis tanpa guru
+// buka List Request. No-op cepat kalau switch mati. Dipanggil silent
+// (tanpa toast) tiap _jdwRenderStatusList supaya request baru yang nongol
+// ikut otomatis kepilih, JUGA dipanggil manual begitu switch dinyalakan
+// (lihat JadwalPage.toggleInstantPick) buat proses antrean yang sudah
+// nunggu — pemanggil itu yang tampilkan toast pakai angka balikan ini.
+function _jdwApplyInstantPick() {
+    const cfg = GuruPengaturanStore.get();
+    if (!cfg.instantPickActive) return 0;
+    let accepted = 0;
+    GuruKetersediaanStore.allDates().forEach(iso => {
+        GuruKetersediaanStore.getByDate(iso).slice().forEach(slotId => {
+            const list = GuruRequestStore.byKey(iso, slotId);
+            if (!list.length) return;
+            const picked = list[0];
+            JadwalStore.add({ tanggal: iso, slotId, materiId: picked.materiId, tentorId: null, status: 'acc', nama: picked.nama });
+            GuruRequestStore.removeByKey(iso, slotId);
+            const sisa = GuruKetersediaanStore.getByDate(iso).filter(id => id !== slotId);
+            GuruKetersediaanStore.setByDate(iso, sisa);
+            accepted++;
+        });
+    });
+    return accepted;
+}
+
+/* ══════════════════════════════════════════
    HELPERS TANGGAL
    ══════════════════════════════════════════ */
 function _jdwToIso(d) {
@@ -388,18 +488,18 @@ function _jdwToIso(d) {
     x.setMinutes(x.getMinutes() - x.getTimezoneOffset());
     return x.toISOString().slice(0, 10);
 }
-// Kumpulin SEMUA tanggal unik yang punya minimal 1 entri di JadwalStore
+// Kumpulin SEMUA tanggal unik yang punya minimal 1 jam ketersediaan diatur
 // (bukan cuma 7 hari minggu berjalan) -> dipakai #jdw-status-list view
-// "minggu" biar seluruh data (termasuk seed dummy semua status) langsung
-// kelihatan tanpa perlu geser minggu. Diurutkan lama -> baru (ASC), sama
-// seperti urutan _jdwWeekDates biasa.
+// "minggu" (Minggu Ini) di akun review/guru. CATATAN: dulu fungsi ini ikut
+// menghitung tanggal dari JadwalStore (data pengajuan MURID, dipakai
+// aslinya di sisi User) supaya seed dummy murid "kebawa" muncul di sini —
+// itu cuma sisa copy-paste dari user/jadwal.js waktu awal bikin halaman ini
+// biar cepat, BUKAN desain akun review/guru yang sebenarnya. Sekarang sudah
+// digantikan alur Jam Tersedia + List Request sendiri, jadi JadwalStore
+// TIDAK dipakai lagi di sini — daftar tanggal murni dari ketersediaan yang
+// diatur guru sendiri (GuruKetersediaanStore).
 function _jdwAllEntryDates() {
-    const isoSet = new Set(JadwalStore.all().map(e => e.tanggal));
-    // Akun review/guru: tanggal yang cuma punya ketersediaan (belum ada
-    // pengajuan murid sama sekali) tetap harus kelihatan di #jdw-status-list
-    // biar blok "Jam Tersedia"-nya bisa diakses (lihat _jdwKetersediaanBlockHtml).
-    GuruKetersediaanStore.allDates().forEach(iso => isoSet.add(iso));
-    return Array.from(isoSet).sort().map(iso => new Date(iso + 'T00:00:00'));
+    return GuruKetersediaanStore.allDates().sort().map(iso => new Date(iso + 'T00:00:00'));
 }
 function _jdwWeekDates(ref) {
     const d = new Date(ref || new Date());
@@ -1064,38 +1164,58 @@ function _jdwKetersediaanBlockHtml(iso, slotIds) {
         <div class="jdw-avail-list">${rows}</div>
     </div>`;
 }
-function _jdwDayGroupHtml(d, entries, isToday, avail) {
+function _jdwDayGroupHtml(d, entries, isToday, avail, isRiwayat) {
     const iso = _jdwToIso(d);
     const label = _jdwFmtDateLong(iso);
     avail = avail || [];
     const availBlock = avail.length ? _jdwKetersediaanBlockHtml(iso, avail) : '';
+
+    // ══ Riwayat: DIBIARKAN seperti semula (belum diminta diubah) — masih
+    // pakai tabel/kartu pengajuan lama dari JadwalStore. ══
+    if (isRiwayat) {
+        const head = `<div class="jdw-status-day-head">
+            <div class="jdw-status-day-label">${label}${isToday ? '<span class="jdw-status-day-today">Hari ini</span>' : ''}</div>
+            <div class="jdw-status-day-count">${entries.length ? entries.length + ' pengajuan' : ''}</div>
+        </div>`;
+        if (!entries.length) {
+            return `<div class="jdw-status-day">${head}<div class="jdw-status-day-empty">Belum ada pengajuan</div></div>`;
+        }
+        const rows = entries.map(e => {
+            const slot = JDW_SLOTS.find(s => s.id === e.slotId);
+            const materi = JDW_MATERI.find(m => m.id === e.materiId);
+            const tentor = JDW_TENTOR.find(t => t.id === e.tentorId);
+            const { left, right } = JadwalPage._entryActions(e);
+            const btnCls = (a) => a.cls === 'act-danger' ? 'jdw-btn-danger' : (a.cls === 'act-primary' ? 'jdw-btn-primary' : 'jdw-btn-secondary');
+            const btns = [...right, ...left].map(a => `<button class="jdw-btn ${btnCls(a)} jdw-btn-sm" onclick="${a.onClick}">${a.label}</button>`).join('');
+            return `<tr>
+                <td>${slot ? slot.label : '-'}</td>
+                <td>${tentor ? tentor.name : '-'}</td>
+                <td>${materi ? materi.label : '-'}</td>
+                <td><span class="jdw-status-badge ${_jdwBadgeStatus(e)}">${JDW_STATUS_LABEL[_jdwBadgeStatus(e)] || e.status}</span></td>
+                <td><div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div></td>
+            </tr>`;
+        }).join('');
+        const cards = entries.map(e => JadwalPage._entryCardHtml(e)).join('');
+        return `<div class="jdw-status-day">${head}
+            <div class="aksi-swipe-wrap"><div class="glass" style="padding:0;overflow:hidden"><table class="jdw-entry-table"><thead><tr><th>Jam</th><th>Tentor</th><th>Materi</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table></div></div>
+            <div class="swipe-list">${cards}</div>
+        </div>`;
+    }
+
+    // ══ Minggu Ini (akun review/guru): tabel/kartu pengajuan ala murid
+    // (JadwalStore + _entryActions punya User) DIHILANGKAN dari sini — itu
+    // cuma sisa copy-paste dari user/jadwal.js, bukan desain review/guru
+    // yang sebenarnya, dan sudah sepenuhnya digantikan alur "Jam Tersedia" +
+    // List Request di atas. Jadi cukup tampilkan blok ketersediaan guru
+    // sendiri saja. ══
     const head = `<div class="jdw-status-day-head">
         <div class="jdw-status-day-label">${label}${isToday ? '<span class="jdw-status-day-today">Hari ini</span>' : ''}</div>
-        <div class="jdw-status-day-count">${entries.length ? entries.length + ' pengajuan' : ''}</div>
+        <div class="jdw-status-day-count">${avail.length ? avail.length + ' jam tersedia' : ''}</div>
     </div>`;
-    if (!entries.length) {
-        return `<div class="jdw-status-day">${head}${availBlock}${availBlock ? '' : '<div class="jdw-status-day-empty">Belum ada pengajuan</div>'}</div>`;
+    if (!availBlock) {
+        return `<div class="jdw-status-day">${head}<div class="jdw-status-day-empty">Belum ada jam tersedia</div></div>`;
     }
-    const rows = entries.map(e => {
-        const slot = JDW_SLOTS.find(s => s.id === e.slotId);
-        const materi = JDW_MATERI.find(m => m.id === e.materiId);
-        const tentor = JDW_TENTOR.find(t => t.id === e.tentorId);
-        const { left, right } = JadwalPage._entryActions(e);
-        const btnCls = (a) => a.cls === 'act-danger' ? 'jdw-btn-danger' : (a.cls === 'act-primary' ? 'jdw-btn-primary' : 'jdw-btn-secondary');
-        const btns = [...right, ...left].map(a => `<button class="jdw-btn ${btnCls(a)} jdw-btn-sm" onclick="${a.onClick}">${a.label}</button>`).join('');
-        return `<tr>
-            <td>${slot ? slot.label : '-'}</td>
-            <td>${tentor ? tentor.name : '-'}</td>
-            <td>${materi ? materi.label : '-'}</td>
-            <td><span class="jdw-status-badge ${_jdwBadgeStatus(e)}">${JDW_STATUS_LABEL[_jdwBadgeStatus(e)] || e.status}</span></td>
-            <td><div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div></td>
-        </tr>`;
-    }).join('');
-    const cards = entries.map(e => JadwalPage._entryCardHtml(e)).join('');
-    return `<div class="jdw-status-day">${head}${availBlock}
-        <div class="aksi-swipe-wrap"><div class="glass" style="padding:0;overflow:hidden"><table class="jdw-entry-table"><thead><tr><th>Jam</th><th>Tentor</th><th>Materi</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table></div></div>
-        <div class="swipe-list">${cards}</div>
-    </div>`;
+    return `<div class="jdw-status-day">${head}${availBlock}</div>`;
 }
 
 // Entri utk 1 tanggal di list per-hari — SENGAJA dipisah dari filter status
@@ -1160,6 +1280,11 @@ function _jdwRiwayatWeekDates() {
 
 function _jdwRenderStatusList() {
     _jdwRenderKuota();
+    // Instant Pick (akun review/guru): kalau aktif, proses dulu antrean
+    // request di jam-jam yang sudah tersedia SEBELUM render (silent, tanpa
+    // toast — toast cuma dipicu dari toggle manual di JadwalPage.toggleInstantPick).
+    // Fungsi ini sendiri sudah no-op cepat kalau instantPickActive false.
+    _jdwApplyInstantPick();
     const wrap = document.getElementById('jdw-status-list');
     if (!wrap) return;
     const todayIso = _jdwToIso(new Date());
@@ -1195,25 +1320,24 @@ function _jdwRenderStatusList() {
         // ditangani _jdwStatusListEntriesForDate seperti biasa.
         weekDates = _jdwAllEntryDates();
     }
+    const isRiwayat = JadwalPage.currentView === 'riwayat';
     wrap.innerHTML = weekDates.map(d => {
         const iso = _jdwToIso(d);
-        const entries = _jdwStatusListEntriesForDate(iso);
+        // Riwayat: tetap pakai entries JadwalStore lama (belum diminta diubah).
+        // Minggu Ini: entries tidak dipakai lagi sama sekali (lihat
+        // _jdwDayGroupHtml) — cukup hitung buat parameter, tapi keputusan
+        // tampil/tidaknya tanggal murni dari ketersediaan di bawah.
+        const entries = isRiwayat ? _jdwStatusListEntriesForDate(iso) : [];
         // Blok "Jam Tersedia" (akun review/guru) cuma relevan di view "Minggu
         // Ini" — tidak ada gunanya edit/hapus/lihat request buat jam yang
         // tanggalnya sudah lewat, jadi TIDAK ditampilkan di "Riwayat".
-        const avail = (JadwalPage.currentView !== 'riwayat') ? GuruKetersediaanStore.getByDate(iso) : [];
-        // Tanggal yang sama sekali tidak punya jadwal/pengajuan/status DAN
-        // tidak punya jam tersedia TIDAK perlu ditampilkan di list ini (dulu
-        // masih nongol dengan placeholder "Belum ada pengajuan") — langsung
-        // skip di sini sebelum cek lainnya.
-        if (!entries.length && !avail.length) return '';
-        // Catatan: filter mana yang boleh nongol di "Minggu Ini" vs "Riwayat"
-        // (termasuk tanggal yang sudah lewat, dan entri "batal" yang ketimpa
-        // pengajuan baru di jam yang sama) sudah sepenuhnya ditangani per-entri
-        // di dalam _jdwStatusListEntriesForDate. Kalau `entries` di tanggal ini
-        // sudah kosong untuk view sekarang, langsung ke-skip lewat pengecekan
-        // `!entries.length` di atas — tidak perlu pengecekan tanggal lagi di sini.
-        return _jdwDayGroupHtml(d, entries, iso === todayIso, avail);
+        const avail = !isRiwayat ? GuruKetersediaanStore.getByDate(iso) : [];
+        // Riwayat: skip tanggal tanpa entri (seperti semula). Minggu Ini:
+        // skip tanggal tanpa jam tersedia (weekDates di sini memang sudah
+        // berasal dari _jdwAllEntryDates() yang ketersediaan-only, jadi baris
+        // ini sekadar jaga-jaga).
+        if (isRiwayat ? !entries.length : !avail.length) return '';
+        return _jdwDayGroupHtml(d, entries, iso === todayIso, avail, isRiwayat);
     }).filter(Boolean).join('');
     // Kartu swipe-list yang punya aksi (Edit/Jadwal Ulang/Batal) perlu di-bind gesture-nya.
     wrap.querySelectorAll('.swipe-list').forEach(el => { if (window.SwipeCards) SwipeCards.bindSwipeList(el); });
@@ -1311,7 +1435,7 @@ function _jdwRenderWeek() {
         if (toggleLabel) toggleLabel.textContent = '1 Minggu';
         if (toggleBtn) toggleBtn.classList.add('active');
         if (monthGrid) monthGrid.innerHTML = _jdwMonthGridHtml(ref, {
-            hasEntriesFn: iso => JadwalStore.byDate(iso).length > 0,
+            hasEntriesFn: iso => GuruKetersediaanStore.getByDate(iso).length > 0,
             onClickFn: iso => `JadwalPage.openDay('${iso}')`,
             pastClickFn: iso => `JadwalPage.openPastDayInfo('${iso}')`,
             futureLockedClickFn: iso => `JadwalPage.openFutureLockedDayInfo('${iso}')`,
@@ -1330,7 +1454,7 @@ function _jdwRenderWeek() {
         const iso = _jdwToIso(d);
         const isToday = iso === todayIso;
         const isPast = iso < todayIso;
-        const hasEntries = JadwalStore.byDate(iso).length > 0;
+        const hasEntries = GuruKetersediaanStore.getByDate(iso).length > 0;
         const onclick = isPast ? `JadwalPage.openPastDayInfo('${iso}')` : `JadwalPage.openDay('${iso}')`;
         return `<div class="jdw-day${isToday ? ' is-today' : ''}${hasEntries ? ' has-entries' : ''}${isPast ? ' is-past' : ''}" onclick="${onclick}">
             <div class="jdw-day-name">${JDW_DAY_SHORT[d.getDay()]}</div>
@@ -1357,6 +1481,111 @@ const JadwalPage = {
     riwayatWeekOffset: 1,    // dipakai saat currentView='riwayat': 0 = minggu ini (belum genap), 1 = minggu lalu, 2 = 2 minggu lalu, dst
     riwayatMonthOffset: 0,   // sama kayak riwayatWeekOffset tapi buat grid "1 Bulan" saat Riwayat: 0 = bulan ini, 1 = bulan lalu, dst
     riwayatDateFilter: null, // 'YYYY-MM-DD' kalau lagi difilter ke 1 tanggal spesifik (tap tanggal di kalender atas saat Riwayat), null = tampil 1 minggu penuh
+
+    /* ══════ Popup PENGATURAN (khusus akun review/guru) — Smart Selection
+       & Instant Pick. Lihat review/jadwal-pengaturan.html & GuruPengaturanStore/
+       _jdwApplySmartSelection/_jdwApplyInstantPick di atas. ══════ */
+    _pengaturanDays: [],  // draft pilihan hari (id Date.getDay()) SELAGI popup terbuka — baru ikut disimpan begitu TERAPKAN ditekan
+    _pengaturanSlots: [], // draft pilihan jam (slotId) SELAGI popup terbuka
+    openPengaturanOverlay() {
+        const cfg = GuruPengaturanStore.get();
+        this._pengaturanDays = cfg.smartSelectionDays.slice();
+        this._pengaturanSlots = cfg.smartSelectionSlots.slice();
+        const smartToggle = document.getElementById('jdw-pengaturan-smart-toggle');
+        if (smartToggle) smartToggle.checked = cfg.smartSelectionActive;
+        const smartWrap = document.getElementById('jdw-pengaturan-smart-wrap');
+        if (smartWrap) smartWrap.style.display = cfg.smartSelectionActive ? '' : 'none';
+        const instantToggle = document.getElementById('jdw-pengaturan-instant-toggle');
+        if (instantToggle) instantToggle.checked = cfg.instantPickActive;
+        this._renderPengaturanHariGrid();
+        this._renderPengaturanJamGrid();
+        this._refreshPengaturanTerapkanBtn();
+        document.getElementById('jdw-pengaturan-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
+    },
+    closePengaturanOverlay() {
+        document.getElementById('jdw-pengaturan-overlay').classList.remove('open');
+        _jdwSyncPageScrollLock();
+    },
+    _renderPengaturanHariGrid() {
+        const wrap = document.getElementById('jdw-pengaturan-hari-grid');
+        if (!wrap) return;
+        wrap.innerHTML = JDW_PENGATURAN_HARI.map(h => {
+            const selected = this._pengaturanDays.includes(h.id);
+            return `<div class="jdw-materi-chip${selected ? ' selected' : ''}" onclick="JadwalPage.togglePengaturanHari(${h.id})">${h.label}</div>`;
+        }).join('');
+    },
+    _renderPengaturanJamGrid() {
+        const wrap = document.getElementById('jdw-pengaturan-jam-grid');
+        if (!wrap) return;
+        wrap.innerHTML = JDW_SLOTS.map(s => {
+            const selected = this._pengaturanSlots.includes(s.id);
+            return `<div class="jdw-materi-chip${selected ? ' selected' : ''}" onclick="JadwalPage.togglePengaturanSlot('${s.id}')">${s.label}</div>`;
+        }).join('');
+    },
+    togglePengaturanHari(id) {
+        const idx = this._pengaturanDays.indexOf(id);
+        if (idx === -1) this._pengaturanDays.push(id); else this._pengaturanDays.splice(idx, 1);
+        this._renderPengaturanHariGrid();
+        this._refreshPengaturanTerapkanBtn();
+    },
+    togglePengaturanSlot(id) {
+        const idx = this._pengaturanSlots.indexOf(id);
+        if (idx === -1) this._pengaturanSlots.push(id); else this._pengaturanSlots.splice(idx, 1);
+        this._renderPengaturanJamGrid();
+        this._refreshPengaturanTerapkanBtn();
+    },
+    _refreshPengaturanTerapkanBtn() {
+        const btn = document.getElementById('jdw-pengaturan-terapkan-btn');
+        if (btn) btn.disabled = !(this._pengaturanDays.length && this._pengaturanSlots.length);
+    },
+    // Switch Smart Selection di-ON/OFF-kan -> cuma simpan status aktifnya.
+    // Kalau di-ON dan sebelumnya SUDAH pernah ada hari+jam tersimpan (dari
+    // sesi Terapkan sebelumnya), langsung dijalankan ulang juga (jaga-jaga
+    // rentang 30 hari ke depan sudah bergeser sejak terakhir kali Terapkan).
+    toggleSmartSelection(checked) {
+        GuruPengaturanStore.save({ smartSelectionActive: checked });
+        const wrap = document.getElementById('jdw-pengaturan-smart-wrap');
+        if (wrap) wrap.style.display = checked ? '' : 'none';
+        if (checked) {
+            const changed = _jdwApplySmartSelection();
+            _jdwRenderWeek();
+            _jdwRenderStatusList();
+            showToast(changed ? `✓ Smart Selection aktif — ${changed} tanggal ditandai tersedia` : '✓ Smart Selection aktif — pilih hari & jam lalu tekan TERAPKAN');
+        } else {
+            showToast('Smart Selection dimatikan');
+        }
+    },
+    // Tombol TERAPKAN -> simpan draft hari/jam SEKARANG ke GuruPengaturanStore
+    // (otomatis ikut nyalakan switch-nya kalau belum aktif), lalu langsung
+    // jalankan _jdwApplySmartSelection.
+    terapkanSmartSelection() {
+        if (!this._pengaturanDays.length || !this._pengaturanSlots.length) return;
+        GuruPengaturanStore.save({
+            smartSelectionDays: this._pengaturanDays.slice(),
+            smartSelectionSlots: this._pengaturanSlots.slice(),
+            smartSelectionActive: true,
+        });
+        const smartToggle = document.getElementById('jdw-pengaturan-smart-toggle');
+        if (smartToggle) smartToggle.checked = true;
+        const changed = _jdwApplySmartSelection();
+        _jdwRenderWeek();
+        _jdwRenderStatusList();
+        showToast(changed ? `✓ Smart Selection diterapkan — ${changed} tanggal ditandai tersedia` : '✓ Sudah diterapkan — tidak ada tanggal baru (semua sudah tersedia)');
+    },
+    // Switch Instant Pick di-ON -> langsung proses antrean request yang
+    // sudah nunggu di jam-jam yang sudah tersedia (lihat _jdwApplyInstantPick).
+    toggleInstantPick(checked) {
+        GuruPengaturanStore.save({ instantPickActive: checked });
+        if (checked) {
+            const accepted = _jdwApplyInstantPick();
+            _jdwRenderWeek();
+            _jdwRenderStatusList();
+            showToast(accepted ? `✓ Instant Pick aktif — ${accepted} request otomatis diterima` : '✓ Instant Pick diaktifkan');
+        } else {
+            showToast('Instant Pick dimatikan');
+        }
+    },
 
     /* ── Kalender utama: toggle strip 1 minggu <-> grid 1 bulan ── */
     calendarExpanded: false, // true = lagi nampilin grid sebulan (bukan strip minggu)
@@ -2215,7 +2444,7 @@ const JadwalPage = {
         const picked = list.find(r => r.id === this._requestPickedId);
         if (!picked) return;
         showConfirm('Terima Request Ini?', `${picked.nama} akan dijadwalkan pada jam ini. Request murid lain di jam yang sama akan otomatis ditutup.`, 'warning', () => {
-            JadwalStore.add({ tanggal: this._requestTanggal, slotId: this._requestSlotId, materiId: picked.materiId, tentorId: null, status: 'acc' });
+            JadwalStore.add({ tanggal: this._requestTanggal, slotId: this._requestSlotId, materiId: picked.materiId, tentorId: null, status: 'acc', nama: picked.nama });
             GuruRequestStore.removeByKey(this._requestTanggal, this._requestSlotId);
             const sisa = GuruKetersediaanStore.getByDate(this._requestTanggal).filter(id => id !== this._requestSlotId);
             GuruKetersediaanStore.setByDate(this._requestTanggal, sisa);

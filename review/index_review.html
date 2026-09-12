@@ -275,17 +275,28 @@
     .jadwal-refresh-btn { display:flex; align-items:center; gap:5px; padding:7px 12px; border-radius:10px; border:1.5px solid rgba(19,50,89,.12); background:rgba(255,255,255,.5); cursor:pointer; font-size:12px; font-weight:600; color:var(--blue); transition:all .2s; }
     .jadwal-refresh-btn:hover { background:rgba(255,255,255,.8); }
     .jadwal-refresh-btn svg { width:13px; height:13px; }
-    /* Badge KUOTA PENGAJUAN — gantiin tombol Reset Dummy/Refresh di header
-       tab Jadwal (lihat user/jadwal.html & _jdwRenderKuota di user/jadwal.js). */
-    .jadwal-kuota-badge { display:flex; align-items:center; gap:6px; padding:7px 12px; border-radius:20px; border:1.5px solid rgba(26,90,160,.18); background:rgba(26,90,160,.08); color:var(--accent); font-family:var(--font-body); font-size:11.5px; font-weight:600; white-space:nowrap; }
-    .jadwal-kuota-badge svg { width:14px; height:14px; flex-shrink:0; }
-    .jadwal-kuota-badge strong { font-family:var(--font-head); font-weight:700; color:var(--blue); }
-    /* Grup dua badge (kuota pengajuan + kuota pembatalan) ditumpuk vertikal
-       di pojok kanan header — lihat user/jadwal.html & _jdwRenderKuota di
-       user/jadwal.js (satu fungsi yang sama update dua-duanya sekaligus). */
-    .jadwal-kuota-group { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
-    .jadwal-kuota-badge.batal { border-color:rgba(220,38,38,.2); background:rgba(220,38,38,.08); color:var(--danger); }
-    .jadwal-kuota-badge.batal strong { color:var(--danger); }
+    /* Tombol PENGATURAN — gantiin 2 badge Kuota Pengajuan/Pembatalan (sisa
+       salinan dari sisi murid, tidak relevan buat akun review/guru) di
+       header tab Jadwal. Membuka popup #jdw-pengaturan-overlay berisi
+       switch Smart Selection & Instant Pick — lihat
+       review/jadwal-pengaturan.html & JadwalPage.openPengaturanOverlay di
+       review/jadwal.js. */
+    .jdw-pengaturan-btn { display:flex; align-items:center; gap:7px; padding:9px 16px; border-radius:20px; border:1.5px solid rgba(26,90,160,.18); background:rgba(26,90,160,.08); color:var(--accent); font-family:var(--font-body); font-size:12px; font-weight:700; letter-spacing:.02em; white-space:nowrap; cursor:pointer; transition:all .2s; }
+    .jdw-pengaturan-btn:hover { background:rgba(26,90,160,.14); }
+    .jdw-pengaturan-btn svg { width:16px; height:16px; flex-shrink:0; }
+    /* Komponen switch (sama persis polanya dengan admin/index_admin.html)
+       dipakai popup Pengaturan (Smart Selection & Instant Pick). */
+    .switch-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; background:rgba(19,50,89,.03); border:1.5px solid rgba(19,50,89,.08); border-radius:14px; }
+    .switch-row .switch-label { font-size:13.5px; font-weight:700; color:var(--blue); }
+    .switch-row .switch-desc { font-size:11.5px; color:var(--text-sub); margin-top:3px; line-height:1.5; }
+    .switch { position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0; }
+    .switch input { opacity:0; width:0; height:0; }
+    .switch-slider { position:absolute; cursor:pointer; inset:0; background:rgba(19,50,89,.18); border-radius:24px; transition:.2s; }
+    .switch-slider::before { content:''; position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.2s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+    .switch input:checked+.switch-slider { background:var(--accent); }
+    .switch input:checked+.switch-slider::before { transform:translateX(18px); }
+    .jdw-pengaturan-sub { margin-top:12px; padding-top:12px; border-top:1px solid rgba(19,50,89,.08); }
+    .jdw-pengaturan-sub-label { font-size:11px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; color:var(--text-sub); margin-bottom:8px; }
 
     /* ── JADWAL: kalender 1 minggu ala iPhone ── */
     .jdw-week-card { padding:18px 10px 14px; margin-bottom:12px; }
@@ -794,6 +805,7 @@ const REVIEW_PAGE_MODULES = {
             'review/jadwal/jadwal-sesi.html',
             'review/jadwal/jadwal-batal.html',
             'review/jadwal/jadwal-request.html',
+            'review/jadwal/jadwal-pengaturan.html',
         ],
         htmlAppendTarget: 'jdw-overlays-root',
         js: ['review/jadwal/jadwal.js'],

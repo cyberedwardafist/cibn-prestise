@@ -1,0 +1,69 @@
+<!-- ══════════════════════════════════════════════════════════════════════
+     review/jadwal-pengaturan.html — Popup PENGATURAN (khusus akun
+     review/guru), dipicu tombol "PENGATURAN" di header tab Jadwal (lihat
+     review/jadwal.html, gantiin 2 badge Kuota Pengajuan/Pembatalan punya
+     murid yang tidak relevan di sini). Isinya 2 switch:
+       - Smart Selection: pilih hari (Senin-Minggu) + jam (JDW_SLOTS) lewat
+         2 grid chip TERPISAH (bukan nested per hari), lalu tombol Terapkan
+         otomatis menyalakan ketersediaan (GuruKetersediaanStore) di semua
+         tanggal 30 hari ke depan yang jatuh pada hari terpilih, untuk
+         jam-jam terpilih.
+       - Instant Pick: begitu aktif, otomatis menerima (memilih request
+         paling awal ngajuin) untuk setiap jam yang SUDAH tersedia dan ada
+         antrean request-nya (GuruRequestStore) — tanpa perlu buka List
+         Request manual. Ikut dijalankan ulang tiap render list (lihat
+         _jdwApplyInstantPick di review/jadwal.js) supaya request baru yang
+         nongol otomatis kepilih juga.
+     Semua state (aktif/tidak + pilihan hari/jam) disimpan di
+     GuruPengaturanStore (localStorage, dummy — lihat review/jadwal.js).
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="overlay" id="jdw-pengaturan-overlay" onclick="if(event.target===this){JadwalPage.closePengaturanOverlay();}">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">Pengaturan</div>
+      <button type="button" class="modal-close" onclick="JadwalPage.closePengaturanOverlay()" aria-label="Tutup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+
+      <!-- ══ SMART SELECTION ══ -->
+      <div class="switch-row">
+        <div>
+          <div class="switch-label">Smart Selection</div>
+          <div class="switch-desc">Pilih otomatis jadwal tersedia dalam rentang 1 bulan ke depan berdasarkan hari &amp; jam yang kamu tentukan di bawah.</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="jdw-pengaturan-smart-toggle" onchange="JadwalPage.toggleSmartSelection(this.checked)">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+      <div id="jdw-pengaturan-smart-wrap" style="display:none;margin-top:10px">
+        <div class="jdw-pengaturan-sub">
+          <div class="jdw-pengaturan-sub-label">Pilih Hari</div>
+          <div class="jdw-materi-grid" id="jdw-pengaturan-hari-grid"></div>
+        </div>
+        <div class="jdw-pengaturan-sub">
+          <div class="jdw-pengaturan-sub-label">Pilih Jam</div>
+          <div class="jdw-materi-grid" id="jdw-pengaturan-jam-grid"></div>
+        </div>
+        <div class="jdw-form-section jdw-ajukan-submit-section" style="margin-bottom:0;margin-top:14px">
+          <button class="jdw-btn jdw-btn-primary jdw-btn-block" id="jdw-pengaturan-terapkan-btn" onclick="JadwalPage.terapkanSmartSelection()" disabled>TERAPKAN</button>
+        </div>
+      </div>
+
+      <!-- ══ INSTANT PICK ══ -->
+      <div class="switch-row" style="margin-top:14px">
+        <div>
+          <div class="switch-label">Instant Pick</div>
+          <div class="switch-desc">Berlaku untuk jam yang sudah ditandai tersedia — otomatis menerima request murid yang masuk ke jam tersebut (yang paling awal mengajukan), tanpa perlu pilih manual lewat List Request.</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="jdw-pengaturan-instant-toggle" onchange="JadwalPage.toggleInstantPick(this.checked)">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+
+    </div>
+  </div>
+</div>

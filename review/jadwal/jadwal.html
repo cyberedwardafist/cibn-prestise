@@ -14,31 +14,19 @@
      supaya nggak saling timpa. ══════════════════════════════════════════ -->
 <div class="jadwal-header-row">
   <div class="jadwal-title">Jadwal Mentoring</div>
-  <!-- Dulu di sini ada tombol "Reset Dummy" + "Refresh" (class=jadwal-refresh-btn),
-       sekarang diganti badge KUOTA PENGAJUAN — sisa slot pengajuan jadwal yang
-       masih bisa diajukan user (lihat JDW_KUOTA_TOTAL/_jdwKuotaSisa/_jdwRenderKuota
-       di user/jadwal.js). Angka otomatis update tiap ada perubahan status
-       pengajuan (disetujui/menunggu = ngurangin, dibatalkan/ditolak/selesai =
-       balik nambah), tanpa perlu refresh manual. -->
-  <!-- Badge kedua KUOTA PEMBATALAN — jatah membatalkan jadwal yang sudah
-       disetujui (acc), maksimal 3x (lihat JDW_KUOTA_BATAL_TOTAL/
-       _jdwKuotaBatalSisa/_jdwRenderKuota di user/jadwal.js). Pembatalan pada
-       jadwal yang statusnya BELUM di-acc (masih menunggu) TIDAK memotong
-       kuota ini sama sekali — cuma jadwal yang sudah disetujui yang
-       dihitung. Pembatalan langsung setelah tentor mengajukan jadwal ulang
-       (disetujui ATAU ditolak sekalipun) juga dikecualikan (gratis, tidak
-       memotong kuota ini) — lihat catatan freeCancelEligible di
-       JadwalPage.tolakResejuel/setujuResejuel & JadwalPage.submitBatalPengajuan. -->
-  <div class="jadwal-kuota-group">
-    <div class="jadwal-kuota-badge" title="Sisa kuota pengajuan jadwal yang masih bisa kamu ajukan">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-      <span>Kuota: <strong id="jdw-kuota-value">-/-</strong></span>
-    </div>
-    <div class="jadwal-kuota-badge batal" title="Sisa jatah membatalkan jadwal yang sudah disetujui (maksimal 3x)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-      <span>Batal: <strong id="jdw-kuota-batal-value">-/-</strong></span>
-    </div>
-  </div>
+  <!-- Dulu di sini ada 2 badge KUOTA PENGAJUAN/PEMBATALAN (sisa salinan dari
+       sisi murid, tidak relevan buat akun review/guru — guru tidak punya
+       "jatah pengajuan/pembatalan" seperti murid). Sekarang diganti tombol
+       PENGATURAN yang membuka popup 2 switch: Smart Selection (otomatis
+       menyalakan ketersediaan utk hari+jam yang dipilih dalam rentang 1
+       bulan ke depan) & Instant Pick (otomatis menerima request yang masuk
+       ke jam yang sudah tersedia) — lihat GuruPengaturanStore &
+       JadwalPage.openPengaturanOverlay di review/jadwal.js, popup-nya ada
+       di review/jadwal-pengaturan.html. -->
+  <button type="button" class="jdw-pengaturan-btn" onclick="JadwalPage.openPengaturanOverlay()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <span>PENGATURAN</span>
+  </button>
 </div>
 
 <!-- Kalender bisa dibuka jadi tampilan SEBULAN lewat tombol "1 Bulan" di
