@@ -34,7 +34,22 @@ const LaporanPage = {
             return;
         }
         if (empty) empty.style.display = 'none';
-        list.innerHTML = entries.map(e => this._cardHtml(e)).join('');
+        // Kelompokkan per tanggal (urutan tanggal ikut urutan entries yg
+        // sudah disortir di atas -> tanggal terbaru duluan) supaya guru
+        // gampang nyari "tanggal X jam berapa aja" tanpa harus baca ulang
+        // tanggal di tiap kartu satu-satu.
+        const order = [];
+        const byDate = {};
+        entries.forEach(e => {
+            if (!byDate[e.tanggal]) { byDate[e.tanggal] = []; order.push(e.tanggal); }
+            byDate[e.tanggal].push(e);
+        });
+        list.innerHTML = order.map(tanggal => `
+            <div class="lap-date-group">
+                <div class="lap-date-header">${_jdwFmtDateLong(tanggal)}</div>
+                <div class="lap-date-cards">${byDate[tanggal].map(e => this._cardHtml(e)).join('')}</div>
+            </div>
+        `).join('');
         if (typeof SwipeCards !== 'undefined') SwipeCards.bindSwipeList(list);
     },
 
@@ -42,7 +57,9 @@ const LaporanPage = {
         const slot = JDW_SLOTS.find(s => s.id === e.slotId);
         const materi = JDW_MATERI.find(m => m.id === e.materiId);
         const done = !!e.laporanDone;
-        const subParts = [materi ? materi.label : '-', _jdwFmtDateLong(e.tanggal), slot ? slot.label : null].filter(Boolean);
+        // Tanggal SUDAH jadi header grup (lihat render()), jadi di sini
+        // cukup materi + jam saja.
+        const subParts = [materi ? materi.label : '-', slot ? slot.label : null].filter(Boolean);
         return SwipeCards.buildSwipeCardHtml({
             title: e.nama || 'Murid',
             sub: subParts.join(' · '),
