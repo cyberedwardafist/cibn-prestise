@@ -781,7 +781,7 @@ const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 
 // #page-jadwal di baliknya tetap ikut dikunci scroll-nya biar konsisten -
 // tidak masuk akal halaman di belakang masih bisa discroll pas ada dialog
 // konfirmasi kecil nongol di tengah layar.
-const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-lewat-overlay', 'jdw-tolak-ajukan-overlay', 'jdw-keluar-ajukan-overlay', 'jdw-batal-pilihan-overlay', 'jdw-reschedule-harih-overlay', 'jdw-batal-kuota-habis-overlay', 'jdw-tentor-ganti-confirm-overlay', 'jdw-tentor-ganti-terpakai-overlay', 'jdw-batal-tentor-setuju-overlay'];
+const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-tarikbataltentor-overlay', 'jdw-lewat-overlay', 'jdw-tolak-ajukan-overlay', 'jdw-keluar-ajukan-overlay', 'jdw-batal-pilihan-overlay', 'jdw-reschedule-harih-overlay', 'jdw-batal-kuota-habis-overlay', 'jdw-tentor-ganti-confirm-overlay', 'jdw-tentor-ganti-terpakai-overlay', 'jdw-batal-tentor-setuju-overlay'];
 // Ada popup/overlay APAPUN di halaman Jadwal yang lagi kebuka (dialog kecil
 // maupun fullscreen, semuanya sudah kedaftar di JDW_SCROLL_LOCK_OVERLAY_IDS
 // di atas) -> dipakai buat nahan render kalender/list minggu di BELAKANG
@@ -1778,12 +1778,15 @@ const JadwalPage = {
         }
         if (e.status === 'pengajuan_batal_tentor') {
             // Pengajuan pembatalan DARI TENTOR (beda dari "pengajuan_pembatalan"
-            // yang diajukan user) -> satu-satunya aksi cuma "Cek", buka halaman
-            // fullscreen resume jadwal + alasan tentor, lalu Setuju/Tolak. Lihat
-            // JadwalPage.bukaBatalTentor.
+            // yang diajukan user) -> "Cek" (kiri) buat liat resume jadwal + alasan
+            // yang tadi ditulis, DAN "Tarik Pembatalan" (kanan) -> sama persis
+            // polanya kayak pengajuan_pembatalan di bawah (batal-membatalkan,
+            // balik ke acc, murid jadi tidak perlu memutuskan lagi), lihat
+            // JadwalPage.tarikBatalTentor. Beda dari "Cek" (JadwalPage.
+            // bukaBatalTentor) yang cuma buat liat detail, bukan buat menarik.
             return {
                 left: [{ icon: 'check', label: 'Cek', cls: 'act-primary', onClick: `JadwalPage.bukaBatalTentor('${e.id}')` }],
-                right: [],
+                right: [{ icon: 'refresh', label: 'Tarik Pembatalan', cls: 'act-primary', onClick: `JadwalPage.tarikBatalTentor('${e.id}')` }],
             };
         }
         if (e.status === 'pending') {
@@ -3346,6 +3349,30 @@ const JadwalPage = {
         // cuma buat jaga-jaga kalau field ini kebaca ulang lain kali).
         JadwalStore.update(this._tarikBatalTargetId, { status: 'acc', alasanBatal: null, pembatalanDihitung: false });
         this._tarikBatalTargetId = null;
+        showToast('Pembatalan ditarik, jadwal kembali disetujui');
+        _jdwRenderWeek();
+        _jdwRenderStatusList();
+    },
+    /* ── "Tarik Pembatalan" KHUSUS pengajuan_batal_tentor (guru ngajuin batal
+       kelas ke murid, lihat submitGuruBatal) — SAMA PERSIS polanya kayak
+       tarikBatal/confirmTarikBatal di atas (dialog konfirmasi dulu, baru
+       balik status ke "acc"), cuma target statusnya beda & field yang
+       dibersihkan alasanBatalTentor (bukan alasanBatal). Dipakai supaya
+       guru bisa batal-membatalkan pengajuan sebelum sempat diputuskan
+       murid (Setuju/Tolak di JadwalPage.setujuBatalTentor/tolakBatalTentor
+       jadi tidak relevan lagi begitu ditarik). ── */
+    _tarikBatalTentorTargetId: null,
+    tarikBatalTentor(id) {
+        this._tarikBatalTentorTargetId = id;
+        document.getElementById('jdw-tarikbataltentor-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
+    },
+    confirmTarikBatalTentor() {
+        document.getElementById('jdw-tarikbataltentor-overlay').classList.remove('open');
+        _jdwSyncPageScrollLock();
+        if (!this._tarikBatalTentorTargetId) return;
+        JadwalStore.update(this._tarikBatalTentorTargetId, { status: 'acc', alasanBatalTentor: null });
+        this._tarikBatalTentorTargetId = null;
         showToast('Pembatalan ditarik, jadwal kembali disetujui');
         _jdwRenderWeek();
         _jdwRenderStatusList();

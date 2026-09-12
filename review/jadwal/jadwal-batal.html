@@ -50,6 +50,27 @@
   </div>
 </div>
 
+<!-- ══════ KONFIRMASI "TARIK PEMBATALAN" KHUSUS PENGAJUAN BATAL DARI TENTOR
+     (status pengajuan_batal_tentor) — beda entri/status dari
+     jdw-tarikbatal-overlay di atas (yang buat pengajuan_pembatalan biasa),
+     tapi pola & tampilannya PERSIS SAMA. Dipicu dari tombol "Tarik
+     Pembatalan" di kartu list guru (lihat _entryActions & tombol kanan
+     status pengajuan_batal_tentor di review/jadwal.js) — guru batal-
+     membatalkan pengajuan pembatalan kelas yang dia sendiri ajukan,
+     sebelum sempat diputuskan murid. Balik ke status "acc" lewat
+     JadwalPage.confirmTarikBatalTentor. ══════ -->
+<div class="overlay confirm-overlay" id="jdw-tarikbataltentor-overlay" onclick="if(event.target===this){this.classList.remove('open');_jdwSyncPageScrollLock();}">
+  <div class="modal" style="max-width:300px;text-align:center">
+    <div class="confirm-icon warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div>
+    <div class="confirm-title">Tarik Pembatalan?</div>
+    <div class="confirm-msg">Pengajuan pembatalan kelas ini akan ditarik dan jadwal kembali berstatus disetujui. Murid tidak perlu memutuskan lagi.</div>
+    <div class="confirm-btns">
+      <button class="btn-secondary" onclick="document.getElementById('jdw-tarikbataltentor-overlay').classList.remove('open');_jdwSyncPageScrollLock()" style="flex:1;padding:11px">Tidak</button>
+      <button class="btn-primary" onclick="JadwalPage.confirmTarikBatalTentor()" style="flex:1;margin-top:0">Ya, Tarik</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══════ KONFIRMASI SETELAH TOLAK JADWAL ULANG DARI TENTOR: "Ajukan Jadwal
      Lain?" — muncul otomatis begitu JadwalPage.tolakResejuel() selesai
      (jadwal lama sudah dipertahankan). Kalau "Ya, Ajukan" -> lanjut buka
