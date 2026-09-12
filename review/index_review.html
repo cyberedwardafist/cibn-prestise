@@ -707,6 +707,14 @@
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+<!-- Popup konfirmasi generik (showConfirm/#confirm-overlay) — dipakai jadwal.js
+     (HAPUS jam tersedia, Terima Request, dst). Markup & fungsi ini sengaja
+     disalin dari js/app.js (dipakai admin) karena shell review TIDAK memuat
+     js/app.js sama sekali, jadi showConfirm() sebelumnya tidak pernah
+     benar-benar ada di sini -> ReferenceError begitu dipanggil. CSS-nya
+     (.confirm-icon/.confirm-title/.confirm-msg/.confirm-btns/#confirm-overlay)
+     sudah ada dari css/modal.css yang memang sudah dimuat di shell ini. -->
+<div class="overlay" id="confirm-overlay"><div class="modal modal-sm"><div class="confirm-icon danger" id="confirm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></div><div class="confirm-title" id="confirm-title">Konfirmasi</div><div class="confirm-msg" id="confirm-msg">Yakin?</div><div class="confirm-btns"><button class="btn btn-secondary" onclick="handleConfirmNo()">Batal</button><button class="btn btn-primary" id="confirm-yes-btn" onclick="handleConfirmYes()">Ya, Lanjutkan</button></div></div></div>
 
 <!-- ═════════════ E-BOOK READER (fullscreen) ═════════════ -->
 
@@ -870,6 +878,36 @@ function showToast(msg, type = '') {
   t.textContent = msg; t.className = 'toast' + (type ? ' ' + type : '');
   void t.offsetWidth; t.classList.add('show');
   clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+// showConfirm/handleConfirmYes/handleConfirmNo — lihat catatan di markup
+// #confirm-overlay di atas (disalin dari js/app.js, sebelumnya tidak ada
+// sama sekali di shell review).
+let _confirmCb = null, _confirmNoCb = null;
+function showConfirm(title, msg, type = 'danger', cb = null, opts = {}) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('confirm-icon').className = 'confirm-icon ' + type;
+  const yesBtn = document.getElementById('confirm-yes-btn');
+  if (yesBtn) yesBtn.textContent = (opts && opts.yesLabel) || 'Ya, Lanjutkan';
+  const noBtn = document.querySelector('#confirm-overlay .confirm-btns .btn-secondary');
+  if (noBtn) noBtn.textContent = (opts && opts.noLabel) || 'Batal';
+  _confirmCb = cb; _confirmNoCb = (opts && opts.noCb) || null;
+  openModal('confirm-overlay');
+}
+async function handleConfirmYes() {
+  closeModal('confirm-overlay');
+  const cb = _confirmCb; _confirmCb = null; _confirmNoCb = null;
+  if (cb) {
+    try { await cb(); }
+    catch (e) { showToast('Gagal: ' + (e.message || 'Terjadi kesalahan'), 'danger'); }
+  }
+}
+function handleConfirmNo() {
+  closeModal('confirm-overlay');
+  const noCb = _confirmNoCb;
+  _confirmCb = null; _confirmNoCb = null;
+  if (noCb) { try { noCb(); } catch (e) {} }
 }
 
 function togglePwVis(id, btn) {
