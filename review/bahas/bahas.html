@@ -1,0 +1,42 @@
+<!-- ══════════════════════════════════════════════════════════════════════
+     review/bahas/bahas.html — dock BAHAS (guru).
+     Nampilin 1 kartu ringkas SESI MENTORING TERDEKAT yang mau dimulai
+     dalam waktu dekat (lihat BAHAS_THRESHOLD_MENIT di bahas.js), isinya
+     persis 3 hal: (1) resume jadwal, (2) link Gmeet, (3) tombol BAHAS yang
+     lompat ke MODE REVIEW (openReviewUjian, sama persis kayak tombol
+     "Review" di tab Riwayat) untuk siswa & sesi itu. Kalau tidak ada jadwal
+     yang tinggal beberapa menit lagi, kartu ini kosong (empty state).
+     Struktur/CSS card & status badge sengaja dibuat mirip
+     #home-jadwal-next-card (widget "Sesi Mentoring Terdekat" di sisi user,
+     lihat user/index_user.html) supaya konsisten secara visual dgn fitur
+     jadwal yang sudah ada. ══════════════════════════════════════════════ -->
+<div class="section-title">Bahas</div>
+<div class="section-sub">Sesi mentoring yang akan dimulai</div>
+
+<div class="empty-state" id="bahas-empty">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  <p>Belum ada sesi yang akan dimulai</p>
+  <small>Kartu Bahas otomatis muncul di sini begitu jadwal mentoring tinggal beberapa menit lagi.</small>
+</div>
+
+<div class="card bahas-card" id="bahas-card" style="display:none">
+  <div class="bahas-card-head">
+    <span class="jdw-status-badge" id="bahas-status">-</span>
+    <span class="bahas-countdown" id="bahas-countdown">-</span>
+  </div>
+  <div class="bahas-card-title" id="bahas-nama">-</div>
+  <div class="bahas-card-row">
+    <span id="bahas-tanggal">-</span>
+    <span class="bahas-dot">•</span>
+    <span id="bahas-slot">-</span>
+  </div>
+  <div class="bahas-card-row"><span id="bahas-materi">-</span></div>
+
+  <div class="bahas-card-actions">
+    <a class="jdw-btn jdw-btn-secondary jdw-btn-block" id="bahas-gmeet-link" style="text-decoration:none;justify-content:center;text-align:center" href="#" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M15 10l5-3v10l-5-3"/><rect x="1" y="6" width="14" height="12" rx="2"/></svg>
+      BUKA GOOGLE MEET
+    </a>
+    <button class="jdw-btn jdw-btn-primary jdw-btn-block" id="bahas-btn">BAHAS</button>
+  </div>
+</div>
