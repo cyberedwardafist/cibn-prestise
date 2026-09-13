@@ -989,7 +989,24 @@ function getAuthHeaders() {
 async function apiFetch(path, opts = {}) {
   const headers = getAuthHeaders();
   const res = await fetch(API_BASE + path, { ...opts, headers: {...headers, ...(opts.headers||{})} });
-  return res.json();
+  let data = null;
+  try { data = await res.json(); } catch (e) { data = null; }
+  if (!res.ok) {
+    // Sebelumnya fungsi ini selalu `return res.json()` apa adanya walau
+    // res.ok === false, jadi kalau token invalid/kadaluarsa, pemanggil malah
+    // menerima object {error:"Token invalid"} seolah-olah request SUKSES,
+    // bukan error yang bisa di-catch. Sekarang disamakan dgn js/api.js:
+    // 401 -> bersihkan sesi & lempar ke login; selain itu -> throw supaya
+    // caller (yang sudah punya try/catch) tahu request-nya gagal.
+    if (res.status === 401) {
+      localStorage.removeItem('cbn_token');
+      localStorage.removeItem('cbn_user');
+      showToast('Sesi berakhir, silakan login kembali', 'danger');
+      setTimeout(() => { window.location.href = 'index'; }, 1200);
+    }
+    throw new Error((data && data.error) || ('Error ' + res.status));
+  }
+  return data;
 }
 
 /* ── HOME ── */

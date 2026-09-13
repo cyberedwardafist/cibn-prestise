@@ -189,7 +189,21 @@ async function _jdwApiRequest(path, opts = {}) {
     const res = await fetch(API_BASE + path, { ...opts, headers: { ...getAuthHeaders(), ...(opts.headers || {}) } });
     let data = null;
     try { data = await res.json(); } catch (e) { data = null; }
-    if (!res.ok) throw new Error((data && data.error) || ('Error ' + res.status));
+    if (!res.ok) {
+        // Token kadaluarsa/invalid (mis. sudah 7 hari, atau JWT_SECRET server
+        // berubah) → sebelumnya cuma dilempar sbg error biasa dan numpuk jadi
+        // toast "Token invalid" yang bikin halaman ini macet permanen (retry
+        // apa pun tetap gagal karena token lama memang sudah tidak valid).
+        // Sekarang: bersihkan sesi & lempar balik ke login, SAMA seperti
+        // apiFetch() di js/api.js dan apiFetch() global di index_review.html,
+        // supaya user cukup login ulang alih-alih terjebak di halaman error.
+        if (res.status === 401) {
+            try { localStorage.removeItem('cbn_token'); localStorage.removeItem('cbn_user'); } catch (e) {}
+            showToast('Sesi berakhir, silakan login kembali', 'danger');
+            setTimeout(() => { window.location.href = 'index'; }, 1200);
+        }
+        throw new Error((data && data.error) || ('Error ' + res.status));
+    }
     return data;
 }
 
