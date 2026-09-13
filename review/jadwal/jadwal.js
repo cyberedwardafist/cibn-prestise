@@ -2299,12 +2299,25 @@ const JadwalPage = {
         // ══ Mode ATUR KETERSEDIAAN (akun review/guru, tap tanggal kosong) —
         // multi-pilih (toggle nyala/mati per jam), TIDAK ada konsep "terisi
         // punya orang lain" atau kunci per-tentor sama sekali (ini jam milik
-        // tentor itu sendiri). Cuma jam yang jam-mulainya sudah lewat hari ini
-        // yang dikunci. ══
+        // tentor itu sendiri). Jam yang jam-mulainya sudah lewat hari ini
+        // dikunci, DAN jam yang SUDAH TERISI MURID (sudah ada yang di-ACC,
+        // atau resejuel/pengajuan_batal_tentor/murid_batal/murid_reschedule
+        // — lihat _jdwGuruBookedEntriesForDate) ikut dikunci total, tidak
+        // bisa dinyala/dimatikan dari sini sama sekali. Kalau tidak dikunci,
+        // jam yang sudah terisi murid (makanya sudah dilepas dari
+        // GuruKetersediaanStore, lihat terimaRequestSelected) bisa dianggap
+        // "belum dipilih" di sini dan guru bisa TIDAK SENGAJA menyalakannya
+        // lagi jadi "tersedia" walau jam itu sudah dipakai murid lain —
+        // begitu tersimpan, murid LAIN bisa lihat & minta jam yang sama
+        // (double booking). Satu-satunya cara ubah jam yang sudah terisi
+        // murid tetap lewat aksi "Jadwal Ulang"/"Batal" di blok Jam Tersedia
+        // (_jdwKetersediaanBlockHtml), bukan dari form ini. ══
         if (this._isKetersediaan) {
+            const bookedSlotIds = new Set(_jdwGuruBookedEntriesForDate(activeDate).map(e => e.slotId));
             document.getElementById('jdw-slot-grid').innerHTML = JDW_SLOTS.map(s => {
                 const past = isToday && (() => { const start = _jdwSlotStartDate(activeDate, s.id); return start && start <= now; })();
-                const selected = this.pickedSlotsGuru.includes(s.id);
+                const booked = bookedSlotIds.has(s.id);
+                const selected = this.pickedSlotsGuru.includes(s.id) || booked;
                 const isEditingThis = this._editingKetersediaanSlot === s.id;
                 // Mode EDIT 1 jam spesifik (dibuka dari tombol EDIT di blok "Jam
                 // Tersedia"): jam LAIN yang sudah tersedia (selain jam yang
@@ -2313,8 +2326,8 @@ const JadwalPage = {
                 // jam2 lain sekaligus lewat form yang sama. Lihat
                 // JadwalPage.editKetersediaanSlot & toggleSlotKetersediaan.
                 const lockedByEdit = !!(this._editingKetersediaanSlot && selected && !isEditingThis);
-                const disabled = past || lockedByEdit;
-                const tag = past ? ' <small>(sudah lewat)</small>' : (lockedByEdit ? ' <small>(terkunci)</small>' : '');
+                const disabled = past || lockedByEdit || booked;
+                const tag = booked ? ' <small>(sudah terisi)</small>' : (past ? ' <small>(sudah lewat)</small>' : (lockedByEdit ? ' <small>(terkunci)</small>' : ''));
                 return `<div class="jdw-chip${selected ? ' selected' : ''}${disabled ? ' disabled' : ''}" ${disabled ? '' : `onclick="JadwalPage.toggleSlotKetersediaan('${s.id}')"`}>
                     <span>${s.label}${tag}</span>
                     <span class="jdw-chip-check"></span>
@@ -2348,6 +2361,11 @@ const JadwalPage = {
        _isKetersediaan) — beda dari pickSlot yang single-select ganti total,
        ini nambah/ngurang dari daftar this.pickedSlotsGuru. ── */
     toggleSlotKetersediaan(id) {
+        // Jaga-jaga pemanggilan langsung (bukan cuma klik chip yang sudah
+        // di-disable di _renderSlotGrid) — jam yang sudah terisi murid tidak
+        // boleh diubah lewat form ini sama sekali (lihat komentar panjang di
+        // _renderSlotGrid soal risiko double booking).
+        if (_jdwGuruBookedEntriesForDate(this._activeDate()).some(e => e.slotId === id)) return;
         // Mode edit 1 jam spesifik (this._editingKetersediaanSlot terisi):
         // klik jam yang lagi diedit sendiri = batalkan/hapus jam itu. Klik jam
         // LAIN yang masih kosong = PINDAHKAN (jam lama dilepas, jam baru yang
@@ -2684,10 +2702,15 @@ const JadwalPage = {
         // dihitung dari SAAT FORM DIBUKA bisa nimpa balik jam yang barusan
         // lepas itu. Per-jam addSlot/removeSlot kebal dari race ini.
         const before = GuruKetersediaanStore.getByDate(targetDate);
-        const after = this.pickedSlotsGuru;
+        // Jaga2 tambahan: jam yang sudah terisi murid tidak boleh ikut
+        // ke-set jadi "tersedia" lewat form ini apa pun yang terjadi (lihat
+        // komentar di _renderSlotGrid) — walau UI-nya sudah mengunci chip
+        // ini, buang dulu di sini sebelum dihitung selisihnya/disimpan.
+        const bookedSlotIds = new Set(_jdwGuruBookedEntriesForDate(targetDate).map(e => e.slotId));
+        const after = this.pickedSlotsGuru.filter(id => !bookedSlotIds.has(id));
         before.filter(id => !after.includes(id)).forEach(id => GuruKetersediaanStore.removeSlot(targetDate, id));
         after.filter(id => !before.includes(id)).forEach(id => GuruKetersediaanStore.addSlot(targetDate, id));
-        showToast(this.pickedSlotsGuru.length ? '✓ Ketersediaan tanggal ini tersimpan' : '✓ Tanggal ini ditandai tidak tersedia');
+        showToast(after.length ? '✓ Ketersediaan tanggal ini tersimpan' : '✓ Tanggal ini ditandai tidak tersedia');
         this.closeAjukanOverlay();
         _jdwRenderWeek();
         _jdwRenderStatusList();
