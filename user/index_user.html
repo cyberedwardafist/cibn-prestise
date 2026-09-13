@@ -1226,6 +1226,27 @@
   </div>
 </div>
 
+<!-- Popup konfirmasi GENERIK (showConfirm/#confirm-overlay) — dipakai user/jadwal/jadwal.js
+     (mis. JadwalPage.batalkanPermintaanJam) yang manggil showConfirm(title,msg,type,cb,opts)
+     langsung, beda dari popup-popup KHUSUS di atas (logout-overlay/submit-overlay) yang
+     markup+tombolnya di-hardcode per-kasus. Sebelumnya TIDAK ADA sama sekali di shell user
+     ini walau CSS-nya (.confirm-icon/.confirm-title/.confirm-msg/.confirm-btns) sudah
+     tersedia dari dulu -> setiap pemanggil showConfirm() di user/jadwal/jadwal.js selalu
+     throw "showConfirm is not defined" begitu benar-benar dipanggil. ID elemen SENGAJA
+     dibuat unik (bukan "confirm-overlay" polos) supaya tidak bentrok kalau nanti ada modul
+     lazy-load lain yang kebetulan pakai id sama. -->
+<div class="overlay confirm-overlay" id="jdw-generic-confirm-overlay" onclick="if(event.target===this)handleConfirmNo()">
+  <div class="modal" style="max-width:340px;text-align:center">
+    <div class="confirm-icon danger" id="jdw-generic-confirm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></div>
+    <div class="confirm-title" id="jdw-generic-confirm-title">Konfirmasi</div>
+    <div class="confirm-msg" id="jdw-generic-confirm-msg">Yakin?</div>
+    <div class="confirm-btns">
+      <button class="btn-secondary" onclick="handleConfirmNo()" style="flex:1;padding:11px">Batal</button>
+      <button class="btn-primary" id="jdw-generic-confirm-yes-btn" onclick="handleConfirmYes()" style="flex:1;margin-top:0">Ya, Lanjutkan</button>
+    </div>
+  </div>
+</div>
+
 <!-- Riwayat Detail Modal -->
 <div class="overlay riwayat-detail-overlay" id="riwayat-detail-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal riwayat-detail-modal">
@@ -1505,6 +1526,43 @@ function showToast(msg, dur=2400) {
     t.classList.add('show');
     clearTimeout(_toastTimer);
     _toastTimer = setTimeout(() => t.classList.remove('show'), dur);
+}
+
+/* ─── KONFIRMASI GENERIK (showConfirm/#jdw-generic-confirm-overlay) ───
+   Dulu TIDAK ADA sama sekali di shell user ini — dipanggil dari
+   user/jadwal/jadwal.js (JadwalPage.batalkanPermintaanJam) tapi
+   fungsinya belum pernah dibuat, jadi selalu throw ReferenceError
+   begitu benar-benar dipanggil (baru ketahuan sekarang karena tombol
+   "Batal" di kartu status "Menunggu Guru" baru saja ditambahkan).
+   Pola & signature-nya SENGAJA dibuat sama persis dengan showConfirm
+   di js/app.js (dipakai admin) / review/index_review.html, supaya
+   pemanggil manapun (termasuk kode baru nanti) tidak perlu tahu shell
+   mana yang lagi jalan. ─── */
+let _confirmCb = null, _confirmNoCb = null;
+function showConfirm(title, msg, type = 'danger', cb = null, opts = {}) {
+    document.getElementById('jdw-generic-confirm-title').textContent = title;
+    document.getElementById('jdw-generic-confirm-msg').textContent = msg;
+    document.getElementById('jdw-generic-confirm-icon').className = 'confirm-icon ' + type;
+    const yesBtn = document.getElementById('jdw-generic-confirm-yes-btn');
+    if (yesBtn) yesBtn.textContent = (opts && opts.yesLabel) || 'Ya, Lanjutkan';
+    const noBtn = document.querySelector('#jdw-generic-confirm-overlay .confirm-btns .btn-secondary');
+    if (noBtn) noBtn.textContent = (opts && opts.noLabel) || 'Batal';
+    _confirmCb = cb; _confirmNoCb = (opts && opts.noCb) || null;
+    document.getElementById('jdw-generic-confirm-overlay').classList.add('open');
+}
+async function handleConfirmYes() {
+    document.getElementById('jdw-generic-confirm-overlay').classList.remove('open');
+    const cb = _confirmCb; _confirmCb = null; _confirmNoCb = null;
+    if (cb) {
+        try { await cb(); }
+        catch (e) { showToast('Gagal: ' + (e.message || 'Terjadi kesalahan')); }
+    }
+}
+function handleConfirmNo() {
+    document.getElementById('jdw-generic-confirm-overlay').classList.remove('open');
+    const noCb = _confirmNoCb;
+    _confirmCb = null; _confirmNoCb = null;
+    if (noCb) { try { noCb(); } catch (e) {} }
 }
 
 /* ─── PASSWORD TOGGLE ─── */
