@@ -381,12 +381,12 @@ const GuruKetersediaanStore = (function () {
    REQUEST MASUK KE JAM TERSEDIA (khusus akun REVIEW/GURU) — backend asli
    (GET/DELETE /api/guru-request), dulu dummy localStorage + 2 baris seed
    fiktif (Dewi Anggraini/Fajar Nugroho — sudah dibuang, tidak relevan lagi
-   begitu datanya real). CATATAN JUJUR: sistem masih BELUM punya alur di
-   sisi murid untuk benar-benar mengajukan permintaan ini (tidak ada tombol
-   "Minta Jam Ini" di user/jadwal), jadi list ini akan selalu kosong di
-   akun manapun sampai alur POST dari sisi murid dibuatkan terpisah nanti —
-   di luar scope permintaan ini, tapi tabel & endpoint GET/DELETE sisi guru
-   sudah siap dipakai begitu alur itu digarap. Isinya "murid mana saja yang
+   begitu datanya real). Sisi murid SEKARANG SUDAH punya alur buat benar-benar
+   mengajukan permintaan ini — tombol "Minta Jam Ini" di user/jadwal (lihat
+   GuruMyRequestStore & JadwalPage.submitAjukan di user/jadwal/jadwal.js,
+   yang POST ke /api/guru-request) — jadi list di halaman List Request ini
+   akan mulai terisi begitu ada murid yang minta jam yang sudah dibuka guru.
+   Isinya "murid mana saja yang
    mau masuk ke jam X di tanggal Y ini" (beda dari JadwalStore yang isinya
    pengajuan yang SUDAH diproses/dimiliki 1 murid tertentu). Dipakai halaman
    List Request (lihat review/jadwal-request.html &
