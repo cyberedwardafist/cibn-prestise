@@ -268,6 +268,14 @@ const ModulAPI = {
     async delete(kode) { return await apiDel(`/modul/${kode}`); }
 };
 
+// ── MATERI API (Management > Materi — mengelompokkan modul jadi 1 materi bernama) ──
+const MateriAPI = {
+    async getAll() { return await apiGet('/materi') || []; },
+    async create(data) { return await apiPost('/materi', data); },
+    async update(kode, data) { return await apiPut(`/materi/${kode}`, data); },
+    async delete(kode) { return await apiDel(`/materi/${kode}`); }
+};
+
 // ── MODUL KELOMPOK API (dikelola di Manajemen Modul — opsional) ──
 const ModulKelompokAPI = {
     async getAll() { return await apiGet('/modul-kelompok') || []; },

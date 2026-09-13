@@ -2014,7 +2014,60 @@ app.put('/api/modul/:kode', auth(['admin']), ah(async (req, res) => {
         .run(nama, nama_internal, kelompok, JSON.stringify(soal_list), mode_bebas, timer_utama_jam, timer_utama_menit, timer_utama_detik, req.params.kode);
     res.json({ message: 'Berhasil' });
 }));
-app.delete('/api/modul/:kode', auth(['admin']), ah(async (req, res) => { await transaction(async (tdb) => { await tdb.prepare('DELETE FROM modul WHERE kode=?').run(req.params.kode); await tdb.prepare('DELETE FROM tokens WHERE modul_kode=? AND digunakan=0').run(req.params.kode); }); res.json({ message: 'Berhasil' }); }));
+app.delete('/api/modul/:kode', auth(['admin']), ah(async (req, res) => {
+    await transaction(async (tdb) => {
+        await tdb.prepare('DELETE FROM modul WHERE kode=?').run(req.params.kode);
+        await tdb.prepare('DELETE FROM tokens WHERE modul_kode=? AND digunakan=0').run(req.params.kode);
+        // Buang juga referensinya dari materi_list manapun (Management > Materi) —
+        // pola sama dgn cleanup ebook_modul.ebook_list saat sebuah ebook dihapus.
+        const materiRows = await tdb.prepare('SELECT kode, modul_list FROM materi').all();
+        for (const m of materiRows) {
+            let list; try { list = JSON.parse(m.modul_list || '[]'); } catch (e) { list = []; }
+            if (list.includes(req.params.kode)) {
+                await tdb.prepare('UPDATE materi SET modul_list=? WHERE kode=?').run(JSON.stringify(list.filter(k => k !== req.params.kode)), m.kode);
+            }
+        }
+    });
+    res.json({ message: 'Berhasil' });
+}));
+
+// ── MATERI (Management > Materi — management guru) ──
+// Mengelompokkan beberapa modul (bank modul CAT/SOAL yang sudah ada) ke dalam
+// satu "materi" bernama + urutan tampil sendiri. Pola CRUD sama persis dgn
+// ebook_modul (lihat rute /api/ebook-modul di bawah), cuma tanpa kelompok/poster.
+app.get('/api/materi', auth(['admin', 'review', 'user']), ah(async (req, res) => {
+    const rows = await db.prepare('SELECT * FROM materi ORDER BY id').all();
+    rows.forEach(r => { try { r.modul_list = JSON.parse(r.modul_list || '[]'); } catch (e) { r.modul_list = []; } });
+    res.json(rows);
+}));
+
+app.post('/api/materi', auth(['admin']), ah(async (req, res) => {
+    const { nama } = req.body || {};
+    if (!nama || !nama.trim()) return res.status(400).json({ error: 'Nama materi wajib diisi' });
+    let modul_list = []; try { modul_list = Array.isArray(req.body.modul_list) ? req.body.modul_list : JSON.parse(req.body.modul_list || '[]'); } catch (e) { modul_list = []; }
+
+    const kode = await genKode('MTR', 'materi');
+    await db.prepare('INSERT INTO materi (kode,nama,modul_list) VALUES (?,?,?)')
+        .run(kode, nama.trim(), JSON.stringify(modul_list));
+    res.json(await db.prepare('SELECT * FROM materi WHERE kode=?').get(kode));
+}));
+
+app.put('/api/materi/:kode', auth(['admin']), ah(async (req, res) => {
+    const old = await db.prepare('SELECT * FROM materi WHERE kode=?').get(req.params.kode);
+    if (!old) return res.status(404).json({ error: 'Tidak ditemukan' });
+
+    const { nama } = req.body || {};
+    let modul_list = []; try { modul_list = Array.isArray(req.body.modul_list) ? req.body.modul_list : JSON.parse(req.body.modul_list || '[]'); } catch (e) { modul_list = []; }
+
+    await db.prepare('UPDATE materi SET nama=?,modul_list=? WHERE kode=?')
+        .run((nama || old.nama).trim(), JSON.stringify(modul_list), req.params.kode);
+    res.json(await db.prepare('SELECT * FROM materi WHERE kode=?').get(req.params.kode));
+}));
+
+app.delete('/api/materi/:kode', auth(['admin']), ah(async (req, res) => {
+    await db.prepare('DELETE FROM materi WHERE kode=?').run(req.params.kode);
+    res.json({ message: 'Berhasil' });
+}));
 
 app.get('/api/ebook-kelompok', auth(['admin', 'review', 'user']), ah(async (req, res) => { res.json(await db.prepare('SELECT * FROM ebook_kelompok ORDER BY LOWER(nama)').all()); }));
 app.post('/api/ebook-kelompok', auth(['admin']), ah(async (req, res) => { const kode = await genKode('EBKL', 'ebook_kelompok'); await db.prepare('INSERT INTO ebook_kelompok (kode,nama) VALUES (?,?)').run(kode, req.body.nama.trim()); res.json(await db.prepare('SELECT * FROM ebook_kelompok WHERE kode=?').get(kode)); }));

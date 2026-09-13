@@ -187,7 +187,7 @@ const ADMIN_PAGE_MODULES = {
     // sendiri (beda dgn MANAGEMENT_API di atas yang sub-nya 1 file gabungan).
     // Panel navigasinya #side-dock-wrap generik (lihat SIDE_DOCK_GROUPS.management
     // di admin/index_admin.html), sama seperti grup CAT/SOAL/EBOOK/ANALISA.
-    'management-materi': { html: 'admin/management/materi.html', js: ['admin/management/materi.js'] },
+    'management-materi': { html: 'admin/management/materi.html', js: ['admin/management/materi.js'], modals: 'admin/management/management-modals.html' },
     'management-guru':   { html: 'admin/management/guru.html',   js: ['admin/management/guru.js'] },
     'analisa-token':        { html: 'admin/analisa/analisa-token.html',        js: ['admin/analisa/analisa-token.js'] },
     // + analisa-export.js: logika tombol "Ekstrak" (bangun .xlsx + suntik grafik native via JSZip) — lihat komentar di file itu.

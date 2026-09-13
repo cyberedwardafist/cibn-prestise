@@ -132,6 +132,18 @@ CREATE TABLE IF NOT EXISTS modul (
     created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- materi: fitur MANAGEMENT > MATERI (management guru) — mengelompokkan
+-- beberapa modul (yg sudah ada, dari bank modul CAT/SOAL) ke dalam satu
+-- "materi" bernama, dengan urutan tampil sendiri (modul_list = JSON array
+-- kode modul, urutannya dipakai apa adanya, sama pola dgn ebook_modul.ebook_list).
+CREATE TABLE IF NOT EXISTS materi (
+    id         SERIAL PRIMARY KEY,
+    kode       TEXT UNIQUE,
+    nama       TEXT NOT NULL,
+    modul_list TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS ebook_kelompok (
     id         SERIAL PRIMARY KEY,
     kode       TEXT UNIQUE,

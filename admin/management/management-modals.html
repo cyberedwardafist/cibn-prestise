@@ -1,0 +1,37 @@
+<!-- ══ MODAL: MANAGEMENT > MATERI ══
+     Dimuat sbg 'modals' utk ADMIN_PAGE_MODULES['management-materi'] (js/app.js),
+     nge-append ke #lazy-modals-slot spt file *-modals.html lain. Pola form-nya
+     copy dari "Modul E-Book" (admin/ebook/ebook-modals.html): 2 tahap
+     select -> order, cuma di sini isinya modul (dari ModulAPI, bank modul
+     CAT/SOAL yang sudah ada), bukan buku, dan tanpa kelompok/poster (materi
+     tidak butuh itu, lihat db/schema.sql tabel `materi`). Logic ada di
+     admin/management/materi.js. -->
+
+<div class="overlay" id="materi-form-overlay"><div class="modal modal-lg">
+  <div class="modal-header">
+    <div class="modal-title" id="materi-form-title">Buat Materi</div>
+    <button class="modal-close" onclick="closeModalCheckDirty('materi-form-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <input type="hidden" id="materi-form-mode" value="add">
+  <input type="hidden" id="materi-form-id" value="">
+  <div class="form-group">
+    <label class="form-label">Nama Materi</label>
+    <input id="materi-nama-input" class="form-input" type="text" placeholder="Contoh: Materi TWK Dasar" oninput="setDirty('materi')">
+  </div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+    <label class="form-label" style="margin-bottom:0">Pilih Modul & Urutan Tampil</label>
+    <span style="font-size:11px;color:var(--text-sub)" id="materi-picker-hint">Cari &amp; pilih modul yang ingin dimasukkan ke materi ini</span>
+  </div>
+  <div class="search-bar" id="materi-picker-searchbar" style="flex-wrap:wrap;gap:8px;margin-bottom:10px">
+    <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" id="materi-picker-search-input" placeholder="Cari nama modul..." oninput="_materiPickerSearch=this.value;_renderMateriModulPickerList()"></div>
+  </div>
+  <div id="materi-modul-picker" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:8px"></div>
+
+  <div class="modal-footer">
+    <button class="btn btn-secondary" onclick="closeModalCheckDirty('materi-form-overlay')">Batal</button>
+    <button class="btn btn-secondary" id="materi-back-btn" style="display:none" onclick="_materiGoToSelectStep()">&larr; Kembali</button>
+    <button class="btn btn-primary" id="materi-next-btn" onclick="_materiGoToOrderStep()">Lanjut</button>
+    <button class="btn btn-primary" id="materi-save-btn" style="display:none" onclick="submitMateriForm()">Simpan</button>
+  </div>
+</div></div>
