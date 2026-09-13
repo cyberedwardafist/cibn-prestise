@@ -792,16 +792,35 @@ function navigateTo(pageId) {
 
 function renderPage(id) {
   ensureReviewPageModule(id).then(() => {
-    if (id === 'home') renderHome();
-    else if (id === 'akun') renderAkun();
-    else if (id === 'riwayat') renderRiwayat();
-    else if (id === 'akun-saya') renderAkunSaya();
-    else if (id === 'ebook') EbookLib.load();
-    else if (id === 'jadwal') loadJadwal();
-    else if (id === 'bahas') renderBahas();
-    else if (id === 'laporan') loadLaporan();
-    // halaman baru (kosong, siap diisi)
-    // else if (id === 'keuangan') renderKeuangan();
+    // jadwal/bahas/laporan semua butuh JadwalStore (backend asli, lihat
+    // review/jadwal/jadwal.js) sudah kelar fetch dulu sebelum dirender —
+    // bahas & laporan baca datanya lewat JadwalStore yang sama. Tab jadwal
+    // sendiri (akun review/guru) juga butuh 3 store guru lain (backend asli
+    // juga sekarang — GuruKetersediaanStore/GuruRequestStore/
+    // GuruPengaturanStore, lihat review/jadwal/jadwal.js) sudah kelar fetch
+    // sebelum loadJadwal() jalan, supaya #jdw-status-list langsung dapat
+    // data ketersediaan/request/pengaturan yang benar sejak render pertama
+    // (bukan nyusul kosong lalu berubah).
+    const needsJadwal = (id === 'jadwal' || id === 'bahas' || id === 'laporan');
+    const needsGuruStores = (id === 'jadwal');
+    const ready = !needsJadwal ? Promise.resolve() : Promise.all([
+      (typeof JadwalStore !== 'undefined') ? JadwalStore.ready() : Promise.resolve(),
+      (needsGuruStores && typeof GuruKetersediaanStore !== 'undefined') ? GuruKetersediaanStore.ready() : Promise.resolve(),
+      (needsGuruStores && typeof GuruRequestStore !== 'undefined') ? GuruRequestStore.ready() : Promise.resolve(),
+      (needsGuruStores && typeof GuruPengaturanStore !== 'undefined') ? GuruPengaturanStore.ready() : Promise.resolve(),
+    ]);
+    return ready.then(() => {
+      if (id === 'home') renderHome();
+      else if (id === 'akun') renderAkun();
+      else if (id === 'riwayat') renderRiwayat();
+      else if (id === 'akun-saya') renderAkunSaya();
+      else if (id === 'ebook') EbookLib.load();
+      else if (id === 'jadwal') loadJadwal();
+      else if (id === 'bahas') renderBahas();
+      else if (id === 'laporan') loadLaporan();
+      // halaman baru (kosong, siap diisi)
+      // else if (id === 'keuangan') renderKeuangan();
+    });
   }).catch(err => {
     console.error('[lazy-load] Gagal memuat modul halaman "'+id+'":', err);
     showToast('Gagal memuat halaman ini, coba muat ulang', 'danger');

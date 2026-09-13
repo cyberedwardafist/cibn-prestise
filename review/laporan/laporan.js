@@ -6,11 +6,11 @@
 // SwipeCards (js/swipe.js, dimuat eager di shell) — lihat
 // REVIEW_PAGE_MODULES.laporan di review/index_review.html.
 //
-// CATATAN: sama seperti fitur Jadwal/Bahas, ini MASIH dummy (field
-// laporanDone/laporanText/laporanFilledAt disimpan langsung di entri
-// JadwalStore di localStorage) — begitu ada backend beneran tinggal ganti
-// JadwalStore.update di _doSave() jadi apiFetch PUT ke server tanpa ubah
-// alur UI di atasnya.
+// CATATAN: field laporanDone/laporanText/laporanFilledAt disimpan lewat
+// JadwalStore.update() di _doSave() — sejak JadwalStore nyambung ke backend
+// asli (lihat review/jadwal/jadwal.js), pemanggilan ini otomatis tersimpan
+// permanen ke kolom `meta` baris jadwal_sesi terkait di server (bukan lagi
+// localStorage), tanpa perlu ubah alur UI di file ini sama sekali.
 
 const LaporanPage = {
     _activeId: null,

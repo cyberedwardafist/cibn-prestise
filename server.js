@@ -2619,52 +2619,267 @@ app.post('/api/pengaturan/integrasi/test-email', auth(['admin']), ah(async (req,
     }
 }));
 
-// ── JADWAL SESI KELAS (sumber data nyata utk pengingat email H-1/mulai) ──
-// Vokabuler status sengaja selaras JDW_STATUS_LABEL di user/jadwal/jadwal.js
-// (yang saat ini masih dummy/localStorage) supaya nanti gampang disambung —
-// lihat catatan lengkap di lib/kelas-reminder.js.
+// ── JADWAL SESI KELAS (sumber data ASLI booking mentoring user<->guru,
+// dipakai juga oleh JadwalStore di user/jadwal/jadwal.js & review/jadwal/jadwal.js
+// (dulu dummy/localStorage, sekarang API ini) DAN dock BAHAS/LAPORAN akun
+// review (review/bahas/bahas.js & review/laporan/laporan.js hanya baca lewat
+// JadwalStore yang sama, jadi otomatis ikut nyambung) DAN pengingat email
+// H-1/mulai (lib/kelas-reminder.js). Vokabuler status sengaja bebas (TEXT,
+// bukan enum) karena JadwalStore punya banyak status siklus (pending/acc/
+// ditolak/berlangsung/selesai/pengajuan_pembatalan/resejuel/batal/dst) yang
+// terus bisa nambah tanpa perlu migrasi.
+//
+// Kolom `meta` (JSON) menampung field2 dinamis siklus itu (alasanBatal,
+// batalOleh, pembatalanDihitung, freeCancelEligible, feedback/feedbackDone,
+// reschedule/rescheduleMurid, laporanDone/laporanText/laporanFilledAt, dst)
+// — field yang JadwalStore.update() kirim tapi BUKAN salah satu kolom utama
+// di bawah otomatis digabung ke sini (lihat mapJadwalRow & PUT handler).
+
+// Label materi statis (sama seperti JDW_MATERI di frontend) — dipakai untuk
+// mengisi materi_nama otomatis kalau frontend cuma kirim materi_id.
+const JDW_MATERI_LABEL = { twk: 'TWK', tiu: 'TIU', tkp: 'TKP', toefl_struktur: 'TOEFL Struktur', toefl_listening: 'TOEFL Listening', toefl_reading: 'TOEFL Reading' };
+// Jam mulai/selesai per slot (sama seperti JDW_SLOTS di frontend) — dipakai
+// menghitung waktu_mulai/waktu_selesai ASLI (kolom TIMESTAMP, dibutuhkan
+// lib/kelas-reminder.js) dari tanggal+slot_id yang dikirim frontend (frontend
+// sendiri tidak pernah kirim timestamp gabungan, cuma tanggal+id slot).
+const JDW_SLOT_TIMES = { slot1: ['07:45', '09:15'], slot2: ['09:45', '11:15'], slot3: ['11:45', '13:15'], slot4: ['13:45', '15:15'], slot5: ['15:45', '17:15'], slot6: ['17:45', '19:15'], slot7: ['19:45', '20:15'] };
+function jdwHitungWaktu(tanggal, slotId) {
+    const t = JDW_SLOT_TIMES[slotId];
+    if (!tanggal || !t) return { mulai: null, selesai: null };
+    return { mulai: `${tanggal}T${t[0]}:00`, selesai: `${tanggal}T${t[1]}:00` };
+}
+
+// SATU-SATUNYA sumber daftar status yang berarti "slot itu KOSONG lagi" (boleh
+// dipakai murid lain di tentor+tanggal+jam yang sama). Dulu daftar ini
+// nge-hardcode 2 tempat terpisah yang gampang lupa disinkronkan kalau nanti ada
+// status baru yang harus ikut melepas slot: (1) partial unique index
+// `uniq_jadwal_sesi_slot_aktif` di db/schema.sql, dan (2) filter
+// `status !== 'batal' && status !== 'ditolak'` yang diulang di banyak tempat
+// pada review/jadwal/jadwal.js & user/jadwal/jadwal.js (busySlotIds dkk).
+// Sekarang KEDUANYA diambil dari sini: index lama sudah di-DROP (lihat
+// db/schema.sql), diganti pengecekan bentrok manual di POST/PUT
+// /api/jadwal-sesi di bawah (pakai array ini + advisory lock biar tetap
+// atomik/anti race-condition walau tanpa unique index) — dan array ini juga
+// dikirim ke frontend lewat GET /api/jadwal-meta (field `statusSlotKosong`)
+// supaya kedua file jadwal.js frontend pakai nilai yang SAMA (lihat
+// JDW_STATUS_SLOT_KOSONG & _jdwSlotMasihTerisi() di sana), bukan salinan
+// hardcode sendiri lagi. Kalau nanti ada status baru yang harus ikut melepas
+// slot (mis. status timeout otomatis), CUKUP tambah di array ini — index
+// (sudah tidak ada), server, dan kedua frontend otomatis ikut konsisten.
+const JDW_STATUS_SLOT_KOSONG = ['batal', 'ditolak'];
+
+// Advisory lock Postgres di-scope ke kombinasi tentor+tanggal+slot supaya
+// SELECT cek-bentrok + INSERT/UPDATE jadwal_sesi di bawah ini atomik walau 2
+// request submit nyaris bersamaan (tanpa lock ini, race condition: kedua
+// transaksi bisa lolos SELECT check SEBELUM salah satunya sempat menulis).
+// hashtext() cukup buat granularitas lock (bentrok hash antar kunci berbeda
+// cuma bikin nunggu ekstra, bukan salah kunci — tetap aman).
+async function jdwKunciSlot(tdb, tentorId, tanggal, slotId) {
+    await tdb.prepare('SELECT pg_advisory_xact_lock(hashtext(?)::bigint)').run(`jadwal_sesi:${tentorId}:${tanggal}:${slotId}`);
+}
+// Cek ada/tidaknya sesi lain yang masih "mengisi" slot ini (status BUKAN
+// salah satu JDW_STATUS_SLOT_KOSONG) di tentor+tanggal+jam yang sama.
+// excludeKode: kode sesi yang lagi diedit sendiri (PUT), supaya tidak
+// dianggap bentrok dgn dirinya sendiri.
+async function jdwSlotBentrok(tdb, tentorId, tanggal, slotId, excludeKode) {
+    const placeholders = JDW_STATUS_SLOT_KOSONG.map(() => '?').join(',');
+    const row = await tdb.prepare(
+        `SELECT kode FROM jadwal_sesi WHERE tentor_id=? AND tanggal=? AND slot_id=? AND status NOT IN (${placeholders}) AND kode != ? LIMIT 1`
+    ).get(tentorId, tanggal, slotId, ...JDW_STATUS_SLOT_KOSONG, excludeKode || '');
+    return !!row;
+}
+// SELECT dasar + JOIN users supaya `nama` (siswa) & `tentor_nama` SELALU data
+// LIVE dari akun asli (bukan snapshot teks bebas) — kalau nama akun diubah
+// admin, otomatis ikut berubah di sini juga.
+const JADWAL_SELECT = `SELECT js.*, u.nama AS user_nama, t.nama AS tentor_nama_live
+    FROM jadwal_sesi js
+    LEFT JOIN users u ON u.kode = js.user_kode
+    LEFT JOIN users t ON t.kode = js.tentor_id`;
+function mapJadwalRow(row) {
+    if (!row) return null;
+    let meta = {};
+    try { meta = row.meta ? JSON.parse(row.meta) : {}; } catch (e) { meta = {}; }
+    return {
+        kode: row.kode,
+        user_kode: row.user_kode,
+        nama: row.user_nama || null,
+        tentor_id: row.tentor_id,
+        tentor_nama: row.tentor_nama_live || row.tentor_nama || null,
+        materi_id: row.materi_id,
+        materi_nama: row.materi_nama,
+        tanggal: row.tanggal,
+        slot_id: row.slot_id,
+        slot_label: row.slot_label,
+        waktu_mulai: row.waktu_mulai,
+        waktu_selesai: row.waktu_selesai,
+        status: row.status,
+        meet_link: row.meet_link,
+        catatan: row.catatan,
+        created_at: row.created_at,
+        meta,
+    };
+}
+
+// Daftar tentor ASLI (akun review/guru yang beneran terdaftar & aktif) —
+// dulu hardcode di JDW_TENTOR (ALBERT/CHIKA/PRAM/ANGGA/RAFFI) di frontend,
+// sekarang diambil dari tabel users. materi/slots masih 'ALL' (semua guru
+// dianggap bisa semua materi & semua jam) karena belum ada tabel preferensi
+// per-guru — gampang ditambah nanti (tabel terpisah) tanpa ubah bentuk
+// response ini kalau memang perlu dibatasi per guru.
+app.get('/api/jadwal-meta', auth(['admin', 'review', 'user']), ah(async (req, res) => {
+    const gurus = await db.prepare(`SELECT kode, nama FROM users WHERE role='review' AND status != 'suspend' ORDER BY nama`).all();
+    res.json({ tentor: gurus.map(g => ({ id: g.kode, name: g.nama, materi: 'ALL', slots: 'ALL' })), statusSlotKosong: JDW_STATUS_SLOT_KOSONG });
+}));
+
 app.get('/api/jadwal-sesi', auth(['admin','review','user']), ah(async (req, res) => {
     let rows;
     if (req.user.role === 'user') {
-        rows = await db.prepare('SELECT * FROM jadwal_sesi WHERE user_kode=? ORDER BY waktu_mulai DESC').all(req.user.kode);
+        rows = await db.prepare(JADWAL_SELECT + ' WHERE js.user_kode=? ORDER BY js.waktu_mulai DESC').all(req.user.kode);
     } else if (req.user.role === 'review') {
-        rows = await db.prepare('SELECT * FROM jadwal_sesi WHERE tentor_id=? ORDER BY waktu_mulai DESC').all(req.user.kode);
+        rows = await db.prepare(JADWAL_SELECT + ' WHERE js.tentor_id=? ORDER BY js.waktu_mulai DESC').all(req.user.kode);
     } else {
-        rows = await db.prepare('SELECT * FROM jadwal_sesi ORDER BY waktu_mulai DESC').all();
+        rows = await db.prepare(JADWAL_SELECT + ' ORDER BY js.waktu_mulai DESC').all();
     }
-    res.json(rows);
+    res.json(rows.map(mapJadwalRow));
 }));
-app.post('/api/jadwal-sesi', auth(['admin','user']), ah(async (req, res) => {
-    const { tentor_id, tentor_nama, materi_id, materi_nama, tanggal, slot_id, slot_label, waktu_mulai, waktu_selesai, meet_link } = req.body || {};
-    if (!tentor_id || !tanggal || !waktu_mulai) return res.status(400).json({ error: 'tentor_id, tanggal, dan waktu_mulai wajib diisi' });
-    const user_kode = req.user.role === 'admin' && req.body.user_kode ? req.body.user_kode : req.user.kode;
-    const kode = await genKode('JDS', 'jadwal_sesi');
-    await db.prepare(`INSERT INTO jadwal_sesi
-        (kode,user_kode,tentor_id,tentor_nama,materi_id,materi_nama,tanggal,slot_id,slot_label,waktu_mulai,waktu_selesai,meet_link,status)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-        .run(kode, user_kode, tentor_id, tentor_nama || null, materi_id || null, materi_nama || null, tanggal, slot_id || null, slot_label || null, waktu_mulai, waktu_selesai || null, meet_link || null, 'pending');
-    res.json(await db.prepare('SELECT * FROM jadwal_sesi WHERE kode=?').get(kode));
+app.post('/api/jadwal-sesi', auth(['admin','user','review']), ah(async (req, res) => {
+    const b = req.body || {};
+    const { tentor_id, materi_id, materi_nama, tanggal, slot_id, slot_label, meet_link, catatan, meta } = b;
+    if (!tentor_id || !tanggal || !slot_id) return res.status(400).json({ error: 'tentor_id, tanggal, dan slot_id wajib diisi' });
+    // tentor_id WAJIB akun review asli & aktif — ini yang bikin "jadwal akun
+    // review/guru" pakai data real, bukan lagi id fiktif (albert/chika/dst).
+    const tentorRow = await db.prepare(`SELECT nama FROM users WHERE kode=? AND role='review'`).get(tentor_id);
+    if (!tentorRow) return res.status(400).json({ error: 'Akun tentor (review) tidak ditemukan' });
+    let user_kode = req.user.kode;
+    if (req.user.role !== 'user') {
+        user_kode = b.user_kode;
+        if (!user_kode) return res.status(400).json({ error: 'user_kode wajib diisi' });
+        const u = await db.prepare(`SELECT kode FROM users WHERE kode=? AND role='user'`).get(user_kode);
+        if (!u) return res.status(400).json({ error: 'user_kode tidak valid' });
+    }
+    const { mulai, selesai } = jdwHitungWaktu(tanggal, slot_id);
+    const waktu_mulai = b.waktu_mulai || mulai;
+    const waktu_selesai = b.waktu_selesai || selesai;
+    if (!waktu_mulai) return res.status(400).json({ error: 'slot_id tidak dikenal' });
+    // kode BOLEH dikirim client (id lokal yang sudah dipakai duluan di
+    // JadwalStore.add() sebelum request ini selesai — lihat catatan panjang
+    // di JadwalStore, ini SENGAJA supaya UI tidak perlu menunggu balasan
+    // server dulu buat tahu id-nya, tetap konsisten walau optimistic).
+    const kode = (typeof b.kode === 'string' && b.kode) ? b.kode : await genKode('JDS', 'jadwal_sesi');
+    const status = (req.user.role !== 'user' && b.status) ? b.status : 'pending';
+    const materi_nama_real = JDW_MATERI_LABEL[materi_id] || materi_nama || null;
+    const metaStr = (meta && typeof meta === 'object') ? JSON.stringify(meta) : null;
+    try {
+        await transaction(async (tdb) => {
+            // Lock + cek-bentrok (lihat jdwKunciSlot/jdwSlotBentrok & catatan
+            // JDW_STATUS_SLOT_KOSONG di atas) — cuma relevan kalau status baru
+            // ini memang "mengisi" slot; kalau admin/review sengaja bikin entri
+            // yang langsung berstatus batal/ditolak (jarang, tapi mungkin),
+            // tidak perlu dicek sama sekali.
+            if (!JDW_STATUS_SLOT_KOSONG.includes(status)) {
+                await jdwKunciSlot(tdb, tentor_id, tanggal, slot_id);
+                if (await jdwSlotBentrok(tdb, tentor_id, tanggal, slot_id, kode)) {
+                    const err = new Error('Jam ini baru saja terisi murid lain, silakan pilih jam lain');
+                    err.isSlotConflict = true;
+                    throw err;
+                }
+            }
+            await tdb.prepare(`INSERT INTO jadwal_sesi
+                (kode,user_kode,tentor_id,tentor_nama,materi_id,materi_nama,tanggal,slot_id,slot_label,waktu_mulai,waktu_selesai,meet_link,catatan,status,meta)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+                .run(kode, user_kode, tentor_id, tentorRow.nama, materi_id || null, materi_nama_real, tanggal, slot_id, slot_label || null, waktu_mulai, waktu_selesai, meet_link || null, catatan || null, status, metaStr);
+        });
+    } catch (e) {
+        if (e.isSlotConflict) return res.status(409).json({ error: e.message });
+        if (/duplicate|unique/i.test(e.message)) return res.status(409).json({ error: 'Kode sesi sudah dipakai, coba lagi' });
+        throw e;
+    }
+    res.json(mapJadwalRow(await db.prepare(JADWAL_SELECT + ' WHERE js.kode=?').get(kode)));
 }));
-app.put('/api/jadwal-sesi/:kode', auth(['admin','review']), ah(async (req, res) => {
+app.put('/api/jadwal-sesi/:kode', auth(['admin','review','user']), ah(async (req, res) => {
     const existing = await db.prepare('SELECT * FROM jadwal_sesi WHERE kode=?').get(req.params.kode);
     if (!existing) return res.status(404).json({ error: 'Sesi tidak ditemukan' });
     if (req.user.role === 'review' && existing.tentor_id !== req.user.kode) return res.status(403).json({ error: 'Forbidden' });
-    const { status, waktu_mulai, waktu_selesai, meet_link, catatan } = req.body || {};
-    // Kalau jam mulai berubah, reset flag pengingat supaya H-1/notif-mulai
-    // dihitung ulang dari jam yang baru (bukan tetap dianggap "sudah dikirim").
-    const jamBerubah = waktu_mulai && waktu_mulai !== existing.waktu_mulai;
-    await db.prepare(`UPDATE jadwal_sesi SET
-        status = COALESCE(?, status),
-        waktu_mulai = COALESCE(?, waktu_mulai),
-        waktu_selesai = COALESCE(?, waktu_selesai),
-        meet_link = COALESCE(?, meet_link),
-        catatan = COALESCE(?, catatan),
-        reminder_h1_sent = CASE WHEN ? THEN false ELSE reminder_h1_sent END,
-        reminder_mulai_sent = CASE WHEN ? THEN false ELSE reminder_mulai_sent END,
-        updated_at = CURRENT_TIMESTAMP
-        WHERE kode = ?`)
-        .run(status || null, waktu_mulai || null, waktu_selesai || null, meet_link || null, catatan || null, jamBerubah, jamBerubah, req.params.kode);
-    res.json(await db.prepare('SELECT * FROM jadwal_sesi WHERE kode=?').get(req.params.kode));
+    if (req.user.role === 'user' && existing.user_kode !== req.user.kode) return res.status(403).json({ error: 'Forbidden' });
+    const b = req.body || {};
+    // Siswa (role user) TIDAK boleh pindah-tentorkan sesinya sendiri —
+    // reassign tentor cuma lewat admin/review (mis. alur "tolak batal
+    // tentor -> cari pengganti otomatis" di review/jadwal/jadwal.js).
+    const boleUbahTentor = req.user.role !== 'user';
+    let tentor_nama_real = null;
+    if (boleUbahTentor && b.tentor_id) {
+        const t = await db.prepare(`SELECT nama FROM users WHERE kode=? AND role='review'`).get(b.tentor_id);
+        if (!t) return res.status(400).json({ error: 'Akun tentor (review) tidak ditemukan' });
+        tentor_nama_real = t.nama;
+    }
+    let mergedMeta = null;
+    if (b.meta && typeof b.meta === 'object') {
+        let currentMeta = {};
+        try { currentMeta = existing.meta ? JSON.parse(existing.meta) : {}; } catch (e) { currentMeta = {}; }
+        mergedMeta = JSON.stringify(Object.assign({}, currentMeta, b.meta));
+    }
+    const materi_nama_real = b.materi_id ? (JDW_MATERI_LABEL[b.materi_id] || b.materi_nama || null) : (b.materi_nama || null);
+    // Kalau jam mulai ATAU tanggal/slot berubah, reset flag pengingat supaya
+    // H-1/notif-mulai dihitung ulang dari jam yang baru (bukan tetap
+    // dianggap "sudah dikirim").
+    let waktu_mulai = b.waktu_mulai || null, waktu_selesai = b.waktu_selesai || null;
+    if (!waktu_mulai && (b.tanggal || b.slot_id)) {
+        const { mulai, selesai } = jdwHitungWaktu(b.tanggal || existing.tanggal, b.slot_id || existing.slot_id);
+        waktu_mulai = mulai; waktu_selesai = selesai;
+    }
+    const jamBerubah = !!(waktu_mulai && waktu_mulai !== existing.waktu_mulai);
+    // Nilai FINAL setelah merge (sama seperti COALESCE di query UPDATE di bawah)
+    // — dibutuhkan lebih dulu di sini buat nentuin perlu/tidaknya cek bentrok.
+    const finalTentor = boleUbahTentor && b.tentor_id ? b.tentor_id : existing.tentor_id;
+    const finalTanggal = b.tanggal || existing.tanggal;
+    const finalSlotId = b.slot_id || existing.slot_id;
+    const finalStatus = b.status || existing.status;
+    try {
+        await transaction(async (tdb) => {
+            // Sama seperti POST /api/jadwal-sesi: jadwal-ulang (reschedule) bisa
+            // memindahkan sesi ke tanggal+jam yang barusan diisi sesi lain lewat
+            // request lain yang nyaris bersamaan — cuma perlu dicek kalau hasil
+            // akhirnya memang masih "mengisi" slot (lihat JDW_STATUS_SLOT_KOSONG).
+            if (!JDW_STATUS_SLOT_KOSONG.includes(finalStatus)) {
+                await jdwKunciSlot(tdb, finalTentor, finalTanggal, finalSlotId);
+                if (await jdwSlotBentrok(tdb, finalTentor, finalTanggal, finalSlotId, existing.kode)) {
+                    const err = new Error('Jam ini baru saja terisi murid lain, silakan pilih jam lain');
+                    err.isSlotConflict = true;
+                    throw err;
+                }
+            }
+            await tdb.prepare(`UPDATE jadwal_sesi SET
+                status = COALESCE(?, status),
+                tanggal = COALESCE(?, tanggal),
+                slot_id = COALESCE(?, slot_id),
+                slot_label = COALESCE(?, slot_label),
+                materi_id = COALESCE(?, materi_id),
+                materi_nama = COALESCE(?, materi_nama),
+                tentor_id = CASE WHEN ? THEN ? ELSE tentor_id END,
+                tentor_nama = CASE WHEN ? THEN ? ELSE tentor_nama END,
+                waktu_mulai = COALESCE(?, waktu_mulai),
+                waktu_selesai = COALESCE(?, waktu_selesai),
+                meet_link = COALESCE(?, meet_link),
+                catatan = COALESCE(?, catatan),
+                meta = COALESCE(?, meta),
+                reminder_h1_sent = CASE WHEN ? THEN false ELSE reminder_h1_sent END,
+                reminder_mulai_sent = CASE WHEN ? THEN false ELSE reminder_mulai_sent END,
+                updated_at = CURRENT_TIMESTAMP
+                WHERE kode = ?`)
+                .run(
+                    b.status || null, b.tanggal || null, b.slot_id || null, b.slot_label || null,
+                    b.materi_id || null, materi_nama_real,
+                    boleUbahTentor && b.tentor_id ? true : false, boleUbahTentor ? (b.tentor_id || null) : null,
+                    boleUbahTentor && b.tentor_id ? true : false, boleUbahTentor ? tentor_nama_real : null,
+                    waktu_mulai, waktu_selesai, b.meet_link || null, b.catatan || null, mergedMeta,
+                    jamBerubah, jamBerubah, req.params.kode
+                );
+        });
+    } catch (e) {
+        if (e.isSlotConflict) return res.status(409).json({ error: e.message });
+        throw e;
+    }
+    res.json(mapJadwalRow(await db.prepare(JADWAL_SELECT + ' WHERE js.kode=?').get(req.params.kode)));
 }));
 app.delete('/api/jadwal-sesi/:kode', auth(['admin','user']), ah(async (req, res) => {
     const existing = await db.prepare('SELECT * FROM jadwal_sesi WHERE kode=?').get(req.params.kode);
@@ -2672,6 +2887,168 @@ app.delete('/api/jadwal-sesi/:kode', auth(['admin','user']), ah(async (req, res)
     if (req.user.role === 'user' && existing.user_kode !== req.user.kode) return res.status(403).json({ error: 'Forbidden' });
     await db.prepare('DELETE FROM jadwal_sesi WHERE kode=?').run(req.params.kode);
     res.json({ message: 'Dihapus' });
+}));
+// ── Status ujian REAL utk dock BAHAS (review/bahas/bahas.js) — dulu dummy
+// (dihitung dari hash id entri). Sistem belum menyimpan modul_kode eksplisit
+// per sesi mentoring, jadi dipakai heuristik data REAL: laporan (hasil ujian)
+// milik siswa itu yang dibuat SEJAK jam mulai sesi ini dianggap hasil ujian
+// dari sesi ini ("selesai"); kalau belum ada laporan tapi ada token yang
+// sudah dipakai siswa itu sejak jam mulai sesi -> "sedang"; selain itu "belum".
+app.get('/api/jadwal-sesi/:kode/status-ujian', auth(['admin','review']), ah(async (req, res) => {
+    const sesi = await db.prepare('SELECT * FROM jadwal_sesi WHERE kode=?').get(req.params.kode);
+    if (!sesi) return res.status(404).json({ error: 'Sesi tidak ditemukan' });
+    if (req.user.role === 'review' && sesi.tentor_id !== req.user.kode) return res.status(403).json({ error: 'Forbidden' });
+    if (!sesi.user_kode) return res.json({ status: 'belum' });
+    const laporan = await db.prepare(
+        `SELECT kode FROM laporan WHERE user_kode=? AND created_at >= ? ORDER BY created_at ASC LIMIT 1`
+    ).get(sesi.user_kode, sesi.waktu_mulai);
+    if (laporan) return res.json({ status: 'selesai', laporan_kode: laporan.kode });
+    const tokenDipakai = await db.prepare(
+        `SELECT kode FROM tokens WHERE digunakan_oleh=? AND digunakan=1 AND created_at >= ? ORDER BY created_at ASC LIMIT 1`
+    ).get(sesi.user_kode, sesi.waktu_mulai);
+    if (tokenDipakai) return res.json({ status: 'sedang' });
+    res.json({ status: 'belum' });
+}));
+// ── KETERSEDIAAN / REQUEST / PENGATURAN TENTOR (khusus akun review/guru) ──
+// Dulu 3 store dummy di localStorage (GuruKetersediaanStore/GuruRequestStore/
+// GuruPengaturanStore, lihat review/jadwal/jadwal.js) — sekarang persisten di
+// server, 1 baris/entri per tentor (req.user.kode dari token, TIDAK dikirim
+// dari client, jadi tiap guru otomatis hanya bisa baca/ubah datanya sendiri).
+app.get('/api/guru-ketersediaan', auth(['review']), ah(async (req, res) => {
+    const rows = await db.prepare('SELECT tanggal, slot_id FROM guru_ketersediaan WHERE tentor_id=? ORDER BY tanggal').all(req.user.kode);
+    const map = {};
+    rows.forEach(r => {
+        const iso = (r.tanggal instanceof Date) ? r.tanggal.toISOString().slice(0, 10) : String(r.tanggal).slice(0, 10);
+        (map[iso] = map[iso] || []).push(r.slot_id);
+    });
+    res.json(map);
+}));
+// Ganti SELURUH jam tersedia tanggal ini dgn slot_ids yang dikirim (array
+// kosong = hapus semua, dianggap "belum diatur") — selaras persis dgn
+// semantik GuruKetersediaanStore.setByDate() lama.
+app.put('/api/guru-ketersediaan/:tanggal', auth(['review']), ah(async (req, res) => {
+    const tanggal = req.params.tanggal;
+    const slotIds = Array.isArray(req.body?.slot_ids) ? req.body.slot_ids : [];
+    await transaction(async (tdb) => {
+        await tdb.prepare('DELETE FROM guru_ketersediaan WHERE tentor_id=? AND tanggal=?').run(req.user.kode, tanggal);
+        for (const slotId of slotIds) {
+            await tdb.prepare('INSERT INTO guru_ketersediaan (tentor_id, tanggal, slot_id) VALUES (?,?,?)').run(req.user.kode, tanggal, slotId);
+        }
+    });
+    res.json({ tanggal, slot_ids: slotIds });
+}));
+// List request murid per tentor (kosong sampai alur pengajuan sisi murid
+// dibuat — lihat catatan di db/schema.sql), diurutkan paling awal ngajuin.
+app.get('/api/guru-request', auth(['review']), ah(async (req, res) => {
+    const rows = await db.prepare(`SELECT gr.id, gr.tanggal, gr.slot_id, gr.materi_id, gr.created_at, gr.user_kode, u.nama
+        FROM guru_ketersediaan_request gr LEFT JOIN users u ON u.kode = gr.user_kode
+        WHERE gr.tentor_id=? ORDER BY gr.created_at ASC`).all(req.user.kode);
+    res.json(rows.map(r => ({
+        id: String(r.id),
+        tanggal: (r.tanggal instanceof Date) ? r.tanggal.toISOString().slice(0, 10) : String(r.tanggal).slice(0, 10),
+        slotId: r.slot_id,
+        materiId: r.materi_id,
+        userKode: r.user_kode,
+        nama: r.nama || null,
+        createdAt: r.created_at ? new Date(r.created_at).getTime() : null,
+    })));
+}));
+app.delete('/api/guru-request', auth(['review']), ah(async (req, res) => {
+    const { tanggal, slot_id } = req.query;
+    if (!tanggal || !slot_id) return res.status(400).json({ error: 'tanggal dan slot_id wajib diisi' });
+    await db.prepare('DELETE FROM guru_ketersediaan_request WHERE tentor_id=? AND tanggal=? AND slot_id=?').run(req.user.kode, tanggal, slot_id);
+    res.json({ message: 'Dihapus' });
+}));
+
+// ── SISI MURID: lihat jam yang sudah dibuka tentor (guru_ketersediaan) DAN
+// belum kepakai (belum ada baris jadwal_sesi aktif di jam itu), lalu ajukan
+// "Minta Jam Ini" (masuk antrean guru_ketersediaan_request, BUKAN langsung
+// jadi jadwal_sesi — guru yang terima lewat tombol Terima/Instant Pick, lihat
+// review/jadwal/jadwal.js). Ini melengkapi alur yang sebelumnya disiapkan
+// strukturnya saja (lihat catatan lama di db/schema.sql) tapi belum ada
+// endpoint dari sisi murid.
+app.get('/api/guru-ketersediaan/:tentor_id', auth(['user', 'admin', 'review']), ah(async (req, res) => {
+    const tentorRow = await db.prepare(`SELECT kode FROM users WHERE kode=? AND role='review'`).get(req.params.tentor_id);
+    if (!tentorRow) return res.status(404).json({ error: 'Akun tentor tidak ditemukan' });
+    const rows = await db.prepare(`SELECT gk.tanggal, gk.slot_id FROM guru_ketersediaan gk
+        WHERE gk.tentor_id=? AND NOT EXISTS (
+            SELECT 1 FROM jadwal_sesi js WHERE js.tentor_id = gk.tentor_id AND js.tanggal = gk.tanggal
+            AND js.slot_id = gk.slot_id AND js.status NOT IN ('ditolak','batal')
+        ) ORDER BY gk.tanggal`).all(req.params.tentor_id);
+    const map = {};
+    rows.forEach(r => {
+        const iso = (r.tanggal instanceof Date) ? r.tanggal.toISOString().slice(0, 10) : String(r.tanggal).slice(0, 10);
+        (map[iso] = map[iso] || []).push(r.slot_id);
+    });
+    res.json(map);
+}));
+app.post('/api/guru-request', auth(['user']), ah(async (req, res) => {
+    const { tentor_id, tanggal, slot_id, materi_id } = req.body || {};
+    if (!tentor_id || !tanggal || !slot_id) return res.status(400).json({ error: 'tentor_id, tanggal, dan slot_id wajib diisi' });
+    const tentorRow = await db.prepare(`SELECT kode FROM users WHERE kode=? AND role='review'`).get(tentor_id);
+    if (!tentorRow) return res.status(400).json({ error: 'Akun tentor (review) tidak ditemukan' });
+    const avail = await db.prepare('SELECT 1 FROM guru_ketersediaan WHERE tentor_id=? AND tanggal=? AND slot_id=?').get(tentor_id, tanggal, slot_id);
+    if (!avail) return res.status(409).json({ error: 'Guru belum membuka jam ini' });
+    const taken = await db.prepare(`SELECT 1 FROM jadwal_sesi WHERE tentor_id=? AND tanggal=? AND slot_id=? AND status NOT IN ('ditolak','batal')`).get(tentor_id, tanggal, slot_id);
+    if (taken) return res.status(409).json({ error: 'Jam ini baru saja terisi' });
+    const dup = await db.prepare('SELECT 1 FROM guru_ketersediaan_request WHERE tentor_id=? AND tanggal=? AND slot_id=? AND user_kode=?').get(tentor_id, tanggal, slot_id, req.user.kode);
+    if (dup) return res.status(409).json({ error: 'Kamu sudah minta jam ini, tunggu konfirmasi guru' });
+    const row = await db.prepare(`INSERT INTO guru_ketersediaan_request (tentor_id, tanggal, slot_id, user_kode, materi_id)
+        VALUES (?,?,?,?,?) RETURNING id, created_at`).get(tentor_id, tanggal, slot_id, req.user.kode, materi_id || null);
+    res.json({ id: String(row.id), tanggal, slotId: slot_id, materiId: materi_id || null, tentorId: tentor_id, createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now() });
+}));
+app.get('/api/guru-request/mine', auth(['user']), ah(async (req, res) => {
+    const rows = await db.prepare(`SELECT gr.id, gr.tentor_id, gr.tanggal, gr.slot_id, gr.materi_id, gr.created_at, u.nama AS tentor_nama
+        FROM guru_ketersediaan_request gr LEFT JOIN users u ON u.kode = gr.tentor_id
+        WHERE gr.user_kode=? ORDER BY gr.created_at DESC`).all(req.user.kode);
+    res.json(rows.map(r => ({
+        id: String(r.id),
+        tentorId: r.tentor_id,
+        tentorNama: r.tentor_nama || null,
+        tanggal: (r.tanggal instanceof Date) ? r.tanggal.toISOString().slice(0, 10) : String(r.tanggal).slice(0, 10),
+        slotId: r.slot_id,
+        materiId: r.materi_id,
+        createdAt: r.created_at ? new Date(r.created_at).getTime() : null,
+    })));
+}));
+app.delete('/api/guru-request/:id', auth(['user']), ah(async (req, res) => {
+    const row = await db.prepare('SELECT * FROM guru_ketersediaan_request WHERE id=?').get(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Permintaan tidak ditemukan' });
+    if (row.user_kode !== req.user.kode) return res.status(403).json({ error: 'Forbidden' });
+    await db.prepare('DELETE FROM guru_ketersediaan_request WHERE id=?').run(req.params.id);
+    res.json({ message: 'Dibatalkan' });
+}));
+function mapGuruPengaturanRow(row) {
+    const def = { smartSelectionActive: false, smartSelectionDays: [], smartSelectionSlots: [], instantPickActive: false, cancelAcceptedActive: false };
+    if (!row) return def;
+    let days = [], slots = [];
+    try { days = row.smart_selection_days ? JSON.parse(row.smart_selection_days) : []; } catch (e) {}
+    try { slots = row.smart_selection_slots ? JSON.parse(row.smart_selection_slots) : []; } catch (e) {}
+    return {
+        smartSelectionActive: !!row.smart_selection_active,
+        smartSelectionDays: days,
+        smartSelectionSlots: slots,
+        instantPickActive: !!row.instant_pick_active,
+        cancelAcceptedActive: !!row.cancel_accepted_active,
+    };
+}
+app.get('/api/guru-pengaturan', auth(['review']), ah(async (req, res) => {
+    const row = await db.prepare('SELECT * FROM guru_pengaturan WHERE tentor_id=?').get(req.user.kode);
+    res.json(mapGuruPengaturanRow(row));
+}));
+app.put('/api/guru-pengaturan', auth(['review']), ah(async (req, res) => {
+    const existing = await db.prepare('SELECT * FROM guru_pengaturan WHERE tentor_id=?').get(req.user.kode);
+    const merged = Object.assign(mapGuruPengaturanRow(existing), req.body || {});
+    const daysJson = JSON.stringify(merged.smartSelectionDays || []);
+    const slotsJson = JSON.stringify(merged.smartSelectionSlots || []);
+    if (existing) {
+        await db.prepare(`UPDATE guru_pengaturan SET smart_selection_active=?, smart_selection_days=?, smart_selection_slots=?, instant_pick_active=?, cancel_accepted_active=?, updated_at=CURRENT_TIMESTAMP WHERE tentor_id=?`)
+            .run(merged.smartSelectionActive, daysJson, slotsJson, merged.instantPickActive, merged.cancelAcceptedActive, req.user.kode);
+    } else {
+        await db.prepare(`INSERT INTO guru_pengaturan (tentor_id, smart_selection_active, smart_selection_days, smart_selection_slots, instant_pick_active, cancel_accepted_active) VALUES (?,?,?,?,?,?)`)
+            .run(req.user.kode, merged.smartSelectionActive, daysJson, slotsJson, merged.instantPickActive, merged.cancelAcceptedActive);
+    }
+    res.json(merged);
 }));
 // Pemicu manual siklus pengecekan H-1/kelas-dimulai — dipakai kalau server
 // dijalankan sbg serverless (Vercel, dst) di mana setInterval di kelas-reminder.js

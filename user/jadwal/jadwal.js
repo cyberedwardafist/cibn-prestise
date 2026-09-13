@@ -3,10 +3,15 @@
 // Bergantung pada helper global dari shell index_user.html (showToast, dst) dan
 // js/swipe.js (SwipeCards, dimuat eager di shell) yang sudah dimuat lebih dulu.
 //
-// CATATAN: Ini "tampilan dulu, sistem dummy" — semua data pengajuan jadwal disimpan
-// di localStorage lewat JadwalStore (bukan lewat server). Struktur data & nama
-// fungsi (add/update/remove/byDate) sengaja dibuat mirip pola CRUD API supaya nanti
-// gampang tinggal diganti jadi apiFetch('/user/jadwal', ...) tanpa ubah UI di atasnya.
+// CATATAN: SEMUA data jadwal — pengajuan sesi (JadwalStore), ketersediaan
+// tentor (GuruAvailStore), dan request murid (GuruMyRequestStore) — sudah
+// nyambung ke backend Postgres asli lewat apiFetch/apiPost/apiPut milik shell
+// (lihat DATA LAYER ASLI di bawah), bukan lagi localStorage. Struktur data &
+// nama fungsi tiap store (add/update/remove/byDate, dst) sengaja tetap dibuat
+// sinkron di sisi UI supaya kode di atasnya tidak perlu diubah dari versi
+// dummy lama. localStorage yang masih dipakai di file ini (JDW_STATE_KEY,
+// JDW_VIEW_STATE_KEY) cuma buat state UI sementara (draft form yang lagi
+// diisi, posisi tab/scroll terakhir) — bukan data jadwal-nya sendiri.
 
 /* ══════════════════════════════════════════
    DATA REFERENSI (nanti gampang disambung ke tabel master di backend)
@@ -35,13 +40,27 @@ const JDW_MATERI = [
 // — untuk sementara disamakan dengan tentor sejenis (ALBERT ikut TWK/TIU/TKP
 // kayak RAFFI, PRAM ikut TOEFL kayak CHIKA). Gampang diubah, tinggal edit
 // array di bawah ini.
-const JDW_TENTOR = [
-    { id: 'albert', name: 'ALBERT', materi: ['twk', 'tiu', 'tkp'], slots: [] },
-    { id: 'chika', name: 'CHIKA', materi: ['toefl_struktur', 'toefl_listening', 'toefl_reading'], slots: ['slot4', 'slot5'] },
-    { id: 'pram', name: 'PRAM', materi: ['toefl_struktur', 'toefl_listening', 'toefl_reading'], slots: 'ALL' },
-    { id: 'angga', name: 'ANGGA', materi: 'ALL', slots: ['slot1', 'slot6', 'slot7'] },
-    { id: 'raffi', name: 'RAFFI', materi: ['twk', 'tiu', 'tkp'], slots: ['slot2', 'slot6'] },
-];
+// Daftar tentor: akun review/guru ASLI yang terdaftar & aktif (bukan lagi
+// hardcode ALBERT/CHIKA/PRAM/ANGGA/RAFFI) — diisi oleh JadwalStore._bootstrap()
+// dari GET /api/jadwal-meta begitu tab Jadwal/Bahas/Laporan dibuka. Nilai di
+// bawah cuma fallback SEMENTARA sebelum fetch itu selesai (biar tidak
+// undefined kalau ada kode yang sempat baca JDW_TENTOR sebelum bootstrap
+// kelar) — materi/slots 'ALL' krn belum ada tabel preferensi per-guru.
+let JDW_TENTOR = [];
+// Daftar status yang berarti slot tentor itu KOSONG lagi (boleh dipakai murid
+// lain di tanggal+jam yang sama) — SATU-SATUNYA sumber ada di server.js
+// (JDW_STATUS_SLOT_KOSONG), dikirim ke sini lewat GET /api/jadwal-meta
+// (field `statusSlotKosong`) diisi oleh _bootstrap() bareng JDW_TENTOR di
+// atas. Dulu status "pelepas slot" ini diulang sbg literal 'batal'/'ditolak'
+// di banyak tempat terpisah (busySlotIds dkk di bawah) — kalau nanti ada
+// status baru yang juga harus melepas slot, GAK PERLU ubah file ini sama
+// sekali, cukup tambah di array JDW_STATUS_SLOT_KOSONG milik server.js.
+// Semua tempat yang dulu nulis `status !== 'batal' && status !== 'ditolak'`
+// sekarang manggil _jdwSlotMasihTerisi(status) di bawah. Nilai di bawah ini
+// cuma fallback SEMENTARA sebelum bootstrap() selesai fetch meta (sama
+// persis dgn default JDW_STATUS_SLOT_KOSONG di server.js).
+let JDW_STATUS_SLOT_KOSONG = ['batal', 'ditolak'];
+function _jdwSlotMasihTerisi(status) { return !JDW_STATUS_SLOT_KOSONG.includes(status); }
 const JDW_STATUS_LABEL = { pending: 'Menunggu', acc: 'Disetujui', ditolak: 'Ditolak', berlangsung: 'Berlangsung', feedback: 'Feedback', selesai: 'Selesai', pengajuan_pembatalan: 'Pengajuan Pembatalan', resejuel: 'Jadwal Ulang dari Tentor', batal: 'Dibatalkan', butuh_persetujuan: 'Butuh Persetujuan', pengajuan_batal_tentor: 'Pengajuan Batal dari Tentor' };
 // Kuota pengajuan jadwal per user (dummy — nanti gampang disambung ke angka
 // beneran dari backend/paket bimbingan user, tinggal ganti sumber angka
@@ -126,164 +145,217 @@ const JDW_MONTH_NAMES = ['Januari','Februari','Maret','April','Mei','Juni','Juli
 /* ══════════════════════════════════════════
    DATA LAYER DUMMY (localStorage) — ganti isi fungsi2 ini kalau sudah ada backend
    ══════════════════════════════════════════ */
+// ══════════════════════════════════════════
+// DATA LAYER ASLI (backend Postgres lewat apiFetch/apiPost/apiPut milik shell
+// ini — lihat _jdwApi* di bawah) — cache di memori supaya SELURUH kode di
+// bawah (add/update/remove/all/byDate/get) tetap bisa dipanggil sinkron
+// persis seperti versi dummy/localStorage lama (tidak perlu ubah 1 baris pun
+// kode UI di bawah file ini). Alurnya:
+//   - ready(): fetch sekali (GET /api/jadwal-sesi + GET /api/jadwal-meta),
+//     idempotent (dipanggil ulang cukup balikin promise yang sama) — dipanggil
+//     dari renderPage()/goPage() di shell SEBELUM loadJadwal()/renderBahas()/
+//     loadLaporan(), jadi begitu fungsi2 itu jalan datanya sudah pasti ada.
+//   - add()/update()/remove(): ubah cache LANGSUNG (sinkron, optimistic) baru
+//     kirim request ke server di belakang layar; kalau request gagal, cache
+//     dikembalikan ke kondisi semula + toast error supaya user tahu
+//     perubahannya TIDAK tersimpan di server.
+//   - add() sengaja generate `id` di CLIENT (bukan nunggu server kasih kode)
+//     dan kirim sebagai `kode` ke POST /api/jadwal-sesi — supaya kode yang
+//     dipakai UI langsung setelah add() (mis. buka overlay pakai id itu, atau
+//     update() lagi sesaat kemudian) selalu valid, tidak perlu proses
+//     "reconcile id sementara -> id asli server" yang rawan race condition.
+// ══════════════════════════════════════════
 const JadwalStore = (function () {
-    const KEY = 'cbn_jadwal_pengajuan_dummy_v1';
-    let _cache = null;
+    let _cache = [];
+    let _ready = false;
+    let _readyPromise = null;
 
-    function _toIso(d) {
-        const x = new Date(d);
-        x.setMinutes(x.getMinutes() - x.getTimezoneOffset());
-        return x.toISOString().slice(0, 10);
+    // Konversi 1 baris respons API (snake_case + meta JSON) -> bentuk lama
+    // yang dipakai di seluruh file ini (camelCase, field2 di `meta` di-spread
+    // rata jadi properti langsung persis kayak object dummy dulu).
+    function _fromApi(row) {
+        let meta = {};
+        try { meta = row.meta && typeof row.meta === 'object' ? row.meta : {}; } catch (e) { meta = {}; }
+        return Object.assign({}, meta, {
+            id: row.kode,
+            userKode: row.user_kode,
+            nama: row.nama || null,
+            tentorId: row.tentor_id,
+            tentorNama: row.tentor_nama,
+            materiId: row.materi_id,
+            materiNama: row.materi_nama,
+            tanggal: row.tanggal,
+            slotId: row.slot_id,
+            slotLabel: row.slot_label,
+            status: row.status,
+            meetLink: row.meet_link,
+            catatan: row.catatan,
+            createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+        });
     }
-    function _todayIso(offsetDays) {
-        const d = new Date();
-        d.setDate(d.getDate() + (offsetDays || 0));
-        d.setHours(0, 0, 0, 0);
-        return _toIso(d);
+    // Field yang punya kolom asli di tabel jadwal_sesi -> map ke nama kolomnya.
+    // Selain daftar ini (mis. alasanBatal/batalOleh/reschedule/feedback/dst)
+    // otomatis masuk `meta` (JSON bebas, lihat server.js) tanpa perlu daftar
+    // ulang di sini tiap ada status/field baru.
+    const _KNOWN_MAP = { tentorId: 'tentor_id', tentorNama: 'tentor_nama', materiId: 'materi_id', materiNama: 'materi_nama', tanggal: 'tanggal', slotId: 'slot_id', slotLabel: 'slot_label', status: 'status', meetLink: 'meet_link', catatan: 'catatan', userKode: 'user_kode' };
+    function _toApiBody(entry) {
+        const body = {}, meta = {};
+        Object.keys(entry).forEach(k => {
+            if (k === 'id' || k === 'createdAt' || k === 'nama') return; // id/createdAt dikelola server, nama selalu dihitung LIVE dari akun asli
+            if (_KNOWN_MAP[k]) body[_KNOWN_MAP[k]] = entry[k];
+            else meta[k] = entry[k];
+        });
+        if (Object.keys(meta).length) body.meta = meta;
+        return body;
     }
-    function _seed() {
-        // Contoh data awal biar SEMUA status & SEMUA variasi tombol aksi
-        // (menunggu/disetujui/ditolak/berlangsung-Masuk/berlangsung-Feedback/
-        // selesai/pengajuan-pembatalan) kelihatan sekaligus di demo pertama
-        // kali — sekali dibuat, tidak akan ditimpa lagi. Tanggal sengaja
-        // diatur relatif ke hari ini (bukan hardcode) supaya
-        // _jdwAutoExpirePending()/_jdwAutoAdvanceStatus() tidak langsung
-        // mengubah status pending->ditolak atau acc->berlangsung/selesai
-        // saat pertama kali dibuka (lihat catatan status per-entry di bawah).
-        // Cek juga _entryActions() buat lihat tombol persis apa yang muncul
-        // di tiap status.
-        const arr = [
-            // pending (menunggu) -> tombol Edit + Batal. 2 entri di HARI YANG SAMA
-            // (besok) buat sekalian tes tampilan 2 kartu numpuk di satu tanggal.
-            { id: 'seed_pending1', tanggal: _todayIso(1), slotId: 'slot1', materiId: 'tiu', tentorId: 'angga', status: 'pending', createdAt: Date.now() - 110000000 },
-            { id: 'seed_pending2', tanggal: _todayIso(1), slotId: 'slot3', materiId: 'twk', tentorId: 'albert', status: 'pending', createdAt: Date.now() - 100000000 },
-            // acc (disetujui) -> tombol Jadwal Ulang + Batal (Batal disini buka
-            // overlay Ajukan Pembatalan, BUKAN dialog konfirmasi kecil). Dua
-            // tanggal beda minggu buat sekalian tes nav minggu di kalender.
-            { id: 'seed_acc1', tanggal: _todayIso(1), slotId: 'slot6', materiId: 'tkp', tentorId: 'raffi', status: 'acc', createdAt: Date.now() - 90000000 },
-            { id: 'seed_acc2', tanggal: _todayIso(8), slotId: 'slot4', materiId: 'toefl_struktur', tentorId: 'chika', status: 'acc', createdAt: Date.now() - 85000000 },
-            // acc, tanggal HARI INI (hari H) -> khusus buat tes popup "Tidak Bisa
-            // Dijadwalkan Ulang" (batas H-1 sudah lewat): klik tombol "Jadwal
-            // Ulang" di kartu ini harus munculkan popup, form Ajukan Jadwal
-            // Ulang TIDAK boleh kebuka. Lihat JadwalPage.resejadwalEntry &
-            // _jdwCanReschedule.
-            { id: 'seed_acc_harih', tanggal: _todayIso(0), slotId: 'slot5', materiId: 'toefl_reading', tentorId: 'chika', status: 'acc', createdAt: Date.now() - 87000000 },
-            // berlangsung, jam BELUM lewat -> tombol "Masuk" (slot malam, jadi
-            // biasanya masih kelihatan "Masuk" kecuali kamu tes di atas jam
-            // 20.15). Kalau pas dites udah lewat jam segitu, otomatis kegantian jadi
-            // tombol "Feedback" sendiri — itu bukan bug, hitungannya emang
-            // berdasar jam saat ini, bukan status tersimpan.
-            { id: 'seed_berlangsung_masuk', tanggal: _todayIso(0), slotId: 'slot7', materiId: 'tiu', tentorId: 'angga', status: 'berlangsung', createdAt: Date.now() - 80000000 },
-            // berlangsung, jam SUDAH lewat -> tombol "Feedback" (slot pagi, jadi
-            // biasanya udah lewat kecuali kamu tes sebelum jam 09.15).
-            { id: 'seed_berlangsung_feedback', tanggal: _todayIso(0), slotId: 'slot1', materiId: 'twk', tentorId: 'raffi', status: 'berlangsung', createdAt: Date.now() - 75000000 },
-            // ditolak -> tanpa tombol aksi sama sekali. Satu hari ini, satu di
-            // riwayat (buat tes toggle Minggu Ini/Riwayat).
-            { id: 'seed_ditolak1', tanggal: _todayIso(0), slotId: 'slot2', materiId: 'tkp', tentorId: 'angga', status: 'ditolak', createdAt: Date.now() - 70000000 },
-            { id: 'seed_ditolak2', tanggal: _todayIso(-2), slotId: 'slot2', materiId: 'tiu', tentorId: 'raffi', status: 'ditolak', createdAt: Date.now() - 65000000 },
-            // pengajuan_pembatalan -> tombol "Tarik Pembatalan" (balik ke acc).
-            // pembatalanDihitung:true -> ini pembatalan NORMAL (bukan gratis),
-            // ikut motong kuota pembatalan (lihat JDW_KUOTA_BATAL_TOTAL &
-            // _jdwKuotaBatalTerpakai) — sekalian jadi contoh badge "Batal: 2/3"
-            // begitu digabung sama seed_batal_user di bawah.
-            { id: 'seed_batal', tanggal: _todayIso(1), slotId: 'slot4', materiId: 'toefl_listening', tentorId: 'chika', status: 'pengajuan_pembatalan', alasanBatal: 'Ada jadwal ujian sekolah yang bentrok', pembatalanDihitung: true, createdAt: Date.now() - 60000000 },
-            // selesai -> tanpa tombol aksi sama sekali, terlepas feedbackDone
-            // sudah diisi atau belum (beda dari "berlangsung" yang jam sudah
-            // lewat, itu MASIH ada tombol Feedback). Dua entri riwayat, beda
-            // status feedbackDone, buat tes tampilan kartu selesai.
-            { id: 'seed_selesai1', tanggal: _todayIso(-1), slotId: 'slot3', materiId: 'toefl_reading', tentorId: 'pram', status: 'selesai', feedbackDone: true, feedback: { paham: 4, kualitas: 5, catatan: 'Penjelasannya jelas & mudah diikuti', filledAt: Date.now() - 50000000 }, createdAt: Date.now() - 55000000 },
-            { id: 'seed_selesai2', tanggal: _todayIso(-3), slotId: 'slot5', materiId: 'twk', tentorId: 'albert', status: 'selesai', feedbackDone: false, createdAt: Date.now() - 40000000 },
-            // resejuel (jadwal ulang DARI TENTOR, beda dari "Jadwal Ulang" biasa
-            // yang diajukan user) -> kartunya tampil normal di list tanggal
-            // jadwal LAMA-nya (sama seperti status lain), tombolnya cuma "Cek"
-            // yang membuka halaman fullscreen bandingkan jadwal lama vs baru.
-            // Field tanggal/slotId/materiId di entri ini TETAP jadwal LAMA (yang
-            // diajukan user) — jadwal BARU dari tentor disimpan terpisah di
-            // field `reschedule` (termasuk alasan tentor mengajukan jadwal
-            // ulang), biar gampang balik ke lama kalau ditolak.
-            { id: 'seed_resejuel', tanggal: _todayIso(2), slotId: 'slot2', materiId: 'tiu', tentorId: 'raffi', status: 'resejuel', reschedule: { tanggal: _todayIso(4), slotId: 'slot5', materiId: 'tiu', alasan: 'Tentor ada keperluan mendadak di jam yang sama' }, createdAt: Date.now() - 30000000 },
-            // batal, DIBATALKAN OLEH TENTOR (field batalOleh:'tentor') -> tanpa
-            // tombol aksi (kayak "selesai"). Tanggalnya KEMARIN (sudah lewat) ->
-            // sekarang ikut aturan tanggal biasa, jadi sudah pindah ke Riwayat,
-            // TIDAK nongol lagi di "Minggu Ini" (beda dari perilaku lama).
-            { id: 'seed_batal_tentor', tanggal: _todayIso(-1), slotId: 'slot3', materiId: 'tkp', tentorId: 'albert', status: 'batal', batalOleh: 'tentor', alasanBatal: 'Tentor berhalangan hadir', createdAt: Date.now() - 20000000 },
-            // batal, DIBATALKAN OLEH USER (field batalOleh:'user'), tanggalnya
-            // masih DI DEPAN (belum lewat) & slotnya belum ditimpa pengajuan baru
-            // -> sekarang TETAP nongol di "Minggu Ini" (murni ikut tanggal, tidak
-            // lagi otomatis lompat ke Riwayat cuma karena dibatalkan user).
-            // pembatalanDihitung:true -> pembatalan normal, ikut motong kuota.
-            { id: 'seed_batal_user', tanggal: _todayIso(3), slotId: 'slot6', materiId: 'twk', tentorId: 'angga', status: 'batal', batalOleh: 'user', alasanBatal: 'Berhalangan hadir', pembatalanDihitung: true, createdAt: Date.now() - 10000000 },
-            // batal, DIBATALKAN OLEH USER hari ini, TAPI slotnya sudah "ditimpa"
-            // pengajuan baru (seed_batal_ditimpa_baru di jam & tanggal yang
-            // sama persis) -> ini langsung dianggap Riwayat SAAT INI JUGA walau
-            // tanggalnya belum lewat, karena user sudah mengajukan ulang di jam
-            // itu. Pasangan seed di bawah adalah pengajuan barunya (status acc,
-            // tanggal & slotId sama).
-            { id: 'seed_batal_ditimpa', tanggal: _todayIso(0), slotId: 'slot4', materiId: 'tiu', tentorId: 'pram', status: 'batal', batalOleh: 'user', alasanBatal: 'Salah pilih jam, ajukan ulang', pembatalanDihitung: false, createdAt: Date.now() - 9000000 },
-            { id: 'seed_batal_ditimpa_baru', tanggal: _todayIso(0), slotId: 'slot4', materiId: 'tiu', tentorId: 'pram', status: 'acc', createdAt: Date.now() - 8000000 },
-            // acc, BEKAS RESEJUEL YANG DISETUJUI (freeCancelEligible:true) ->
-            // contoh siap-pakai buat tes pembatalan GRATIS: tekan "Batal" pada
-            // kartu ini harus langsung masuk halaman Ajukan Pembatalan dengan
-            // catatan biru "tidak akan mengurangi kuota", TANPA kena cek kuota
-            // habis sama sekali walau kuota di atas sudah kepakai 2/3. Lihat
-            // JadwalPage.batalEntry & openBatalPengajuan.
-            { id: 'seed_acc_bekas_resejuel', tanggal: _todayIso(5), slotId: 'slot2', materiId: 'tkp', tentorId: 'raffi', status: 'acc', freeCancelEligible: true, createdAt: Date.now() - 5000000 },
-            // pengajuan_batal_tentor -> tombol "Cek" (buka halaman fullscreen
-            // resume + alasan tentor, lihat JadwalPage.bukaBatalTentor), lalu
-            // Setuju/Tolak. Contoh 1: TOLAK di kartu ini akan menemukan tentor
-            // pengganti yang cocok (ANGGA: materi ALL & punya slot6), jadi
-            // otomatis diajukan ulang ke ANGGA, bukan menunggu tanpa tentor.
-            { id: 'seed_batal_tentor1', tanggal: _todayIso(1), slotId: 'slot6', materiId: 'tkp', tentorId: 'raffi', status: 'pengajuan_batal_tentor', alasanBatalTentor: 'Tentor ada acara keluarga mendadak', createdAt: Date.now() - 4000000 },
-            // Contoh 2: TOLAK di kartu ini TIDAK akan menemukan tentor pengganti
-            // (kombinasi materi TWK & slot3 tidak dicover tentor mana pun selain
-            // ANGGA sendiri) -> jadi tetap "menunggu" tanpa tentor (tentorId
-            // null) sampai ada tentor yang cocok nanti.
-            { id: 'seed_batal_tentor2', tanggal: _todayIso(6), slotId: 'slot3', materiId: 'twk', tentorId: 'angga', status: 'pengajuan_batal_tentor', alasanBatalTentor: 'Tentor sedang sakit', createdAt: Date.now() - 3000000 },
-            // butuh_persetujuan -> jadwal LAMA (acc) yang masih berlaku, tapi
-            // user sempat mulai ajukan jadwal ulang lalu KELUAR sebelum
-            // selesai (lihat JadwalPage.confirmKeluarAjukan). Tombol "Cek"
-            // balikin ke form Jadwal Ulang yang sama buat nerusin
-            // (JadwalPage.cekButuhPersetujuan), "Batal" buka pilihan
-            // batalkan-jadwal-ulang-saja atau batalkan-jadwalnya-sekalian
-            // (JadwalPage.openBatalPilihan).
-            { id: 'seed_butuh_persetujuan', tanggal: _todayIso(2), slotId: 'slot5', materiId: 'tiu', tentorId: 'pram', status: 'butuh_persetujuan', createdAt: Date.now() - 2000000 },
-        ];
-        localStorage.setItem(KEY, JSON.stringify(arr));
-        return arr;
+    function _genId() { return 'JDS' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase(); }
+    // Shell user sudah punya apiFetch/apiPost/apiPut sendiri (beda dari
+    // js/api.js yang cuma dipakai admin panel) dan SUDAH throw Error yang
+    // benar kalau respons gagal — jadi JadwalStore tinggal pakai itu langsung.
+    async function _jdwApiGetAll() { return await apiFetch('/jadwal-sesi') || []; }
+    async function _jdwApiGetMeta() { try { return await apiFetch('/jadwal-meta'); } catch (e) { return { tentor: [] }; } }
+    async function _jdwApiCreate(body) { return await apiPost('/jadwal-sesi', body); }
+    async function _jdwApiUpdate(id, body) { return await apiPut('/jadwal-sesi/' + id, body); }
+    async function _jdwApiDelete(id) { return await apiFetch('/jadwal-sesi/' + id, { method: 'DELETE' }); }
+
+    async function _bootstrap() {
+        try {
+            const [rows, meta] = await Promise.all([
+                _jdwApiGetAll(),
+                _jdwApiGetMeta()
+            ]);
+            _cache = (rows || []).map(_fromApi);
+            if (meta && Array.isArray(meta.tentor) && meta.tentor.length) JDW_TENTOR = meta.tentor;
+            if (meta && Array.isArray(meta.statusSlotKosong) && meta.statusSlotKosong.length) JDW_STATUS_SLOT_KOSONG = meta.statusSlotKosong;
+        } catch (e) {
+            console.error('[JADWAL] Gagal memuat data dari server:', e.message);
+            showToast('Gagal memuat data jadwal dari server: ' + e.message);
+            _cache = [];
+        }
+        _ready = true;
     }
-    function _load() {
-        if (_cache) return _cache;
-        try { _cache = JSON.parse(localStorage.getItem(KEY)); } catch (e) { _cache = null; }
-        if (!Array.isArray(_cache)) _cache = _seed();
-        return _cache;
-    }
-    function _save() { try { localStorage.setItem(KEY, JSON.stringify(_cache)); } catch (e) {} }
 
     return {
-        all() { return _load().slice(); },
-        byDate(tanggal) { return _load().filter(j => j.tanggal === tanggal); },
-        get(id) { return _load().find(j => j.id === id) || null; },
+        // Dipanggil shell SEBELUM loadJadwal()/renderBahas()/loadLaporan() —
+        // idempotent, aman dipanggil berkali-kali (fetch beneran cuma sekali).
+        ready() { if (!_readyPromise) _readyPromise = _bootstrap(); return _readyPromise; },
+        isReady() { return _ready; },
+        all() { return _cache.slice(); },
+        byDate(tanggal) { return _cache.filter(j => j.tanggal === tanggal); },
+        get(id) { return _cache.find(j => j.id === id) || null; },
         add(entry) {
-            const arr = _load();
-            const item = Object.assign({ id: 'jdw_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), status: 'pending', createdAt: Date.now() }, entry);
-            arr.push(item);
-            _save();
+            const item = Object.assign({ id: _genId(), status: 'pending', createdAt: Date.now() }, entry);
+            _cache.push(item);
+            const body = Object.assign({ kode: item.id }, _toApiBody(item));
+            _jdwApiCreate(body).then(row => {
+                const idx = _cache.findIndex(j => j.id === item.id);
+                if (idx >= 0 && row) Object.assign(_cache[idx], _fromApi(row));
+            }).catch(e => {
+                console.error('[JADWAL] Gagal menyimpan pengajuan ke server:', e.message);
+                showToast('Gagal menyimpan ke server: ' + e.message);
+                const idx = _cache.findIndex(j => j.id === item.id);
+                if (idx >= 0) _cache.splice(idx, 1);
+                if (typeof _jdwRenderStatusList === 'function') _jdwRenderStatusList();
+                if (typeof _jdwRenderWeek === 'function') _jdwRenderWeek();
+            });
             return item;
         },
         update(id, patch) {
-            const arr = _load();
-            const idx = arr.findIndex(j => j.id === id);
+            const idx = _cache.findIndex(j => j.id === id);
             if (idx < 0) return null;
-            arr[idx] = Object.assign({}, arr[idx], patch);
-            _save();
-            return arr[idx];
+            const before = Object.assign({}, _cache[idx]);
+            _cache[idx] = Object.assign({}, _cache[idx], patch);
+            const body = _toApiBody(patch);
+            _jdwApiUpdate(id, body).then(row => {
+                const i2 = _cache.findIndex(j => j.id === id);
+                if (i2 >= 0 && row) Object.assign(_cache[i2], _fromApi(row));
+            }).catch(e => {
+                console.error('[JADWAL] Gagal menyimpan perubahan ke server:', e.message);
+                showToast('Gagal menyimpan perubahan ke server: ' + e.message);
+                const i2 = _cache.findIndex(j => j.id === id);
+                if (i2 >= 0) _cache[i2] = before;
+                if (typeof _jdwRenderStatusList === 'function') _jdwRenderStatusList();
+                if (typeof _jdwRenderWeek === 'function') _jdwRenderWeek();
+            });
+            return _cache[idx];
         },
         remove(id) {
-            const arr = _load();
-            const idx = arr.findIndex(j => j.id === id);
+            const idx = _cache.findIndex(j => j.id === id);
             if (idx < 0) return;
-            arr.splice(idx, 1);
-            _save();
+            const removed = _cache[idx];
+            _cache.splice(idx, 1);
+            _jdwApiDelete(id).catch(e => {
+                console.error('[JADWAL] Gagal menghapus di server:', e.message);
+                showToast('Gagal menghapus di server: ' + e.message);
+                _cache.push(removed);
+                if (typeof _jdwRenderStatusList === 'function') _jdwRenderStatusList();
+                if (typeof _jdwRenderWeek === 'function') _jdwRenderWeek();
+            });
+        },
+    };
+})();
+
+// ══════════════════════════════════════════
+// KETERSEDIAAN TENTOR (backend asli, GET /api/guru-ketersediaan/:tentor_id) —
+// jam yang SUDAH dibuka tentor via "Atur Ketersediaan" di sisi guru & belum
+// kepakai. Dicache per tentorId (di-fetch cuma sekali per tentor per sesi
+// halaman, lihat ready()) supaya pindah-pindah slot/tanggal di grid yang sama
+// tidak fetch ulang terus-menerus.
+// ══════════════════════════════════════════
+const GuruAvailStore = (function () {
+    const _cache = {}; // tentorId -> { tanggal: [slotId, ...] }
+    const _promises = {};
+    async function ready(tentorId) {
+        if (!tentorId) return {};
+        if (_cache[tentorId]) return _cache[tentorId];
+        if (!_promises[tentorId]) {
+            _promises[tentorId] = apiFetch('/guru-ketersediaan/' + encodeURIComponent(tentorId))
+                .then(map => { _cache[tentorId] = map || {}; return _cache[tentorId]; })
+                .catch(e => { console.error('[JADWAL] Gagal memuat ketersediaan tentor:', e.message); _cache[tentorId] = {}; return _cache[tentorId]; });
+        }
+        return _promises[tentorId];
+    }
+    return {
+        ready,
+        isLoaded(tentorId) { return !!_cache[tentorId]; },
+        // Sinkron (dipanggil dari render, harus sudah di-ready()-kan duluan) —
+        // balikin [] kalau belum sempat kefetch, tidak ngeblok render.
+        getByDate(tentorId, tanggal) {
+            const m = _cache[tentorId];
+            return (m && m[tanggal]) || [];
+        },
+        isSlotAvailable(tentorId, tanggal, slotId) {
+            return this.getByDate(tentorId, tanggal).includes(slotId);
+        },
+    };
+})();
+
+// ══════════════════════════════════════════
+// REQUEST MURID KE JAM TERSEDIA (backend asli: POST/GET/DELETE
+// /api/guru-request) — dipakai tombol "Minta Jam Ini" di grid Ajukan Jadwal
+// begitu slot yang dipilih adalah jam yang sudah dibuka tentor
+// (GuruAvailStore). Beda dari JadwalStore/jadwal_sesi: baris di sini BUKAN
+// jadwal final, cuma antrean permintaan — baru jadi entri jadwal_sesi asli
+// (status 'acc') begitu guru TERIMA (lihat review/jadwal/jadwal.js).
+const GuruMyRequestStore = (function () {
+    let _cache = [];
+    let _readyPromise = null;
+    async function _bootstrap() {
+        try { _cache = await apiFetch('/guru-request/mine') || []; }
+        catch (e) { console.error('[JADWAL] Gagal memuat permintaan jam:', e.message); _cache = []; }
+    }
+    return {
+        ready() { if (!_readyPromise) _readyPromise = _bootstrap(); return _readyPromise; },
+        all() { return _cache.slice(); },
+        findByKey(tentorId, tanggal, slotId) { return _cache.find(r => r.tentorId === tentorId && r.tanggal === tanggal && r.slotId === slotId) || null; },
+        async create(tentorId, tanggal, slotId, materiId) {
+            const row = await apiPost('/guru-request', { tentor_id: tentorId, tanggal, slot_id: slotId, materi_id: materiId || null });
+            _cache.push(row);
+            return row;
+        },
+        async cancel(id) {
+            await apiFetch('/guru-request/' + encodeURIComponent(id), { method: 'DELETE' });
+            _cache = _cache.filter(r => r.id !== id);
         },
     };
 })();
@@ -1006,7 +1078,7 @@ function _jdwStatusListEntriesForDate(iso) {
                 let sudahLewat = iso < todayIso;
                 if (e.status === 'batal' && !sudahLewat) {
                     // Ditimpa pengajuan aktif baru di jam yang sama -> langsung riwayat.
-                    sudahLewat = dateEntries.some(o => o.id !== e.id && o.slotId === e.slotId && o.status !== 'batal' && o.status !== 'ditolak');
+                    sudahLewat = dateEntries.some(o => o.id !== e.id && o.slotId === e.slotId && _jdwSlotMasihTerisi(o.status));
                 }
                 return isRiwayat ? sudahLewat : !sudahLewat;
             }
@@ -1491,6 +1563,12 @@ const JadwalPage = {
         this._renderSlotGrid();
         this._renderMateriGrid();
         this._refreshSubmitBtn();
+        // Mode edit/jadwal-ulang: tentor sudah kepilih dari entri lama (bukan
+        // lewat _applyPickTentor), jadi ketersediaannya perlu di-fetch manual
+        // di sini juga supaya grid jam ke-restrict dengan benar begitu selesai.
+        if (this.pickedTentor) {
+            Promise.all([GuruAvailStore.ready(this.pickedTentor), GuruMyRequestStore.ready()]).then(() => this._renderSlotGrid());
+        }
         const overlay = document.getElementById('jdw-ajukan-overlay');
         overlay.classList.add('open');
         _jdwSyncPageScrollLock();
@@ -1599,7 +1677,7 @@ const JadwalPage = {
         // Jam yang sudah dipakai entri lain (selain yang sedang diedit) di tanggal ini -> dikunci, tidak boleh dobel.
         const takenSlotIds = new Set(
             JadwalStore.byDate(activeDate)
-                .filter(e => e.id !== this.editingId && e.status !== 'ditolak' && e.status !== 'batal')
+                .filter(e => e.id !== this.editingId && _jdwSlotMasihTerisi(e.status))
                 .map(e => e.slotId)
         );
         // Kalau tanggal yang dipilih adalah HARI INI, jam yang jam-mulainya sudah
@@ -1607,18 +1685,59 @@ const JadwalPage = {
         // udah kelewatan.
         const isToday = activeDate === _jdwToIso(new Date());
         const now = new Date();
-        document.getElementById('jdw-slot-grid').innerHTML = JDW_SLOTS.map(s => {
+        const gridWrap = document.getElementById('jdw-slot-grid');
+        // Belum pilih tentor sama sekali -> jam tersedia belum bisa ditentukan
+        // (tiap tentor jadwalnya beda-beda), jangan render grid dulu.
+        if (!this.pickedTentor) {
+            gridWrap.innerHTML = `<div class="jdw-status-day-empty">Pilih tentor dulu untuk melihat jam yang tersedia</div>`;
+            return;
+        }
+        // Ketersediaan tentor ini belum selesai di-fetch (GuruAvailStore) -> tampilkan
+        // status memuat dulu, JANGAN render grid seolah-olah semua jam tidak
+        // tersedia (nanti disusul render ulang otomatis begitu fetch selesai,
+        // lihat _applyPickTentor/openAjukanOverlay).
+        if (!GuruAvailStore.isLoaded(this.pickedTentor)) {
+            gridWrap.innerHTML = `<div class="jdw-status-day-empty">Memuat jam tersedia tentor...</div>`;
+            return;
+        }
+        const availSlotIds = new Set(GuruAvailStore.getByDate(this.pickedTentor, activeDate));
+        gridWrap.innerHTML = JDW_SLOTS.map(s => {
             const taken = takenSlotIds.has(s.id);
             const past = isToday && (() => { const start = _jdwSlotStartDate(activeDate, s.id); return start && start <= now; })();
             const tentorBlocked = !_jdwTentorAllowsSlot(this.pickedTentor, s.id);
-            const disabled = taken || past || tentorBlocked;
+            const myReq = GuruMyRequestStore.findByKey(this.pickedTentor, activeDate, s.id);
+            // Jam yang BELUM dibuka tentor ini (GuruAvailStore) TIDAK BISA dipilih
+            // sama sekali — jadwal tiap tentor beda-beda, jadi jam pilihan murid
+            // dibatasi ketat ke jam yang tentor itu sendiri sudah buka.
+            const notAvail = !availSlotIds.has(s.id) && !myReq;
+            const disabled = taken || past || tentorBlocked || notAvail || !!myReq;
             const selected = this.pickedSlot === s.id;
-            const tag = taken ? ' <small>(terisi)</small>' : (past ? ' <small>(sudah lewat)</small>' : (tentorBlocked ? ' <small>(sudah terisi)</small>' : ''));
-            return `<div class="jdw-chip${selected ? ' selected' : ''}${disabled ? ' disabled' : ''}" ${disabled ? '' : `onclick="JadwalPage.pickSlot('${s.id}')"`}>
+            let tag = '';
+            if (taken) tag = ' <small>(terisi)</small>';
+            else if (past) tag = ' <small>(sudah lewat)</small>';
+            else if (myReq) tag = ' <small class="jdw-chip-tag-waiting">(menunggu guru)</small>';
+            else if (notAvail) tag = ' <small>(tentor belum buka jam ini)</small>';
+            else if (tentorBlocked) tag = ' <small>(sudah terisi)</small>';
+            const clickAttr = myReq ? `onclick="JadwalPage.batalkanPermintaanJam('${myReq.id}')"` : (disabled ? '' : `onclick="JadwalPage.pickSlot('${s.id}')"`);
+            return `<div class="jdw-chip${selected ? ' selected' : ''}${disabled ? ' disabled' : ''}" ${clickAttr}>
                 <span>${s.label}${tag}</span>
                 <span class="jdw-chip-check"></span>
             </div>`;
         }).join('');
+    },
+    // Tap chip "(menunggu guru)" -> tawarkan batalkan permintaan yang sudah
+    // terlanjur dikirim (GuruMyRequestStore), supaya slotnya lepas lagi &
+    // murid bisa ajukan ke jam lain.
+    batalkanPermintaanJam(reqId) {
+        showConfirm('Batalkan Permintaan?', 'Permintaan jam ini ke guru akan dibatalkan.', 'warning', async () => {
+            try {
+                await GuruMyRequestStore.cancel(reqId);
+                showToast('✓ Permintaan dibatalkan');
+                this._renderSlotGrid();
+            } catch (e) {
+                showToast('Gagal membatalkan: ' + e.message);
+            }
+        }, { yesLabel: 'Ya, Batalkan' });
     },
     /* ── Box "Pilih Tentor" di halaman Ajukan Jadwal — nampilin placeholder
        "+ Pilih Tentor" kalau belum kepilih, atau kartu nama tentor + materi
@@ -1741,6 +1860,20 @@ const JadwalPage = {
         this._refreshSubmitBtn();
         this.closeTentorOverlay();
         _jdwSaveState();
+        // Jam yang boleh dipilih (grid Pilih Jam) ditentukan ketersediaan tentor
+        // ini (GuruAvailStore) — fetch di background; _renderSlotGrid di atas
+        // sudah tampilkan status "Memuat..." duluan, disusul grid asli (jam yang
+        // TIDAK dibuka tentor ini otomatis terkunci) begitu fetch selesai.
+        Promise.all([GuruAvailStore.ready(id), GuruMyRequestStore.ready()]).then(() => {
+            // Jaga-jaga: jam yang sempat kepilih (mis. dibawa dari
+            // openAjukanGantiSetelahBatalTentor) ternyata bukan jam yang
+            // available buat tentor BARU ini -> lepas lagi.
+            if (this.pickedTentor === id && this.pickedSlot && !GuruAvailStore.isSlotAvailable(id, this._activeDate(), this.pickedSlot)) {
+                this.pickedSlot = null;
+                this._refreshSubmitBtn();
+            }
+            this._renderSlotGrid();
+        });
     },
     /* ── Popup konfirmasi "Yakin Ganti Tentor?" — dipicu dari pickTentor() di
        atas SEBELUM tentor beneran diganti. "Ya" -> tentor diganti (lewat
@@ -1872,7 +2005,7 @@ const JadwalPage = {
         // Kalau jam yang sebelumnya kepilih ternyata sudah "terisi" di tanggal
         // baru ini, lepas pilihan jam itu -> user wajib pilih ulang jamnya.
         const takenSlotIds = new Set(
-            JadwalStore.byDate(iso).filter(e => e.id !== this.editingId && e.status !== 'ditolak' && e.status !== 'batal').map(e => e.slotId)
+            JadwalStore.byDate(iso).filter(e => e.id !== this.editingId && _jdwSlotMasihTerisi(e.status)).map(e => e.slotId)
         );
         if (this.pickedSlot && takenSlotIds.has(this.pickedSlot)) this.pickedSlot = null;
         this._renderRescheduleCalendar();
@@ -1916,7 +2049,7 @@ const JadwalPage = {
         }
         btn.disabled = !ok;
     },
-    submitAjukan() {
+    async submitAjukan() {
         if (!this.pickedTentor || !this.pickedSlot || !this.pickedMateri) return;
         // Simulasi race-condition ala server: cek ULANG persis saat mau submit (bukan
         // cuma pas grid dirender tadi) apakah jam+tanggal ini KEBURU diambil pengajuan
@@ -1924,7 +2057,7 @@ const JadwalPage = {
         // sudah bukan "ditolak" lagi di JadwalStore).
         const targetDate = this._activeDate();
         const raceLost = JadwalStore.byDate(targetDate).some(e =>
-            e.id !== this.editingId && e.slotId === this.pickedSlot && e.status !== 'ditolak' && e.status !== 'batal'
+            e.id !== this.editingId && e.slotId === this.pickedSlot && _jdwSlotMasihTerisi(e.status)
         );
         if (this.editingId) {
             const existing = JadwalStore.get(this.editingId);
@@ -1996,9 +2129,45 @@ const JadwalPage = {
                     showToast('✓ Pengajuan jadwal diperbarui');
                 }
             }
+        } else if (!raceLost && GuruAvailStore.isSlotAvailable(this.pickedTentor, this.selectedDate, this.pickedSlot)) {
+            // Jam ini SUDAH dibuka tentor (GuruAvailStore) -> kirim sebagai
+            // "Minta Jam Ini" (antrean guru_ketersediaan_request), BUKAN
+            // langsung bikin entri jadwal_sesi 'pending' — guru yang terima
+            // lewat List Request/Instant Pick/Smart Selection.
+            try {
+                await GuruMyRequestStore.create(this.pickedTentor, this.selectedDate, this.pickedSlot, this.pickedMateri);
+                showToast('✓ Permintaan jam terkirim, menunggu konfirmasi guru');
+            } catch (e) {
+                showToast('✗ ' + e.message);
+            }
+        } else if (raceLost) {
+            JadwalStore.add({ tanggal: this.selectedDate, slotId: this.pickedSlot, materiId: this.pickedMateri, tentorId: this.pickedTentor, status: 'ditolak' });
+            showToast('✗ Jam ini baru saja diambil orang lain, pengajuan otomatis ditolak');
+        } else if (GuruAvailStore.isSlotAvailable(this.pickedTentor, this.selectedDate, this.pickedSlot)) {
+            // Jam ini sudah dibuka tentor (GuruAvailStore) -> SATU-SATUNYA jalur
+            // pengajuan baru sekarang, kirim sebagai "Minta Jam Ini" (antrean
+            // guru_ketersediaan_request), BUKAN langsung bikin entri jadwal_sesi
+            // 'pending' — guru yang terima lewat List Request/Instant Pick/Smart
+            // Selection. Jam yang tentor BELUM buka sudah tidak bisa dipilih sama
+            // sekali di grid (lihat _renderSlotGrid), jadi baris ini normalnya
+            // SELALU yang kepakai untuk pengajuan baru.
+            try {
+                await GuruMyRequestStore.create(this.pickedTentor, this.selectedDate, this.pickedSlot, this.pickedMateri);
+                showToast('✓ Permintaan jam terkirim, menunggu konfirmasi guru');
+            } catch (e) {
+                showToast('✗ ' + e.message);
+                this._renderSlotGrid();
+                return; // gagal kirim (mis. keburu diminta murid lain) -> biarkan form tetap terbuka
+            }
         } else {
-            JadwalStore.add({ tanggal: this.selectedDate, slotId: this.pickedSlot, materiId: this.pickedMateri, tentorId: this.pickedTentor, status: raceLost ? 'ditolak' : 'pending' });
-            showToast(raceLost ? '✗ Jam ini baru saja diambil orang lain, pengajuan otomatis ditolak' : '✓ Jadwal berhasil diajukan');
+            // Race langka: guru baru saja menutup ketersediaan jam ini persis
+            // saat mau submit (antara render grid & tombol ditekan) -> jangan
+            // dipaksa jadi pengajuan langsung, minta user pilih jam lain.
+            showToast('✗ Guru baru saja menutup jam ini, silakan pilih jam lain');
+            this.pickedSlot = null;
+            this._renderSlotGrid();
+            this._refreshSubmitBtn();
+            return;
         }
         this.closeAjukanOverlay();
         _jdwRenderWeek();

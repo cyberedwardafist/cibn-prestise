@@ -765,6 +765,10 @@
     .jdw-chip.selected { border-color:var(--accent); background:rgba(26,90,160,.08); color:var(--accent); }
     .jdw-chip.disabled { opacity:.45; cursor:not-allowed; }
     .jdw-chip.disabled small { color:var(--text-sub); font-weight:600; }
+    .jdw-chip-tag-avail { color:#1a8f4c !important; font-weight:700; }
+    .jdw-chip-tag-waiting { color:#b8860b !important; font-weight:700; }
+    .jdw-chip.disabled small.jdw-chip-tag-waiting { color:#b8860b !important; opacity:1; }
+    .jdw-chip.disabled:has(small.jdw-chip-tag-waiting) { cursor:pointer; opacity:.75; }
     .jdw-chip-check { width:18px; height:18px; border-radius:50%; border:1.5px solid rgba(19,50,89,.2); flex-shrink:0; position:relative; }
     .jdw-chip.selected .jdw-chip-check { border-color:var(--accent); background:var(--accent); }
     .jdw-chip.selected .jdw-chip-check::after { content:''; position:absolute; top:4px; left:4px; width:8px; height:8px; border-radius:50%; background:#fff; }
@@ -1411,10 +1415,15 @@ function goPage(pageId) {
         try { localStorage.setItem('cbn_user_lastpage', pageId); } catch(e) {}
     }
     ensureUserPageModule(pageId).then(() => {
-        if (pageId === 'riwayat') loadRiwayat();
-        if (pageId === 'home') loadHome();
-        if (pageId === 'jadwal') loadJadwal();
-        if (pageId === 'ebook') EbookLib.load();
+        // Tab Jadwal butuh JadwalStore (backend asli, lihat user/jadwal/jadwal.js)
+        // sudah kelar fetch dulu sebelum loadJadwal() merender apa pun.
+        const ready = (pageId === 'jadwal' && typeof JadwalStore !== 'undefined') ? JadwalStore.ready() : Promise.resolve();
+        return ready.then(() => {
+            if (pageId === 'riwayat') loadRiwayat();
+            if (pageId === 'home') loadHome();
+            if (pageId === 'jadwal') loadJadwal();
+            if (pageId === 'ebook') EbookLib.load();
+        });
     }).catch(err => {
         console.error('[lazy-load] Gagal memuat modul halaman "'+pageId+'":', err);
         showToast('Gagal memuat halaman ini, coba muat ulang');

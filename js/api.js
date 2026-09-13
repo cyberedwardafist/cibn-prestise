@@ -361,15 +361,20 @@ const ManagementAPI = {
     async testEmail(to) { return await apiFetch('/pengaturan/integrasi/test-email', { method: 'POST', body: JSON.stringify({ to }) }); }
 };
 
-// ── JADWAL SESI API (sesi kelas nyata di server — sumber data pengingat email
-// H-1/kelas-dimulai, lihat lib/kelas-reminder.js. BELUM dipakai oleh UI Jadwal
-// user/review yang sekarang masih localStorage/JadwalStore — disiapkan lebih
-// dulu di sini supaya siap dipakai begitu JadwalStore dimigrasikan.) ──
+// ── JADWAL SESI API (sesi kelas ASLI di server — dipakai langsung oleh
+// JadwalStore di user/jadwal/jadwal.js & review/jadwal/jadwal.js sebagai
+// backend sungguhan (dulu localStorage), juga sumber data pengingat email
+// H-1/kelas-dimulai (lib/kelas-reminder.js) dan dock BAHAS/LAPORAN akun
+// review (baca lewat JadwalStore yang sama). ──
 const JadwalSesiAPI = {
     async getAll() { return await apiGet('/jadwal-sesi') || []; },
     async create(data) { return await apiPost('/jadwal-sesi', data); },
     async update(kode, data) { return await apiPut(`/jadwal-sesi/${kode}`, data); },
-    async delete(kode) { return await apiDel(`/jadwal-sesi/${kode}`); }
+    async delete(kode) { return await apiDel(`/jadwal-sesi/${kode}`); },
+    // Daftar tentor ASLI (akun review/guru aktif) — pengganti JDW_TENTOR hardcode.
+    async getMeta() { try { return await apiGet('/jadwal-meta'); } catch (e) { return { tentor: [] }; } },
+    // Status ujian real siswa utk 1 sesi (dock BAHAS, dicek on-demand pas tombol diklik).
+    async statusUjian(kode) { return await apiGet(`/jadwal-sesi/${encodeURIComponent(kode)}/status-ujian`); }
 };
 
 // ── EXAM API ──
@@ -382,7 +387,10 @@ const ExamAPI = {
 
 // ── ME API ──
 const MeAPI = {
-    async update(data) { return await apiPut('/me', data); }
+    async update(data) { return await apiPut('/me', data); },
+    // Endpoint terpisah (bukan lewat /me) krn /api/user/password sudah ada duluan
+    // dan dipakai lintas role (user/admin/review) — lihat server.js.
+    async updatePassword(password) { return await apiPut('/user/password', { password }); }
 };
 
 // ── PAYMENT GATEWAY API (Midtrans/Xendit asli) ──

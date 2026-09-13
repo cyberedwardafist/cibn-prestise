@@ -333,6 +333,72 @@ CREATE TABLE IF NOT EXISTS jadwal_sesi (
 CREATE INDEX IF NOT EXISTS idx_jadwal_sesi_user   ON jadwal_sesi(user_kode);
 CREATE INDEX IF NOT EXISTS idx_jadwal_sesi_waktu  ON jadwal_sesi(waktu_mulai);
 CREATE INDEX IF NOT EXISTS idx_jadwal_sesi_status ON jadwal_sesi(status);
+CREATE INDEX IF NOT EXISTS idx_jadwal_sesi_tentor ON jadwal_sesi(tentor_id);
+
+-- Dulu ada CREATE UNIQUE INDEX uniq_jadwal_sesi_slot_aktif di sini
+-- (WHERE status NOT IN ('batal','ditolak')) sebagai penjaga level-DB dari
+-- race condition double-booking. DIHAPUS & diganti pengecekan atomik di
+-- level aplikasi (advisory lock + query, lihat jdwKunciSlot/jdwSlotBentrok
+-- & JDW_STATUS_SLOT_KOSONG di server.js, dipakai POST & PUT
+-- /api/jadwal-sesi) — supaya daftar status "pelepas slot" cuma ada SATU
+-- salinan (array JS itu), bukan dobel dgn index yang hardcode sendiri dan
+-- gampang lupa disinkronkan kalau nanti ada status baru yang juga harus
+-- melepas slot.
+DROP INDEX IF EXISTS uniq_jadwal_sesi_slot_aktif;
+
+-- `meta`: JSON bebas menampung field2 dinamis siklus status Jadwal yang
+-- sebelumnya HANYA tersimpan di localStorage lewat JadwalStore (lihat
+-- review/jadwal/jadwal.js & user/jadwal/jadwal.js) — alasan pembatalan,
+-- data pengajuan jadwal ulang (reschedule/rescheduleMurid), feedback murid,
+-- Laporan Pembelajaran guru (laporanDone/laporanText/laporanFilledAt),
+-- flag kuota (pembatalanDihitung/freeCancelEligible), dst. Kolom utama
+-- (status/tanggal/slot/materi/tentor/dst) TETAP kolom asli biar gampang
+-- di-query/index; field yang jumlahnya banyak & sering bertambah (belasan
+-- status berbeda) digabung ke sini supaya tidak perlu ALTER TABLE setiap
+-- ada status/field baru. Untuk instalasi lama — aman dijalankan berkali-kali.
+ALTER TABLE jadwal_sesi ADD COLUMN IF NOT EXISTS meta TEXT;
+
+-- Ketersediaan tentor (khusus akun review/guru) — dulu GuruKetersediaanStore
+-- di review/jadwal/jadwal.js, dummy localStorage per-browser. 1 baris = 1 jam
+-- (slot_id, lihat JDW_SLOTS di jadwal.js) yang ditandai TERSEDIA oleh tentor
+-- itu pada tanggal itu. Dipakai "Atur Ketersediaan" & Smart Selection.
+CREATE TABLE IF NOT EXISTS guru_ketersediaan (
+    id         SERIAL PRIMARY KEY,
+    tentor_id  TEXT NOT NULL REFERENCES users(kode),
+    tanggal    DATE NOT NULL,
+    slot_id    TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(tentor_id, tanggal, slot_id)
+);
+CREATE INDEX IF NOT EXISTS idx_guru_ketersediaan_tentor ON guru_ketersediaan(tentor_id, tanggal);
+
+-- Request murid masuk ke jam tersedia tentor (dulu GuruRequestStore, dummy
+-- localStorage + 2 baris seed fiktif). Sisi murid sekarang punya tombol
+-- "Minta Jam Ini" di user/jadwal (lihat GuruAvailStore/GuruMyRequestStore di
+-- user/jadwal/jadwal.js) yang POST ke /api/guru-request; sisi guru terima
+-- lewat List Request/Instant Pick/Smart Selection (review/jadwal/jadwal.js).
+CREATE TABLE IF NOT EXISTS guru_ketersediaan_request (
+    id          SERIAL PRIMARY KEY,
+    tentor_id   TEXT NOT NULL REFERENCES users(kode),
+    tanggal     DATE NOT NULL,
+    slot_id     TEXT NOT NULL,
+    user_kode   TEXT NOT NULL REFERENCES users(kode),
+    materi_id   TEXT,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_guru_request_tentor ON guru_ketersediaan_request(tentor_id, tanggal, slot_id);
+
+-- Pengaturan otomasi tentor (Smart Selection / Instant Pick / Cancel
+-- Accepted) — dulu GuruPengaturanStore, dummy localStorage. 1 baris per tentor.
+CREATE TABLE IF NOT EXISTS guru_pengaturan (
+    tentor_id              TEXT PRIMARY KEY REFERENCES users(kode),
+    smart_selection_active BOOLEAN DEFAULT false,
+    smart_selection_days   TEXT,
+    smart_selection_slots  TEXT,
+    instant_pick_active    BOOLEAN DEFAULT false,
+    cancel_accepted_active BOOLEAN DEFAULT false,
+    updated_at             TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE IF NOT EXISTS signup_requests (
     id         SERIAL PRIMARY KEY,

@@ -122,7 +122,7 @@ function renderPage(id, subId) {
         // jadi langsung ReferenceError sebelum sempat cek map[id]. Dengan string +
         // window[...], cuma nama fungsi utk id yang sedang aktif yang di-resolve,
         // dan modul-nya sudah pasti sudah dimuat oleh ensureAdminPageModule di atas.
-        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-materi-detail':'renderAnalisaMateriDetail', 'analisa-grafik':'renderAnalisaGrafik', 'analisa-modul':'renderAnalisaModul', 'analisa-modul-detail':'renderAnalisaModulDetail', 'analisa-modul-sampel':'renderAnalisaModulSampel', management:'renderManagement' };
+        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', 'akun-pengaturan':'renderAkunPengaturan', 'akun-ganti-password':'renderAkunGantiPassword', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-materi-detail':'renderAnalisaMateriDetail', 'analisa-grafik':'renderAnalisaGrafik', 'analisa-modul':'renderAnalisaModul', 'analisa-modul-detail':'renderAnalisaModulDetail', 'analisa-modul-sampel':'renderAnalisaModulSampel', management:'renderManagement' };
         const fn = map[id] && window[map[id]];
         if (typeof fn === 'function') fn();
         if (subId) switchSubPage(id, subId);
@@ -147,6 +147,14 @@ function renderPage(id, subId) {
 const ADMIN_PAGE_MODULES = {
     akun:            { html: 'admin/akun/akun.html',            js: ['admin/akun/akun.js', 'admin/akun/akun-signup.js'], modals: 'admin/akun/akun-modals.html' },
     'akun-admin':    { html: 'admin/akun-admin/akun-admin.html',js: ['admin/akun-admin/akun-admin.js'] },
+    // Pecahan dari 'akun-admin' (dulu 1 halaman/1 file berisi nama+email+
+    // password+keluar sekaligus) — sekarang tiap tombol menu di akun-admin.html
+    // (Pengaturan/Ganti Password) punya halaman & file lazy-load sendiri.
+    // Management pakai lagi entri 'management' yang sudah ada (cuma titik
+    // masuknya dari tombol di akun-admin.html, bukan dock utama lagi). Log Out
+    // tidak butuh entri di sini sama sekali (langsung handleLogout(), tanpa halaman).
+    'akun-pengaturan':      { html: 'admin/akun-admin/akun-pengaturan.html',      js: ['admin/akun-admin/akun-pengaturan.js'] },
+    'akun-ganti-password':  { html: 'admin/akun-admin/akun-ganti-password.html',  js: ['admin/akun-admin/akun-ganti-password.js'] },
     // token butuh admin/cat/laporan.js + shared-export.js juga: modal "detail token
     // terpakai" punya tombol Review yang manggil openReviewLaporan() (didefinisikan
     // di laporan.js), dan tombol unduh di dalamnya butuh shared-export.js.

@@ -22,7 +22,8 @@
          review/jadwal.js) supaya pengajuan pembatalan baru yang nongol
          otomatis ikut disetujui juga.
      Semua state (aktif/tidak + pilihan hari/jam) disimpan di
-     GuruPengaturanStore (localStorage, dummy — lihat review/jadwal.js).
+     GuruPengaturanStore (backend asli, GET/PUT /api/guru-pengaturan — lihat
+     review/jadwal.js & server.js).
      ══════════════════════════════════════════════════════════════════════ -->
 <div class="overlay" id="jdw-pengaturan-overlay" onclick="if(event.target===this){JadwalPage.closePengaturanOverlay();}">
   <div class="modal" style="max-width:420px">

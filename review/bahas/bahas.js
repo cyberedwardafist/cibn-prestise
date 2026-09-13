@@ -8,15 +8,12 @@
 // review/index_review.html.
 //
 // CATATAN STATUS UJIAN (belum mulai / sedang ujian / sudah ada laporan):
-// JadwalStore MASIH dummy (localStorage, lihat catatan panjang di
-// review/jadwal/jadwal.js) dan entrinya BELUM punya userKode/modulKode ASLI
-// yang bisa dicocokkan ke tabel tokens/laporan sungguhan (cuma materiId
-// topik + nama siswa bebas ketik). Jadi status ujian di sini SENGAJA dummy
-// juga (dihitung deterministik dari id entri, lihat _bahasEntryExamStatus/
-// _bahasEntryLaporanKode) — begitu Jadwal sudah tersambung ke akun siswa
-// asli, tinggal ganti isi 2 fungsi itu jadi query API asli (mis. GET
-// /api/tokens/used, dicocokkan user_kode & modul_kode), tanpa perlu ubah
-// UI/alur klik (bahasHandleClick -> openReviewUjian) sama sekali.
+// JadwalStore sekarang sudah nyambung ke data ASLI (lihat review/jadwal/jadwal.js),
+// tapi sistem belum menyimpan modul_kode eksplisit per sesi mentoring, jadi
+// dipakai heuristik REAL di server (GET /api/jadwal-sesi/:kode/status-ujian,
+// lihat server.js): laporan siswa itu yang dibuat SEJAK jam mulai sesi ini
+// dianggap hasil ujian dari sesi ini. Dicek 1x on-demand PAS tombol BAHAS
+// diklik (bukan polling terus-menerus) — lihat bahasHandleClick.
 
 const BAHAS_THRESHOLD_MENIT = 15; // seberapa dekat ke jam mulai baru kartu ini muncul
 
@@ -63,18 +60,22 @@ function _bahasFindEntry() {
     return best;
 }
 
-/* ── DUMMY status ujian siswa (lihat catatan panjang di atas file) ── */
-function _bahasEntryExamStatus(e) {
-    if (e.examStatus) return e.examStatus;
-    const cycle = ['belum', 'sedang', 'selesai'];
-    let hash = 0;
-    const seed = e.id + '-examstatus';
-    for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-    return cycle[hash % cycle.length];
-}
-function _bahasEntryLaporanKode(e) {
-    if (e.laporanKode) return e.laporanKode;
-    return _jdwPseudoCode(e.id + '-laporan', 'LAPxxx');
+/* ── Status ujian REAL siswa, dicek on-demand ke server (lihat catatan di
+   atas file) — dipakai bahasHandleClick, BUKAN dipanggil terus-menerus. ── */
+async function _bahasEntryStatusUjian(e) {
+    try {
+        // apiFetch bawaan shell review tidak throw kalau respons gagal, jadi
+        // di sini fetch() langsung + getAuthHeaders() (sudah ada global dari
+        // index_review.html) dengan pengecekan res.ok sendiri.
+        const res = await fetch(API_BASE + '/jadwal-sesi/' + encodeURIComponent(e.id) + '/status-ujian', { headers: getAuthHeaders() });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error((data && data.error) || ('Error ' + res.status));
+        return data || { status: 'belum' };
+    } catch (err) {
+        console.error('[BAHAS] Gagal mengecek status ujian:', err.message);
+        showToast('Gagal mengecek status ujian: ' + err.message, 'danger');
+        return { status: 'belum' };
+    }
 }
 
 function _bahasFmtCountdown(startDate) {
@@ -125,23 +126,23 @@ function renderBahas() {
 // dengan tombol "Review" di tab Riwayat (openReviewUjian), otomatis pakai
 // laporan hasil ujian sesi ini tanpa guru perlu cari manual.
 //
-// CATATAN ARAH KE DEPAN: begitu backend beneran sudah nyambung, cek
-// "selesai" idealnya BUKAN client yang nebak/nanya berulang, tapi SERVER
-// yang kasih tahu (mis. laporan.created_at nongol lewat notifikasi/event
-// begitu peserta submit ujian dari token itu) — jadi 1x query on-demand pas
-// diklik ini sudah cukup & tetap konsisten dgn prinsip "jangan polling".
-function bahasHandleClick(entryId) {
+// Query on-demand ke server PAS tombol ini diklik (bukan polling terus-
+// menerus di background) — lihat _bahasEntryStatusUjian.
+async function bahasHandleClick(entryId) {
     const e = JadwalStore.get(entryId);
     if (!e) return;
-    const status = _bahasEntryExamStatus(e);
-    if (status === 'belum') {
+    const btn = document.getElementById('bahas-btn');
+    if (btn) btn.disabled = true;
+    const hasil = await _bahasEntryStatusUjian(e);
+    if (btn) btn.disabled = false;
+    if (hasil.status === 'belum') {
         showToast('Maaf, data belum tersedia karena user belum memulai ujian.', 'danger');
         return;
     }
-    if (status === 'sedang') {
+    if (hasil.status === 'sedang') {
         showToast('Maaf, data belum tersedia, user sedang ujian.', 'danger');
         return;
     }
     const materi = JDW_MATERI.find(m => m.id === e.materiId);
-    openReviewUjian(_bahasEntryLaporanKode(e), materi ? materi.label : 'Ujian', e.nama || 'Murid');
+    openReviewUjian(hasil.laporan_kode, materi ? materi.label : 'Ujian', e.nama || 'Murid');
 }
