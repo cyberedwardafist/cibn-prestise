@@ -934,14 +934,14 @@ function _jdwSlotEndDate(tanggal, slotId) {
 // overlay-overlay itu masih "open", baru dilepas begitu semuanya ketutup
 // (bukan asal unlock di tiap close, soalnya Pilih Tentor bisa numpuk KE ATAS
 // overlay Ajukan yang masih terbuka di belakangnya).
-const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 'jdw-sesi-overlay', 'jdw-resejuel-overlay', 'jdw-batal-tentor-overlay', 'jdw-batal-murid-overlay', 'jdw-resejuel-murid-overlay'];
+const JDW_FULLSCREEN_OVERLAY_IDS = ['jdw-ajukan-overlay', 'jdw-tentor-overlay', 'jdw-sesi-overlay', 'jdw-resejuel-overlay', 'jdw-batal-tentor-overlay', 'jdw-batal-murid-overlay', 'jdw-resejuel-murid-overlay', 'jdw-request-overlay'];
 // jdw-batal-overlay & jdw-lewat-overlay ikut dikunci juga (backdrop-nya blur
 // transparan, bukan solid, jadi tidak menghasilkan tampilan 2 scrollbar
 // bertumpuk yang sama parahnya kayak overlay fullscreen di atas) TAPI
 // #page-jadwal di baliknya tetap ikut dikunci scroll-nya biar konsisten -
 // tidak masuk akal halaman di belakang masih bisa discroll pas ada dialog
 // konfirmasi kecil nongol di tengah layar.
-const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-tarikbataltentor-overlay', 'jdw-tarikresejuel-overlay', 'jdw-lewat-overlay', 'jdw-tolak-ajukan-overlay', 'jdw-keluar-ajukan-overlay', 'jdw-batal-pilihan-overlay', 'jdw-reschedule-harih-overlay', 'jdw-batal-kuota-habis-overlay', 'jdw-tentor-ganti-confirm-overlay', 'jdw-tentor-ganti-terpakai-overlay', 'jdw-batal-tentor-setuju-overlay'];
+const JDW_SCROLL_LOCK_OVERLAY_IDS = [...JDW_FULLSCREEN_OVERLAY_IDS, 'jdw-batal-overlay', 'jdw-tarikbatal-overlay', 'jdw-tarikbataltentor-overlay', 'jdw-tarikresejuel-overlay', 'jdw-lewat-overlay', 'jdw-tolak-ajukan-overlay', 'jdw-keluar-ajukan-overlay', 'jdw-batal-pilihan-overlay', 'jdw-reschedule-harih-overlay', 'jdw-batal-kuota-habis-overlay', 'jdw-tentor-ganti-confirm-overlay', 'jdw-tentor-ganti-terpakai-overlay', 'jdw-batal-tentor-setuju-overlay', 'jdw-pengaturan-overlay'];
 // Ada popup/overlay APAPUN di halaman Jadwal yang lagi kebuka (dialog kecil
 // maupun fullscreen, semuanya sudah kedaftar di JDW_SCROLL_LOCK_OVERLAY_IDS
 // di atas) -> dipakai buat nahan render kalender/list minggu di BELAKANG
