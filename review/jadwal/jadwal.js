@@ -371,6 +371,25 @@ const GuruKetersediaanStore = (function () {
         ready() { if (!_readyPromise) _readyPromise = _bootstrap(); return _readyPromise; },
         isReady() { return _ready; },
         getByDate(tanggal) { return (_cache[tanggal] || []).slice(); },
+        // BUG LAMA (penyebab "jam tersedia hilang sendiri"): setByDate()
+        // ganti SELURUH array jam tanggal itu sekaligus (PUT full-replace,
+        // server DELETE semua baris tanggal itu lalu INSERT ulang array yang
+        // dikirim). Kalau ADA 2 operasi yang nyaris bersamaan menyentuh
+        // tanggal yang SAMA (mis. 2 request murid diterima berurutan cepat,
+        // atau Terima Request manual berbarengan dgn Instant Pick yang ikut
+        // auto-jalan di render berikutnya, lihat _jdwApplyInstantPick), tiap
+        // operasi menghitung array "sisa"-nya sendiri dari cache lokal lalu
+        // kirim PUT masing2 — begitu 2 PUT itu sampai/selesai diproses server
+        // TIDAK BERURUTAN (network/DB race, tidak selalu sesuai urutan
+        // dikirim), PUT yang berisi array LEBIH LAMA/PENDEK bisa menimpa &
+        // menghapus jam yang sudah benar dari PUT lain — walau masing2
+        // request sendiri SUKSES (makanya tidak ada error di console). Fix:
+        // jangan pernah kirim ulang SELURUH array jam tanggal itu untuk
+        // sekadar tambah/hapus 1 jam — pakai addSlot/removeSlot di bawah,
+        // yang cuma INSERT/DELETE 1 baris spesifik (tanggal+slotId) di
+        // server, jadi 2+ operasi yang tumpang tindih di tanggal yang sama
+        // masing2 cuma menyentuh baris miliknya sendiri dan tidak bisa saling
+        // menimpa lagi, seberapa pun urutan selesainya di server.
         setByDate(tanggal, slotIds) {
             const before = (_cache[tanggal] || []).slice();
             if (slotIds && slotIds.length) _cache[tanggal] = slotIds.slice();
@@ -380,6 +399,44 @@ const GuruKetersediaanStore = (function () {
                     console.error('[JADWAL] Gagal menyimpan ketersediaan ke server:', e.message);
                     showToast('Gagal menyimpan ketersediaan ke server: ' + e.message, 'danger');
                     if (before.length) _cache[tanggal] = before; else delete _cache[tanggal];
+                    if (typeof _jdwRenderStatusList === 'function') _jdwRenderStatusList();
+                    if (typeof _jdwRenderWeek === 'function') _jdwRenderWeek();
+                });
+        },
+        // Tambah SATU jam tersedia (idempotent, no-op kalau sudah ada) —
+        // aman dijalankan bersamaan dgn addSlot/removeSlot lain di tanggal
+        // yang sama karena cuma INSERT 1 baris spesifik di server (lihat
+        // komentar setByDate di atas soal race full-replace lama).
+        addSlot(tanggal, slotId) {
+            const cur = _cache[tanggal] || [];
+            if (cur.includes(slotId)) return;
+            _cache[tanggal] = cur.concat([slotId]);
+            _jdwApiRequest('/guru-ketersediaan/' + tanggal + '/' + encodeURIComponent(slotId), { method: 'POST' })
+                .catch(e => {
+                    console.error('[JADWAL] Gagal menambah ketersediaan ke server:', e.message);
+                    showToast('Gagal menambah ketersediaan ke server: ' + e.message, 'danger');
+                    _cache[tanggal] = (_cache[tanggal] || []).filter(id => id !== slotId);
+                    if (!_cache[tanggal].length) delete _cache[tanggal];
+                    if (typeof _jdwRenderStatusList === 'function') _jdwRenderStatusList();
+                    if (typeof _jdwRenderWeek === 'function') _jdwRenderWeek();
+                });
+        },
+        // Hapus SATU jam tersedia (idempotent, no-op kalau sudah tidak ada)
+        // — dipakai tiap kali cuma 1 jam yang perlu dilepas (Terima Request,
+        // Instant Pick, tombol HAPUS), GANTI TOTAL cara lama (getByDate lalu
+        // filter lalu setByDate array penuh) yang jadi sumber bug jam
+        // tersedia lain ikut hilang — lihat komentar setByDate di atas.
+        removeSlot(tanggal, slotId) {
+            const cur = _cache[tanggal] || [];
+            if (!cur.includes(slotId)) return;
+            _cache[tanggal] = cur.filter(id => id !== slotId);
+            if (!_cache[tanggal].length) delete _cache[tanggal];
+            _jdwApiRequest('/guru-ketersediaan/' + tanggal + '/' + encodeURIComponent(slotId), { method: 'DELETE' })
+                .catch(e => {
+                    console.error('[JADWAL] Gagal menghapus ketersediaan di server:', e.message);
+                    showToast('Gagal menghapus ketersediaan di server: ' + e.message, 'danger');
+                    const restored = (_cache[tanggal] || []);
+                    if (!restored.includes(slotId)) _cache[tanggal] = restored.concat([slotId]);
                     if (typeof _jdwRenderStatusList === 'function') _jdwRenderStatusList();
                     if (typeof _jdwRenderWeek === 'function') _jdwRenderWeek();
                 });
@@ -515,9 +572,9 @@ function _jdwApplySmartSelection() {
             : cfg.smartSelectionSlots;
         if (!slotsToApply.length) continue;
         const existing = GuruKetersediaanStore.getByDate(iso);
-        const merged = Array.from(new Set([...existing, ...slotsToApply]));
-        if (merged.length !== existing.length) {
-            GuruKetersediaanStore.setByDate(iso, merged);
+        const toAdd = slotsToApply.filter(slotId => !existing.includes(slotId));
+        if (toAdd.length) {
+            toAdd.forEach(slotId => GuruKetersediaanStore.addSlot(iso, slotId));
             changed++;
         }
     }
@@ -549,8 +606,7 @@ function _jdwApplyInstantPick() {
             // ke backend beneran (POST /api/jadwal-sesi menolak tentor_id kosong).
             JadwalStore.add({ tanggal: iso, slotId, materiId: picked.materiId, tentorId: (getMe() && getMe().kode) || null, status: 'acc', nama: picked.nama, userKode: picked.userKode });
             GuruRequestStore.removeByKey(iso, slotId);
-            const sisa = GuruKetersediaanStore.getByDate(iso).filter(id => id !== slotId);
-            GuruKetersediaanStore.setByDate(iso, sisa);
+            GuruKetersediaanStore.removeSlot(iso, slotId);
             accepted++;
         });
     });
@@ -2620,7 +2676,17 @@ const JadwalPage = {
        condition, cuma nyimpen daftar jam tersedia utk tanggal ini. ── */
     _submitKetersediaan() {
         const targetDate = this._activeDate();
-        GuruKetersediaanStore.setByDate(targetDate, this.pickedSlotsGuru);
+        // Kirim SELISIHNYA saja (tambah/hapus per jam), BUKAN timpa seluruh
+        // array tanggal ini sekaligus — kalau dikirim full-array, form ini
+        // bisa kebuka lama (guru mikir dulu pilih jam) sementara di tanggal
+        // yang sama ada jam LAIN yang barusan lepas sendiri (mis. Instant
+        // Pick nerima request), lalu pas guru tekan Simpan, array lama yang
+        // dihitung dari SAAT FORM DIBUKA bisa nimpa balik jam yang barusan
+        // lepas itu. Per-jam addSlot/removeSlot kebal dari race ini.
+        const before = GuruKetersediaanStore.getByDate(targetDate);
+        const after = this.pickedSlotsGuru;
+        before.filter(id => !after.includes(id)).forEach(id => GuruKetersediaanStore.removeSlot(targetDate, id));
+        after.filter(id => !before.includes(id)).forEach(id => GuruKetersediaanStore.addSlot(targetDate, id));
         showToast(this.pickedSlotsGuru.length ? '✓ Ketersediaan tanggal ini tersimpan' : '✓ Tanggal ini ditandai tidak tersedia');
         this.closeAjukanOverlay();
         _jdwRenderWeek();
@@ -2635,8 +2701,7 @@ const JadwalPage = {
     hapusKetersediaanSlot(tanggal, slotId) {
         const slot = JDW_SLOTS.find(s => s.id === slotId);
         showConfirm('Hapus Jam Tersedia?', `Jam ${slot ? slot.label : ''} pada tanggal ini akan ditandai TIDAK tersedia lagi.`, 'danger', () => {
-            const sisa = GuruKetersediaanStore.getByDate(tanggal).filter(id => id !== slotId);
-            GuruKetersediaanStore.setByDate(tanggal, sisa);
+            GuruKetersediaanStore.removeSlot(tanggal, slotId);
             showToast('✓ Jam dihapus dari ketersediaan');
             _jdwRenderWeek();
             _jdwRenderStatusList();
@@ -2708,8 +2773,7 @@ const JadwalPage = {
             // ke backend beneran (POST /api/jadwal-sesi menolak tentor_id kosong).
             JadwalStore.add({ tanggal: this._requestTanggal, slotId: this._requestSlotId, materiId: picked.materiId, tentorId: (getMe() && getMe().kode) || null, status: 'acc', nama: picked.nama, userKode: picked.userKode });
             GuruRequestStore.removeByKey(this._requestTanggal, this._requestSlotId);
-            const sisa = GuruKetersediaanStore.getByDate(this._requestTanggal).filter(id => id !== this._requestSlotId);
-            GuruKetersediaanStore.setByDate(this._requestTanggal, sisa);
+            GuruKetersediaanStore.removeSlot(this._requestTanggal, this._requestSlotId);
             showToast(`✓ Request ${picked.nama} diterima`);
             this.closeRequestOverlay();
             _jdwRenderWeek();

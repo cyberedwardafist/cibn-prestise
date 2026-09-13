@@ -2990,6 +2990,30 @@ app.put('/api/guru-ketersediaan/:tanggal', auth(['review']), ah(async (req, res)
     });
     res.json({ tanggal, slot_ids: slotIds });
 }));
+// Tambah/hapus SATU jam tersedia saja (tidak menyentuh baris tanggal itu
+// yang lain) — dipakai GuruKetersediaanStore.addSlot/removeSlot di client
+// (review/jadwal/jadwal.js) supaya operasi yang cuma perlu ubah 1 jam
+// (Terima Request, Instant Pick, tombol HAPUS, Smart Selection) tidak lagi
+// lewat PUT full-replace di atas. PUT full-replace itu rawan race: kalau 2
+// operasi jalan nyaris bersamaan di TANGGAL YANG SAMA (mis. 2 request murid
+// diterima berurutan cepat), masing2 kirim SELURUH array jam tanggal itu
+// versi cache-nya sendiri — begitu 2 request itu selesai diproses TIDAK
+// BERURUTAN sesuai kirim (race DB/network biasa, bukan error), yang selesai
+// belakangan menang dan bisa menghapus balik jam yang sudah benar dari
+// request lain, walau kedua request sama2 sukses (makanya di console tidak
+// ada error, cuma datanya yang "hilang sendiri"). INSERT/DELETE 1 baris
+// spesifik di sini kebal dari race itu karena tiap operasi cuma menyentuh
+// barisnya sendiri, tidak peduli urutan selesainya.
+app.post('/api/guru-ketersediaan/:tanggal/:slotId', auth(['review']), ah(async (req, res) => {
+    const { tanggal, slotId } = req.params;
+    await db.prepare('INSERT INTO guru_ketersediaan (tentor_id, tanggal, slot_id) VALUES (?,?,?) ON CONFLICT (tentor_id, tanggal, slot_id) DO NOTHING').run(req.user.kode, tanggal, slotId);
+    res.json({ tanggal, slot_id: slotId });
+}));
+app.delete('/api/guru-ketersediaan/:tanggal/:slotId', auth(['review']), ah(async (req, res) => {
+    const { tanggal, slotId } = req.params;
+    await db.prepare('DELETE FROM guru_ketersediaan WHERE tentor_id=? AND tanggal=? AND slot_id=?').run(req.user.kode, tanggal, slotId);
+    res.json({ tanggal, slot_id: slotId });
+}));
 // List request murid per tentor (kosong sampai alur pengajuan sisi murid
 // dibuat — lihat catatan di db/schema.sql), diurutkan paling awal ngajuin.
 app.get('/api/guru-request', auth(['review']), ah(async (req, res) => {
