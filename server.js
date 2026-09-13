@@ -2042,13 +2042,13 @@ app.get('/api/materi', auth(['admin', 'review', 'user']), ah(async (req, res) =>
 }));
 
 app.post('/api/materi', auth(['admin']), ah(async (req, res) => {
-    const { nama } = req.body || {};
+    const { nama, nama_internal } = req.body || {};
     if (!nama || !nama.trim()) return res.status(400).json({ error: 'Nama materi wajib diisi' });
     let modul_list = []; try { modul_list = Array.isArray(req.body.modul_list) ? req.body.modul_list : JSON.parse(req.body.modul_list || '[]'); } catch (e) { modul_list = []; }
 
     const kode = await genKode('MTR', 'materi');
-    await db.prepare('INSERT INTO materi (kode,nama,modul_list) VALUES (?,?,?)')
-        .run(kode, nama.trim(), JSON.stringify(modul_list));
+    await db.prepare('INSERT INTO materi (kode,nama,nama_internal,modul_list) VALUES (?,?,?,?)')
+        .run(kode, nama.trim(), (nama_internal || '').trim() || null, JSON.stringify(modul_list));
     res.json(await db.prepare('SELECT * FROM materi WHERE kode=?').get(kode));
 }));
 
@@ -2056,11 +2056,11 @@ app.put('/api/materi/:kode', auth(['admin']), ah(async (req, res) => {
     const old = await db.prepare('SELECT * FROM materi WHERE kode=?').get(req.params.kode);
     if (!old) return res.status(404).json({ error: 'Tidak ditemukan' });
 
-    const { nama } = req.body || {};
+    const { nama, nama_internal } = req.body || {};
     let modul_list = []; try { modul_list = Array.isArray(req.body.modul_list) ? req.body.modul_list : JSON.parse(req.body.modul_list || '[]'); } catch (e) { modul_list = []; }
 
-    await db.prepare('UPDATE materi SET nama=?,modul_list=? WHERE kode=?')
-        .run((nama || old.nama).trim(), JSON.stringify(modul_list), req.params.kode);
+    await db.prepare('UPDATE materi SET nama=?,nama_internal=?,modul_list=? WHERE kode=?')
+        .run((nama || old.nama).trim(), (nama_internal !== undefined ? ((nama_internal || '').trim() || null) : old.nama_internal), JSON.stringify(modul_list), req.params.kode);
     res.json(await db.prepare('SELECT * FROM materi WHERE kode=?').get(req.params.kode));
 }));
 

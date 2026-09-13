@@ -137,11 +137,12 @@ CREATE TABLE IF NOT EXISTS modul (
 -- "materi" bernama, dengan urutan tampil sendiri (modul_list = JSON array
 -- kode modul, urutannya dipakai apa adanya, sama pola dgn ebook_modul.ebook_list).
 CREATE TABLE IF NOT EXISTS materi (
-    id         SERIAL PRIMARY KEY,
-    kode       TEXT UNIQUE,
-    nama       TEXT NOT NULL,
-    modul_list TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id            SERIAL PRIMARY KEY,
+    kode          TEXT UNIQUE,
+    nama          TEXT NOT NULL,
+    nama_internal TEXT,
+    modul_list    TEXT,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS ebook_kelompok (
@@ -245,6 +246,9 @@ ALTER TABLE soal  ADD COLUMN IF NOT EXISTS nama_internal TEXT;
 -- dengan soal lain, dan tidak pernah tampil saat ujian/review — disiapkan utk Dock Analisa nanti.
 ALTER TABLE soal  ADD COLUMN IF NOT EXISTS materi_list TEXT;
 ALTER TABLE modul ADD COLUMN IF NOT EXISTS nama_internal TEXT;
+-- Sama pola dgn di atas — utk instalasi yang tabel `materi`-nya sempat kebuat
+-- sebelum kolom nama_internal ditambahkan (lihat CREATE TABLE materi di atas).
+ALTER TABLE materi ADD COLUMN IF NOT EXISTS nama_internal TEXT;
 
 -- Mode Bebas Pindah Soal (khusus modul yang SELURUH soalnya ber-tipe
 -- multiple_choice): mengganti timer per-soal dengan 1 timer utama untuk

@@ -18,6 +18,10 @@
     <label class="form-label">Nama Materi</label>
     <input id="materi-nama-input" class="form-input" type="text" placeholder="Contoh: Materi TWK Dasar" oninput="setDirty('materi')">
   </div>
+  <div class="form-group">
+    <label class="form-label">Nama Internal <span style="font-weight:400;color:var(--text-sub)">(opsional, hanya terlihat di admin)</span></label>
+    <input id="materi-nama-internal-input" class="form-input" type="text" placeholder="Contoh: Batch 2 - internal QA" oninput="setDirty('materi')">
+  </div>
 
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
     <label class="form-label" style="margin-bottom:0">Pilih Modul & Urutan Tampil</label>
@@ -25,6 +29,7 @@
   </div>
   <div class="search-bar" id="materi-picker-searchbar" style="flex-wrap:wrap;gap:8px;margin-bottom:10px">
     <div class="search-input-wrap" style="min-width:150px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="search-input" type="text" id="materi-picker-search-input" placeholder="Cari nama modul..." oninput="_materiPickerSearch=this.value;_renderMateriModulPickerList()"></div>
+    <div id="materi-picker-filters"></div>
   </div>
   <div id="materi-modul-picker" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:8px"></div>
 
