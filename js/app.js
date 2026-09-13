@@ -122,7 +122,7 @@ function renderPage(id, subId) {
         // jadi langsung ReferenceError sebelum sempat cek map[id]. Dengan string +
         // window[...], cuma nama fungsi utk id yang sedang aktif yang di-resolve,
         // dan modul-nya sudah pasti sudah dimuat oleh ensureAdminPageModule di atas.
-        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', 'akun-pengaturan':'renderAkunPengaturan', 'akun-ganti-password':'renderAkunGantiPassword', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-materi-detail':'renderAnalisaMateriDetail', 'analisa-grafik':'renderAnalisaGrafik', 'analisa-modul':'renderAnalisaModul', 'analisa-modul-detail':'renderAnalisaModulDetail', 'analisa-modul-sampel':'renderAnalisaModulSampel', management_API:'renderManagementAPI' };
+        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', 'akun-pengaturan':'renderAkunPengaturan', 'akun-ganti-password':'renderAkunGantiPassword', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-materi-detail':'renderAnalisaMateriDetail', 'analisa-grafik':'renderAnalisaGrafik', 'analisa-modul':'renderAnalisaModul', 'analisa-modul-detail':'renderAnalisaModulDetail', 'analisa-modul-sampel':'renderAnalisaModulSampel', management_API:'renderManagementAPI', 'management-materi':'renderManagementMateri', 'management-guru':'renderManagementGuru' };
         const fn = map[id] && window[map[id]];
         if (typeof fn === 'function') fn();
         if (subId) switchSubPage(id, subId);
@@ -183,6 +183,12 @@ const ADMIN_PAGE_MODULES = {
     // dock utama baru "MANAGEMENT" khusus utk management guru — supaya tidak
     // tabrakan key/id/fungsi dengan tab itu nanti.
     management_API:  { html: 'admin/management_API/management_API.html', js: ['admin/management_API/management_API.js'] },
+    // Dock utama MANAGEMENT (management guru) — 2 slide, tiap slide file
+    // sendiri (beda dgn MANAGEMENT_API di atas yang sub-nya 1 file gabungan).
+    // Panel navigasinya #side-dock-wrap generik (lihat SIDE_DOCK_GROUPS.management
+    // di admin/index_admin.html), sama seperti grup CAT/SOAL/EBOOK/ANALISA.
+    'management-materi': { html: 'admin/management/materi.html', js: ['admin/management/materi.js'] },
+    'management-guru':   { html: 'admin/management/guru.html',   js: ['admin/management/guru.js'] },
     'analisa-token':        { html: 'admin/analisa/analisa-token.html',        js: ['admin/analisa/analisa-token.js'] },
     // + analisa-export.js: logika tombol "Ekstrak" (bangun .xlsx + suntik grafik native via JSZip) — lihat komentar di file itu.
     // + analisa-chart-shared.js: kode grafik SVG (line chart + median/sebaran

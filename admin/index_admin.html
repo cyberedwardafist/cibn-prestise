@@ -544,6 +544,8 @@ body.soal-building #side-dock-wrap.side-dock-right{
 <div class="page dock-avoid" id="page-ebook-modul"></div>
 <div class="page dock-avoid" id="page-landing"></div>
 <div class="page dock-avoid" id="page-management_API"></div>
+<div class="page dock-avoid" id="page-management-materi"></div>
+<div class="page dock-avoid" id="page-management-guru"></div>
 <div class="page dock-avoid" id="page-analisa-token"></div>
 <div class="page dock-avoid" id="page-analisa-soal"></div>
 <div class="page dock-avoid" id="page-analisa-grafik"></div>
@@ -578,8 +580,13 @@ body.soal-building #side-dock-wrap.side-dock-right{
          Halaman & modul-nya sendiri (page-management_API,
          ADMIN_PAGE_MODULES.management_API) TIDAK dihapus, cuma titik masuk
          dock utamanya yang dicabut. ID/fungsi sengaja diberi akhiran "_API"/
-         "API" (bukan "management" polos) karena dock utama "MANAGEMENT" di
-         bawah ini nantinya dipakai utk management guru, bukan integrasi ini. -->
+         "API" (bukan "management" polos) supaya tidak tabrakan dgn dock
+         MANAGEMENT di bawah ini, yang dipakai utk management guru. -->
+    <!-- MANAGEMENT (guru): dock utama baru, slide MATERI/GURU masing2 halaman
+         & file sendiri (admin/management/materi.html|js, admin/management/
+         guru.html|js) — didaftarkan di SIDE_DOCK_GROUPS.management, pakai
+         panel #side-dock-wrap yg sama dgn grup CAT/SOAL/EBOOK/ANALISA. -->
+    <button class="dock-item dock-overflow-item" data-group="management" onclick="navigateTo('management-materi')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><span class="dock-label">MANAGEMENT</span></button>
     <button class="dock-item dock-overflow-item" data-group="analisa" onclick="navigateTo('analisa-token')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><span class="dock-label">ANALISA</span></button>
     <button class="dock-item" data-page="keuangan" onclick="navigateTo('keuangan')"><div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><span class="dock-label">KEUANGAN</span></button>
     <!-- Overflow items: tampil inline saat layar lebar, masuk titik-3 saat sempit -->
@@ -875,6 +882,21 @@ const SIDE_DOCK_GROUPS = {
         icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' },
       { page:'analisa-modul', label:'MODUL',
         icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>' },
+    ]
+  },
+  // Dock utama MANAGEMENT (management guru) — masih 2 slide, MATERI & GURU,
+  // masing2 halaman & file sendiri (admin/management/materi.html|js dan
+  // admin/management/guru.html|js). Beda dgn MANAGEMENT_API (integrasi Gmail/
+  // Gmeet, admin/management_API/) yang sub-nya digabung 1 file lewat panel
+  // statis #management-api-dock-wrap — di sini tiap slide sengaja file
+  // terpisah, jadi didaftarkan sbg grup di sini spy dpt panel #side-dock-wrap
+  // yang sama dgn CAT/SOAL/EBOOK/ANALISA.
+  management: {
+    items: [
+      { page:'management-materi', label:'MATERI',
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>' },
+      { page:'management-guru',   label:'GURU',
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
     ]
   }
 };
