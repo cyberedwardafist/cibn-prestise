@@ -2183,20 +2183,6 @@ const JadwalPage = {
                 }
             }
         } else if (!raceLost && GuruAvailStore.isSlotAvailable(this.pickedTentor, this.selectedDate, this.pickedSlot)) {
-            // Jam ini SUDAH dibuka tentor (GuruAvailStore) -> kirim sebagai
-            // "Minta Jam Ini" (antrean guru_ketersediaan_request), BUKAN
-            // langsung bikin entri jadwal_sesi 'pending' — guru yang terima
-            // lewat List Request/Instant Pick/Smart Selection.
-            try {
-                await GuruMyRequestStore.create(this.pickedTentor, this.selectedDate, this.pickedSlot, this.pickedMateri);
-                showToast('✓ Permintaan jam terkirim, menunggu konfirmasi guru');
-            } catch (e) {
-                showToast('✗ ' + e.message);
-            }
-        } else if (raceLost) {
-            JadwalStore.add({ tanggal: this.selectedDate, slotId: this.pickedSlot, materiId: this.pickedMateri, tentorId: this.pickedTentor, status: 'ditolak' });
-            showToast('✗ Jam ini baru saja diambil orang lain, pengajuan otomatis ditolak');
-        } else if (GuruAvailStore.isSlotAvailable(this.pickedTentor, this.selectedDate, this.pickedSlot)) {
             // Jam ini sudah dibuka tentor (GuruAvailStore) -> SATU-SATUNYA jalur
             // pengajuan baru sekarang, kirim sebagai "Minta Jam Ini" (antrean
             // guru_ketersediaan_request), BUKAN langsung bikin entri jadwal_sesi
@@ -2210,8 +2196,12 @@ const JadwalPage = {
             } catch (e) {
                 showToast('✗ ' + e.message);
                 this._renderSlotGrid();
+                this._refreshSubmitBtn();
                 return; // gagal kirim (mis. keburu diminta murid lain) -> biarkan form tetap terbuka
             }
+        } else if (raceLost) {
+            JadwalStore.add({ tanggal: this.selectedDate, slotId: this.pickedSlot, materiId: this.pickedMateri, tentorId: this.pickedTentor, status: 'ditolak' });
+            showToast('✗ Jam ini baru saja diambil orang lain, pengajuan otomatis ditolak');
         } else {
             // Race langka: guru baru saja menutup ketersediaan jam ini persis
             // saat mau submit (antara render grid & tombol ditekan) -> jangan
