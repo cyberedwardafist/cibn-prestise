@@ -3255,11 +3255,36 @@ app.use((err, req, res, next) => {
 });
 
 // ── START / EXPORT UNTUK VERCEL ───────────────────────────────────────────────
+// Retry kecil khusus utk inisialisasi DB saat cold start. Kadang koneksi
+// pertama ke Supabase pooler gagal/timeout sesaat (jaringan lambat, pooler
+// baru saja penuh, project baru "bangun" dari auto-pause, dll) padahal
+// koneksi kedua langsung berhasil. Tanpa retry, satu hiccup begini bikin
+// initSchema/seedIfEmpty/ensureGatewayConfig SKIP TOTAL utk cold start itu
+// (langsung ke catch -> cuma di-log FATAL, request tetap jalan tapi migrasi
+// schema baru atau seed data bisa ketunda ke cold start berikutnya).
+// Backoff singkat (300ms, 900ms) sengaja pendek supaya tidak menghabiskan
+// waktu eksekusi function; kalau 3x percobaan tetap gagal, kemungkinan besar
+// bukan hiccup sesaat lagi (mis. project Supabase memang pause/kehabisan
+// slot) — retry lebih banyak tidak akan membantu, jadi dibiarkan ke catch
+// seperti semula.
+async function withRetry(fn, { attempts = 3, delaysMs = [300, 900] } = {}) {
+    for (let i = 0; i < attempts; i++) {
+        try {
+            return await fn();
+        } catch (e) {
+            const isLast = i === attempts - 1;
+            if (isLast) throw e;
+            console.error(`[DB INIT RETRY] Percobaan ${i + 1}/${attempts} gagal: ${e.message} — mencoba lagi...`);
+            await new Promise((r) => setTimeout(r, delaysMs[i] || delaysMs[delaysMs.length - 1]));
+        }
+    }
+}
+
 (async () => {
     try {
-        await initSchema();
-        await seedIfEmpty();
-        await ensureGatewayConfig();
+        await withRetry(() => initSchema());
+        await withRetry(() => seedIfEmpty());
+        await withRetry(() => ensureGatewayConfig());
 
         // Scheduler pengingat kelas (H-1 & kelas dimulai) — jalan tiap 5 menit via
         // setInterval. Kalau dijalankan sbg serverless (VERCEL), setInterval tidak
