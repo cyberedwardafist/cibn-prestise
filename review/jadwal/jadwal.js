@@ -1627,10 +1627,16 @@ function _jdwRenderStatusList() {
         // tanggalnya sudah lewat, jadi TIDAK ditampilkan di "Riwayat".
         const avail = !isRiwayat ? GuruKetersediaanStore.getByDate(iso) : [];
         // Riwayat: skip tanggal tanpa entri (seperti semula). Minggu Ini:
-        // skip tanggal tanpa jam tersedia (weekDates di sini memang sudah
-        // berasal dari _jdwAllEntryDates() yang ketersediaan-only, jadi baris
-        // ini sekadar jaga-jaga).
-        if (isRiwayat ? !entries.length : !avail.length) return '';
+        // skip tanggal yang BENAR-BENAR kosong (tidak ada jam tersedia MAUPUN
+        // jam terisi). BUG LAMA: baris ini cuma cek avail.length (jam kosong),
+        // jadi begitu satu-satunya jam "Tersedia" di suatu tanggal dihapus,
+        // tanggal itu langsung di-skip walau masih ada jam TERISI (booked)
+        // di tanggal yang sama -> seluruh blok jdw-status-day hilang dari
+        // list padahal masih ada sesi aktif milik tentor di situ. Disamakan
+        // dengan logika _jdwGuruDateHasContent/_jdwDayGroupHtml (yang sudah
+        // benar menghitung bookedCount) supaya konsisten.
+        const bookedCount = !isRiwayat ? _jdwGuruBookedEntriesForDate(iso).length : 0;
+        if (isRiwayat ? !entries.length : (!avail.length && !bookedCount)) return '';
         return _jdwDayGroupHtml(d, entries, iso === todayIso, avail, isRiwayat);
     }).filter(Boolean).join('');
     // Kartu swipe-list yang punya aksi (Edit/Jadwal Ulang/Batal) perlu di-bind gesture-nya.
