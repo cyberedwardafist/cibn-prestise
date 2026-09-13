@@ -61,7 +61,7 @@ let JDW_TENTOR = [];
 // persis dgn default JDW_STATUS_SLOT_KOSONG di server.js).
 let JDW_STATUS_SLOT_KOSONG = ['batal', 'ditolak'];
 function _jdwSlotMasihTerisi(status) { return !JDW_STATUS_SLOT_KOSONG.includes(status); }
-const JDW_STATUS_LABEL = { pending: 'Menunggu', acc: 'Disetujui', ditolak: 'Ditolak', berlangsung: 'Berlangsung', feedback: 'Feedback', selesai: 'Selesai', pengajuan_pembatalan: 'Pengajuan Pembatalan', resejuel: 'Jadwal Ulang dari Tentor', batal: 'Dibatalkan', butuh_persetujuan: 'Butuh Persetujuan', pengajuan_batal_tentor: 'Pengajuan Batal dari Tentor' };
+const JDW_STATUS_LABEL = { pending: 'Menunggu', acc: 'Disetujui', ditolak: 'Ditolak', berlangsung: 'Berlangsung', feedback: 'Feedback', selesai: 'Selesai', pengajuan_pembatalan: 'Pengajuan Pembatalan', resejuel: 'Jadwal Ulang dari Tentor', batal: 'Dibatalkan', butuh_persetujuan: 'Butuh Persetujuan', pengajuan_batal_tentor: 'Pengajuan Batal dari Tentor', menunggu_guru: 'Menunggu Guru' };
 // Kuota pengajuan jadwal per user (dummy — nanti gampang disambung ke angka
 // beneran dari backend/paket bimbingan user, tinggal ganti sumber angka
 // TOTAL-nya, logika hitungnya di bawah (_jdwKuotaTerpakai/_jdwKuotaSisa)
@@ -383,8 +383,16 @@ function _jdwToIso(d) {
 function _jdwAllEntryDates() {
     // `e.tanggal` yang null/undefined/format aneh (lihat catatan _jdwToIso)
     // di-skip di sini juga supaya tidak ikut lolos jadi 'Invalid Date' saat
-    // di-construct ke Date object di bawah.
-    const isoSet = new Set(JadwalStore.all().map(e => e.tanggal).filter(Boolean));
+    // di-construct ke Date object di bawah. Tanggal dari GuruMyRequestStore
+    // (permintaan "Minta Jam Ini" yg masih menunggu guru) IKUT dikumpulkan di
+    // sini juga — kalau tidak, tanggal yang BELUM punya baris jadwal_sesi sama
+    // sekali (baru ada permintaan pending-nya saja) tidak akan pernah nongol
+    // sbg grup hari di #jdw-status-list, walau _jdwStatusListEntriesForDate
+    // sudah tahu cara menampilkan kartunya (lihat merge di sana).
+    const isoSet = new Set([
+        ...JadwalStore.all().map(e => e.tanggal),
+        ...GuruMyRequestStore.all().map(r => r.tanggal),
+    ].filter(Boolean));
     return Array.from(isoSet).sort().map(iso => new Date(iso + 'T00:00:00')).filter(d => !isNaN(d.getTime()));
 }
 function _jdwWeekDates(ref) {
@@ -1079,7 +1087,7 @@ function _jdwStatusListEntriesForDate(iso) {
     const isRiwayat = JadwalPage.currentView === 'riwayat';
     const todayIso = _jdwToIso(new Date());
     const dateEntries = JadwalStore.byDate(iso);
-    return dateEntries
+    const hasil = dateEntries
         .filter(e => {
             if (e.status === 'pending' || e.status === 'acc' || e.status === 'berlangsung' || e.status === 'pengajuan_pembatalan' || e.status === 'resejuel' || e.status === 'butuh_persetujuan' || e.status === 'pengajuan_batal_tentor') {
                 return !isRiwayat;
@@ -1093,8 +1101,25 @@ function _jdwStatusListEntriesForDate(iso) {
                 return isRiwayat ? sudahLewat : !sudahLewat;
             }
             return false;
-        })
-        .sort((a, b) => _jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId));
+        });
+    // Gabungkan permintaan "Minta Jam Ini" (GuruMyRequestStore) yang masih
+    // menunggu guru di tanggal ini — BUKAN baris jadwal_sesi (beda tabel sama
+    // sekali, lihat catatan panjang di dekat GuruMyRequestStore), jadi tidak
+    // ikut ke-filter di atas. Selalu tampil di "Minggu Ini", tidak pernah di
+    // "Riwayat" (belum final, sama seperti status pending/acc/dst) — begitu
+    // guru menerima/menolak, baris ini hilang dari GuruMyRequestStore dan
+    // muncul sbg entri jadwal_sesi asli (acc/ditolak) lewat jalur biasa.
+    if (!isRiwayat) {
+        GuruMyRequestStore.all().filter(r => r.tanggal === iso).forEach(r => {
+            hasil.push({
+                id: 'GRQ' + r.id, _guruReqId: r.id,
+                tanggal: r.tanggal, slotId: r.slotId, materiId: r.materiId,
+                tentorId: r.tentorId, tentorNama: r.tentorNama,
+                status: 'menunggu_guru', createdAt: r.createdAt,
+            });
+        });
+    }
+    return hasil.sort((a, b) => _jdwSlotIndex(a.slotId) - _jdwSlotIndex(b.slotId));
 }
 
 // Ambil 7 tanggal minggu yang lagi ditampilkan di Riwayat (sesuai
@@ -1430,6 +1455,17 @@ const JadwalPage = {
                        batalkan jadwal-ulang saja / batalkan jadwalnya)
        selesai/batal/lain -> tanpa aksi apa pun (sweep/tombol dihilangkan total) ── */
     _entryActions(e) {
+        // Pseudo-entri dari GuruMyRequestStore (lihat _jdwStatusListEntriesForDate)
+        // — permintaan "Minta Jam Ini" yang belum diterima/ditolak guru. Belum
+        // punya baris jadwal_sesi sama sekali, jadi satu-satunya aksi yang masuk
+        // akal cuma batalkan permintaannya (sama seperti tap chip "(menunggu
+        // guru)" di grid Pilih Jam — lihat JadwalPage.batalkanPermintaanJam).
+        if (e.status === 'menunggu_guru') {
+            return {
+                left: [],
+                right: [{ icon: 'trash', label: 'Batal', cls: 'act-danger', onClick: `JadwalPage.batalkanPermintaanJam('${e._guruReqId}')` }],
+            };
+        }
         if (e.status === 'resejuel') {
             return {
                 left: [{ icon: 'check', label: 'Cek', cls: 'act-primary', onClick: `JadwalPage.bukaResejuel('${e.id}')` }],
@@ -1735,15 +1771,22 @@ const JadwalPage = {
             </div>`;
         }).join('');
     },
-    // Tap chip "(menunggu guru)" -> tawarkan batalkan permintaan yang sudah
-    // terlanjur dikirim (GuruMyRequestStore), supaya slotnya lepas lagi &
-    // murid bisa ajukan ke jam lain.
+    // Tap chip "(menunggu guru)" di grid Pilih Jam, ATAU tombol "Batal" di
+    // kartu status "Menunggu Guru" (#jdw-status-list, lihat
+    // _jdwStatusListEntriesForDate) -> tawarkan batalkan permintaan yang
+    // sudah terlanjur dikirim (GuruMyRequestStore), supaya slotnya lepas
+    // lagi & murid bisa ajukan ke jam lain. Dipanggil dari 2 tempat yang
+    // beda konteks (form Ajukan Jadwal lagi terbuka vs list utama), jadi
+    // ketiganya (grid, status list, kalender minggu) di-refresh sekalian
+    // supaya kartunya langsung hilang di mana pun user membatalkannya.
     batalkanPermintaanJam(reqId) {
         showConfirm('Batalkan Permintaan?', 'Permintaan jam ini ke guru akan dibatalkan.', 'warning', async () => {
             try {
                 await GuruMyRequestStore.cancel(reqId);
                 showToast('✓ Permintaan dibatalkan');
                 this._renderSlotGrid();
+                if (typeof _jdwRenderStatusList === 'function') _jdwRenderStatusList();
+                if (typeof _jdwRenderWeek === 'function') _jdwRenderWeek();
             } catch (e) {
                 showToast('Gagal membatalkan: ' + e.message);
             }

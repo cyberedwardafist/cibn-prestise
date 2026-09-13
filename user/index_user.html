@@ -693,6 +693,10 @@
     .jdw-status-badge.butuh_persetujuan { background:rgba(220,38,38,.10); color:var(--danger); }
     .jdw-status-badge.pengajuan_batal_tentor { background:rgba(124,58,237,.12); color:#7c3aed; }
     .jdw-status-badge.feedback { background:rgba(217,119,6,.12); color:var(--warning); }
+    /* Sama dgn warna .jdw-chip-tag-waiting (chip "(menunggu guru)" di grid Pilih Jam) —
+       biar konsisten, status "Minta Jam Ini" yg belum diterima guru dikenali warna yg sama
+       di mana pun dia muncul. */
+    .jdw-status-badge.menunggu_guru { background:rgba(184,134,11,.12); color:#b8860b; }
 
     /* ── JADWAL: halaman fullscreen bandingkan jadwal lama vs baru (resejuel) —
        resume LAMA (diajukan user) di atas, resume BARU (diajukan tentor,
@@ -1416,8 +1420,13 @@ function goPage(pageId) {
     }
     ensureUserPageModule(pageId).then(() => {
         // Tab Jadwal butuh JadwalStore (backend asli, lihat user/jadwal/jadwal.js)
-        // sudah kelar fetch dulu sebelum loadJadwal() merender apa pun.
-        const ready = (pageId === 'jadwal' && typeof JadwalStore !== 'undefined') ? JadwalStore.ready() : Promise.resolve();
+        // DAN GuruMyRequestStore (antrean "Minta Jam Ini" yang lagi menunggu
+        // guru, ikut ditampilkan sbg kartu status "Menunggu Guru" di
+        // #jdw-status-list — lihat _jdwStatusListEntriesForDate) sudah kelar
+        // fetch dulu sebelum loadJadwal() merender apa pun.
+        const ready = (pageId === 'jadwal' && typeof JadwalStore !== 'undefined')
+            ? Promise.all([JadwalStore.ready(), GuruMyRequestStore.ready()])
+            : Promise.resolve();
         return ready.then(() => {
             if (pageId === 'riwayat') loadRiwayat();
             if (pageId === 'home') loadHome();
