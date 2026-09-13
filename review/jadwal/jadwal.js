@@ -1247,8 +1247,8 @@ let _jdwAutoExpireTimer = null;
 function loadJadwal() {
     _jdwAutoExpirePending();
     _jdwAutoAdvanceStatus();
-    _jdwRenderWeek();
     _jdwRestoreViewState();
+    _jdwRenderWeek();
     _jdwRenderStatusList();
     _jdwRestoreState();
 
@@ -1308,8 +1308,13 @@ function _jdwRestoreViewState() {
     JadwalPage.riwayatWeekOffset = (typeof st.riwayatWeekOffset === 'number' && st.riwayatWeekOffset >= 0) ? st.riwayatWeekOffset : 1;
     JadwalPage.riwayatMonthOffset = (typeof st.riwayatMonthOffset === 'number' && st.riwayatMonthOffset >= 0) ? st.riwayatMonthOffset : 0;
     document.querySelectorAll('#jdw-view-toggle .jdw-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === JadwalPage.currentView));
-    const nav = document.getElementById('jdw-riwayat-nav');
-    if (nav) nav.style.display = JadwalPage.currentView === 'riwayat' ? 'flex' : 'none';
+    // CATATAN BUGFIX: dulu di sini ada nav.style.display di-set manual —
+    // dihapus karena tabrakan sama _jdwRenderWeek() (dipanggil SESUDAH ini
+    // di loadJadwal()), yang juga ngatur display nav ini tapi lebih lengkap
+    // (mempertimbangkan calendarExpanded juga). Dua sumber kebenaran yang
+    // saling timpa itu yang bikin #jdw-riwayat-nav kadang gak sinkron/gak
+    // muncul padahal harusnya muncul. Sekarang _jdwRenderWeek() aja yang
+    // jadi satu-satunya titik render, sesuai catatan di fungsi itu sendiri.
 }
 
 // Konten "detail tanggal" (tabel desktop + kartu .swipe-card-body dengan
@@ -1932,8 +1937,12 @@ const JadwalPage = {
         this.currentView = view === 'riwayat' ? 'riwayat' : 'minggu';
         this.riwayatDateFilter = null;
         document.querySelectorAll('#jdw-view-toggle .jdw-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === this.currentView));
-        const nav = document.getElementById('jdw-riwayat-nav');
-        if (nav) nav.style.display = this.currentView === 'riwayat' ? 'flex' : 'none';
+        // CATATAN BUGFIX: nav.style.display manual dihapus dari sini — biar
+        // _jdwRenderWeek() di bawah ini (satu-satunya titik render) yang
+        // nentuin, karena dia juga mempertimbangkan calendarExpanded (nav
+        // minggu #jdw-riwayat-nav vs nav bulan #jdw-cal-nav gak boleh nyala
+        // bareng). Kalau di-set manual di sini dulu, gampang ketiban timpa/
+        // konflik sama hasil _jdwRenderWeek().
         _jdwRenderStatusList();
         _jdwRenderWeek();
         _jdwSaveViewState();
