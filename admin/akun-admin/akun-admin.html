@@ -12,13 +12,14 @@
       <span class="aa-menu-btn-label">Pengaturan</span>
       <span class="aa-menu-btn-arrow">&rarr;</span>
     </button>
-    <!-- MANAGEMENT: dock utama sekarang dikosongkan dari tombol ini, dipindah
-         ke sini. onclick-nya SAMA PERSIS dgn yang dulu ada di main-dock
-         (navigateTo('management')) -> tidak ada perubahan di ADMIN_PAGE_MODULES
-         / halaman management itu sendiri, cuma titik masuknya yang pindah. -->
-    <button class="btn btn-secondary aa-menu-btn" onclick="navigateTo('management')">
+    <!-- MANAGEMENT API (pengaturan integrasi Gmail/Gmeet): dock utama sekarang
+         dikosongkan dari tombol ini, dipindah ke sini. Halaman & id-nya diberi
+         akhiran "_API" (navigateTo('management_API')), BUKAN "management" polos,
+         karena "management" polos akan dipakai dock utama baru khusus
+         management guru -> tidak ada tabrakan di ADMIN_PAGE_MODULES. -->
+    <button class="btn btn-secondary aa-menu-btn" onclick="navigateTo('management_API')">
       <span class="aa-menu-btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
-      <span class="aa-menu-btn-label">Management</span>
+      <span class="aa-menu-btn-label">API</span>
       <span class="aa-menu-btn-arrow">&rarr;</span>
     </button>
     <!-- GANTI PASSWORD: halaman sendiri, lihat admin/akun-admin/akun-ganti-password.html -->

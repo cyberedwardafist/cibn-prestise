@@ -105,7 +105,7 @@ function _doNav(pageId, subId) {
     _persistAdminNav();
     if (typeof syncSideDockForPage === 'function') syncSideDockForPage(pageId);
     if (typeof syncLandingDockForPage === 'function') syncLandingDockForPage(pageId);
-    if (typeof syncManagementDockForPage === 'function') syncManagementDockForPage(pageId);
+    if (typeof syncManagementAPIDockForPage === 'function') syncManagementAPIDockForPage(pageId);
     closeDockMore();
     // subId (sub-tab) sengaja DITUNGGU sampai modul halaman ini selesai lazy-load
     // (lihat renderPage) sebelum switchSubPage dipanggil — kalau tidak, di koneksi
@@ -122,7 +122,7 @@ function renderPage(id, subId) {
         // jadi langsung ReferenceError sebelum sempat cek map[id]. Dengan string +
         // window[...], cuma nama fungsi utk id yang sedang aktif yang di-resolve,
         // dan modul-nya sudah pasti sudah dimuat oleh ensureAdminPageModule di atas.
-        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', 'akun-pengaturan':'renderAkunPengaturan', 'akun-ganti-password':'renderAkunGantiPassword', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-materi-detail':'renderAnalisaMateriDetail', 'analisa-grafik':'renderAnalisaGrafik', 'analisa-modul':'renderAnalisaModul', 'analisa-modul-detail':'renderAnalisaModulDetail', 'analisa-modul-sampel':'renderAnalisaModulSampel', management:'renderManagement' };
+        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', 'akun-pengaturan':'renderAkunPengaturan', 'akun-ganti-password':'renderAkunGantiPassword', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-materi-detail':'renderAnalisaMateriDetail', 'analisa-grafik':'renderAnalisaGrafik', 'analisa-modul':'renderAnalisaModul', 'analisa-modul-detail':'renderAnalisaModulDetail', 'analisa-modul-sampel':'renderAnalisaModulSampel', management_API:'renderManagementAPI' };
         const fn = map[id] && window[map[id]];
         if (typeof fn === 'function') fn();
         if (subId) switchSubPage(id, subId);
@@ -150,9 +150,11 @@ const ADMIN_PAGE_MODULES = {
     // Pecahan dari 'akun-admin' (dulu 1 halaman/1 file berisi nama+email+
     // password+keluar sekaligus) — sekarang tiap tombol menu di akun-admin.html
     // (Pengaturan/Ganti Password) punya halaman & file lazy-load sendiri.
-    // Management pakai lagi entri 'management' yang sudah ada (cuma titik
-    // masuknya dari tombol di akun-admin.html, bukan dock utama lagi). Log Out
-    // tidak butuh entri di sini sama sekali (langsung handleLogout(), tanpa halaman).
+    // Management API pakai lagi entri 'management_API' yang sudah ada (cuma
+    // titik masuknya dari tombol di akun-admin.html, bukan dock utama lagi).
+    // Namanya sengaja "management_API", BUKAN "management" polos, karena
+    // "management" polos nanti dipakai dock utama baru khusus management guru.
+    // Log Out tidak butuh entri di sini sama sekali (langsung handleLogout(), tanpa halaman).
     'akun-pengaturan':      { html: 'admin/akun-admin/akun-pengaturan.html',      js: ['admin/akun-admin/akun-pengaturan.js'] },
     'akun-ganti-password':  { html: 'admin/akun-admin/akun-ganti-password.html',  js: ['admin/akun-admin/akun-ganti-password.js'] },
     // token butuh admin/cat/laporan.js + shared-export.js juga: modal "detail token
@@ -173,11 +175,14 @@ const ADMIN_PAGE_MODULES = {
     'ebook-library': { html: 'admin/ebook/ebook-library.html',  js: ['admin/ebook/ebook.js'], modals: 'admin/ebook/ebook-modals.html' },
     'ebook-modul':   { html: 'admin/ebook/ebook-modul.html',    js: ['admin/ebook/ebook.js'], modals: 'admin/ebook/ebook-modals.html' },
     landing:         { html: 'admin/landing/landing.html',      js: ['admin/landing/landing.js'], modals: 'admin/landing/landing-modals.html' },
-    // Tab MANAGEMENT: pengaturan integrasi pihak ketiga, dock sub GMAIL | GMEET
-    // (lihat #management-dock-wrap & syncManagementDockForPage di admin/index_admin.html).
+    // Tab MANAGEMENT_API: pengaturan integrasi pihak ketiga, dock sub GMAIL | GMEET
+    // (lihat #management-api-dock-wrap & syncManagementAPIDockForPage di admin/index_admin.html).
     // GMAIL = alamat email pengirim OTP & pesan lain. GMEET = persiapan integrasi
     // Google Meet utk fitur Jadwal di halaman user/review — masih dummy.
-    management:      { html: 'admin/management/management.html', js: ['admin/management/management.js'] },
+    // Diberi nama "management_API" (bukan "management" polos) karena akan ada
+    // dock utama baru "MANAGEMENT" khusus utk management guru — supaya tidak
+    // tabrakan key/id/fungsi dengan tab itu nanti.
+    management_API:  { html: 'admin/management_API/management_API.html', js: ['admin/management_API/management_API.js'] },
     'analisa-token':        { html: 'admin/analisa/analisa-token.html',        js: ['admin/analisa/analisa-token.js'] },
     // + analisa-export.js: logika tombol "Ekstrak" (bangun .xlsx + suntik grafik native via JSZip) — lihat komentar di file itu.
     // + analisa-chart-shared.js: kode grafik SVG (line chart + median/sebaran
