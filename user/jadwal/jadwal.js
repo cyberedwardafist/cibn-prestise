@@ -365,6 +365,13 @@ const GuruMyRequestStore = (function () {
    ══════════════════════════════════════════ */
 function _jdwToIso(d) {
     const x = new Date(d);
+    // Jaga-jaga: kalau `d` ternyata tanggal yang tidak valid (mis. data lama/
+    // korup dari server, field kosong, dll), `x.toISOString()` di bawah akan
+    // throw RangeError: Invalid time value dan bikin SELURUH #jdw-status-list
+    // gagal render (lihat _jdwRenderStatusList) — daripada membuat seluruh
+    // halaman Jadwal error, entri semacam ini cukup di-skip (return null),
+    // dengan log biar tetap ketahuan datanya ada yang aneh.
+    if (isNaN(x.getTime())) { console.error('[JADWAL] Tanggal tidak valid, entri dilewati:', d); return null; }
     x.setMinutes(x.getMinutes() - x.getTimezoneOffset());
     return x.toISOString().slice(0, 10);
 }
@@ -374,8 +381,11 @@ function _jdwToIso(d) {
 // kelihatan tanpa perlu geser minggu. Diurutkan lama -> baru (ASC), sama
 // seperti urutan _jdwWeekDates biasa.
 function _jdwAllEntryDates() {
-    const isoSet = new Set(JadwalStore.all().map(e => e.tanggal));
-    return Array.from(isoSet).sort().map(iso => new Date(iso + 'T00:00:00'));
+    // `e.tanggal` yang null/undefined/format aneh (lihat catatan _jdwToIso)
+    // di-skip di sini juga supaya tidak ikut lolos jadi 'Invalid Date' saat
+    // di-construct ke Date object di bawah.
+    const isoSet = new Set(JadwalStore.all().map(e => e.tanggal).filter(Boolean));
+    return Array.from(isoSet).sort().map(iso => new Date(iso + 'T00:00:00')).filter(d => !isNaN(d.getTime()));
 }
 function _jdwWeekDates(ref) {
     const d = new Date(ref || new Date());

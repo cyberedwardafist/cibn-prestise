@@ -18,7 +18,21 @@
 // `db.transaction(fn)()` versi better-sqlite3 — memakai satu koneksi client
 // yang sama untuk BEGIN/COMMIT/ROLLBACK supaya benar-benar atomik.
 
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// ── FIX: kolom PostgreSQL bertipe DATE (jadwal_sesi.tanggal, guru_ketersediaan.tanggal,
+// guru_ketersediaan_request.tanggal, otp_request_limits.request_date) secara DEFAULT
+// di-parse driver `pg` jadi objek JS Date (tengah malam UTC), BUKAN string 'YYYY-MM-DD'.
+// Seluruh kode di project ini (frontend jadwal.js maupun server.js sendiri) menyimpan/
+// membandingkan tanggal sebagai STRING 'YYYY-MM-DD' (mis. `j.tanggal === tanggal`,
+// `new Date(iso + 'T00:00:00')`, `String(row.request_date).slice(0,10)`) — begitu
+// `row.tanggal` ternyata objek Date, semua perbandingan string itu gagal diam-diam,
+// dan kode yang melakukan `iso + 'T00:00:00'` (lihat _jdwToIso/_jdwAllEntryDates di
+// user/jadwal/jadwal.js) menghasilkan string tanggal yang tidak valid -> RangeError:
+// Invalid time value saat di-toISOString(). OID 1082 = tipe DATE bawaan Postgres;
+// override ini bikin `pg` mengembalikan nilai DATE apa adanya sebagai string
+// 'YYYY-MM-DD', sama seperti waktu masih pakai SQLite/better-sqlite3 dulu.
+types.setTypeParser(1082, (val) => val);
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
