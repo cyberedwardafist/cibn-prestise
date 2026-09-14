@@ -3,7 +3,7 @@
 // file keuangan.js tetap ringan; ini isinya cuma logic buka/isi/submit form.
 // Markup-nya ada di admin/paket-form.html (dimuat bareng sebagai 'modals'
 // lewat ADMIN_PAGE_MODULES.keuangan di js/app.js).
-// Butuh _paketData & _ldPaketCache (dideklarasikan di admin/keuangan.js) serta
+// Butuh _paketData (dideklarasikan di admin/keuangan.js) serta
 // helper global dari js/app.js (showToast, openModal, closeModal, dst).
 // Widget kalender utk Periode=Custom ada di admin/paket-daterange.js (fungsi
 // onPaketPeriodeChange/initPaketDateRange/paketPeriodeDiffDays dipakai di sini).
@@ -655,7 +655,7 @@ async function openAddPaket() {
     _pfSyncHakContentWraps(['ujian','laporan','modul','mentoring']);
     var mk=document.getElementById('pf-mentoring-kuota');if(mk)mk.value='';
     await Promise.all([_pfLoadModulPicker([]), _pfLoadMentoringPicker([])]);
-    await _populateLinkLandingDropdown('');
+    document.getElementById('pf-link-landing').value = ''; // paket baru: belum pernah dihubungkan
     _pfSyncWarnaSwatch();
     _pfUpdatePreview();
     openModal('paket-form-overlay');
@@ -711,40 +711,15 @@ async function openEditPaket(kode) {
     _pfSyncHakContentWraps(hakArr);
     var mk=document.getElementById('pf-mentoring-kuota');if(mk)mk.value=p.mentoring_kuota||'';
     await Promise.all([_pfLoadModulPicker(aturanArr.filter(v => v.startsWith('modul.item.'))), _pfLoadMentoringPicker(aturanArr.filter(v => v.startsWith('mentoring.')))]);
-    await _populateLinkLandingDropdown(p.link_landing || '');
+    // Field "Gabungkan dengan Paket Landing Page" sudah dihilangkan dari
+    // tampilan form ini — hidden input #pf-link-landing cuma mempertahankan
+    // nilai lama paket ini apa adanya (kalau sebelumnya sudah pernah
+    // dihubungkan) supaya tidak ke-reset kosong saat disimpan ulang.
+    document.getElementById('pf-link-landing').value = p.link_landing || '';
     _pfSyncWarnaSwatch();
     _pfUpdatePreview();
     openModal('paket-form-overlay');
     _pfDraftSave();
-}
-
-// Populate dropdown link ke paket landing (membaca dari server)
-async function _populateLinkLandingDropdown(currentVal) {
-    const sel = document.getElementById('pf-link-landing');
-    if (!sel) return;
-    sel.innerHTML = '<option value="">-- Tidak dihubungkan / berdiri sendiri --</option>';
-    // Muat paket landing dari server jika belum ada
-    if (!_ldPaketCache.length) {
-        try {
-            const ld = await LandingAPI.get().catch(() => ({}));
-            _ldPaketCache = (ld && ld.paket && ld.paket.list) ? ld.paket.list : [];
-        } catch(e) { _ldPaketCache = []; }
-    }
-    if (_ldPaketCache.length) {
-        _ldPaketCache.forEach((p, i) => {
-            const val = p.kode || ('ldp_' + i);
-            const opt = document.createElement('option');
-            opt.value = val;
-            opt.textContent = (p.name || 'Paket ' + (i+1)) + (p.price ? ' · ' + p.price : '');
-            if (currentVal && currentVal === val) opt.selected = true;
-            sel.appendChild(opt);
-        });
-    } else {
-        const opt = document.createElement('option');
-        opt.disabled = true;
-        opt.textContent = '(Belum ada paket di Landing Page Editor)';
-        sel.appendChild(opt);
-    }
 }
 
 async function submitPaket() {

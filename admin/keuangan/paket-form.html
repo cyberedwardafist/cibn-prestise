@@ -165,14 +165,12 @@
       <div class="pf-layout">
         <div class="pf-fields">
 
-          <!-- ── LINK KE PAKET LANDING PAGE ── -->
-          <div class="pf-section">
-            <div class="pf-eyebrow">🔗 Gabungkan dengan Paket Landing Page <span style="font-size:10px;color:var(--pf-text-dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:2px">(opsional)</span></div>
-            <select id="pf-link-landing" class="form-select" oninput="setDirty('paket')">
-              <option value="">-- Tidak dihubungkan / berdiri sendiri --</option>
-            </select>
-            <div style="font-size:10px;color:var(--pf-text-dim);margin:8px 0 14px;line-height:1.5">Pilih paket landing page yang akan dihubungkan. Data harga & nama paket ini akan terbaca oleh sistem pembayaran saat user memilih paket tersebut di landing page.</div>
-          </div>
+          <!-- Field "Gabungkan dengan Paket Landing Page" DIHILANGKAN dari tampilan
+               form ini (permintaan eksplisit) — hidden input di bawah cuma
+               mempertahankan nilai LAMA (kalau paket ini sebelumnya sudah pernah
+               dihubungkan) supaya tidak ke-reset jadi kosong saat paket ini
+               diedit & disimpan ulang lewat form ini. -->
+          <input type="hidden" id="pf-link-landing">
 
           <!-- ── INFORMASI PAKET ── -->
           <div class="pf-section">
