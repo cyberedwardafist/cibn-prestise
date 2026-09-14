@@ -10,6 +10,11 @@
 // Modal formnya ada di admin/management/management-modals.html.
 
 let _materiData = [], _modulForMateri = [], _materiModulKelompokList = [];
+// Pilih massal (checklist) — pola sama persis dgn Manajemen Modul/Library Soal
+// (_modulSelected di admin/soal/modul.js): Set kode materi yang lagi dicentang,
+// + cache data hasil filter (SEMUA grup, bukan cuma yang lagi ada di DOM) biar
+// "Pilih Semua" & hitungan bulk-bar selalu akurat.
+let _materiSelected = new Set(), _materiFilteredCache = [];
 // Grup MATERI itu sendiri (beda dari _materiModulKelompokList di atas, yang
 // merupakan kelompok MODUL cuma dipakai sbg filter di picker) — dipakai buat
 // mengelompokkan TAMPILAN daftar materi (lihat _renderMateriList/_materiGroupHtml),
@@ -25,6 +30,9 @@ async function renderManagementMateri() {
         _loadMateriModulKelompokList(),
         _loadMateriKelompokList()
     ]);
+    // Buang seleksi lama yang kodenya sudah tidak ada lagi di data terbaru (pola sama seperti Modul).
+    const validKodes = new Set(_materiData.map(m => m.kode || m.id));
+    Array.from(_materiSelected).forEach(k => { if (!validKodes.has(k)) _materiSelected.delete(k); });
     _renderMateriKelompokFilters();
     _renderMateriList();
 }
@@ -56,9 +64,11 @@ function _materiCardHtml(m, i) {
     const kode = m.kode || m.id;
     const jumlah = (m.modul_list || []).length;
     const kelNama = _materiKelompokNama(m.kelompok);
+    const chk = _materiSelected.has(kode) ? 'checked' : '';
     const namaTampil = m.nama_internal ? `${m.nama} <span style="font-weight:400;color:var(--text-sub)">| ${m.nama_internal}</span>` : m.nama;
     return `<div class="modul-card" style="animation:fadeUp 0.25s ${i * 0.05}s both">
       <div class="modul-card-left">
+        <input type="checkbox" class="materi-row-check" data-kode="${kode}" ${chk} onchange="toggleMateriSelect('${kode}',this.checked)" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer;flex-shrink:0">
         <div class="modul-card-icon">${_materiModulIcon(20)}</div>
         <div><div style="font-weight:700;font-size:14px;color:var(--blue)">${namaTampil}</div><div style="font-size:11px;color:var(--text-sub);display:flex;gap:6px;flex-wrap:wrap;align-items:center">${jumlah} modul · ${kode}${kelNama ? ` · <span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue)">${kelNama}</span>` : ''}</div></div>
       </div>
@@ -72,8 +82,9 @@ function _materiSwipeCardHtml(m) {
     const kode = m.kode || m.id;
     const jumlah = (m.modul_list || []).length;
     const kelNama = _materiKelompokNama(m.kelompok);
+    const sel = _materiSelected.has(kode);
     return SwipeCards.buildSwipeCardHtml({
-        title: m.nama_internal ? `${m.nama} | ${m.nama_internal}` : m.nama, kode,
+        title: m.nama_internal ? `${m.nama} | ${m.nama_internal}` : m.nama, kode, selected: sel,
         sub: jumlah + ' modul' + (kelNama ? ' · ' + kelNama : '') + ' · ' + kode,
         leftActions: [{ icon: 'edit', label: 'Edit', cls: 'act-edit', onClick: `openEditMateri('${kode}')` }],
         rightActions: [{ icon: 'trash', label: 'Hapus', cls: 'act-danger', onClick: `deleteMateriItem('${kode}','${(m.nama || '').replace(/'/g, "\\'")}')` }]
@@ -92,9 +103,10 @@ function _renderMateriList() {
     let data = _materiData;
     if (_materiKelompokFilter === 'none') data = data.filter(m => !m.kelompok);
     else if (_materiKelompokFilter !== 'all') data = data.filter(m => m.kelompok === _materiKelompokFilter);
+    _materiFilteredCache = data;
 
     const el = document.getElementById('materi-list'); if (!el) return;
-    if (!data.length) { el.innerHTML = '<div class="empty-state"><p>Belum ada materi</p></div>'; return; }
+    if (!data.length) { el.innerHTML = '<div class="empty-state"><p>Belum ada materi</p></div>'; _updateMateriBulkBar(); return; }
 
     // Kelompokkan per grup materi (pola sama seperti Manajemen Modul).
     const groups = {};
@@ -102,7 +114,85 @@ function _renderMateriList() {
     const orderedKeys = [..._materiKelompokList.map(k => k.kode).filter(k => groups[k]), ...(groups.__none__ ? ['__none__'] : [])];
     const groupList = orderedKeys.map(k => ({ key: k, label: k === '__none__' ? 'Tanpa Grup' : _materiKelompokNama(k), items: groups[k] }));
     el.innerHTML = groupList.map(_materiGroupHtml).join('');
-    if (window.SwipeCards) el.querySelectorAll('.swipe-list').forEach(sw => SwipeCards.bindSwipeList(sw));
+    if (window.SwipeCards) el.querySelectorAll('.swipe-list').forEach(sw => SwipeCards.bindSwipeList(sw, _materiSelectOpts()));
+    _updateMateriBulkBar();
+}
+
+// ── PILIH MASSAL (Materi) — pola sama persis dgn Manajemen Modul ──
+function toggleMateriSelect(kode, checked) {
+    if (checked) _materiSelected.add(kode); else _materiSelected.delete(kode);
+    document.querySelector(`#materi-list .swipe-card[data-kode="${kode}"] .swipe-card-body`)?.classList.toggle('selected', checked);
+    _updateMateriBulkBar();
+}
+function toggleSelectAllMateri(checked) {
+    // Pakai SELURUH data hasil filter (_materiFilteredCache) — semua grup, bukan cuma baris
+    // yang kebetulan lagi ada di layar — supaya "Pilih Semua" beneran pilih semua data.
+    _materiFilteredCache.forEach(m => {
+        const kode = m.kode || m.id;
+        if (checked) _materiSelected.add(kode); else _materiSelected.delete(kode);
+    });
+    document.querySelectorAll('#materi-list .materi-row-check').forEach(cb => { cb.checked = checked; });
+    document.querySelectorAll('#materi-list .swipe-card').forEach(card => {
+        card.querySelector('.swipe-card-body')?.classList.toggle('selected', checked);
+    });
+    _updateMateriBulkBar();
+}
+function clearMateriSelection() {
+    _materiSelected.clear();
+    document.querySelectorAll('#materi-list .materi-row-check').forEach(cb => cb.checked = false);
+    document.querySelectorAll('#materi-list .swipe-card-body').forEach(b => b.classList.remove('selected'));
+    _updateMateriBulkBar();
+}
+// Mode pilih massal ala galeri foto di kartu mobile: tahan lama 1 kartu -> masuk mode pilih.
+function _materiSelectOpts() {
+    return {
+        selectable: true,
+        isSelectMode: () => _materiSelected.size > 0,
+        onLongPress: (kode, card) => { toggleMateriSelect(kode, true); card.querySelector('.swipe-card-body')?.classList.add('selected'); },
+        onTapSelect: (kode, card) => { const willSelect = !_materiSelected.has(kode); toggleMateriSelect(kode, willSelect); card.querySelector('.swipe-card-body')?.classList.toggle('selected', willSelect); }
+    };
+}
+function _updateMateriBulkBar() {
+    const n = _materiSelected.size;
+    const bar = document.getElementById('bulk-bar-materi'); if (bar) bar.style.display = n ? 'flex' : 'none';
+    const cnt = document.getElementById('bulk-count-materi'); if (cnt) cnt.textContent = n;
+    const selAll = document.getElementById('materi-select-all');
+    if (selAll) {
+        // Dicek terhadap SELURUH data hasil filter (_materiFilteredCache), bukan cuma baris
+        // yang lagi ada di DOM — biar centang "Pilih Semua" akurat walau belum semua grup discroll.
+        selAll.checked = _materiFilteredCache.length > 0 && _materiFilteredCache.every(m => _materiSelected.has(m.kode || m.id));
+    }
+}
+function deleteSelectedMateri() {
+    const kodes = Array.from(_materiSelected);
+    if (!kodes.length) { showToast('Pilih minimal 1 materi dulu', 'danger'); return; }
+    showConfirm('Hapus Materi Massal', `Yakin hapus ${kodes.length} materi terpilih? Tindakan ini tidak bisa dibatalkan.`, 'danger', async () => {
+        const results = await Promise.allSettled(kodes.map(k => MateriAPI.delete(k)));
+        const gagal = results.filter(r => r.status === 'rejected').length;
+        clearMateriSelection();
+        await renderManagementMateri();
+        if (gagal) showToast(`${kodes.length - gagal} materi terhapus, ${gagal} gagal`, 'danger');
+        else showToast(`${kodes.length} materi berhasil dihapus`, 'danger');
+    });
+}
+async function openBulkSetKelompokMateri() {
+    if (!_materiSelected.size) { showToast('Pilih minimal 1 materi dulu', 'danger'); return; }
+    await _loadMateriKelompokList();
+    document.getElementById('bkmt-count').textContent = _materiSelected.size;
+    document.getElementById('bkmt-kelompok-select').innerHTML = '<option value="">-- Tanpa Grup --</option>' + _materiKelompokList.map(k => `<option value="${k.kode}">${k.nama}</option>`).join('');
+    openModal('bulk-kelompok-materi-overlay');
+}
+async function submitBulkSetKelompokMateri() {
+    const kodes = Array.from(_materiSelected);
+    if (!kodes.length) { showToast('Tidak ada materi terpilih', 'danger'); return; }
+    const kelompok = document.getElementById('bkmt-kelompok-select').value || null;
+    const results = await Promise.allSettled(kodes.map(k => MateriAPI.update(k, { kelompok })));
+    const gagal = results.filter(r => r.status === 'rejected').length;
+    closeModal('bulk-kelompok-materi-overlay');
+    clearMateriSelection();
+    await renderManagementMateri();
+    if (gagal) showToast(`${kodes.length - gagal} materi dipindah, ${gagal} gagal`, 'danger');
+    else showToast(`${kodes.length} materi berhasil dipindah grup`, 'success');
 }
 
 // ── PILIH MODUL & URUTAN TAMPIL (2 tahap: pilih -> urutkan, pola sama dgn Modul E-Book) ──

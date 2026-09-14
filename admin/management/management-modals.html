@@ -50,6 +50,17 @@
   </div>
 </div></div>
 
+<!-- bulk-kelompok-materi-overlay: "Set Grup" massal utk materi terpilih — pola
+     sama persis dgn bulk-kelompok-modul-overlay (admin/soal/soal-modals.html). -->
+<div class="overlay" id="bulk-kelompok-materi-overlay"><div class="modal modal-sm"><div class="modal-header"><div class="modal-title">Set Grup Massal</div><button class="modal-close" onclick="closeModal('bulk-kelompok-materi-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <p style="font-size:12.5px;color:var(--text-sub);margin-bottom:14px">Pindahkan <b id="bkmt-count">0</b> materi terpilih ke grup berikut (menimpa grup lama masing-masing materi).</p>
+  <div class="form-group">
+    <label class="form-label">Grup Tujuan</label>
+    <select id="bkmt-kelompok-select" class="form-input"><option value="">-- Tanpa Grup --</option></select>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('bulk-kelompok-materi-overlay')">Batal</button><button class="btn btn-primary" onclick="submitBulkSetKelompokMateri()">Terapkan</button></div>
+</div></div>
+
 <!-- materi-kelompok-overlay: "Kelola Grup" (grup materi itu sendiri, beda dari
      kelompok modul yg dipakai sbg filter picker di atas) — pola sama persis
      dgn modul-kelompok-overlay (admin/soal/soal-modals.html). -->

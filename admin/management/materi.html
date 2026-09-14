@@ -21,16 +21,30 @@
      dalamnya) sama persis dgn Manajemen Modul (admin/soal/modul.html:
      #modul-groups). #materi-list di bawah diisi PENUH oleh _renderMateriList()
      (js), sudah termasuk .aksi-swipe-wrap & .swipe-list per grup di dalamnya —
-     makanya cuma 1 div kosong di sini, beda dari pola lama (2 div terpisah). -->
+     makanya cuma 1 div kosong di sini, beda dari pola lama (2 div terpisah).
+
+     Checklist pilih massal (checkbox di tiap kartu + "Pilih Semua" + long-press
+     di mobile) juga sudah ada, pola sama persis dgn Manajemen Modul/Library
+     Soal — lihat _materiSelected dst di admin/management/materi.js. Bulk-bar
+     muncul begitu ada minimal 1 materi tercentang: "Set Grup" (bulk-kelompok-
+     materi-overlay) & "Hapus Massal". -->
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
   <div class="section-title" style="margin-bottom:0">Materi</div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <div id="materi-kelompok-filters"></div>
+    <button class="btn btn-secondary akun-select-all-mobile" onclick="toggleSelectAllMateri(true)">Semua</button>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-sub);cursor:pointer;padding:0 4px" class="hide-mobile"><input type="checkbox" id="materi-select-all" onchange="toggleSelectAllMateri(this.checked)" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer"> Pilih Semua</label>
     <button class="btn btn-secondary" onclick="openManageMateriKelompok()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Kelola Grup</button>
     <button class="btn btn-primary" onclick="openAddMateri()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Materi</button>
   </div>
 </div>
 <div class="section-sub">Susun modul menjadi satu materi untuk guru.</div>
+
+<div class="bulk-bar" id="bulk-bar-materi"><span><b id="bulk-count-materi">0</b> materi dipilih</span><div class="bulk-bar-actions">
+  <button class="btn btn-secondary" onclick="clearMateriSelection()">Batal</button>
+  <button class="btn btn-secondary" onclick="openBulkSetKelompokMateri()">Set Grup</button>
+  <button class="btn btn-danger" onclick="deleteSelectedMateri()">Hapus Massal</button>
+</div></div>
 
 <div id="materi-list"></div>
