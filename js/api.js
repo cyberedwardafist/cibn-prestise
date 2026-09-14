@@ -286,6 +286,15 @@ const MateriAPI = {
     async delete(kode) { return await apiDel(`/materi/${kode}`); }
 };
 
+// ── GURU PAKET GRUP API (Management > Guru — tombol "+ Paket": grup nama +
+//    akun guru/review + paket keanggotaan) ──
+const GuruPaketGrupAPI = {
+    async getAll() { return await apiGet('/guru-paket-grup') || []; },
+    async create(data) { return await apiPost('/guru-paket-grup', data); },
+    async update(kode, data) { return await apiPut(`/guru-paket-grup/${kode}`, data); },
+    async delete(kode) { return await apiDel(`/guru-paket-grup/${kode}`); }
+};
+
 // ── MATERI KELOMPOK API (dikelola di Management > Materi — opsional) ──
 const MateriKelompokAPI = {
     async getAll() { return await apiGet('/materi-kelompok') || []; },

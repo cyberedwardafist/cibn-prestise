@@ -546,6 +546,8 @@ body.soal-building #side-dock-wrap.side-dock-right{
 <div class="page dock-avoid" id="page-management_API"></div>
 <div class="page dock-avoid" id="page-management-materi"></div>
 <div class="page dock-avoid" id="page-management-guru"></div>
+<div class="page dock-avoid" id="page-management-guru-paket"></div>
+<div class="page dock-avoid" id="page-management-guru-paket-detail"></div>
 <div class="page dock-avoid" id="page-analisa-token"></div>
 <div class="page dock-avoid" id="page-analisa-soal"></div>
 <div class="page dock-avoid" id="page-analisa-grafik"></div>
@@ -921,6 +923,17 @@ let _sideDockOpenGroup = null;
 //     diklik) — window._analisaSoalDetailGrup (diisi _atdGoToSoalDetail() di
 //     alur Token, dikosongkan _asdGoToButirDetail()/_amdGoToButirDetail() di
 //     alur Soal/Materi) yang membedakan mana yang harus disorot saat itu.
+// Sama pola dgn ANALISA_DETAIL_GROUP_PAGE di bawah, tapi utk 2 "halaman"
+// (bukan popup) milik dock utama MANAGEMENT: form wizard "+ Paket" &
+// halaman detail 1 grup (dibuka dari kartu grup di slide GURU / dari popup
+// hasil pencarian nama guru) — keduanya tetap harus menyorot tombol GURU
+// di panel #side-dock-wrap, bukan malah menutup panel (lihat groupForPage()
+// & _analisaSideDockActivePage() di bawah). Lihat admin/management/
+// guru-paket-form.js & guru-paket-detail.js.
+const MANAGEMENT_DETAIL_GROUP_PAGE = {
+  'management-guru-paket':        'management-guru',
+  'management-guru-paket-detail': 'management-guru'
+};
 const ANALISA_DETAIL_GROUP_PAGE = {
   'analisa-token-detail': 'analisa-token',
   'analisa-grafik':       'analisa-token',
@@ -942,7 +955,7 @@ function _analisaSideDockActivePage(pageId) {
     if (window._analisaSoalDetailBackModulKode) return 'analisa-modul';
     return 'analisa-soal';
   }
-  return ANALISA_DETAIL_GROUP_PAGE[pageId] || pageId;
+  return ANALISA_DETAIL_GROUP_PAGE[pageId] || MANAGEMENT_DETAIL_GROUP_PAGE[pageId] || pageId;
 }
 
 // Cari grup pemilik sebuah pageId (null jika halaman itu bukan bagian dari grup manapun)
@@ -951,6 +964,7 @@ function groupForPage(pageId) {
     if (SIDE_DOCK_GROUPS[g].items.some(it => it.page === pageId)) return g;
   }
   if (ANALISA_DETAIL_GROUP_PAGE[pageId]) return 'analisa';
+  if (MANAGEMENT_DETAIL_GROUP_PAGE[pageId]) return 'management';
   return null;
 }
 

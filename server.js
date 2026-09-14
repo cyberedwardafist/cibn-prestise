@@ -2143,6 +2143,57 @@ app.delete('/api/materi/:kode', auth(['admin']), ah(async (req, res) => {
 }));
 
 app.get('/api/materi-kelompok', auth(['admin', 'review', 'user']), ah(async (req, res) => { res.json(await db.prepare('SELECT * FROM materi_kelompok ORDER BY LOWER(nama)').all()); }));
+
+// ── GURU PAKET GRUP (Management > Guru — tombol "+ Paket") ──
+// Satu "grup" = nama + nama_internal + daftar akun guru/review (role='review')
+// + daftar paket (tabel pakets) yang jadi tanggung jawabnya. Pola CRUD sama
+// persis dgn /api/materi di atas (akun_list & paket_list = kolom TEXT berisi
+// JSON array kode, bukan tabel junction terpisah). Halaman list-nya (admin/
+// management/guru.html) mengelompokkan tampilan grup ini PER PAKET.
+app.get('/api/guru-paket-grup', auth(['admin', 'review']), ah(async (req, res) => {
+    const rows = await db.prepare('SELECT * FROM guru_paket_grup ORDER BY id').all();
+    rows.forEach(r => {
+        try { r.akun_list = JSON.parse(r.akun_list || '[]'); } catch (e) { r.akun_list = []; }
+        try { r.paket_list = JSON.parse(r.paket_list || '[]'); } catch (e) { r.paket_list = []; }
+    });
+    res.json(rows);
+}));
+
+app.post('/api/guru-paket-grup', auth(['admin']), ah(async (req, res) => {
+    const { nama, nama_internal } = req.body || {};
+    if (!nama || !nama.trim()) return res.status(400).json({ error: 'Nama grup wajib diisi' });
+    let akun_list = []; try { akun_list = Array.isArray(req.body.akun_list) ? req.body.akun_list : JSON.parse(req.body.akun_list || '[]'); } catch (e) { akun_list = []; }
+    let paket_list = []; try { paket_list = Array.isArray(req.body.paket_list) ? req.body.paket_list : JSON.parse(req.body.paket_list || '[]'); } catch (e) { paket_list = []; }
+
+    const kode = await genKode('GPG', 'guru_paket_grup');
+    await db.prepare('INSERT INTO guru_paket_grup (kode,nama,nama_internal,akun_list,paket_list) VALUES (?,?,?,?,?)')
+        .run(kode, nama.trim(), (nama_internal || '').trim() || null, JSON.stringify(akun_list), JSON.stringify(paket_list));
+    const row = await db.prepare('SELECT * FROM guru_paket_grup WHERE kode=?').get(kode);
+    row.akun_list = akun_list; row.paket_list = paket_list;
+    res.json(row);
+}));
+
+app.put('/api/guru-paket-grup/:kode', auth(['admin']), ah(async (req, res) => {
+    const old = await db.prepare('SELECT * FROM guru_paket_grup WHERE kode=?').get(req.params.kode);
+    if (!old) return res.status(404).json({ error: 'Tidak ditemukan' });
+
+    const { nama, nama_internal } = req.body || {};
+    let akun_list; if (req.body.akun_list === undefined) { akun_list = (() => { try { return JSON.parse(old.akun_list || '[]'); } catch (e) { return []; } })(); }
+    else { try { akun_list = Array.isArray(req.body.akun_list) ? req.body.akun_list : JSON.parse(req.body.akun_list || '[]'); } catch (e) { akun_list = []; } }
+    let paket_list; if (req.body.paket_list === undefined) { paket_list = (() => { try { return JSON.parse(old.paket_list || '[]'); } catch (e) { return []; } })(); }
+    else { try { paket_list = Array.isArray(req.body.paket_list) ? req.body.paket_list : JSON.parse(req.body.paket_list || '[]'); } catch (e) { paket_list = []; } }
+
+    await db.prepare('UPDATE guru_paket_grup SET nama=?,nama_internal=?,akun_list=?,paket_list=? WHERE kode=?')
+        .run((nama || old.nama).trim(), (nama_internal !== undefined ? ((nama_internal || '').trim() || null) : old.nama_internal), JSON.stringify(akun_list), JSON.stringify(paket_list), req.params.kode);
+    const row = await db.prepare('SELECT * FROM guru_paket_grup WHERE kode=?').get(req.params.kode);
+    row.akun_list = akun_list; row.paket_list = paket_list;
+    res.json(row);
+}));
+
+app.delete('/api/guru-paket-grup/:kode', auth(['admin']), ah(async (req, res) => {
+    await db.prepare('DELETE FROM guru_paket_grup WHERE kode=?').run(req.params.kode);
+    res.json({ message: 'Berhasil' });
+}));
 app.post('/api/materi-kelompok', auth(['admin']), ah(async (req, res) => { const kode = await genKode('MTKL', 'materi_kelompok'); await db.prepare('INSERT INTO materi_kelompok (kode,nama) VALUES (?,?)').run(kode, req.body.nama.trim()); res.json(await db.prepare('SELECT * FROM materi_kelompok WHERE kode=?').get(kode)); }));
 app.put('/api/materi-kelompok/:kode', auth(['admin']), ah(async (req, res) => { await db.prepare('UPDATE materi_kelompok SET nama=? WHERE kode=?').run(req.body.nama.trim(), req.params.kode); res.json(await db.prepare('SELECT * FROM materi_kelompok WHERE kode=?').get(req.params.kode)); }));
 app.delete('/api/materi-kelompok/:kode', auth(['admin']), ah(async (req, res) => { await transaction(async (tdb) => { await tdb.prepare('DELETE FROM materi_kelompok WHERE kode=?').run(req.params.kode); await tdb.prepare('UPDATE materi SET kelompok=NULL WHERE kelompok=?').run(req.params.kode); }); res.json({ message: 'Berhasil' }); }));

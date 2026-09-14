@@ -122,7 +122,7 @@ function renderPage(id, subId) {
         // jadi langsung ReferenceError sebelum sempat cek map[id]. Dengan string +
         // window[...], cuma nama fungsi utk id yang sedang aktif yang di-resolve,
         // dan modul-nya sudah pasti sudah dimuat oleh ensureAdminPageModule di atas.
-        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', 'akun-pengaturan':'renderAkunPengaturan', 'akun-ganti-password':'renderAkunGantiPassword', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-materi-detail':'renderAnalisaMateriDetail', 'analisa-grafik':'renderAnalisaGrafik', 'analisa-modul':'renderAnalisaModul', 'analisa-modul-detail':'renderAnalisaModulDetail', 'analisa-modul-sampel':'renderAnalisaModulSampel', management_API:'renderManagementAPI', 'management-materi':'renderManagementMateri', 'management-guru':'renderManagementGuru' };
+        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', 'akun-pengaturan':'renderAkunPengaturan', 'akun-ganti-password':'renderAkunGantiPassword', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-materi-detail':'renderAnalisaMateriDetail', 'analisa-grafik':'renderAnalisaGrafik', 'analisa-modul':'renderAnalisaModul', 'analisa-modul-detail':'renderAnalisaModulDetail', 'analisa-modul-sampel':'renderAnalisaModulSampel', management_API:'renderManagementAPI', 'management-materi':'renderManagementMateri', 'management-guru':'renderManagementGuru', 'management-guru-paket':'renderManagementGuruPaketForm', 'management-guru-paket-detail':'renderManagementGuruPaketDetail' };
         const fn = map[id] && window[map[id]];
         if (typeof fn === 'function') fn();
         if (subId) switchSubPage(id, subId);
@@ -188,7 +188,15 @@ const ADMIN_PAGE_MODULES = {
     // Panel navigasinya #side-dock-wrap generik (lihat SIDE_DOCK_GROUPS.management
     // di admin/index_admin.html), sama seperti grup CAT/SOAL/EBOOK/ANALISA.
     'management-materi': { html: 'admin/management/materi.html', js: ['admin/management/materi.js'], modals: 'admin/management/management-modals.html' },
-    'management-guru':   { html: 'admin/management/guru.html',   js: ['admin/management/guru.js'] },
+    'management-guru':   { html: 'admin/management/guru.html',   js: ['admin/management/guru.js'], modals: 'admin/management/guru-modals.html' },
+    // Slide GURU (di atas) punya tombol "+ Paket" -> buka 2 "halaman" terpisah
+    // (BUKAN popup/modal — sesuai permintaan, supaya nyaman dicek panjang):
+    // wizard form (buat/edit grup, 3 langkah) & halaman detail 1 grup. Keduanya
+    // didaftarkan sebagai page ID sendiri (bukan bagian SIDE_DOCK_GROUPS.management)
+    // tapi tetap menyorot tombol GURU lewat MANAGEMENT_DETAIL_GROUP_PAGE (lihat
+    // admin/index_admin.html) — sama persis pola 'analisa-token-detail'.
+    'management-guru-paket':        { html: 'admin/management/guru-paket-form.html',   js: ['admin/management/guru-paket-form.js'] },
+    'management-guru-paket-detail': { html: 'admin/management/guru-paket-detail.html', js: ['admin/management/guru-paket-detail.js'] },
     'analisa-token':        { html: 'admin/analisa/analisa-token.html',        js: ['admin/analisa/analisa-token.js'] },
     // + analisa-export.js: logika tombol "Ekstrak" (bangun .xlsx + suntik grafik native via JSZip) — lihat komentar di file itu.
     // + analisa-chart-shared.js: kode grafik SVG (line chart + median/sebaran

@@ -157,6 +157,25 @@ CREATE TABLE IF NOT EXISTS materi (
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- guru_paket_grup: fitur MANAGEMENT > GURU (management guru) — tombol "+ Paket".
+-- Satu baris = satu "grup" bernama (nama + nama_internal) yang menghubungkan
+-- sekumpulan akun guru/review (role='review' di tabel users) dengan sekumpulan
+-- paket keanggotaan (tabel pakets). Polanya sama seperti materi.modul_list di
+-- atas: akun_list & paket_list disimpan sbg JSON array kode, bukan tabel
+-- junction terpisah, supaya konsisten dgn pola CRUD "list" lain di project ini.
+-- Satu akun/paket boleh dipakai berulang di banyak grup berbeda (many-to-many
+-- longgar) — daftar di halaman Management > Guru dikelompokkan PER PAKET,
+-- jadi satu grup yg terhubung ke >1 paket akan muncul di tiap bagian paketnya.
+CREATE TABLE IF NOT EXISTS guru_paket_grup (
+    id            SERIAL PRIMARY KEY,
+    kode          TEXT UNIQUE,
+    nama          TEXT NOT NULL,
+    nama_internal TEXT,
+    akun_list     TEXT,
+    paket_list    TEXT,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS ebook_kelompok (
     id         SERIAL PRIMARY KEY,
     kode       TEXT UNIQUE,
