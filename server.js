@@ -1789,24 +1789,24 @@ app.get('/api/pakets/:kode', auth(['admin']), ah(async (req, res) => {
     res.json(p);
 }));
 app.post('/api/pakets', auth(['admin']), ah(async (req, res) => {
-    const { nama, deskripsi, periode_tipe, periode_hari, harga, fitur, status, link_landing, warna, icon, popular, periode, hak_akses, aturan_akses, maks_ujian, durasi_hari, hak_notes, mentoring_kuota } = req.body;
+    const { nama, deskripsi, periode_tipe, periode_hari, harga, fitur, status, link_landing, warna, icon, popular, periode, hak_akses, aturan_akses, maks_ujian, durasi_hari, hak_notes, mentoring_kuota, mentoring_kuota_batal } = req.body;
     const kode = await genKode('PKT', 'pakets');
     try {
-        await db.prepare(`INSERT INTO pakets (kode,nama,deskripsi,periode_tipe,periode_hari,harga,fitur,status,link_landing,warna,icon,popular,periode,hak_akses,aturan_akses,maks_ujian,durasi_hari,hak_notes,mentoring_kuota) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-            .run(kode, nama, deskripsi || null, periode_tipe || 'bulan', periode_hari || 30, harga || 0, normalizeFiturForDb(fitur), status || 'aktif', link_landing || null, warna || 'blue', icon || null, popular ? 1 : 0, periode || '/bulan', hak_akses || null, aturan_akses || null, maks_ujian || null, durasi_hari || null, hak_notes || null, mentoring_kuota || null);
+        await db.prepare(`INSERT INTO pakets (kode,nama,deskripsi,periode_tipe,periode_hari,harga,fitur,status,link_landing,warna,icon,popular,periode,hak_akses,aturan_akses,maks_ujian,durasi_hari,hak_notes,mentoring_kuota,mentoring_kuota_batal) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+            .run(kode, nama, deskripsi || null, periode_tipe || 'bulan', periode_hari || 30, harga || 0, normalizeFiturForDb(fitur), status || 'aktif', link_landing || null, warna || 'blue', icon || null, popular ? 1 : 0, periode || '/bulan', hak_akses || null, aturan_akses || null, maks_ujian || null, durasi_hari || null, hak_notes || null, mentoring_kuota || null, mentoring_kuota_batal || null);
         res.json({ kode, message: 'Berhasil' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 }));
 app.put('/api/pakets/:kode', auth(['admin']), ah(async (req, res) => {
-    const { nama, deskripsi, periode_tipe, periode_hari, harga, fitur, status, link_landing, warna, icon, popular, periode, hak_akses, aturan_akses, maks_ujian, durasi_hari, hak_notes, mentoring_kuota } = req.body;
+    const { nama, deskripsi, periode_tipe, periode_hari, harga, fitur, status, link_landing, warna, icon, popular, periode, hak_akses, aturan_akses, maks_ujian, durasi_hari, hak_notes, mentoring_kuota, mentoring_kuota_batal } = req.body;
     // Ikon sekarang gambar (URL Supabase Storage) alih-alih emoji — kalau
     // ikonnya berubah & yang lama memang URL upload (bukan emoji lawas), hapus
     // file lama dari storage supaya tidak menumpuk jadi file yatim.
     const old = await db.prepare('SELECT icon FROM pakets WHERE kode=?').get(req.params.kode);
     const newIcon = icon || null;
     if (old && old.icon && old.icon !== newIcon) deleteUploadedFileByUrl(old.icon).catch(() => {});
-    await db.prepare(`UPDATE pakets SET nama=?,deskripsi=?,periode_tipe=?,periode_hari=?,harga=?,fitur=?,status=?,link_landing=?,warna=?,icon=?,popular=?,periode=?,hak_akses=?,aturan_akses=?,maks_ujian=?,durasi_hari=?,hak_notes=?,mentoring_kuota=? WHERE kode=?`)
-        .run(nama, deskripsi || null, periode_tipe || 'bulan', periode_hari || 30, harga || 0, normalizeFiturForDb(fitur), status || 'aktif', link_landing || null, warna || 'blue', newIcon, popular ? 1 : 0, periode || '/bulan', hak_akses || null, aturan_akses || null, maks_ujian || null, durasi_hari || null, hak_notes || null, mentoring_kuota || null, req.params.kode);
+    await db.prepare(`UPDATE pakets SET nama=?,deskripsi=?,periode_tipe=?,periode_hari=?,harga=?,fitur=?,status=?,link_landing=?,warna=?,icon=?,popular=?,periode=?,hak_akses=?,aturan_akses=?,maks_ujian=?,durasi_hari=?,hak_notes=?,mentoring_kuota=?,mentoring_kuota_batal=? WHERE kode=?`)
+        .run(nama, deskripsi || null, periode_tipe || 'bulan', periode_hari || 30, harga || 0, normalizeFiturForDb(fitur), status || 'aktif', link_landing || null, warna || 'blue', newIcon, popular ? 1 : 0, periode || '/bulan', hak_akses || null, aturan_akses || null, maks_ujian || null, durasi_hari || null, hak_notes || null, mentoring_kuota || null, mentoring_kuota_batal || null, req.params.kode);
     res.json({ message: 'Berhasil' });
 }));
 app.delete('/api/pakets/:kode', auth(['admin']), ah(async (req, res) => {

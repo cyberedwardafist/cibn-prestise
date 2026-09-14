@@ -72,7 +72,8 @@ CREATE TABLE IF NOT EXISTS pakets (
     maks_ujian    TEXT,
     durasi_hari   TEXT,
     hak_notes     TEXT,
-    mentoring_kuota TEXT
+    mentoring_kuota TEXT,
+    mentoring_kuota_batal TEXT
 );
 
 CREATE TABLE IF NOT EXISTS user_pakets (
@@ -331,6 +332,10 @@ ALTER TABLE laporan ADD COLUMN IF NOT EXISTS izinkan_review SMALLINT;
 -- di akun user/review (guru), terpisah dari poster masing-masing buku di dalamnya.
 ALTER TABLE ebook_modul ADD COLUMN IF NOT EXISTS poster TEXT;
 ALTER TABLE pakets ADD COLUMN IF NOT EXISTS mentoring_kuota TEXT;
+-- Kuota Batal Jadwal Mentoring — pasangan dari mentoring_kuota (Kuota Ajukan
+-- Jadwal): sama2 baru disiapkan datanya dulu di paket (lihat admin/keuangan/
+-- paket-form.html), fungsi booking/pembatalan mentoring-nya sendiri belum aktif.
+ALTER TABLE pakets ADD COLUMN IF NOT EXISTS mentoring_kuota_batal TEXT;
 -- Grup guru sekarang ditautkan ke MATERI (bukan paket lagi) — lihat catatan di
 -- guru_paket_grup di atas. Kolom lama paket_list dibiarkan apa adanya.
 ALTER TABLE guru_paket_grup ADD COLUMN IF NOT EXISTS materi_list TEXT;

@@ -413,9 +413,15 @@
                   </div>
                   <div id="pf-mentoring-content-wrap">
                     <div class="pf-hak-desc">User dengan paket ini akan mengakses menu Mentoring (dock JADWAL). Tampilan disiapkan dulu, fungsi booking belum aktif.</div>
-                    <div class="form-group" style="margin:10px 0">
-                      <label class="form-label" style="font-size:10px">Kuota Permintaan Jadwal Mentoring <span style="font-weight:400;color:var(--text-sub)">(kosong = ∞)</span></label>
-                      <input id="pf-mentoring-kuota" class="form-input" type="number" min="0" placeholder="Contoh: 4 per bulan" oninput="onPfMentoringKuotaChange()">
+                    <div class="form-row" style="margin:10px 0">
+                      <div class="form-group">
+                        <label class="form-label" style="font-size:10px">Kuota Batal Jadwal <span style="font-weight:400;color:var(--text-sub)">(kosong = ∞)</span></label>
+                        <input id="pf-mentoring-kuota-batal" class="form-input" type="number" min="0" placeholder="Contoh: 2 per bulan" oninput="setDirty('paket')">
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label" style="font-size:10px">Kuota Ajukan Jadwal <span style="font-weight:400;color:var(--text-sub)">(kosong = ∞)</span></label>
+                        <input id="pf-mentoring-kuota" class="form-input" type="number" min="0" placeholder="Contoh: 4 per bulan" oninput="onPfMentoringKuotaChange()">
+                      </div>
                     </div>
                     <div class="pf-hak-subcard">
                       <div style="font-size:10px;color:var(--text-sub);margin-bottom:8px">Materi sesi mentoring:</div>
