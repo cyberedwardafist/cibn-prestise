@@ -3,10 +3,11 @@
 <!-- REDESIGN visual mengikuti Landing Page (lihat public/paket.html, kelas .pkg-card dkk) +
      panel Pratinjau langsung (live preview) di kanan. Blok "HAK AKSES PAKET" di bawah sudah
      ikut di-redesain visualnya (kartu .pf-hak-card dkk, lihat <style> di atas) supaya senada
-     & lebih nyaman dipakai — TAPI markup/id/class/handler yang dipakai logic-nya (switch,
-     hak-sub, hak-chevron, onclick=toggleHakSubMenu, onchange=onPfHakSwitchToggle, semua
-     name="pf-hak"/"pf-aturan" + value-nya, dan semua id yang dibaca admin/keuangan/paket-form.js)
-     TIDAK diubah sama sekali — sistem hak aksesnya tetap sama persis, cuma bungkusnya beda. -->
+     & lebih nyaman dipakai. Kontennya SELALU tampil per kartu (bukan accordion klik-buka
+     lagi) — TAPI markup/id/class/handler yang dipakai logic hak akses-nya (switch, onchange=
+     onPfHakSwitchToggle, semua name="pf-hak"/"pf-aturan" + value-nya, dan semua id yang dibaca
+     admin/keuangan/paket-form.js) TIDAK diubah sama sekali — sistem hak aksesnya tetap sama
+     persis, cuma bungkusnya beda. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap">
 <style>
 /* ── Tema visual form Paket, di-scope semua di bawah #paket-form-overlay
@@ -189,8 +190,8 @@
 .pf-hak-card-title-wrap { min-width:0; }
 .pf-hak-card-title { font-size:12.5px; font-weight:700; color:var(--pf-text); }
 .pf-hak-card-sub { font-size:10.5px; color:var(--pf-text-dim); margin-top:1px; }
-.pf-hak-chev-wrap { margin-left:auto; display:flex; align-items:center; color:var(--pf-text-dim); opacity:.5; flex-shrink:0; }
-.pf-hak-card-head .hak-chevron { transition:transform .2s; }
+/* Konten di bawah header SELALU tampil (bukan accordion klik-buka lagi) —
+   .hak-sub tidak lagi ditoggle lewat toggleHakSubMenu()/display:none di sini. */
 .pf-hak-card .hak-sub { padding:2px 14px 14px; border-top:1px solid rgba(21,34,56,.07); background:rgba(246,248,252,.55); }
 .pf-hak-card .switch-row { background:rgba(255,255,255,.9); border-color:var(--pf-glass-border); border-radius:12px; margin-top:10px; }
 .pf-hak-desc { font-size:11px; color:var(--pf-text-dim); line-height:1.65; margin-top:8px; }
@@ -299,12 +300,14 @@
             </div>
           </div>
 
-          <!-- ══ HAK AKSES PAKET ══ — REDESAIN VISUAL. Markup/id/class/handler yang
-               dipakai logic (switch, hak-sub, hak-chevron, onclick=toggleHakSubMenu,
-               onchange=onPfHakSwitchToggle, name=pf-hak/pf-aturan + value-nya, dan
-               semua id yang dibaca paket-form.js) TIDAK diubah sama sekali — cuma
-               dibungkus ulang pakai kelas .pf-hak-* (lihat <style> di atas) supaya
-               senada dgn section lain di form ini & lebih nyaman dilihat/dipakai. -->
+          <!-- ══ HAK AKSES PAKET ══ — REDESAIN VISUAL. Konten tiap kartu SELALU tampil
+               (bukan accordion klik-buka lagi — header tidak lagi punya onclick/chevron).
+               Yang TETAP TIDAK berubah (logic aslinya): class switch/switch-row/switch-
+               label/switch-desc/switch-slider, atribut onchange="onPfHakSwitchToggle(...)",
+               semua name="pf-hak"/"pf-aturan" + value-nya, dan semua id yang dibaca
+               paket-form.js (pf-hak-akses-checks, pf-modul-content-wrap, pf-mentoring-
+               content-wrap, pf-laporan-review-override, pf-mentoring-kuota, picker modul
+               & mentoring, dst). -->
           <div class="pf-section">
             <div class="pf-eyebrow">🔐 Hak Akses Paket</div>
             <div class="pf-hak-hint">Menu &amp; fitur yang dapat diakses user dengan paket ini. Kosongkan dulu — akan dihubungkan dengan item menu akun user nantinya.</div>
@@ -315,17 +318,14 @@
 
               <!-- Ujian -->
               <div class="pf-hak-card">
-                <div class="pf-hak-card-head" onclick="toggleHakSubMenu(this)">
+                <div class="pf-hak-card-head">
                   <div class="pf-hak-icon">📝</div>
                   <div class="pf-hak-card-title-wrap">
                     <div class="pf-hak-card-title">Ujian Online</div>
                     <div class="pf-hak-card-sub">Dock UJIAN · CAT</div>
                   </div>
-                  <div class="pf-hak-chev-wrap">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
-                  </div>
                 </div>
-                <div class="hak-sub" style="display:none">
+                <div class="hak-sub">
                   <div class="switch-row">
                     <div class="switch-label">CAT</div>
                     <label class="switch"><input type="checkbox" name="pf-hak" value="ujian" checked onchange="onPfHakSwitchToggle(this)"><span class="switch-slider"></span></label>
@@ -336,17 +336,14 @@
 
               <!-- Laporan -->
               <div class="pf-hak-card">
-                <div class="pf-hak-card-head" onclick="toggleHakSubMenu(this)">
+                <div class="pf-hak-card-head">
                   <div class="pf-hak-icon">📊</div>
                   <div class="pf-hak-card-title-wrap">
                     <div class="pf-hak-card-title">Laporan &amp; Statistik</div>
                     <div class="pf-hak-card-sub">Dock RIWAYAT · HISTORI</div>
                   </div>
-                  <div class="pf-hak-chev-wrap">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
-                  </div>
                 </div>
-                <div class="hak-sub" style="display:none">
+                <div class="hak-sub">
                   <div class="switch-row">
                     <div class="switch-label">HISTORI</div>
                     <label class="switch"><input type="checkbox" name="pf-hak" value="laporan" checked onchange="onPfHakSwitchToggle(this)"><span class="switch-slider"></span></label>
@@ -366,17 +363,14 @@
 
               <!-- Modul / Materi -->
               <div class="pf-hak-card">
-                <div class="pf-hak-card-head" onclick="toggleHakSubMenu(this)">
+                <div class="pf-hak-card-head">
                   <div class="pf-hak-icon">📚</div>
                   <div class="pf-hak-card-title-wrap">
                     <div class="pf-hak-card-title">Modul / Materi</div>
                     <div class="pf-hak-card-sub">Menu E-BOOK</div>
                   </div>
-                  <div class="pf-hak-chev-wrap">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
-                  </div>
                 </div>
-                <div class="hak-sub" style="display:none">
+                <div class="hak-sub">
                   <div class="switch-row">
                     <div class="switch-label">E-BOOK</div>
                     <label class="switch"><input type="checkbox" name="pf-hak" value="modul" checked onchange="onPfHakSwitchToggle(this,'pf-modul-content-wrap')"><span class="switch-slider"></span></label>
@@ -405,17 +399,14 @@
 
               <!-- Mentoring -->
               <div class="pf-hak-card">
-                <div class="pf-hak-card-head" onclick="toggleHakSubMenu(this)">
+                <div class="pf-hak-card-head">
                   <div class="pf-hak-icon">💬</div>
                   <div class="pf-hak-card-title-wrap">
                     <div class="pf-hak-card-title">Mentoring &amp; Konsultasi</div>
                     <div class="pf-hak-card-sub">Dock JADWAL</div>
                   </div>
-                  <div class="pf-hak-chev-wrap">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
-                  </div>
                 </div>
-                <div class="hak-sub" style="display:none">
+                <div class="hak-sub">
                   <div class="switch-row">
                     <div class="switch-label">MENTORING</div>
                     <label class="switch"><input type="checkbox" name="pf-hak" value="mentoring" checked onchange="onPfHakSwitchToggle(this,'pf-mentoring-content-wrap')"><span class="switch-slider"></span></label>

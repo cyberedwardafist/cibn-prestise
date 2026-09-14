@@ -650,8 +650,9 @@ async function openAddPaket() {
     PaketCalState = null; // reset kalender, di-init ulang kalau user pilih Custom lagi
     document.querySelectorAll('input[name="pf-hak"]').forEach(cb=>cb.checked=true);
     document.querySelectorAll('input[name="pf-aturan"]').forEach(cb=>cb.checked=false);
-    document.querySelectorAll('.hak-sub').forEach(s=>{s.style.display='none';});
-    document.querySelectorAll('.hak-chevron').forEach(c=>{c.style.transform='';});
+    // Konten Hak Akses (.hak-sub) sekarang SELALU tampil di markup (bukan accordion
+    // klik-buka lagi — lihat admin/keuangan/paket-form.html), jadi tidak perlu di-reset
+    // ke display:none / transform chevron di sini seperti sebelumnya.
     _pfSyncHakContentWraps(['ujian','laporan','modul','mentoring']);
     var mk=document.getElementById('pf-mentoring-kuota');if(mk)mk.value='';
     await Promise.all([_pfLoadModulPicker([]), _pfLoadMentoringPicker([])]);
@@ -706,8 +707,9 @@ async function openEditPaket(kode) {
         cb.checked = hakBelumPernahDisimpan ? true : hakArr.includes(cb.value);
     });
     document.querySelectorAll('input[name="pf-aturan"]').forEach(cb=>{cb.checked=aturanArr.includes(cb.value);});
-    document.querySelectorAll('.hak-sub').forEach(s=>{s.style.display='none';});
-    document.querySelectorAll('.hak-chevron').forEach(c=>{c.style.transform='';});
+    // Konten Hak Akses (.hak-sub) sekarang SELALU tampil di markup (bukan accordion
+    // klik-buka lagi — lihat admin/keuangan/paket-form.html), jadi tidak perlu di-reset
+    // ke display:none / transform chevron di sini seperti sebelumnya.
     _pfSyncHakContentWraps(hakArr);
     var mk=document.getElementById('pf-mentoring-kuota');if(mk)mk.value=p.mentoring_kuota||'';
     await Promise.all([_pfLoadModulPicker(aturanArr.filter(v => v.startsWith('modul.item.'))), _pfLoadMentoringPicker(aturanArr.filter(v => v.startsWith('mentoring.')))]);
