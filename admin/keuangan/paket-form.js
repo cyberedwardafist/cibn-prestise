@@ -361,7 +361,6 @@ function _pfToggleModulPick(kode, ck) {
 // checked apa adanya, jadi format ini otomatis kebawa ke aturan_akses tanpa
 // ubah logic submit.
 let _pfMentoringMateriMaster = [], _pfMentoringKelompokList = [];
-let _pfMentoringGuruPerMateri = {}; // kode materi -> [nama guru,...] (info doang, read-only)
 let _pfMentoringPickerSearch = '', _pfMentoringPickerKelompokFilter = 'all';
 let _pfMentoringSelected = []; // kode materi terpilih buat paket ini
 
@@ -383,36 +382,11 @@ async function _pfLoadMentoringPicker(mentoringAturan = []) {
         MateriAPI.getAll().catch(() => []),
         MateriKelompokAPI.getAll().catch(() => [])
     ]);
-    // Nama guru per akun (buat label info guru read-only di tiap kartu materi)
-    let guruNama = {};
-    try {
-        const gurus = await UsersAPI.getByRole('review');
-        (gurus || []).forEach(g => { guruNama[g.kode] = g.nama; });
-    } catch (e) {}
-    let guruGrupList = [];
-    try { guruGrupList = await GuruPaketGrupAPI.getAll(); } catch (e) {}
-    _pfMentoringGuruPerMateri = {};
-    // NB: GET /api/guru-paket-grup sudah men-JSON.parse akun_list & materi_list
-    // di server (lihat server.js) — jadi grup.akun_list/grup.materi_list yang
-    // sampai di sini SUDAH berupa array, bukan string JSON lagi. Kode lama di
-    // sini masih mem-JSON.parse ulang array yang sudah jadi array (JSON.parse
-    // otomatis String()-in array dulu -> "MT001,MT002" -> bukan JSON valid ->
-    // exception -> ketangkep catch kosong -> materiListGrup/akunList SELALU []),
-    // makanya info guru per materi di picker ini selalu kosong ("Belum ada guru
-    // ditautkan") padahal datanya sudah ada — kelihatan benar di Management >
-    // Guru / detail paket (openManagementGuruPaketDetail), yang memang pakai
-    // grup.materi_list & grup.akun_list langsung tanpa JSON.parse lagi (lihat
-    // guru-paket-detail.js _gpdRenderGuruList & renderManagementGuruPaketDetail).
-    // Fix: pakai langsung, samakan dengan pola di guru-paket-detail.js.
-    (guruGrupList || []).forEach(grup => {
-        const akunList = grup.akun_list || [];
-        const materiListGrup = grup.materi_list || [];
-        const namaGuruGrup = akunList.map(k => guruNama[k]).filter(Boolean);
-        materiListGrup.forEach(mk => {
-            if (!_pfMentoringGuruPerMateri[mk]) _pfMentoringGuruPerMateri[mk] = [];
-            namaGuruGrup.forEach(n => { if (!_pfMentoringGuruPerMateri[mk].includes(n)) _pfMentoringGuruPerMateri[mk].push(n); });
-        });
-    });
+    // Info guru per materi (read-only) DIHAPUS dari picker ini — sekarang guru
+    // sudah dikelola sbg "paket" tersendiri di slide dock Management > Guru
+    // (guru-paket-grup), jadi gaperlu ditampilin lagi per-materi di sini juga
+    // (dulu dicoba lewat GuruPaketGrupAPI + UsersAPI.getByRole('review'), sudah
+    // dibuang berikut variabel _pfMentoringGuruPerMateri-nya).
     _pfSyncMentoringHiddenInputs();
     _renderPfMentoringPickerFilters();
     _renderPfMentoringPicker();
@@ -425,8 +399,8 @@ function _renderPfMentoringPickerFilters() {
 }
 // Daftar materi (master, dari Management > Materi) dgn search + filter kelompok
 // — centang buat memasukkan materi itu ke paket ini. Info guru per materi
-// (read-only, dari guru_paket_grup) ditampilkan biar admin tahu materi itu
-// nanti kebawa guru siapa saja begitu paket ini dipakai user.
+// SENGAJA tidak ditampilkan lagi di sini (lihat catatan di _pfLoadMentoringPicker);
+// guru sekarang dikelola per-paket di Management > Guru, bukan per-materi.
 function _renderPfMentoringPicker() {
     const el = document.getElementById('pf-mentoring-picker-list'); if (!el) return;
     if (!_pfMentoringMateriMaster.length) { el.innerHTML = '<p style="color:var(--text-sub);font-size:12px">Belum ada materi. Buat dulu di menu Management &gt; Materi.</p>'; return; }
@@ -444,11 +418,9 @@ function _pfMentoringPickCardHtml(m) {
     const ck = _pfMentoringSelected.includes(kode);
     const kelNama = _pfMentoringKelompokNama(m.kelompok);
     const namaTampil = m.nama_internal ? `${m.nama} | ${m.nama_internal}` : m.nama;
-    const guruList = _pfMentoringGuruPerMateri[kode] || [];
-    const guruInfo = guruList.length ? `Guru: ${guruList.join(', ')}` : 'Belum ada guru ditautkan (atur di Management &gt; Guru)';
     return `<label class="ebook-pick-item${ck ? ' checked' : ''}" id="pfmentpick-${kode}">
       <input type="checkbox" ${ck ? 'checked' : ''} onchange="_pfToggleMentoringPick('${kode}',this.checked)" style="accent-color:var(--blue);width:16px;height:16px;flex-shrink:0">
-      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;color:var(--blue);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namaTampil}</div><div style="font-size:11px;color:var(--text-sub)">${kelNama ? kelNama + ' · ' : ''}${guruInfo}</div></div>
+      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;color:var(--blue);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namaTampil}</div><div style="font-size:11px;color:var(--text-sub)">${kelNama || kode}</div></div>
     </label>`;
 }
 function _pfToggleMentoringPick(kode, ck) {
