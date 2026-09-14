@@ -22,8 +22,8 @@ async function renderManagementGuruPaketForm() {
     const editing = !!editKode;
     const existing = editing ? _guruGrupData.find(g => g.kode === editKode) : null;
 
-    document.getElementById('gpf-title').textContent = editing ? 'Edit Grup Guru' : 'Grup Guru Baru';
-    document.getElementById('gpf-save-btn').textContent = editing ? 'Simpan Perubahan' : 'Simpan Grup';
+    document.getElementById('gpf-title').textContent = editing ? 'Edit Paket Guru' : 'Paket Guru Baru';
+    document.getElementById('gpf-save-btn').textContent = editing ? 'Simpan Perubahan' : 'Simpan Paket';
     document.getElementById('gpf-nama').value = existing ? (existing.nama || '') : '';
     document.getElementById('gpf-nama-internal').value = existing ? (existing.nama_internal || '') : '';
 

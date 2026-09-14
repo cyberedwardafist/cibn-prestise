@@ -14,8 +14,8 @@ async function renderManagementGuruPaketDetail() {
     const grup = _guruGrupData.find(g => g.kode === kode);
 
     if (!grup) {
-        document.getElementById('gpd-title').textContent = 'Grup tidak ditemukan';
-        document.getElementById('gpd-subtitle').textContent = 'Grup ini mungkin sudah dihapus.';
+        document.getElementById('gpd-title').textContent = 'Paket tidak ditemukan';
+        document.getElementById('gpd-subtitle').textContent = 'Paket ini mungkin sudah dihapus.';
         document.getElementById('gpd-paket-badges').innerHTML = '';
         document.getElementById('gpd-guru-list').innerHTML = '';
         document.getElementById('gpd-guru-count').textContent = '0';
@@ -52,7 +52,7 @@ function _gpdRenderGuruList() {
 
     document.getElementById('gpd-guru-count').textContent = (grup.akun_list || []).length;
 
-    if (!akunKodes.length) { el.innerHTML = '<p style="color:var(--text-sub);font-size:12px">Belum ada akun guru/review di grup ini.</p>'; return; }
+    if (!akunKodes.length) { el.innerHTML = '<p style="color:var(--text-sub);font-size:12px">Belum ada akun guru/review di paket ini.</p>'; return; }
     if (!akunRows.length) { el.innerHTML = '<p style="color:var(--text-sub);font-size:12px">Tidak ada guru/review yang cocok dengan pencarian.</p>'; return; }
 
     el.innerHTML = akunRows.map(u => `
@@ -73,12 +73,12 @@ function _gpdEdit() {
 function _gpdDelete() {
     if (!_gpdCurrentGrup) return;
     const g = _gpdCurrentGrup;
-    showConfirm('Hapus Grup', `Hapus grup "${g.nama}"? Guru/review & materinya tidak ikut terhapus, cuma tautannya saja.`, 'danger', async () => {
+    showConfirm('Hapus Paket', `Hapus paket "${g.nama}"? Guru/review & materinya tidak ikut terhapus, cuma tautannya saja.`, 'danger', async () => {
         try {
             await GuruPaketGrupAPI.delete(g.kode);
-            showToast('Grup berhasil dihapus', 'success');
+            showToast('Paket berhasil dihapus', 'success');
             await _guruEnsureData(true);
             navigateTo('management-guru');
-        } catch (e) { showToast(e.message || 'Gagal menghapus grup', 'danger'); }
+        } catch (e) { showToast(e.message || 'Gagal menghapus paket', 'danger'); }
     });
 }

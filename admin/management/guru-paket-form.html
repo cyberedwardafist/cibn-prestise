@@ -1,10 +1,11 @@
-<!-- ══ MANAGEMENT > GURU > + MATERI (wizard form) ══
+<!-- ══ MANAGEMENT > GURU > + PAKET (wizard form) ══
      HALAMAN (bukan popup — page ID 'management-guru-paket', file sendiri)
-     buat bikin/edit satu "grup": nama + nama_internal, daftar akun guru/
-     review, daftar materi. Dibuka dari tombol "+ Materi" (buat baru) atau
-     tombol edit di kartu grup (admin/management/guru.html) & di halaman
-     detail (guru-paket-detail.html) — window._guruPaketEditKode diisi kode
-     grup kalau mode edit, null kalau mode buat baru.
+     buat bikin/edit satu "grup" (ditampilkan ke admin sebagai "Paket"): nama
+     + nama_internal, daftar akun guru/review, daftar materi. Dibuka dari
+     tombol "+ Paket" (buat baru) atau tombol edit di kartu paket
+     (admin/management/guru.html) & di halaman detail (guru-paket-detail.html)
+     — window._guruPaketEditKode diisi kode grup kalau mode edit, null kalau
+     mode buat baru.
 
      Wizard step-by-step (bukan 1 halaman scroll panjang):
        1) Nama + Nama Internal
@@ -19,7 +20,7 @@
   <button class="btn-icon" onclick="navigateTo('management-guru')" title="Kembali ke daftar Guru">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
   </button>
-  <div class="section-title" style="margin-bottom:0" id="gpf-title">Grup Guru Baru</div>
+  <div class="section-title" style="margin-bottom:0" id="gpf-title">Paket Guru Baru</div>
 </div>
 <div class="section-sub">Hubungkan sekumpulan akun guru/review dengan materi-materi yang jadi tanggung jawabnya.</div>
 
@@ -34,7 +35,7 @@
   <!-- STEP 1: Nama + Nama Internal -->
   <div class="gpf-step" id="gpf-step-1">
     <div class="form-group">
-      <label class="form-label">Nama Grup</label>
+      <label class="form-label">Nama Paket</label>
       <input type="text" id="gpf-nama" class="form-input" placeholder="Contoh: Tim Pengajar Silver">
       <div class="ld-hint" style="margin-top:4px">Nama ini yang akan tampil di daftar & pencarian.</div>
     </div>
@@ -75,7 +76,7 @@
     <div id="gpf-paket-list" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
     <div style="display:flex;justify-content:space-between;margin-top:16px">
       <button class="btn btn-secondary" onclick="_gpfGoStep(2)">&larr; Kembali</button>
-      <button class="btn btn-primary" id="gpf-save-btn" onclick="_gpfSubmit()">Simpan Grup</button>
+      <button class="btn btn-primary" id="gpf-save-btn" onclick="_gpfSubmit()">Simpan Paket</button>
     </div>
   </div>
 </div>
