@@ -1,4 +1,5 @@
 // ── MANAGEMENT > GURU > DETAIL GRUP (admin/management/guru-paket-detail.html) ──
+// Materi-materi terkait grup (dulu paket) + daftar akun guru/review-nya.
 // renderManagementGuruPaketDetail() dipanggil oleh renderPage() lewat
 // map['management-guru-paket-detail'] = 'renderManagementGuruPaketDetail'.
 // window._guruPaketDetailKode diisi kode grup oleh pemanggil (kartu grup di
@@ -31,10 +32,10 @@ async function renderManagementGuruPaketDetail() {
     document.getElementById('gpd-title').textContent = grup.nama;
     document.getElementById('gpd-subtitle').textContent = grup.nama_internal ? `Nama internal: ${grup.nama_internal} \u00B7 ${grup.kode}` : grup.kode;
 
-    const paketList = grup.paket_list || [];
-    document.getElementById('gpd-paket-badges').innerHTML = paketList.length
-        ? paketList.map(pk => `<span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue);font-size:12px">\u{1F4E6} ${_gEscHtml(_guruPaketNama(pk) || pk)}</span>`).join('')
-        : '<span style="font-size:12px;color:var(--text-sub)">Belum ditautkan ke paket manapun.</span>';
+    const materiList = grup.materi_list || [];
+    document.getElementById('gpd-paket-badges').innerHTML = materiList.length
+        ? materiList.map(mk => `<span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue);font-size:12px">\u{1F4D6} ${_gEscHtml(_guruMateriNama(mk) || mk)}</span>`).join('')
+        : '<span style="font-size:12px;color:var(--text-sub)">Belum ditautkan ke materi manapun.</span>';
 
     _gpdRenderGuruList();
 }
@@ -72,7 +73,7 @@ function _gpdEdit() {
 function _gpdDelete() {
     if (!_gpdCurrentGrup) return;
     const g = _gpdCurrentGrup;
-    showConfirm('Hapus Grup', `Hapus grup "${g.nama}"? Guru/review & paketnya tidak ikut terhapus, cuma tautannya saja.`, 'danger', async () => {
+    showConfirm('Hapus Grup', `Hapus grup "${g.nama}"? Guru/review & materinya tidak ikut terhapus, cuma tautannya saja.`, 'danger', async () => {
         try {
             await GuruPaketGrupAPI.delete(g.kode);
             showToast('Grup berhasil dihapus', 'success');

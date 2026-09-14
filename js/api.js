@@ -286,8 +286,8 @@ const MateriAPI = {
     async delete(kode) { return await apiDel(`/materi/${kode}`); }
 };
 
-// ── GURU PAKET GRUP API (Management > Guru — tombol "+ Paket": grup nama +
-//    akun guru/review + paket keanggotaan) ──
+// ── GURU PAKET GRUP API (Management > Guru — tombol "+ Materi": grup nama +
+//    akun guru/review + materi keanggotaan) ──
 const GuruPaketGrupAPI = {
     async getAll() { return await apiGet('/guru-paket-grup') || []; },
     async create(data) { return await apiPost('/guru-paket-grup', data); },

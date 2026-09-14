@@ -2144,17 +2144,19 @@ app.delete('/api/materi/:kode', auth(['admin']), ah(async (req, res) => {
 
 app.get('/api/materi-kelompok', auth(['admin', 'review', 'user']), ah(async (req, res) => { res.json(await db.prepare('SELECT * FROM materi_kelompok ORDER BY LOWER(nama)').all()); }));
 
-// ── GURU PAKET GRUP (Management > Guru — tombol "+ Paket") ──
+// ── GURU PAKET GRUP (Management > Guru — tombol "+ Materi") ──
 // Satu "grup" = nama + nama_internal + daftar akun guru/review (role='review')
-// + daftar paket (tabel pakets) yang jadi tanggung jawabnya. Pola CRUD sama
-// persis dgn /api/materi di atas (akun_list & paket_list = kolom TEXT berisi
+// + daftar materi (tabel materi) yang jadi tanggung jawabnya. Pola CRUD sama
+// persis dgn /api/materi di atas (akun_list & materi_list = kolom TEXT berisi
 // JSON array kode, bukan tabel junction terpisah). Halaman list-nya (admin/
-// management/guru.html) mengelompokkan tampilan grup ini PER PAKET.
+// management/guru.html) mengelompokkan tampilan grup ini PER MATERI. Kolom
+// paket_list di tabelnya adalah kolom lama (legacy, sebelum grup ditautkan ke
+// materi) — tidak dibaca/ditulis lagi di sini, dibiarkan apa adanya di DB.
 app.get('/api/guru-paket-grup', auth(['admin', 'review']), ah(async (req, res) => {
     const rows = await db.prepare('SELECT * FROM guru_paket_grup ORDER BY id').all();
     rows.forEach(r => {
         try { r.akun_list = JSON.parse(r.akun_list || '[]'); } catch (e) { r.akun_list = []; }
-        try { r.paket_list = JSON.parse(r.paket_list || '[]'); } catch (e) { r.paket_list = []; }
+        try { r.materi_list = JSON.parse(r.materi_list || '[]'); } catch (e) { r.materi_list = []; }
     });
     res.json(rows);
 }));
@@ -2163,13 +2165,13 @@ app.post('/api/guru-paket-grup', auth(['admin']), ah(async (req, res) => {
     const { nama, nama_internal } = req.body || {};
     if (!nama || !nama.trim()) return res.status(400).json({ error: 'Nama grup wajib diisi' });
     let akun_list = []; try { akun_list = Array.isArray(req.body.akun_list) ? req.body.akun_list : JSON.parse(req.body.akun_list || '[]'); } catch (e) { akun_list = []; }
-    let paket_list = []; try { paket_list = Array.isArray(req.body.paket_list) ? req.body.paket_list : JSON.parse(req.body.paket_list || '[]'); } catch (e) { paket_list = []; }
+    let materi_list = []; try { materi_list = Array.isArray(req.body.materi_list) ? req.body.materi_list : JSON.parse(req.body.materi_list || '[]'); } catch (e) { materi_list = []; }
 
     const kode = await genKode('GPG', 'guru_paket_grup');
-    await db.prepare('INSERT INTO guru_paket_grup (kode,nama,nama_internal,akun_list,paket_list) VALUES (?,?,?,?,?)')
-        .run(kode, nama.trim(), (nama_internal || '').trim() || null, JSON.stringify(akun_list), JSON.stringify(paket_list));
+    await db.prepare('INSERT INTO guru_paket_grup (kode,nama,nama_internal,akun_list,materi_list) VALUES (?,?,?,?,?)')
+        .run(kode, nama.trim(), (nama_internal || '').trim() || null, JSON.stringify(akun_list), JSON.stringify(materi_list));
     const row = await db.prepare('SELECT * FROM guru_paket_grup WHERE kode=?').get(kode);
-    row.akun_list = akun_list; row.paket_list = paket_list;
+    row.akun_list = akun_list; row.materi_list = materi_list;
     res.json(row);
 }));
 
@@ -2180,13 +2182,13 @@ app.put('/api/guru-paket-grup/:kode', auth(['admin']), ah(async (req, res) => {
     const { nama, nama_internal } = req.body || {};
     let akun_list; if (req.body.akun_list === undefined) { akun_list = (() => { try { return JSON.parse(old.akun_list || '[]'); } catch (e) { return []; } })(); }
     else { try { akun_list = Array.isArray(req.body.akun_list) ? req.body.akun_list : JSON.parse(req.body.akun_list || '[]'); } catch (e) { akun_list = []; } }
-    let paket_list; if (req.body.paket_list === undefined) { paket_list = (() => { try { return JSON.parse(old.paket_list || '[]'); } catch (e) { return []; } })(); }
-    else { try { paket_list = Array.isArray(req.body.paket_list) ? req.body.paket_list : JSON.parse(req.body.paket_list || '[]'); } catch (e) { paket_list = []; } }
+    let materi_list; if (req.body.materi_list === undefined) { materi_list = (() => { try { return JSON.parse(old.materi_list || '[]'); } catch (e) { return []; } })(); }
+    else { try { materi_list = Array.isArray(req.body.materi_list) ? req.body.materi_list : JSON.parse(req.body.materi_list || '[]'); } catch (e) { materi_list = []; } }
 
-    await db.prepare('UPDATE guru_paket_grup SET nama=?,nama_internal=?,akun_list=?,paket_list=? WHERE kode=?')
-        .run((nama || old.nama).trim(), (nama_internal !== undefined ? ((nama_internal || '').trim() || null) : old.nama_internal), JSON.stringify(akun_list), JSON.stringify(paket_list), req.params.kode);
+    await db.prepare('UPDATE guru_paket_grup SET nama=?,nama_internal=?,akun_list=?,materi_list=? WHERE kode=?')
+        .run((nama || old.nama).trim(), (nama_internal !== undefined ? ((nama_internal || '').trim() || null) : old.nama_internal), JSON.stringify(akun_list), JSON.stringify(materi_list), req.params.kode);
     const row = await db.prepare('SELECT * FROM guru_paket_grup WHERE kode=?').get(req.params.kode);
-    row.akun_list = akun_list; row.paket_list = paket_list;
+    row.akun_list = akun_list; row.materi_list = materi_list;
     res.json(row);
 }));
 

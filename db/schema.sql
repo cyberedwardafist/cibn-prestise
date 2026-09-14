@@ -157,15 +157,17 @@ CREATE TABLE IF NOT EXISTS materi (
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- guru_paket_grup: fitur MANAGEMENT > GURU (management guru) — tombol "+ Paket".
+-- guru_paket_grup: fitur MANAGEMENT > GURU (management guru) — tombol "+ Materi".
 -- Satu baris = satu "grup" bernama (nama + nama_internal) yang menghubungkan
 -- sekumpulan akun guru/review (role='review' di tabel users) dengan sekumpulan
--- paket keanggotaan (tabel pakets). Polanya sama seperti materi.modul_list di
--- atas: akun_list & paket_list disimpan sbg JSON array kode, bukan tabel
--- junction terpisah, supaya konsisten dgn pola CRUD "list" lain di project ini.
--- Satu akun/paket boleh dipakai berulang di banyak grup berbeda (many-to-many
--- longgar) — daftar di halaman Management > Guru dikelompokkan PER PAKET,
--- jadi satu grup yg terhubung ke >1 paket akan muncul di tiap bagian paketnya.
+-- materi (tabel materi, dikelola di slide dock Management > Materi). Polanya
+-- sama seperti materi.modul_list di atas: akun_list & materi_list disimpan sbg
+-- JSON array kode, bukan tabel junction terpisah, supaya konsisten dgn pola
+-- CRUD "list" lain di project ini. Satu akun/materi boleh dipakai berulang di
+-- banyak grup berbeda (many-to-many longgar) — daftar di halaman Management >
+-- Guru dikelompokkan PER MATERI, jadi satu grup yg terhubung ke >1 materi akan
+-- muncul di tiap bagian materinya. Kolom paket_list dipertahankan sbg kolom
+-- lama (legacy, tidak dipakai lagi) supaya data lama tidak hilang begitu saja.
 CREATE TABLE IF NOT EXISTS guru_paket_grup (
     id            SERIAL PRIMARY KEY,
     kode          TEXT UNIQUE,
@@ -329,6 +331,9 @@ ALTER TABLE laporan ADD COLUMN IF NOT EXISTS izinkan_review SMALLINT;
 -- di akun user/review (guru), terpisah dari poster masing-masing buku di dalamnya.
 ALTER TABLE ebook_modul ADD COLUMN IF NOT EXISTS poster TEXT;
 ALTER TABLE pakets ADD COLUMN IF NOT EXISTS mentoring_kuota TEXT;
+-- Grup guru sekarang ditautkan ke MATERI (bukan paket lagi) — lihat catatan di
+-- guru_paket_grup di atas. Kolom lama paket_list dibiarkan apa adanya.
+ALTER TABLE guru_paket_grup ADD COLUMN IF NOT EXISTS materi_list TEXT;
 
 CREATE TABLE IF NOT EXISTS landing (
     id   INTEGER PRIMARY KEY DEFAULT 1,

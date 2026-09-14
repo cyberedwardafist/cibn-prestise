@@ -3,15 +3,15 @@
 // map['management-guru'] = 'renderManagementGuru'.
 //
 // Sumber data:
-//   - GuruPaketGrupAPI  -> tabel guru_paket_grup (grup: nama + akun_list + paket_list)
+//   - GuruPaketGrupAPI  -> tabel guru_paket_grup (grup: nama + akun_list + materi_list)
 //   - UsersAPI.getByRole('review') -> akun guru/review (role='review' di tabel users)
-//   - PaketAPI          -> tabel pakets (paket keanggotaan, dikelola di Keuangan)
+//   - MateriAPI         -> tabel materi (dikelola di slide dock Management > Materi)
 //
 // Ketiganya disimpan di variabel modul-level supaya bisa dipakai ulang oleh
 // guru-paket-form.js & guru-paket-detail.js tanpa fetch berkali-kali (dibaca
 // lewat fungsi _guruEnsureData() yang dipanggil dari kedua file itu juga).
 
-let _guruGrupData = [], _guruReviewUsers = [], _guruPakets = [], _guruDataLoaded = false;
+let _guruGrupData = [], _guruReviewUsers = [], _guruMateris = [], _guruDataLoaded = false;
 
 function _gEsc(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
 function _gEscHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
@@ -22,10 +22,10 @@ function _gEscHtml(s) { const d = document.createElement('div'); d.textContent =
 // simpan/hapus grup supaya list-nya pasti sinkron.
 async function _guruEnsureData(force) {
     if (_guruDataLoaded && !force) return;
-    [_guruGrupData, _guruReviewUsers, _guruPakets] = await Promise.all([
+    [_guruGrupData, _guruReviewUsers, _guruMateris] = await Promise.all([
         GuruPaketGrupAPI.getAll().catch(() => []),
         UsersAPI.getByRole('review').catch(() => []),
-        PaketAPI.getAll().catch(() => [])
+        MateriAPI.getAll().catch(() => [])
     ]);
     _guruDataLoaded = true;
 }
@@ -38,10 +38,10 @@ async function renderManagementGuru() {
 }
 
 function _guruAkunNama(kode) { const u = _guruReviewUsers.find(x => x.kode === kode); return u ? u.nama : null; }
-function _guruPaketNama(kode) { const p = _guruPakets.find(x => x.kode === kode); return p ? p.nama : null; }
+function _guruMateriNama(kode) { const m = _guruMateris.find(x => x.kode === kode); return m ? m.nama : null; }
 
-// ── LIST UTAMA — dikelompokkan PER PAKET. Grup tanpa paket sama sekali
-//    (paket_list kosong) ditaruh di bagian "Belum Ditautkan ke Paket" paling
+// ── LIST UTAMA — dikelompokkan PER MATERI. Grup tanpa materi sama sekali
+//    (materi_list kosong) ditaruh di bagian "Belum Ditautkan ke Materi" paling
 //    bawah supaya tetap kelihatan (bukan hilang begitu saja). ──
 function _renderGuruPaketGrupList() {
     const wrap = document.getElementById('guru-paket-grup-list');
@@ -55,38 +55,39 @@ function _renderGuruPaketGrupList() {
     }
     empty.style.display = 'none';
 
-    // paketKode -> [grup, grup, ...] (satu grup bisa nongol di banyak paket)
-    const byPaket = new Map();
-    const tanpaPaket = [];
+    // materiKode -> [grup, grup, ...] (satu grup bisa nongol di banyak materi)
+    const byMateri = new Map();
+    const tanpaMateri = [];
     _guruGrupData.forEach(g => {
-        const list = g.paket_list || [];
-        if (!list.length) { tanpaPaket.push(g); return; }
-        list.forEach(pk => { if (!byPaket.has(pk)) byPaket.set(pk, []); byPaket.get(pk).push(g); });
+        const list = g.materi_list || [];
+        if (!list.length) { tanpaMateri.push(g); return; }
+        list.forEach(mk => { if (!byMateri.has(mk)) byMateri.set(mk, []); byMateri.get(mk).push(g); });
     });
 
-    // Urutkan section sesuai urutan paket di Keuangan (bukan urutan kemunculan),
-    // paket yang tidak lagi ada tetap ditampilkan pakai kodenya sbg fallback nama.
+    // Urutkan section sesuai urutan materi di slide dock Materi (bukan urutan
+    // kemunculan), materi yang tidak lagi ada tetap ditampilkan pakai kodenya
+    // sbg fallback nama.
     const sections = [];
-    _guruPakets.forEach(p => { if (byPaket.has(p.kode)) sections.push({ nama: p.nama, kode: p.kode, items: byPaket.get(p.kode) }); });
-    byPaket.forEach((items, kode) => { if (!_guruPakets.some(p => p.kode === kode)) sections.push({ nama: kode, kode, items }); });
+    _guruMateris.forEach(m => { if (byMateri.has(m.kode)) sections.push({ nama: m.nama, kode: m.kode, items: byMateri.get(m.kode) }); });
+    byMateri.forEach((items, kode) => { if (!_guruMateris.some(m => m.kode === kode)) sections.push({ nama: kode, kode, items }); });
 
     let html = sections.map(sec => `
       <div style="margin-top:18px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue);font-size:12px">\u{1F4E6} ${_gEscHtml(sec.nama)}</span>
+          <span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue);font-size:12px">\u{1F4D6} ${_gEscHtml(sec.nama)}</span>
           <span style="font-size:11px;color:var(--text-sub)">${sec.items.length} grup</span>
         </div>
         <div style="display:flex;flex-direction:column;gap:8px">${sec.items.map(g => _guruGrupCardHtml(g)).join('')}</div>
       </div>`).join('');
 
-    if (tanpaPaket.length) {
+    if (tanpaMateri.length) {
         html += `
       <div style="margin-top:18px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <span class="badge" style="background:rgba(19,50,89,0.08);color:var(--text-sub);font-size:12px">Belum Ditautkan ke Paket</span>
-          <span style="font-size:11px;color:var(--text-sub)">${tanpaPaket.length} grup</span>
+          <span class="badge" style="background:rgba(19,50,89,0.08);color:var(--text-sub);font-size:12px">Belum Ditautkan ke Materi</span>
+          <span style="font-size:11px;color:var(--text-sub)">${tanpaMateri.length} grup</span>
         </div>
-        <div style="display:flex;flex-direction:column;gap:8px">${tanpaPaket.map(g => _guruGrupCardHtml(g)).join('')}</div>
+        <div style="display:flex;flex-direction:column;gap:8px">${tanpaMateri.map(g => _guruGrupCardHtml(g)).join('')}</div>
       </div>`;
     }
 
@@ -109,13 +110,13 @@ function _guruGrupCardHtml(g) {
     </div>`;
 }
 
-// ── Tombol "+ Paket" & aksi kartu ──
+// ── Tombol "+ Materi" & aksi kartu ──
 function openAddGuruPaketGrup() { window._guruPaketEditKode = null; navigateTo('management-guru-paket'); }
 function openEditGuruPaketGrup(kode) { window._guruPaketEditKode = kode; navigateTo('management-guru-paket'); }
 function openManagementGuruPaketDetail(kode) { window._guruPaketDetailKode = kode; navigateTo('management-guru-paket-detail'); }
 
 function deleteGuruPaketGrup(kode, nama) {
-    showConfirm('Hapus Grup', `Hapus grup "${nama}"? Guru/review & paketnya tidak ikut terhapus, cuma tautannya saja.`, 'danger', async () => {
+    showConfirm('Hapus Grup', `Hapus grup "${nama}"? Guru/review & materinya tidak ikut terhapus, cuma tautannya saja.`, 'danger', async () => {
         try {
             await GuruPaketGrupAPI.delete(kode);
             showToast('Grup berhasil dihapus', 'success');
@@ -125,10 +126,10 @@ function deleteGuruPaketGrup(kode, nama) {
     });
 }
 
-// ── SEARCH BAR ATAS (cari nama guru/review ATAU nama grup/paket sekaligus) ──
-// - Kalau query cocok ke nama grup/paket -> dropdown berisi grup2 itu, klik langsung buka detailnya.
+// ── SEARCH BAR ATAS (cari nama guru/review ATAU nama grup/materi sekaligus) ──
+// - Kalau query cocok ke nama grup/materi -> dropdown berisi grup2 itu, klik langsung buka detailnya.
 // - Kalau query cocok ke nama guru/review -> dropdown berisi nama guru itu + baris
-//   "Ikut di paket: ...". Klik: kalau guru itu cuma ada di 1 grup, langsung navigateTo
+//   "Ikut di materi: ...". Klik: kalau guru itu cuma ada di 1 grup, langsung navigateTo
 //   ke detail grup itu; kalau di >1 grup, buka popup (#guru-pilih-grup-overlay) suruh pilih.
 function _guruGrupsForAkunKode(akunKode) { return _guruGrupData.filter(g => (g.akun_list || []).includes(akunKode)); }
 
@@ -137,29 +138,29 @@ function _guruTopSearchInput(val) {
     const resWrap = document.getElementById('guru-top-search-results');
     if (!q) { resWrap.style.display = 'none'; resWrap.innerHTML = ''; return; }
 
-    // 1) cocokkan ke nama grup/paket dulu
+    // 1) cocokkan ke nama grup/materi dulu
     const matchGrup = _guruGrupData.filter(g => (g.nama || '').toLowerCase().includes(q) || (g.nama_internal || '').toLowerCase().includes(q));
-    const matchPaketKode = _guruPakets.filter(p => (p.nama || '').toLowerCase().includes(q)).map(p => p.kode);
-    const matchGrupByPaket = _guruGrupData.filter(g => (g.paket_list || []).some(pk => matchPaketKode.includes(pk)));
-    const grupHits = Array.from(new Set([...matchGrup, ...matchGrupByPaket]));
+    const matchMateriKode = _guruMateris.filter(m => (m.nama || '').toLowerCase().includes(q)).map(m => m.kode);
+    const matchGrupByMateri = _guruGrupData.filter(g => (g.materi_list || []).some(mk => matchMateriKode.includes(mk)));
+    const grupHits = Array.from(new Set([...matchGrup, ...matchGrupByMateri]));
 
     // 2) cocokkan ke nama guru/review
     const guruHits = _guruReviewUsers.filter(u => (u.nama || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q));
 
     if (!grupHits.length && !guruHits.length) {
         resWrap.style.display = '';
-        resWrap.innerHTML = `<div style="padding:14px;font-size:12px;color:var(--text-sub);text-align:center">Tidak ada guru/review maupun grup/paket yang cocok.</div>`;
+        resWrap.innerHTML = `<div style="padding:14px;font-size:12px;color:var(--text-sub);text-align:center">Tidak ada guru/review maupun grup/materi yang cocok.</div>`;
         return;
     }
 
     let html = '';
     if (grupHits.length) {
-        html += `<div style="padding:8px 12px 2px;font-size:10px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:.06em">Grup / Paket</div>`;
+        html += `<div style="padding:8px 12px 2px;font-size:10px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:.06em">Grup / Materi</div>`;
         html += grupHits.map(g => {
-            const paketNama = (g.paket_list || []).map(pk => _guruPaketNama(pk) || pk).join(', ') || '-';
+            const materiNama = (g.materi_list || []).map(mk => _guruMateriNama(mk) || mk).join(', ') || '-';
             return `<div class="search-result-item" style="padding:9px 12px;cursor:pointer;border-top:1px solid rgba(19,50,89,0.06)" onclick="_guruTopSearchGoToGrup('${_gEsc(g.kode)}')">
               <div style="font-weight:600;font-size:13px;color:var(--blue)">${_gEscHtml(g.nama)}</div>
-              <div style="font-size:11px;color:var(--text-sub)">Paket: ${_gEscHtml(paketNama)}</div>
+              <div style="font-size:11px;color:var(--text-sub)">Materi: ${_gEscHtml(materiNama)}</div>
             </div>`;
         }).join('');
     }
@@ -167,8 +168,8 @@ function _guruTopSearchInput(val) {
         html += `<div style="padding:8px 12px 2px;font-size:10px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:.06em">Guru / Review</div>`;
         html += guruHits.map(u => {
             const grups = _guruGrupsForAkunKode(u.kode);
-            const paketNamaList = Array.from(new Set(grups.flatMap(g => (g.paket_list || []).map(pk => _guruPaketNama(pk) || pk))));
-            const sub = grups.length ? `Ikut di paket: ${_gEscHtml(paketNamaList.join(', ') || '-')}` : 'Belum ada di grup/paket manapun';
+            const materiNamaList = Array.from(new Set(grups.flatMap(g => (g.materi_list || []).map(mk => _guruMateriNama(mk) || mk))));
+            const sub = grups.length ? `Ikut di materi: ${_gEscHtml(materiNamaList.join(', ') || '-')}` : 'Belum ada di grup/materi manapun';
             return `<div class="search-result-item" style="padding:9px 12px;cursor:pointer;border-top:1px solid rgba(19,50,89,0.06)" onclick="_guruTopSearchClickAkun('${_gEsc(u.kode)}')">
               <div style="font-weight:600;font-size:13px;color:var(--blue)">${_gEscHtml(u.nama)}</div>
               <div style="font-size:11px;color:var(--text-sub)">${sub}</div>
@@ -187,20 +188,20 @@ function _guruTopSearchGoToGrup(kode) {
 function _guruTopSearchClickAkun(akunKode) {
     document.getElementById('guru-top-search-results').style.display = 'none';
     const grups = _guruGrupsForAkunKode(akunKode);
-    if (!grups.length) { showToast('Guru/review ini belum ada di grup/paket manapun', 'warning'); return; }
+    if (!grups.length) { showToast('Guru/review ini belum ada di grup/materi manapun', 'warning'); return; }
     if (grups.length === 1) { openManagementGuruPaketDetail(grups[0].kode); return; }
     _guruOpenPilihGrupPopup(akunKode, grups);
 }
 
-// Popup "pilih mau buka ke grup/paket yang mana" (#guru-pilih-grup-overlay, guru-modals.html)
+// Popup "pilih mau buka ke grup/materi yang mana" (#guru-pilih-grup-overlay, guru-modals.html)
 // — cuma dipakai kalau 1 akun guru/review nyangkut di >1 grup.
 function _guruOpenPilihGrupPopup(akunKode, grups) {
     const nama = _guruAkunNama(akunKode) || akunKode;
-    document.getElementById('guru-pilih-grup-title').textContent = `${nama} \u2014 Pilih Paket`;
+    document.getElementById('guru-pilih-grup-title').textContent = `${nama} \u2014 Pilih Materi`;
     document.getElementById('guru-pilih-grup-list').innerHTML = grups.map(g => {
-        const paketNama = (g.paket_list || []).map(pk => _guruPaketNama(pk) || pk).join(', ') || 'Belum ditautkan paket';
+        const materiNama = (g.materi_list || []).map(mk => _guruMateriNama(mk) || mk).join(', ') || 'Belum ditautkan materi';
         return `<div class="modul-card" style="cursor:pointer" onclick="closeModal('guru-pilih-grup-overlay');openManagementGuruPaketDetail('${_gEsc(g.kode)}')">
-          <div class="modul-card-left"><div><div style="font-weight:700;font-size:13px;color:var(--blue)">${_gEscHtml(g.nama)}</div><div style="font-size:11px;color:var(--text-sub)">${_gEscHtml(paketNama)}</div></div></div>
+          <div class="modul-card-left"><div><div style="font-weight:700;font-size:13px;color:var(--blue)">${_gEscHtml(g.nama)}</div><div style="font-size:11px;color:var(--text-sub)">${_gEscHtml(materiNama)}</div></div></div>
         </div>`;
     }).join('');
     openModal('guru-pilih-grup-overlay');

@@ -1,13 +1,13 @@
 <!-- admin/management/guru-modals.html — popup KECIL (bukan halaman) yang dipakai
      search bar di admin/management/guru.html: dipanggil saat hasil cari nama
      guru/review cocok ke LEBIH DARI 1 grup — user perlu memilih mau dibuka ke
-     grup/paket yang mana. Kalau cuma cocok ke 1 grup, popup ini TIDAK dipakai
+     grup/materi yang mana. Kalau cuma cocok ke 1 grup, popup ini TIDAK dipakai
      sama sekali (langsung navigateTo ke halaman detail grup itu).
      Logic: _guruOpenPilihGrupPopup() di admin/management/guru.js. -->
 <div class="overlay" id="guru-pilih-grup-overlay">
   <div class="modal modal-sm">
     <div class="modal-header">
-      <div class="modal-title" id="guru-pilih-grup-title">Pilih Paket</div>
+      <div class="modal-title" id="guru-pilih-grup-title">Pilih Materi</div>
       <button class="modal-close" onclick="closeModal('guru-pilih-grup-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body" style="padding:4px 0">
