@@ -195,8 +195,13 @@ const ADMIN_PAGE_MODULES = {
     // didaftarkan sebagai page ID sendiri (bukan bagian SIDE_DOCK_GROUPS.management)
     // tapi tetap menyorot tombol GURU lewat MANAGEMENT_DETAIL_GROUP_PAGE (lihat
     // admin/index_admin.html) — sama persis pola 'analisa-token-detail'.
-    'management-guru-paket':        { html: 'admin/management/guru-paket-form.html',   js: ['admin/management/guru-paket-form.js'] },
-    'management-guru-paket-detail': { html: 'admin/management/guru-paket-detail.html', js: ['admin/management/guru-paket-detail.js'] },
+    // guru.js WAJIB ikut dimuat di 'js' keduanya (bukan cuma di 'management-guru')
+    // karena _guruEnsureData/_guruReviewUsers/_guruMateris/dll didefinisikan di
+    // sana — kedua halaman ini bisa dibuka langsung tanpa pernah mampir ke slide
+    // GURU dulu (reload di tengah alur, lihat _persistAdminNav). LazyLoader.loadMany
+    // dedup per-URL otomatis, jadi aman dimuat 2x kalau slide GURU sudah pernah dibuka.
+    'management-guru-paket':        { html: 'admin/management/guru-paket-form.html',   js: ['admin/management/guru.js', 'admin/management/guru-paket-form.js'] },
+    'management-guru-paket-detail': { html: 'admin/management/guru-paket-detail.html', js: ['admin/management/guru.js', 'admin/management/guru-paket-detail.js'] },
     'analisa-token':        { html: 'admin/analisa/analisa-token.html',        js: ['admin/analisa/analisa-token.js'] },
     // + analisa-export.js: logika tombol "Ekstrak" (bangun .xlsx + suntik grafik native via JSZip) — lihat komentar di file itu.
     // + analisa-chart-shared.js: kode grafik SVG (line chart + median/sebaran
