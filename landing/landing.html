@@ -670,8 +670,17 @@ function mapPaketRowLanding(p) {
     unit: hasHarga ? (p.periode || ('/' + (p.periode_tipe || 'bulan'))) : '',
     features: Array.isArray(p.fitur) ? p.fitur : [],
     featured: !!p.popular,
+    icon: p.icon || '',
     btnText: 'Pilih Paket'
   };
+}
+// Ikon paket (gambar) diupload admin lewat form Keuangan > Paket Harga, tapi
+// SEBELUM INI belum pernah dirender di kartu manapun di landing — cuma dipakai
+// di preview form admin.
+function pkgIconHtmlLanding(pk) {
+  if (!pk.icon) return '';
+  if (/^(https?:|data:)/i.test(pk.icon)) return `<img class="paket-icon-img" src="${pk.icon}" alt="">`;
+  return `<span class="paket-icon-emoji">${esc(pk.icon)}</span>`; // ikon lawas format emoji/teks
 }
 
 function renderPaket(p, realPakets) {
@@ -688,7 +697,7 @@ function renderPaket(p, realPakets) {
   grid.innerHTML = list.map((pk, i) => {
     const fl = (pk.features || []).filter(x => (x || '').trim());
     return `<div class="glass glass-hover c-4 paket-card${pk.featured ? ' featured' : ''} reveal${i===1?' reveal-delay-1':i===2?' reveal-delay-2':''}">
-      <div class="paket-name">${esc(pk.name)}</div>
+      <div class="paket-name">${pkgIconHtmlLanding(pk)}${esc(pk.name)}</div>
       <div class="paket-price">${esc(pk.price)} <span>${esc(pk.unit)}</span></div>
       <p class="paket-desc">${esc(pk.desc)}</p>
       <div class="paket-divider"></div>

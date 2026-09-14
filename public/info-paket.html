@@ -574,7 +574,9 @@ input{font-family:inherit}
   color:var(--blue);background:rgba(44,90,160,.1);border:1px solid rgba(44,90,160,.3);
   padding:6px 14px;border-radius:999px;margin-bottom:18px;
 }
-.info-name{font-family:'Space Grotesk',sans-serif;font-size:clamp(28px,3.6vw,40px);font-weight:700;color:var(--text)}
+.info-name{font-family:'Space Grotesk',sans-serif;font-size:clamp(28px,3.6vw,40px);font-weight:700;color:var(--text);display:flex;align-items:center;gap:14px}
+.pkg-icon-img{width:0.9em;height:0.9em;border-radius:10px;object-fit:cover;flex-shrink:0}
+.pkg-icon-emoji{font-size:0.85em;line-height:1;flex-shrink:0}
 .info-desc{margin-top:14px;font-size:15px;color:var(--text-dim);line-height:1.8;max-width:560px}
 .info-divider{height:1px;background:var(--glass-border);margin:30px 0}
 .info-block-title{
@@ -726,8 +728,17 @@ function mapPaketRow(p) {
     period: hasHarga ? (p.periode || ('/' + (p.periode_tipe || 'bulan'))) : '',
     desc: p.deskripsi || '',
     features: Array.isArray(p.fitur) ? p.fitur : [],
-    featured: !!p.popular
+    featured: !!p.popular,
+    icon: p.icon || ''
   };
+}
+// Ikon paket (gambar) diupload admin lewat form Keuangan > Paket Harga, tapi
+// SEBELUM INI belum pernah dirender di halaman publik manapun — cuma dipakai
+// di preview form admin. Ini render-nya di depan judul paket.
+function pkgIconHtml(p) {
+  if (!p.icon) return '';
+  if (/^(https?:|data:)/i.test(p.icon)) return `<img class="pkg-icon-img" src="${p.icon}" alt="">`;
+  return `<span class="pkg-icon-emoji">${p.icon}</span>`; // ikon lawas format emoji/teks
 }
 async function loadRealPackages() {
   try {
@@ -1050,7 +1061,7 @@ if (footerSpot) {
       <div class="info-main glass reveal">
         ${p.featured ? '<div class="pkg-badge">' + p.tag + '</div>' : ''}
         <div class="info-tag mono">${p.tag}</div>
-        <h1 class="info-name">${p.name}</h1>
+        <h1 class="info-name">${pkgIconHtml(p)}${p.name}</h1>
         <p class="info-desc">${p.desc}</p>
         <div class="info-divider"></div>
         <div class="info-block-title">Apa saja yang Anda dapatkan</div>

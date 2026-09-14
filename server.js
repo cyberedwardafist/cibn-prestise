@@ -1715,10 +1715,59 @@ app.delete('/api/signup-requests/:id', auth(['admin']), ah(async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ROUTES: PAKET TEMPLATE & USER PAKETS
 // ═══════════════════════════════════════════════════════════════════════════════
+// BUG FIX: form admin (admin/keuangan/paket-form.js) mengirim field "Fitur (satu
+// per baris)" sebagai STRING teks biasa dipisah baris baru (mis. "Akses 10
+// modul\nSertifikat digital"), BUKAN JSON array. Sebelum ada helper ini, POST/PUT
+// di bawah menyimpan string mentah itu apa adanya ke kolom `fitur` (karena
+// `typeof fitur === 'string'` selalu true, jadi tidak pernah di-JSON.stringify
+// jadi array). Akibatnya setiap kali data paket dibaca lagi (GET /api/pakets,
+// /api/pakets/public, /api/pakets/:kode) — yang semuanya memanggil
+// `JSON.parse(r.fitur)` di dalam try/catch — parse-nya GAGAL (string itu bukan
+// JSON valid) dan diam-diam di-fallback jadi array kosong `[]`. Makanya field
+// Fitur di form admin selalu balik kosong setelah Simpan, dan ikut kosong juga
+// di landing. Helper ini menormalkan input APA PUN (array, string JSON array,
+// atau teks "satu per baris") menjadi JSON array yang valid sebelum disimpan.
+function normalizeFiturForDb(fitur) {
+    if (fitur == null) return null;
+    if (Array.isArray(fitur)) {
+        const arr = fitur.map(s => String(s).trim()).filter(Boolean);
+        return arr.length ? JSON.stringify(arr) : null;
+    }
+    if (typeof fitur === 'string') {
+        const trimmed = fitur.trim();
+        if (!trimmed) return null;
+        // Kalau kliennya (di masa depan) sudah kirim JSON array valid, pakai itu.
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) {
+                const arr = parsed.map(s => String(s).trim()).filter(Boolean);
+                return arr.length ? JSON.stringify(arr) : null;
+            }
+        } catch (e) { /* bukan JSON — lanjut anggap teks "satu per baris" di bawah */ }
+        const arr = trimmed.split('\n').map(s => s.trim()).filter(Boolean);
+        return arr.length ? JSON.stringify(arr) : null;
+    }
+    return null;
+}
+
+// Pasangan normalizeFiturForDb() di atas: baca kolom `fitur` balik jadi array.
+// Toleran terhadap data LAMA yang sempat tersimpan sebagai teks biasa (bug
+// sebelum normalizeFiturForDb ada) — kalau bukan JSON valid, coba anggap teks
+// "satu per baris" dulu sebelum benar-benar dianggap kosong.
+function parseFiturFromDb(raw) {
+    if (!raw) return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        return String(raw).split('\n').map(s => s.trim()).filter(Boolean);
+    }
+}
+
 app.get('/api/pakets', auth(['admin']), ah(async (req, res) => {
     const rows = await db.prepare('SELECT * FROM pakets ORDER BY id').all();
     rows.forEach(r => {
-        if (r.fitur) try { r.fitur = JSON.parse(r.fitur); } catch (e) { r.fitur = []; }
+        r.fitur = parseFiturFromDb(r.fitur);
         r.popular = !!r.popular;
         if (r.hak_akses) try { r.hak_akses = JSON.parse(r.hak_akses); } catch(e) { r.hak_akses = []; }
         if (r.aturan_akses) try { r.aturan_akses = JSON.parse(r.aturan_akses); } catch(e) { r.aturan_akses = []; }
@@ -1728,7 +1777,7 @@ app.get('/api/pakets', auth(['admin']), ah(async (req, res) => {
 app.get('/api/pakets/public', ah(async (req, res) => {
     const rows = await db.prepare("SELECT kode,nama,deskripsi,periode_tipe,periode_hari,harga,fitur,status,link_landing,warna,icon,popular,periode FROM pakets WHERE status='aktif' ORDER BY harga ASC").all();
     rows.forEach(r => {
-        if (r.fitur) try { r.fitur = JSON.parse(r.fitur); } catch (e) { r.fitur = []; }
+        r.fitur = parseFiturFromDb(r.fitur);
         r.popular = !!r.popular;
     });
     res.json(rows);
@@ -1736,7 +1785,7 @@ app.get('/api/pakets/public', ah(async (req, res) => {
 app.get('/api/pakets/:kode', auth(['admin']), ah(async (req, res) => {
     const p = await db.prepare('SELECT * FROM pakets WHERE kode=?').get(req.params.kode);
     if (!p) return res.status(404).json({ error: 'Tidak ditemukan' });
-    if (p.fitur) try { p.fitur = JSON.parse(p.fitur); } catch (e) { p.fitur = []; }
+    p.fitur = parseFiturFromDb(p.fitur);
     res.json(p);
 }));
 app.post('/api/pakets', auth(['admin']), ah(async (req, res) => {
@@ -1744,7 +1793,7 @@ app.post('/api/pakets', auth(['admin']), ah(async (req, res) => {
     const kode = await genKode('PKT', 'pakets');
     try {
         await db.prepare(`INSERT INTO pakets (kode,nama,deskripsi,periode_tipe,periode_hari,harga,fitur,status,link_landing,warna,icon,popular,periode,hak_akses,aturan_akses,maks_ujian,durasi_hari,hak_notes,mentoring_kuota) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-            .run(kode, nama, deskripsi || null, periode_tipe || 'bulan', periode_hari || 30, harga || 0, fitur ? (typeof fitur === 'string' ? fitur : JSON.stringify(fitur)) : null, status || 'aktif', link_landing || null, warna || 'blue', icon || null, popular ? 1 : 0, periode || '/bulan', hak_akses || null, aturan_akses || null, maks_ujian || null, durasi_hari || null, hak_notes || null, mentoring_kuota || null);
+            .run(kode, nama, deskripsi || null, periode_tipe || 'bulan', periode_hari || 30, harga || 0, normalizeFiturForDb(fitur), status || 'aktif', link_landing || null, warna || 'blue', icon || null, popular ? 1 : 0, periode || '/bulan', hak_akses || null, aturan_akses || null, maks_ujian || null, durasi_hari || null, hak_notes || null, mentoring_kuota || null);
         res.json({ kode, message: 'Berhasil' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 }));
@@ -1757,7 +1806,7 @@ app.put('/api/pakets/:kode', auth(['admin']), ah(async (req, res) => {
     const newIcon = icon || null;
     if (old && old.icon && old.icon !== newIcon) deleteUploadedFileByUrl(old.icon).catch(() => {});
     await db.prepare(`UPDATE pakets SET nama=?,deskripsi=?,periode_tipe=?,periode_hari=?,harga=?,fitur=?,status=?,link_landing=?,warna=?,icon=?,popular=?,periode=?,hak_akses=?,aturan_akses=?,maks_ujian=?,durasi_hari=?,hak_notes=?,mentoring_kuota=? WHERE kode=?`)
-        .run(nama, deskripsi || null, periode_tipe || 'bulan', periode_hari || 30, harga || 0, fitur ? (typeof fitur === 'string' ? fitur : JSON.stringify(fitur)) : null, status || 'aktif', link_landing || null, warna || 'blue', newIcon, popular ? 1 : 0, periode || '/bulan', hak_akses || null, aturan_akses || null, maks_ujian || null, durasi_hari || null, hak_notes || null, mentoring_kuota || null, req.params.kode);
+        .run(nama, deskripsi || null, periode_tipe || 'bulan', periode_hari || 30, harga || 0, normalizeFiturForDb(fitur), status || 'aktif', link_landing || null, warna || 'blue', newIcon, popular ? 1 : 0, periode || '/bulan', hak_akses || null, aturan_akses || null, maks_ujian || null, durasi_hari || null, hak_notes || null, mentoring_kuota || null, req.params.kode);
     res.json({ message: 'Berhasil' });
 }));
 app.delete('/api/pakets/:kode', auth(['admin']), ah(async (req, res) => {
@@ -3199,7 +3248,7 @@ app.get('/api/user/akses', auth(['user','admin','review']), ah(async (req, res) 
     });
     res.json({ hak_akses: [...hak] });
 }));
-app.get('/api/public/pakets', auth(['user','admin','review']), ah(async (req, res) => { const rows = await db.prepare("SELECT kode,nama,deskripsi,periode_tipe,periode_hari,harga,fitur FROM pakets WHERE status='aktif' ORDER BY harga ASC").all(); rows.forEach(r => { if (r.fitur) try { r.fitur = JSON.parse(r.fitur); } catch (e) { r.fitur = []; } }); res.json(rows); }));
+app.get('/api/public/pakets', auth(['user','admin','review']), ah(async (req, res) => { const rows = await db.prepare("SELECT kode,nama,deskripsi,periode_tipe,periode_hari,harga,fitur FROM pakets WHERE status='aktif' ORDER BY harga ASC").all(); rows.forEach(r => { r.fitur = parseFiturFromDb(r.fitur); }); res.json(rows); }));
 app.get('/api/user/pakets', auth(['user','admin','review']), ah(async (req, res) => { const today = new Date(); today.setHours(0,0,0,0); const rows = await db.prepare(`SELECT up.*, p.periode_tipe as template_tipe FROM user_pakets up LEFT JOIN pakets p ON up.paket_kode=p.kode WHERE up.user_kode=? ORDER BY up.akhir ASC`).all(req.user.kode); rows.forEach(r => { const akhir = new Date(r.akhir); akhir.setHours(0,0,0,0); r.sisa_hari = Math.ceil((akhir - today) / (1000*60*60*24)); r.is_expired = r.sisa_hari < 0; r.is_soon_expired = r.sisa_hari >= 0 && r.sisa_hari <= 7; }); res.json(rows); }));
 app.post('/api/user/pakets', auth(['user']), ah(async (req, res) => { const user_kode = req.user.kode; const { paket_kode } = req.body; if (!paket_kode) return res.status(400).json({ error: 'Paket wajib dipilih' }); const paket = await db.prepare("SELECT * FROM pakets WHERE kode=? AND status='aktif'").get(paket_kode); if (!paket) return res.status(404).json({ error: 'Paket tidak ditemukan atau tidak aktif' }); const { mulai, akhir, extended } = await hitungMulaiAkhirPaket(user_kode, paket_kode, paket.periode_hari); const kode = await genKode('UP', 'user_pakets'); try { await transaction(async (tdb) => { await tdb.prepare('INSERT INTO user_pakets (kode,user_kode,paket_kode,paket_nama,periode_hari,mulai,akhir,status) VALUES (?,?,?,?,?,?,?,?)').run(kode, user_kode, paket_kode, paket.nama, paket.periode_hari, mulai, akhir, 'aktif'); await syncUserPaketLegacy(user_kode, tdb); }); res.json({ kode, mulai, akhir, extended, paket_nama: paket.nama, message: `Paket "${paket.nama}" berhasil diaktifkan` }); } catch (e) { res.status(500).json({ error: e.message }); } }));
 app.get('/api/user/notifikasi-expired', auth(['user','admin','review']), ah(async (req, res) => { res.json(await db.prepare(`SELECT up.kode as up_kode, up.paket_nama, up.paket_kode, up.mulai, up.akhir, (up.akhir::date - CURRENT_DATE) as sisa_hari FROM user_pakets up WHERE up.user_kode=? AND up.status='aktif' AND up.akhir::date >= CURRENT_DATE AND (up.akhir::date - CURRENT_DATE) <= 7 ORDER BY sisa_hari ASC`).all(req.user.kode)); }));

@@ -148,7 +148,9 @@ h1.hero-h1 span{color:var(--primary);font-style:italic;font-weight:500}
 .paket-card{padding:2.15rem;position:relative}
 .paket-card.featured{border-color:rgba(44,90,160,0.25);background:linear-gradient(165deg,rgba(44,90,160,0.06),rgba(255,255,255,0.7))}
 .paket-card.featured::after{content:'Terpopuler';position:absolute;top:1.15rem;right:1.15rem;background:var(--primary);color:#fff;font-size:.63rem;font-weight:700;padding:.32rem .8rem;border-radius:var(--radius-pill);letter-spacing:.05em}
-.paket-name{font-size:.74rem;font-weight:700;color:var(--primary-dark);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.6rem}
+.paket-name{font-size:.74rem;font-weight:700;color:var(--primary-dark);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.6rem;display:flex;align-items:center;gap:.5rem}
+.paket-icon-img{width:1.8em;height:1.8em;border-radius:.5em;object-fit:cover;flex-shrink:0}
+.paket-icon-emoji{font-size:1.4em;line-height:1;flex-shrink:0}
 .paket-price{font-family:'Space Grotesk',sans-serif;font-size:2.5rem;font-weight:600;color:var(--ink);line-height:1;margin-bottom:.3rem}
 .paket-price span{font-size:.85rem;font-weight:500;color:var(--muted);font-family:'Inter',sans-serif}
 .paket-desc{font-size:.83rem;color:var(--muted);margin-bottom:1.3rem}

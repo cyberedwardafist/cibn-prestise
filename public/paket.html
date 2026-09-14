@@ -383,7 +383,9 @@ input{font-family:inherit}
   font-size:10px;font-weight:800;letter-spacing:.1em;padding:6px 14px;border-radius:999px;
   transform:translateZ(30px);
 }
-.pkg-name{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;transform:translateZ(24px);color:var(--text)}
+.pkg-name{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;transform:translateZ(24px);color:var(--text);display:flex;align-items:center;gap:10px}
+.pkg-icon-img{width:30px;height:30px;border-radius:9px;object-fit:cover;flex-shrink:0}
+.pkg-icon-emoji{font-size:22px;line-height:1;flex-shrink:0}
 .pkg-desc{font-size:13px;color:var(--text-dim);margin-top:8px;transform:translateZ(18px);min-height:38px}
 .pkg-price{margin-top:22px;transform:translateZ(24px)}
 .pkg-price b{font-family:'Space Grotesk',sans-serif;font-size:32px;color:var(--blue)}
@@ -505,6 +507,7 @@ input{font-family:inherit}
 @media (max-width:640px){
   .paket-page-grid .pkg-card{padding:20px 15px}
   .paket-page-grid .pkg-name{font-size:16px}
+  .paket-page-grid .pkg-icon-img{width:24px;height:24px}
   .paket-page-grid .pkg-desc{font-size:11px;min-height:0;margin-top:6px}
   .paket-page-grid .pkg-price{margin-top:14px}
   .paket-page-grid .pkg-price b{font-size:20px}
@@ -699,8 +702,18 @@ function mapPaketRow(p) {
     period: hasHarga ? (p.periode || ('/' + (p.periode_tipe || 'bulan'))) : '',
     desc: p.deskripsi || '',
     features: Array.isArray(p.fitur) ? p.fitur : [],
-    featured: !!p.popular
+    featured: !!p.popular,
+    icon: p.icon || ''
   };
+}
+// Ikon paket (gambar) diupload admin lewat form Keuangan > Paket Harga, tapi
+// SEBELUM INI belum pernah dirender di kartu manapun di halaman publik — cuma
+// dipakai di preview form admin. Ini render-nya: kalau icon berupa URL gambar,
+// tampilkan sebagai <img> kecil di depan nama paket; kalau kosong, tidak ada apa-apa.
+function pkgIconHtml(p) {
+  if (!p.icon) return '';
+  if (/^(https?:|data:)/i.test(p.icon)) return `<img class="pkg-icon-img" src="${p.icon}" alt="">`;
+  return `<span class="pkg-icon-emoji">${p.icon}</span>`; // ikon lawas format emoji/teks
 }
 async function loadRealPackages() {
   try {
@@ -1003,7 +1016,7 @@ if (footerSpot) {
     return `
       <div class="pkg-card tilt-card filter-item ${p.featured ? 'featured' : ''}">
         ${p.featured ? '<div class="pkg-badge">' + p.tag + '</div>' : ''}
-        <div class="pkg-name serif">${p.name}</div>
+        <div class="pkg-name serif">${pkgIconHtml(p)}${p.name}</div>
         <p class="pkg-desc">${p.desc}</p>
         <div class="pkg-price"><b>${p.price}</b> <span>${p.period}</span></div>
         <ul class="pkg-features">${p.features.map(f => `<li>${f}</li>`).join('')}</ul>
