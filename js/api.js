@@ -276,6 +276,14 @@ const MateriAPI = {
     async delete(kode) { return await apiDel(`/materi/${kode}`); }
 };
 
+// ── MATERI KELOMPOK API (dikelola di Management > Materi — opsional) ──
+const MateriKelompokAPI = {
+    async getAll() { return await apiGet('/materi-kelompok') || []; },
+    async create(data) { return await apiPost('/materi-kelompok', data); },
+    async update(kode, data) { return await apiPut(`/materi-kelompok/${kode}`, data); },
+    async delete(kode) { return await apiDel(`/materi-kelompok/${kode}`); }
+};
+
 // ── MODUL KELOMPOK API (dikelola di Manajemen Modul — opsional) ──
 const ModulKelompokAPI = {
     async getAll() { return await apiGet('/modul-kelompok') || []; },

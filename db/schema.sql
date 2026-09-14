@@ -132,15 +132,27 @@ CREATE TABLE IF NOT EXISTS modul (
     created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- materi_kelompok: grup/kelompok utk MATERI (Management > Materi) — pola sama
+-- persis dgn modul_kelompok/ebook_kelompok/ebook_modul_kelompok di atas.
+CREATE TABLE IF NOT EXISTS materi_kelompok (
+    id         SERIAL PRIMARY KEY,
+    kode       TEXT UNIQUE,
+    nama       TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- materi: fitur MANAGEMENT > MATERI (management guru) — mengelompokkan
 -- beberapa modul (yg sudah ada, dari bank modul CAT/SOAL) ke dalam satu
 -- "materi" bernama, dengan urutan tampil sendiri (modul_list = JSON array
 -- kode modul, urutannya dipakai apa adanya, sama pola dgn ebook_modul.ebook_list).
+-- kolom `kelompok` (opsional, kode dari materi_kelompok) dipakai buat
+-- mengelompokkan TAMPILAN daftar materi itu sendiri di halaman admin.
 CREATE TABLE IF NOT EXISTS materi (
     id            SERIAL PRIMARY KEY,
     kode          TEXT UNIQUE,
     nama          TEXT NOT NULL,
     nama_internal TEXT,
+    kelompok      TEXT,
     modul_list    TEXT,
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -249,6 +261,9 @@ ALTER TABLE modul ADD COLUMN IF NOT EXISTS nama_internal TEXT;
 -- Sama pola dgn di atas — utk instalasi yang tabel `materi`-nya sempat kebuat
 -- sebelum kolom nama_internal ditambahkan (lihat CREATE TABLE materi di atas).
 ALTER TABLE materi ADD COLUMN IF NOT EXISTS nama_internal TEXT;
+-- kelompok: grup materi (kode dari materi_kelompok, opsional) — utk instalasi
+-- lama yang tabel `materi`-nya sempat kebuat sebelum kolom ini ditambahkan.
+ALTER TABLE materi ADD COLUMN IF NOT EXISTS kelompok TEXT;
 
 -- Mode Bebas Pindah Soal (khusus modul yang SELURUH soalnya ber-tipe
 -- multiple_choice): mengganti timer per-soal dengan 1 timer utama untuk

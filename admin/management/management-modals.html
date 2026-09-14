@@ -3,8 +3,13 @@
      nge-append ke #lazy-modals-slot spt file *-modals.html lain. Pola form-nya
      copy dari "Modul E-Book" (admin/ebook/ebook-modals.html): 2 tahap
      select -> order, cuma di sini isinya modul (dari ModulAPI, bank modul
-     CAT/SOAL yang sudah ada), bukan buku, dan tanpa kelompok/poster (materi
-     tidak butuh itu, lihat db/schema.sql tabel `materi`). Logic ada di
+     CAT/SOAL yang sudah ada), bukan buku, dan tanpa poster (materi tidak
+     butuh poster, lihat db/schema.sql tabel `materi`). Materi PUNYA grup
+     sendiri (dropdown "Grup" di form + modal materi-kelompok-overlay di
+     bawah, dikelola lewat MateriKelompokAPI) — dipakai buat mengelompokkan
+     TAMPILAN daftar materi (lihat _renderMateriList, admin/management/materi.js),
+     beda dari filter "Kelompok Modul" di picker (yg cuma memfilter modul saat
+     memilih isi materi, bukan grup materi itu sendiri). Logic ada di
      admin/management/materi.js. -->
 
 <div class="overlay" id="materi-form-overlay"><div class="modal modal-lg">
@@ -21,6 +26,10 @@
   <div class="form-group">
     <label class="form-label">Nama Internal <span style="font-weight:400;color:var(--text-sub)">(opsional, hanya terlihat di admin)</span></label>
     <input id="materi-nama-internal-input" class="form-input" type="text" placeholder="Contoh: Batch 2 - internal QA" oninput="setDirty('materi')">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Grup <span style="font-weight:400;color:var(--text-sub)">(opsional)</span></label>
+    <select id="materi-kelompok-select" class="form-input" onchange="setDirty('materi')"><option value="">-- Tanpa Grup --</option></select>
   </div>
 
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
@@ -39,4 +48,16 @@
     <button class="btn btn-primary" id="materi-next-btn" onclick="_materiGoToOrderStep()">Lanjut</button>
     <button class="btn btn-primary" id="materi-save-btn" style="display:none" onclick="submitMateriForm()">Simpan</button>
   </div>
+</div></div>
+
+<!-- materi-kelompok-overlay: "Kelola Grup" (grup materi itu sendiri, beda dari
+     kelompok modul yg dipakai sbg filter picker di atas) — pola sama persis
+     dgn modul-kelompok-overlay (admin/soal/soal-modals.html). -->
+<div class="overlay" id="materi-kelompok-overlay"><div class="modal"><div class="modal-header"><div class="modal-title">Kelola Grup Materi</div><button class="modal-close" onclick="closeModal('materi-kelompok-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <input id="materi-kelompok-new-input" class="form-input" type="text" placeholder="Nama grup baru" onkeydown="if(event.key==='Enter')addMateriKelompok()">
+    <button class="btn btn-primary" style="flex-shrink:0" onclick="addMateriKelompok()">Tambah</button>
+  </div>
+  <div id="materi-kelompok-manage-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('materi-kelompok-overlay')">Tutup</button></div>
 </div></div>

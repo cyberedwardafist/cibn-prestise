@@ -10,34 +10,57 @@
 // Modal formnya ada di admin/management/management-modals.html.
 
 let _materiData = [], _modulForMateri = [], _materiModulKelompokList = [];
+// Grup MATERI itu sendiri (beda dari _materiModulKelompokList di atas, yang
+// merupakan kelompok MODUL cuma dipakai sbg filter di picker) — dipakai buat
+// mengelompokkan TAMPILAN daftar materi (lihat _renderMateriList/_materiGroupHtml),
+// pola sama persis dgn kelompok modul di Manajemen Modul (admin/soal/modul.js).
+let _materiKelompokList = [], _materiKelompokFilter = 'all';
+function _materiKelompokNama(kode) { if (!kode) return null; const k = _materiKelompokList.find(x => x.kode === kode); return k ? k.nama : null; }
+async function _loadMateriKelompokList() { _materiKelompokList = await MateriKelompokAPI.getAll().catch(() => []); return _materiKelompokList; }
 
 async function renderManagementMateri() {
     [_materiData, _modulForMateri] = await Promise.all([
         MateriAPI.getAll().catch(() => []),
         ModulAPI.getAll().catch(() => []),
-        _loadMateriModulKelompokList()
+        _loadMateriModulKelompokList(),
+        _loadMateriKelompokList()
     ]);
+    _renderMateriKelompokFilters();
     _renderMateriList();
 }
 // Kelompok modul (ModulKelompokAPI, sama dgn yg dipakai di Manajemen Modul) —
 // dipakai cuma sbg filter di picker modul materi, tidak dipakai/ditampilkan
-// di kartu materi itu sendiri (materi tidak punya kelompoknya sendiri).
+// di kartu materi itu sendiri (materi punya grupnya SENDIRI, lihat di atas).
 async function _loadMateriModulKelompokList() { _materiModulKelompokList = await ModulKelompokAPI.getAll().catch(() => []); return _materiModulKelompokList; }
 function _materiModulKelompokNama(kode) { if (!kode) return null; const k = _materiModulKelompokList.find(x => x.kode === kode); return k ? k.nama : null; }
+// Dropdown filter grup materi di atas list (id="materi-kelompok-filters", lihat materi.html).
+function _renderMateriKelompokFilters() {
+    if (!document.getElementById('materi-kelompok-filters')) return;
+    const validKodes = _materiKelompokList.map(k => k.kode);
+    if (_materiKelompokFilter !== 'all' && _materiKelompokFilter !== 'none' && !validKodes.includes(_materiKelompokFilter)) _materiKelompokFilter = 'all';
+    const options = [{ value: 'all', label: 'Semua Grup' }, { value: 'none', label: 'Tanpa Grup' }, ..._materiKelompokList.map(k => ({ value: k.kode, label: k.nama }))];
+    renderFilterDropdown('materi-kelompok-filters', { title: 'Grup', options, current: _materiKelompokFilter, onSelect: v => { _materiKelompokFilter = v; _renderMateriKelompokFilters(); _renderMateriList(); } });
+}
+function _populateMateriKelompokSelect(selected) {
+    const sel = document.getElementById('materi-kelompok-select'); if (!sel) return;
+    sel.innerHTML = '<option value="">-- Tanpa Grup --</option>' + _materiKelompokList.map(k => `<option value="${k.kode}">${k.nama}</option>`).join('');
+    sel.value = selected || '';
+}
 
 function _materiModulIcon(size) {
     return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="${size}" height="${size}"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`;
 }
 
-// ── LIST (kartu wide + swipe utk mobile) ──
+// ── LIST (kartu wide + swipe utk mobile), dikelompokkan per grup materi ──
 function _materiCardHtml(m, i) {
     const kode = m.kode || m.id;
     const jumlah = (m.modul_list || []).length;
+    const kelNama = _materiKelompokNama(m.kelompok);
     const namaTampil = m.nama_internal ? `${m.nama} <span style="font-weight:400;color:var(--text-sub)">| ${m.nama_internal}</span>` : m.nama;
     return `<div class="modul-card" style="animation:fadeUp 0.25s ${i * 0.05}s both">
       <div class="modul-card-left">
         <div class="modul-card-icon">${_materiModulIcon(20)}</div>
-        <div><div style="font-weight:700;font-size:14px;color:var(--blue)">${namaTampil}</div><div style="font-size:11px;color:var(--text-sub)">${jumlah} modul · ${kode}</div></div>
+        <div><div style="font-weight:700;font-size:14px;color:var(--blue)">${namaTampil}</div><div style="font-size:11px;color:var(--text-sub);display:flex;gap:6px;flex-wrap:wrap;align-items:center">${jumlah} modul · ${kode}${kelNama ? ` · <span class="badge" style="background:rgba(19,50,89,0.08);color:var(--blue)">${kelNama}</span>` : ''}</div></div>
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn-icon" onclick="openEditMateri('${kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
@@ -48,22 +71,38 @@ function _materiCardHtml(m, i) {
 function _materiSwipeCardHtml(m) {
     const kode = m.kode || m.id;
     const jumlah = (m.modul_list || []).length;
+    const kelNama = _materiKelompokNama(m.kelompok);
     return SwipeCards.buildSwipeCardHtml({
         title: m.nama_internal ? `${m.nama} | ${m.nama_internal}` : m.nama, kode,
-        sub: jumlah + ' modul · ' + kode,
+        sub: jumlah + ' modul' + (kelNama ? ' · ' + kelNama : '') + ' · ' + kode,
         leftActions: [{ icon: 'edit', label: 'Edit', cls: 'act-edit', onClick: `openEditMateri('${kode}')` }],
         rightActions: [{ icon: 'trash', label: 'Hapus', cls: 'act-danger', onClick: `deleteMateriItem('${kode}','${(m.nama || '').replace(/'/g, "\\'")}')` }]
     });
 }
+// Satu grup (header nama grup + jumlah, lalu kartu2 materi di dalamnya) — pola
+// sama persis dgn _modulGroupHtml (admin/soal/modul.js).
+function _materiGroupHtml(group) {
+    const cardsHtml = group.items.map(_materiCardHtml).join('');
+    const swipeHtml = group.items.map(_materiSwipeCardHtml).join('');
+    return `<div class="section-sub" style="font-weight:700;color:var(--blue);text-transform:none;margin:18px 0 8px">${group.label} <span style="font-weight:500;color:var(--text-sub);font-size:11px">(${group.items.length} materi)</span></div>
+    <div class="aksi-swipe-wrap">${cardsHtml}</div>
+    <div class="swipe-list">${swipeHtml}</div>`;
+}
 function _renderMateriList() {
-    const el = document.getElementById('materi-list'); if (!el) return;
-    el.innerHTML = _materiData.length ? _materiData.map(_materiCardHtml).join('') : '<div class="empty-state"><p>Belum ada materi</p></div>';
+    let data = _materiData;
+    if (_materiKelompokFilter === 'none') data = data.filter(m => !m.kelompok);
+    else if (_materiKelompokFilter !== 'all') data = data.filter(m => m.kelompok === _materiKelompokFilter);
 
-    const swEl = document.getElementById('materi-swipe-list');
-    if (swEl && window.SwipeCards) {
-        swEl.innerHTML = _materiData.length ? _materiData.map(_materiSwipeCardHtml).join('') : '<div class="swipe-card-empty">Belum ada materi</div>';
-        SwipeCards.bindSwipeList(swEl);
-    }
+    const el = document.getElementById('materi-list'); if (!el) return;
+    if (!data.length) { el.innerHTML = '<div class="empty-state"><p>Belum ada materi</p></div>'; return; }
+
+    // Kelompokkan per grup materi (pola sama seperti Manajemen Modul).
+    const groups = {};
+    data.forEach(m => { const k = m.kelompok || '__none__'; (groups[k] = groups[k] || []).push(m); });
+    const orderedKeys = [..._materiKelompokList.map(k => k.kode).filter(k => groups[k]), ...(groups.__none__ ? ['__none__'] : [])];
+    const groupList = orderedKeys.map(k => ({ key: k, label: k === '__none__' ? 'Tanpa Grup' : _materiKelompokNama(k), items: groups[k] }));
+    el.innerHTML = groupList.map(_materiGroupHtml).join('');
+    if (window.SwipeCards) el.querySelectorAll('.swipe-list').forEach(sw => SwipeCards.bindSwipeList(sw));
 }
 
 // ── PILIH MODUL & URUTAN TAMPIL (2 tahap: pilih -> urutkan, pola sama dgn Modul E-Book) ──
@@ -100,6 +139,7 @@ function openAddMateri() {
     document.getElementById('materi-form-title').textContent = 'Buat Materi';
     document.getElementById('materi-nama-input').value = '';
     document.getElementById('materi-nama-internal-input').value = '';
+    _populateMateriKelompokSelect('');
     _materiResetPickerState([]);
     _materiInitPickerUI();
     openModal('materi-form-overlay');
@@ -111,6 +151,7 @@ function openEditMateri(kode) {
     document.getElementById('materi-form-title').textContent = 'Edit Materi';
     document.getElementById('materi-nama-input').value = m.nama;
     document.getElementById('materi-nama-internal-input').value = m.nama_internal || '';
+    _populateMateriKelompokSelect(m.kelompok || '');
     _materiResetPickerState(m.modul_list || []);
     _materiInitPickerUI();
     openModal('materi-form-overlay');
@@ -205,8 +246,9 @@ async function submitMateriForm() {
     if (!nama) { showToast('Nama materi wajib', 'danger'); return; }
     if (!_materiOrder.length) { showToast('Pilih minimal 1 modul', 'danger'); return; }
     const nama_internal = document.getElementById('materi-nama-internal-input')?.value?.trim() || '';
+    const kelompok = document.getElementById('materi-kelompok-select')?.value || '';
     const modul_list = [..._materiOrder];
-    const payload = { nama, nama_internal, modul_list };
+    const payload = { nama, nama_internal, kelompok, modul_list };
 
     const saveBtn = document.getElementById('materi-save-btn');
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Menyimpan...'; }
@@ -224,4 +266,53 @@ function deleteMateriItem(kode, nama) {
         showToast('Materi dihapus', 'danger');
         await renderManagementMateri();
     });
+}
+
+// ── KELOLA GRUP MATERI (modal "materi-kelompok-overlay") — pola sama persis
+// dgn Kelola Kelompok Modul (admin/soal/modul.js: openManageModulKelompok dst). ──
+function openManageMateriKelompok() {
+    const input = document.getElementById('materi-kelompok-new-input'); if (input) input.value = '';
+    _renderMateriKelompokManageList();
+    openModal('materi-kelompok-overlay');
+}
+function _renderMateriKelompokManageList() {
+    const el = document.getElementById('materi-kelompok-manage-list'); if (!el) return;
+    if (!_materiKelompokList.length) { el.innerHTML = '<p style="color:var(--text-sub);font-size:13px">Belum ada grup. Tambahkan lewat kolom di atas.</p>'; return; }
+    el.innerHTML = _materiKelompokList.map(k => `
+      <div class="ebook-pick-item" id="mtkl-row-${k.kode}" style="justify-content:space-between">
+        <span id="mtkl-nama-${k.kode}" style="font-weight:600;font-size:13.5px;color:var(--blue)">${k.nama}</span>
+        <div class="mtkl-row-actions" style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn-icon" title="Ganti nama" onclick="_startRenameMateriKelompok('${k.kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="btn-icon danger" title="Hapus" onclick="deleteMateriKelompokItem('${k.kode}','${(k.nama || '').replace(/'/g, "\\'")}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button>
+        </div>
+      </div>`).join('');
+}
+async function addMateriKelompok() {
+    const input = document.getElementById('materi-kelompok-new-input'); const nama = (input?.value || '').trim();
+    if (!nama) { showToast('Nama grup wajib diisi', 'danger'); return; }
+    try { await MateriKelompokAPI.create({ nama }); if (input) input.value = ''; showToast('Grup ditambahkan', 'success'); await _afterMateriKelompokChange(); }
+    catch (e) { showToast('Gagal: ' + e.message, 'danger'); }
+}
+function _startRenameMateriKelompok(kode) {
+    const span = document.getElementById(`mtkl-nama-${kode}`); if (!span) return; const current = span.textContent;
+    span.outerHTML = `<input id="mtkl-nama-${kode}" class="form-input" style="padding:6px 10px;font-size:13px" type="text" value="${current.replace(/"/g, '&quot;')}" onkeydown="if(event.key==='Enter')_saveRenameMateriKelompok('${kode}')">`;
+    const row = document.getElementById(`mtkl-row-${kode}`); const actionsWrap = row?.querySelector('.mtkl-row-actions');
+    if (actionsWrap) actionsWrap.innerHTML = `<button class="btn-icon" title="Simpan" onclick="_saveRenameMateriKelompok('${kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></button>`;
+    document.getElementById(`mtkl-nama-${kode}`)?.focus();
+}
+async function _saveRenameMateriKelompok(kode) {
+    const input = document.getElementById(`mtkl-nama-${kode}`); const nama = (input?.value || '').trim();
+    if (!nama) { showToast('Nama grup wajib diisi', 'danger'); return; }
+    try { await MateriKelompokAPI.update(kode, { nama }); showToast('Grup diperbarui', 'success'); await _afterMateriKelompokChange(); }
+    catch (e) { showToast('Gagal: ' + e.message, 'danger'); }
+}
+function deleteMateriKelompokItem(kode, nama) {
+    showConfirm('Hapus Grup', `Yakin hapus grup "${nama}"? Materi yang ada di grup ini akan menjadi tanpa grup.`, 'danger', async () => {
+        await MateriKelompokAPI.delete(kode); showToast('Grup dihapus', 'danger'); await _afterMateriKelompokChange();
+    });
+}
+async function _afterMateriKelompokChange() {
+    await _loadMateriKelompokList(); _renderMateriKelompokManageList();
+    if (document.getElementById('materi-kelompok-select')) _populateMateriKelompokSelect(document.getElementById('materi-kelompok-select').value);
+    if (document.getElementById('materi-kelompok-filters')) { _renderMateriKelompokFilters(); _renderMateriList(); }
 }

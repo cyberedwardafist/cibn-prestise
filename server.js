@@ -2034,7 +2034,9 @@ app.delete('/api/modul/:kode', auth(['admin']), ah(async (req, res) => {
 // ── MATERI (Management > Materi — management guru) ──
 // Mengelompokkan beberapa modul (bank modul CAT/SOAL yang sudah ada) ke dalam
 // satu "materi" bernama + urutan tampil sendiri. Pola CRUD sama persis dgn
-// ebook_modul (lihat rute /api/ebook-modul di bawah), cuma tanpa kelompok/poster.
+// ebook_modul (lihat rute /api/ebook-modul di bawah). `kelompok` (opsional,
+// kode dari materi_kelompok tepat di bawah) dipakai buat mengelompokkan
+// TAMPILAN daftar materi itu sendiri, sama pola dgn modul.kelompok/ebooks.kelompok.
 app.get('/api/materi', auth(['admin', 'review', 'user']), ah(async (req, res) => {
     const rows = await db.prepare('SELECT * FROM materi ORDER BY id').all();
     rows.forEach(r => { try { r.modul_list = JSON.parse(r.modul_list || '[]'); } catch (e) { r.modul_list = []; } });
@@ -2042,13 +2044,13 @@ app.get('/api/materi', auth(['admin', 'review', 'user']), ah(async (req, res) =>
 }));
 
 app.post('/api/materi', auth(['admin']), ah(async (req, res) => {
-    const { nama, nama_internal } = req.body || {};
+    const { nama, nama_internal, kelompok } = req.body || {};
     if (!nama || !nama.trim()) return res.status(400).json({ error: 'Nama materi wajib diisi' });
     let modul_list = []; try { modul_list = Array.isArray(req.body.modul_list) ? req.body.modul_list : JSON.parse(req.body.modul_list || '[]'); } catch (e) { modul_list = []; }
 
     const kode = await genKode('MTR', 'materi');
-    await db.prepare('INSERT INTO materi (kode,nama,nama_internal,modul_list) VALUES (?,?,?,?)')
-        .run(kode, nama.trim(), (nama_internal || '').trim() || null, JSON.stringify(modul_list));
+    await db.prepare('INSERT INTO materi (kode,nama,nama_internal,kelompok,modul_list) VALUES (?,?,?,?,?)')
+        .run(kode, nama.trim(), (nama_internal || '').trim() || null, kelompok || null, JSON.stringify(modul_list));
     res.json(await db.prepare('SELECT * FROM materi WHERE kode=?').get(kode));
 }));
 
@@ -2056,11 +2058,11 @@ app.put('/api/materi/:kode', auth(['admin']), ah(async (req, res) => {
     const old = await db.prepare('SELECT * FROM materi WHERE kode=?').get(req.params.kode);
     if (!old) return res.status(404).json({ error: 'Tidak ditemukan' });
 
-    const { nama, nama_internal } = req.body || {};
+    const { nama, nama_internal, kelompok } = req.body || {};
     let modul_list = []; try { modul_list = Array.isArray(req.body.modul_list) ? req.body.modul_list : JSON.parse(req.body.modul_list || '[]'); } catch (e) { modul_list = []; }
 
-    await db.prepare('UPDATE materi SET nama=?,nama_internal=?,modul_list=? WHERE kode=?')
-        .run((nama || old.nama).trim(), (nama_internal !== undefined ? ((nama_internal || '').trim() || null) : old.nama_internal), JSON.stringify(modul_list), req.params.kode);
+    await db.prepare('UPDATE materi SET nama=?,nama_internal=?,kelompok=?,modul_list=? WHERE kode=?')
+        .run((nama || old.nama).trim(), (nama_internal !== undefined ? ((nama_internal || '').trim() || null) : old.nama_internal), (kelompok !== undefined ? (kelompok || null) : old.kelompok), JSON.stringify(modul_list), req.params.kode);
     res.json(await db.prepare('SELECT * FROM materi WHERE kode=?').get(req.params.kode));
 }));
 
@@ -2068,6 +2070,11 @@ app.delete('/api/materi/:kode', auth(['admin']), ah(async (req, res) => {
     await db.prepare('DELETE FROM materi WHERE kode=?').run(req.params.kode);
     res.json({ message: 'Berhasil' });
 }));
+
+app.get('/api/materi-kelompok', auth(['admin', 'review', 'user']), ah(async (req, res) => { res.json(await db.prepare('SELECT * FROM materi_kelompok ORDER BY LOWER(nama)').all()); }));
+app.post('/api/materi-kelompok', auth(['admin']), ah(async (req, res) => { const kode = await genKode('MTKL', 'materi_kelompok'); await db.prepare('INSERT INTO materi_kelompok (kode,nama) VALUES (?,?)').run(kode, req.body.nama.trim()); res.json(await db.prepare('SELECT * FROM materi_kelompok WHERE kode=?').get(kode)); }));
+app.put('/api/materi-kelompok/:kode', auth(['admin']), ah(async (req, res) => { await db.prepare('UPDATE materi_kelompok SET nama=? WHERE kode=?').run(req.body.nama.trim(), req.params.kode); res.json(await db.prepare('SELECT * FROM materi_kelompok WHERE kode=?').get(req.params.kode)); }));
+app.delete('/api/materi-kelompok/:kode', auth(['admin']), ah(async (req, res) => { await transaction(async (tdb) => { await tdb.prepare('DELETE FROM materi_kelompok WHERE kode=?').run(req.params.kode); await tdb.prepare('UPDATE materi SET kelompok=NULL WHERE kelompok=?').run(req.params.kode); }); res.json({ message: 'Berhasil' }); }));
 
 app.get('/api/ebook-kelompok', auth(['admin', 'review', 'user']), ah(async (req, res) => { res.json(await db.prepare('SELECT * FROM ebook_kelompok ORDER BY LOWER(nama)').all()); }));
 app.post('/api/ebook-kelompok', auth(['admin']), ah(async (req, res) => { const kode = await genKode('EBKL', 'ebook_kelompok'); await db.prepare('INSERT INTO ebook_kelompok (kode,nama) VALUES (?,?)').run(kode, req.body.nama.trim()); res.json(await db.prepare('SELECT * FROM ebook_kelompok WHERE kode=?').get(kode)); }));

@@ -13,13 +13,24 @@
      ada) dengan urutan tampilnya sendiri — pola CRUD-nya sama persis dgn
      "Modul E-Book" (admin/ebook/ebook-modul.html), cuma isinya modul,
      bukan buku. Kartu list pakai class .modul-card (sama dgn Manajemen
-     Modul) + versi swipe utk mobile (edit=swipe-kiri, hapus=swipe-kanan). -->
+     Modul) + versi swipe utk mobile (edit=swipe-kiri, hapus=swipe-kanan).
+
+     Daftar materi dikelompokkan per GRUP materi sendiri (kolom materi.kelompok,
+     opsional, dikelola lewat tombol "Kelola Grup" -> materi-kelompok-overlay di
+     management-modals.html) — pola render grup (header nama grup + kartu2 di
+     dalamnya) sama persis dgn Manajemen Modul (admin/soal/modul.html:
+     #modul-groups). #materi-list di bawah diisi PENUH oleh _renderMateriList()
+     (js), sudah termasuk .aksi-swipe-wrap & .swipe-list per grup di dalamnya —
+     makanya cuma 1 div kosong di sini, beda dari pola lama (2 div terpisah). -->
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
   <div class="section-title" style="margin-bottom:0">Materi</div>
-  <button class="btn btn-primary" onclick="openAddMateri()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Materi</button>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <div id="materi-kelompok-filters"></div>
+    <button class="btn btn-secondary" onclick="openManageMateriKelompok()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Kelola Grup</button>
+    <button class="btn btn-primary" onclick="openAddMateri()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Materi</button>
+  </div>
 </div>
 <div class="section-sub">Susun modul menjadi satu materi untuk guru.</div>
 
-<div class="aksi-swipe-wrap" id="materi-list"></div>
-<div class="swipe-list" id="materi-swipe-list"></div>
+<div id="materi-list"></div>
