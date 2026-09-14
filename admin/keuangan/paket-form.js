@@ -392,10 +392,21 @@ async function _pfLoadMentoringPicker(mentoringAturan = []) {
     let guruGrupList = [];
     try { guruGrupList = await GuruPaketGrupAPI.getAll(); } catch (e) {}
     _pfMentoringGuruPerMateri = {};
+    // NB: GET /api/guru-paket-grup sudah men-JSON.parse akun_list & materi_list
+    // di server (lihat server.js) — jadi grup.akun_list/grup.materi_list yang
+    // sampai di sini SUDAH berupa array, bukan string JSON lagi. Kode lama di
+    // sini masih mem-JSON.parse ulang array yang sudah jadi array (JSON.parse
+    // otomatis String()-in array dulu -> "MT001,MT002" -> bukan JSON valid ->
+    // exception -> ketangkep catch kosong -> materiListGrup/akunList SELALU []),
+    // makanya info guru per materi di picker ini selalu kosong ("Belum ada guru
+    // ditautkan") padahal datanya sudah ada — kelihatan benar di Management >
+    // Guru / detail paket (openManagementGuruPaketDetail), yang memang pakai
+    // grup.materi_list & grup.akun_list langsung tanpa JSON.parse lagi (lihat
+    // guru-paket-detail.js _gpdRenderGuruList & renderManagementGuruPaketDetail).
+    // Fix: pakai langsung, samakan dengan pola di guru-paket-detail.js.
     (guruGrupList || []).forEach(grup => {
-        let akunList = [], materiListGrup = [];
-        try { akunList = JSON.parse(grup.akun_list || '[]'); } catch (e) {}
-        try { materiListGrup = JSON.parse(grup.materi_list || '[]'); } catch (e) {}
+        const akunList = grup.akun_list || [];
+        const materiListGrup = grup.materi_list || [];
         const namaGuruGrup = akunList.map(k => guruNama[k]).filter(Boolean);
         materiListGrup.forEach(mk => {
             if (!_pfMentoringGuruPerMateri[mk]) _pfMentoringGuruPerMateri[mk] = [];
