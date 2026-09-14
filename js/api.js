@@ -81,7 +81,7 @@ async function apiGet(path) { return apiFetch(path); }
 //
 // kind      : salah satu key UPLOAD_KINDS di server.js, mis. 'soal-image',
 //             'ebook-pdf', 'ebook-poster', 'ebook-modul-poster', 'landing-image',
-//             'landing-video'.
+//             'landing-video', 'paket-icon'.
 // file      : objek File dari <input type="file"> / drag-drop / paste.
 // subfolder : (opsional) sub-folder di dalam folder kind tsb, mis. nama buku
 //             (di-sanitize di server, bukan di sini).
@@ -159,6 +159,16 @@ async function apiUploadLandingMedia(file, kind, slot, oldUrl) {
 // nama: nama buku/modul, dipakai sbg sub-folder supaya file-file 1 buku terkumpul
 async function apiUploadEbookFile(kind, file, nama, oldUrl) {
     return apiUploadFile(kind, file, { subfolder: nama, oldUrl });
+}
+
+// ── UPLOAD IKON PAKET (Keuangan > Paket, form Tambah/Edit Paket) ──
+// Dulu ikon paket cuma teks emoji (tersimpan langsung di kolom pakets.icon),
+// sekarang diganti gambar square yang di-upload ke folder 'paket-icon' di
+// Supabase Storage lewat alur presigned yang sama dengan upload lainnya.
+// oldUrl: URL ikon lama (kalau ada & memang URL upload) supaya file lama
+// sekalian dihapus dari storage saat diganti.
+async function apiUploadPaketIcon(file, oldUrl) {
+    return apiUploadFile('paket-icon', file, { oldUrl });
 }
 
 // ── HITUNG JUMLAH HALAMAN PDF (DI BROWSER) ──

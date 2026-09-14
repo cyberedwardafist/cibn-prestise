@@ -19,6 +19,75 @@ const PAKET_PERIODE_PRESET = ['/bulan', '/tahun', '/hari', 'sekali bayar'];
 function _pfEscHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+
+// ── IKON PAKET (gambar square, menggantikan input teks emoji lama) ──
+// Polanya SAMA PERSIS dengan upload gambar di Soal (admin/soal/soal.js,
+// onItemImageSelected): begitu file dipilih, LANGSUNG di-upload ke server lewat
+// apiUploadPaketIcon() (alur presigned: server cuma dimintai "link" via
+// /api/upload-init, file-nya sendiri lewat langsung ke Supabase Storage) — yang
+// akhirnya disimpan di #pf-icon (dan dikirim ke server saat Simpan Paket) adalah
+// LINK hasil upload itu, bukan base64 mentah. Base64/data-url cuma dipakai
+// SEMENTARA sbg preview instan sambil nunggu upload selesai, dan sbg fallback
+// kalau server/storage tidak terjangkau (spt di Soal).
+let _pfIconLiveUrl = null; // preview sementara (data-url) selama proses upload berlangsung
+function _pfIconIsImageUrl(v) { return typeof v === 'string' && /^(https?:|data:)/i.test(v); }
+// Nilai yg lagi "aktif" ditampilkan (preview sementara kalau lagi upload, kalau
+// tidak ya nilai (link) yg sudah tersimpan di #pf-icon) — dipakai bareng oleh
+// kotak upload kecil & kartu Pratinjau.
+function _pfIconDisplayValue() { return _pfIconLiveUrl || document.getElementById('pf-icon')?.value || ''; }
+function _pfRenderIconPreview() {
+    const el = document.getElementById('pf-icon-preview'); if (!el) return;
+    const val = _pfIconDisplayValue();
+    if (_pfIconIsImageUrl(val)) {
+        el.innerHTML = `<img src="${val}" alt="ikon paket">`;
+    } else if (val) {
+        // Ikon lawas berformat emoji/teks (dari sebelum fitur upload gambar ada) — tampilkan apa adanya.
+        el.innerHTML = `<span>${_pfEscHtml(val)}</span>`;
+    } else {
+        el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="1.8"/><path d="M21 15l-5-5L5 21"/></svg>`;
+    }
+}
+async function onPfIconFileSelected(input) {
+    const file = input.files[0]; if (!file) return;
+    input.value = ''; // biar pilih file yg sama lagi tetap memicu onchange
+
+    // Preview instan pakai base64 SAMBIL nunggu upload ke server kelar.
+    const reader = new FileReader();
+    reader.onload = e => { _pfIconLiveUrl = e.target.result; _pfRenderIconPreview(); _pfUpdatePreview(); };
+    reader.readAsDataURL(file);
+    setDirty('paket');
+
+    const box = document.getElementById('pf-icon-preview');
+    if (box) box.style.opacity = '.5';
+    // CATATAN: TIDAK kirim oldUrl di sini (beda dari ebook-modul-poster) — file
+    // lama baru dihapus dari storage kalau paket-nya BENERAN disimpan (lihat
+    // PUT /api/pakets/:kode di server.js, banding old.icon vs icon baru), bukan
+    // langsung saat file dipilih. Kalau admin batal/tutup form tanpa Simpan,
+    // ikon lama yg masih tersimpan di database jadi tidak ikut kehapus.
+    const res = await apiUploadPaketIcon(file);
+    if (box) box.style.opacity = '';
+
+    if (res && res.url) {
+        // Upload sukses -> simpan LINK-nya (bukan base64) di #pf-icon.
+        document.getElementById('pf-icon').value = res.url;
+        _pfIconLiveUrl = null;
+        _pfRenderIconPreview();
+        _pfUpdatePreview();
+        return;
+    }
+    if (res && (res.rejected || res.error)) {
+        showToast('Upload ikon ditolak: ' + (res.error || 'server menolak file ini'), 'danger');
+        _pfIconLiveUrl = null;
+        _pfRenderIconPreview();
+        return;
+    }
+    // Server/storage tak terjangkau (offline dll) -> fallback tetap simpan base64
+    // sementara (spt di Soal), biar gambar yg baru dipilih tidak hilang begitu saja.
+    document.getElementById('pf-icon').value = _pfIconLiveUrl;
+    _pfIconLiveUrl = null;
+    _pfRenderIconPreview();
+    _pfUpdatePreview();
+}
 function _pfPreviewPeriodeText() {
     const sel = document.getElementById('pf-periode');
     if (!sel) return '';
@@ -32,7 +101,8 @@ function _pfUpdatePreview() {
     const card = document.getElementById('pf-preview-card');
     if (!card) return;
     const nama = document.getElementById('pf-nama')?.value.trim() || 'Nama Paket';
-    const icon = document.getElementById('pf-icon')?.value.trim() || '';
+    const icon = _pfIconDisplayValue();
+    const iconHtml = _pfIconIsImageUrl(icon) ? `<img class="pkg-icon-img" src="${icon}" alt="">` : (icon ? _pfEscHtml(icon) + ' ' : '');
     const desc = document.getElementById('pf-desc')?.value.trim() || 'Deskripsi singkat paket akan tampil di sini.';
     const hargaRaw = parseInt(document.getElementById('pf-harga')?.value || '0') || 0;
     const popular = !!document.getElementById('pf-popular')?.checked;
@@ -44,7 +114,7 @@ function _pfUpdatePreview() {
     card.classList.toggle('featured', popular);
     card.innerHTML = `
       ${popular ? '<div class="pkg-badge">Paling Diminati</div>' : ''}
-      <div class="pkg-name serif">${icon ? _pfEscHtml(icon) + ' ' : ''}${_pfEscHtml(nama)}</div>
+      <div class="pkg-name serif">${iconHtml}${_pfEscHtml(nama)}</div>
       <p class="pkg-desc">${_pfEscHtml(desc)}</p>
       <div class="pkg-price"><b>${_pfEscHtml(priceText)}</b> <span>${_pfEscHtml(periodeText)}</span></div>
       <ul class="pkg-features">${fitur.length ? fitur.map(f => `<li>${_pfEscHtml(f)}</li>`).join('') : '<li style="opacity:.55">Belum ada fitur ditambahkan</li>'}</ul>
@@ -147,6 +217,10 @@ async function _tryRestorePaketDraft() {
     // sempat ke-Simpan sebelum halaman di-refresh.
     const setVal = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null) el.value = v; };
     setVal('pf-nama', d.nama); setVal('pf-icon', d.icon); setVal('pf-harga', d.harga);
+    // Draft cuma menyimpan link ikon yg SUDAH tersimpan di server (lihat catatan
+    // di _pfDraftSave) — link ini sudah final (upload terjadi instan saat file
+    // dipilih), jadi cukup di-render ulang, tidak ada file pending yg perlu diurus.
+    _pfIconLiveUrl = null; _pfRenderIconPreview();
     setVal('pf-desc', d.desc); setVal('pf-fitur', d.fitur); setVal('pf-warna', d.warna);
     setVal('pf-link-landing', d.linkLanding); setVal('pf-mentoring-kuota', d.mentoringKuota);
     const popEl = document.getElementById('pf-popular'); if (popEl) popEl.checked = !!d.popular;
@@ -564,7 +638,8 @@ async function openAddPaket() {
     document.getElementById('paket-form-title').textContent = 'Tambah Paket';
     document.getElementById('pf-id').value = '';
     document.getElementById('pf-nama').value = '';
-    document.getElementById('pf-icon').value = '📦';
+    document.getElementById('pf-icon').value = '';
+    _pfIconLiveUrl = null; _pfRenderIconPreview();
     document.getElementById('pf-harga').value = '';
     document.getElementById('pf-periode').value = '/bulan';
     document.getElementById('pf-desc').value = '';
@@ -594,7 +669,8 @@ async function openEditPaket(kode) {
     document.getElementById('paket-form-title').textContent = 'Edit Paket';
     document.getElementById('pf-id').value = kode;
     document.getElementById('pf-nama').value = p.nama || '';
-    document.getElementById('pf-icon').value = p.icon || '📦';
+    document.getElementById('pf-icon').value = p.icon || '';
+    _pfIconLiveUrl = null; _pfRenderIconPreview();
     document.getElementById('pf-harga').value = p.harga || '';
     var _pVal = p.periode || (p.periode_tipe ? '/'+p.periode_tipe : '/bulan');
     var _pEl = document.getElementById('pf-periode');
@@ -695,7 +771,7 @@ async function submitPaket() {
     const paket = {
         nama,
         deskripsi: document.getElementById('pf-desc').value.trim(),
-        icon: document.getElementById('pf-icon').value.trim() || '📦',
+        icon: document.getElementById('pf-icon').value.trim() || null,
         harga: parseInt(document.getElementById('pf-harga').value || '0'),
         periode: periodeVal,
         periode_tipe,
@@ -712,6 +788,9 @@ async function submitPaket() {
     const btn = document.querySelector('#paket-form-overlay .btn-primary');
     if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
     try {
+        // Ikon paket SUDAH diupload duluan (link-nya sudah ada di #pf-icon)
+        // begitu file dipilih di kotak upload — lihat onPfIconFileSelected().
+        // Sama seperti gambar di editor Soal: yang dikirim ke sini tinggal link-nya.
         if (_editPaketKode) {
             await PaketAPI.update(_editPaketKode, paket);
             showToast('Paket diperbarui!', 'success');
@@ -719,6 +798,7 @@ async function submitPaket() {
             await PaketAPI.create(paket);
             showToast('Paket ditambahkan!', 'success');
         }
+        _pfIconLiveUrl = null;
         clearDirty();
         closeModal('paket-form-overlay');
         await renderPaketGrid();

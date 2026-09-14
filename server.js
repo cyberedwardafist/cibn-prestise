@@ -202,7 +202,11 @@ const UPLOAD_KINDS = {
     'ebook-poster':       { folder: 'ebooks',      allowedMime: ALLOWED_IMAGE_MIME,         maxSize: MAX_UPLOAD_SIZE,       roles: ['admin'] },
     'ebook-modul-poster': { folder: 'ebook-modul', allowedMime: ALLOWED_IMAGE_MIME,         maxSize: MAX_UPLOAD_SIZE,       roles: ['admin'] },
     'landing-image':      { folder: 'landing',     allowedMime: ALLOWED_IMAGE_MIME,         maxSize: MAX_UPLOAD_SIZE,       roles: ['admin'] },
-    'landing-video':      { folder: 'landing',     allowedMime: ALLOWED_LANDING_VIDEO_MIME, maxSize: MAX_LANDING_VIDEO_SIZE, roles: ['admin'] }
+    'landing-video':      { folder: 'landing',     allowedMime: ALLOWED_LANDING_VIDEO_MIME, maxSize: MAX_LANDING_VIDEO_SIZE, roles: ['admin'] },
+    // Ikon paket (Keuangan > Paket) — dulu cuma teks emoji tersimpan langsung di
+    // kolom pakets.icon, sekarang diganti gambar square yang di-upload lewat alur
+    // presigned yang sama; folder baru 'paket-icon' di Supabase Storage utk ini.
+    'paket-icon':         { folder: 'paket-icon',  allowedMime: ALLOWED_IMAGE_MIME,         maxSize: MAX_UPLOAD_SIZE,       roles: ['admin'] }
 };
 
 // ── UPLOAD CLEANUP HELPERS (SUPABASE) ─────────────────────────────────────────
@@ -1740,18 +1744,26 @@ app.post('/api/pakets', auth(['admin']), ah(async (req, res) => {
     const kode = await genKode('PKT', 'pakets');
     try {
         await db.prepare(`INSERT INTO pakets (kode,nama,deskripsi,periode_tipe,periode_hari,harga,fitur,status,link_landing,warna,icon,popular,periode,hak_akses,aturan_akses,maks_ujian,durasi_hari,hak_notes,mentoring_kuota) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-            .run(kode, nama, deskripsi || null, periode_tipe || 'bulan', periode_hari || 30, harga || 0, fitur ? (typeof fitur === 'string' ? fitur : JSON.stringify(fitur)) : null, status || 'aktif', link_landing || null, warna || 'blue', icon || '📦', popular ? 1 : 0, periode || '/bulan', hak_akses || null, aturan_akses || null, maks_ujian || null, durasi_hari || null, hak_notes || null, mentoring_kuota || null);
+            .run(kode, nama, deskripsi || null, periode_tipe || 'bulan', periode_hari || 30, harga || 0, fitur ? (typeof fitur === 'string' ? fitur : JSON.stringify(fitur)) : null, status || 'aktif', link_landing || null, warna || 'blue', icon || null, popular ? 1 : 0, periode || '/bulan', hak_akses || null, aturan_akses || null, maks_ujian || null, durasi_hari || null, hak_notes || null, mentoring_kuota || null);
         res.json({ kode, message: 'Berhasil' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 }));
 app.put('/api/pakets/:kode', auth(['admin']), ah(async (req, res) => {
     const { nama, deskripsi, periode_tipe, periode_hari, harga, fitur, status, link_landing, warna, icon, popular, periode, hak_akses, aturan_akses, maks_ujian, durasi_hari, hak_notes, mentoring_kuota } = req.body;
+    // Ikon sekarang gambar (URL Supabase Storage) alih-alih emoji — kalau
+    // ikonnya berubah & yang lama memang URL upload (bukan emoji lawas), hapus
+    // file lama dari storage supaya tidak menumpuk jadi file yatim.
+    const old = await db.prepare('SELECT icon FROM pakets WHERE kode=?').get(req.params.kode);
+    const newIcon = icon || null;
+    if (old && old.icon && old.icon !== newIcon) deleteUploadedFileByUrl(old.icon).catch(() => {});
     await db.prepare(`UPDATE pakets SET nama=?,deskripsi=?,periode_tipe=?,periode_hari=?,harga=?,fitur=?,status=?,link_landing=?,warna=?,icon=?,popular=?,periode=?,hak_akses=?,aturan_akses=?,maks_ujian=?,durasi_hari=?,hak_notes=?,mentoring_kuota=? WHERE kode=?`)
-        .run(nama, deskripsi || null, periode_tipe || 'bulan', periode_hari || 30, harga || 0, fitur ? (typeof fitur === 'string' ? fitur : JSON.stringify(fitur)) : null, status || 'aktif', link_landing || null, warna || 'blue', icon || '📦', popular ? 1 : 0, periode || '/bulan', hak_akses || null, aturan_akses || null, maks_ujian || null, durasi_hari || null, hak_notes || null, mentoring_kuota || null, req.params.kode);
+        .run(nama, deskripsi || null, periode_tipe || 'bulan', periode_hari || 30, harga || 0, fitur ? (typeof fitur === 'string' ? fitur : JSON.stringify(fitur)) : null, status || 'aktif', link_landing || null, warna || 'blue', newIcon, popular ? 1 : 0, periode || '/bulan', hak_akses || null, aturan_akses || null, maks_ujian || null, durasi_hari || null, hak_notes || null, mentoring_kuota || null, req.params.kode);
     res.json({ message: 'Berhasil' });
 }));
 app.delete('/api/pakets/:kode', auth(['admin']), ah(async (req, res) => {
+    const old = await db.prepare('SELECT icon FROM pakets WHERE kode=?').get(req.params.kode);
     await db.prepare('DELETE FROM pakets WHERE kode=?').run(req.params.kode);
+    if (old && old.icon) deleteUploadedFileByUrl(old.icon).catch(() => {});
     res.json({ message: 'Berhasil' });
 }));
 

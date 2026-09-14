@@ -61,10 +61,17 @@ async function renderPaketGrid() {
             const linkLabel = linkedLdPaket ? linkedLdPaket.name : p.link_landing;
             linkBadge = `<div style="margin-top:8px;font-size:10px;background:rgba(26,90,160,0.08);border:1px solid rgba(26,90,160,0.2);border-radius:8px;padding:4px 8px;display:flex;align-items:center;gap:5px;color:var(--accent)">🔗 <span>Terhubung ke paket landing: <strong>${linkLabel}</strong></span></div>`;
         }
+        // Ikon paket sekarang gambar (URL Supabase Storage) — teks emoji cuma
+        // fallback utk paket lawas yg belum pernah diedit lewat form baru ini,
+        // atau paket yang memang belum punya ikon sama sekali.
+        const iconIsImg = typeof p.icon === 'string' && /^(https?:|data:)/i.test(p.icon);
+        const iconHtml = iconIsImg
+            ? `<img src="${p.icon}" alt="" style="width:2.4rem;height:2.4rem;border-radius:10px;object-fit:cover">`
+            : `<div style="font-size:2rem">${p.icon || '📦'}</div>`;
         return `<div class="paket-card-admin ${p.popular ? 'popular' : ''}" style="animation:fadeUp 0.3s ${i * 0.06}s both;border-color:${p.popular ? accentColor : ''}">
             ${p.popular ? `<span class="paket-badge-popular" style="background:linear-gradient(90deg,${accentColor},${accentColor}cc)">⭐ PALING POPULER</span>` : ''}
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                <div style="font-size:2rem">${p.icon || '📦'}</div>
+                ${iconHtml}
                 <div style="display:flex;gap:6px">
                     <button class="btn-icon" onclick="openEditPaket('${p.kode||p.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
                     <button class="btn-icon danger" onclick="deletePaket('${p.kode||p.id}','${p.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button>
