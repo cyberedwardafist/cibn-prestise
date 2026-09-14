@@ -1074,14 +1074,17 @@ function _jdwDayGroupHtml(d, entries, isToday) {
 //     Ini", tidak pernah di "Riwayat" (kalau tanggalnya sudah lewat tapi
 //     statusnya masih salah satu ini, harusnya sudah dikonversi otomatis
 //     oleh _jdwAutoAdvanceStatus — lihat fungsi itu).
-//   - Status FINAL ("selesai" & "batal", baik dibatalkan user maupun
-//     tentor) -> ikut tanggal: masih di "Minggu Ini" selama tanggalnya
-//     belum lewat, pindah ke "Riwayat" begitu tanggalnya sudah lewat hari
-//     ini. Khusus "batal": kalau di tanggal & jam (slotId) yang sama sudah
-//     ada pengajuan AKTIF baru (misal user batal lalu ajukan ulang di jam
-//     yang sama persis), entri batal yang lama itu langsung dianggap
-//     riwayat SAAT ITU JUGA, walau tanggalnya sendiri belum lewat — karena
-//     sudah "ketimpa" pengajuan baru.
+//   - Status FINAL ("selesai", "batal", & "ditolak" — baik dibatalkan
+//     user/tentor maupun ditolak guru/sistem) -> ikut tanggal: masih di
+//     "Minggu Ini" selama tanggalnya belum lewat, pindah ke "Riwayat"
+//     begitu tanggalnya sudah lewat hari ini. TIDAK PERNAH langsung
+//     dihilangkan dari daftar — entri "ditolak" cuma bisa hilang lewat
+//     tombol "Hapus" yang user tekan sendiri (lihat _entryActions &
+//     JadwalPage.hapusDitolak). Khusus "batal"/"ditolak": kalau di
+//     tanggal & jam (slotId) yang sama sudah ada pengajuan AKTIF baru
+//     (misal user batal lalu ajukan ulang di jam yang sama persis), entri
+//     lama itu langsung dianggap riwayat SAAT ITU JUGA, walau tanggalnya
+//     sendiri belum lewat — karena sudah "ketimpa" pengajuan baru.
 // Status "resejuel" (jadwal ulang dari tentor) tetap tampil normal di sini
 // (kartunya nongol di tanggal jadwal LAMA-nya, field tanggal/slotId/
 // materiId milik entri ini sendiri, BUKAN tanggal jadwal baru usulan tentor
@@ -1097,9 +1100,9 @@ function _jdwStatusListEntriesForDate(iso) {
             if (e.status === 'pending' || e.status === 'acc' || e.status === 'berlangsung' || e.status === 'pengajuan_pembatalan' || e.status === 'resejuel' || e.status === 'butuh_persetujuan' || e.status === 'pengajuan_batal_tentor') {
                 return !isRiwayat;
             }
-            if (e.status === 'selesai' || e.status === 'batal') {
+            if (e.status === 'selesai' || e.status === 'batal' || e.status === 'ditolak') {
                 let sudahLewat = iso < todayIso;
-                if (e.status === 'batal' && !sudahLewat) {
+                if ((e.status === 'batal' || e.status === 'ditolak') && !sudahLewat) {
                     // Ditimpa pengajuan aktif baru di jam yang sama -> langsung riwayat.
                     sudahLewat = dateEntries.some(o => o.id !== e.id && o.slotId === e.slotId && _jdwSlotMasihTerisi(o.status));
                 }
@@ -1530,6 +1533,20 @@ const JadwalPage = {
             return {
                 left: [{ icon: 'refresh', label: 'Tarik Pembatalan', cls: 'act-primary', onClick: `JadwalPage.tarikBatal('${e.id}')` }],
                 right: [],
+            };
+        }
+        if (e.status === 'ditolak') {
+            // Pengajuan yang ditolak (oleh guru/admin, atau auto-tolak karena
+            // jamnya kelewatan) SENGAJA tetap ditampilkan (lihat
+            // _jdwStatusListEntriesForDate) supaya user tahu jadwalnya ditolak
+            // — bukan cuma hilang diam-diam. Satu-satunya aksi yang tersisa
+            // cuma "Hapus", murni buat beres-beres tampilan (lihat
+            // JadwalPage.hapusDitolak), TIDAK mengubah data/kuota apa pun
+            // (kuota pengajuan & slot sudah lepas dari awal begitu status
+            // masuk 'ditolak', lihat JDW_STATUS_SLOT_KOSONG di atas).
+            return {
+                left: [],
+                right: [{ icon: 'trash', label: 'Hapus', cls: 'act-danger', onClick: `JadwalPage.hapusDitolak('${e.id}')` }],
             };
         }
         return { left: [], right: [] }; // 'selesai' (atau status lain) -> tanpa tombol
@@ -2514,6 +2531,7 @@ const JadwalPage = {
             return;
         }
         this._batalTargetId = id;
+        this._hapusDitolakMode = false; // pastikan tidak "nyangkut" true dari hapusDitolak() yg dibatalkan
         // Entri "pending" bisa berarti dua hal: pengajuan jadwal baru yang
         // belum pernah disetujui, ATAU jadwal-ULANG dari entri yang tadinya
         // sudah "acc" (ditandai field alasanReschedule) yang lagi menunggu
@@ -2533,9 +2551,25 @@ const JadwalPage = {
         if (!this._batalTargetId) return;
         JadwalStore.remove(this._batalTargetId);
         this._batalTargetId = null;
-        showToast('Jadwal dibatalkan');
+        showToast(this._hapusDitolakMode ? 'Jadwal ditolak sudah dihapus' : 'Jadwal dibatalkan');
+        this._hapusDitolakMode = false;
         _jdwRenderWeek();
         _jdwRenderStatusList();
+    },
+    // Tombol "Hapus" khusus kartu berstatus 'ditolak' (lihat _entryActions).
+    // Pakai ULANG overlay konfirmasi & JadwalStore.remove yang sama persis
+    // dengan batalEntry/confirmBatal di atas — cuma teks judul/pesannya
+    // dibedain biar jelas ini "menghapus tampilan" jadwal yang SUDAH ditolak,
+    // bukan "membatalkan" jadwal yang masih aktif. _hapusDitolakMode dipakai
+    // confirmBatal() di atas buat milih toast yang sesuai.
+    _hapusDitolakMode: false,
+    hapusDitolak(id) {
+        this._batalTargetId = id;
+        this._hapusDitolakMode = true;
+        document.getElementById('jdw-batal-title').textContent = 'Hapus Jadwal Ditolak?';
+        document.getElementById('jdw-batal-msg').textContent = 'Jadwal yang sudah ditolak ini akan dihapus dari daftar.';
+        document.getElementById('jdw-batal-overlay').classList.add('open');
+        _jdwSyncPageScrollLock();
     },
 
     /* ── Popup: KUOTA PEMBATALAN SUDAH HABIS — muncul kalau tombol "Batal"
