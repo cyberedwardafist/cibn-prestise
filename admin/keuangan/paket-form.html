@@ -1,9 +1,12 @@
 <!-- admin/paket-form.html — form Tambah/Edit Paket (fullscreen), dipisah dari keuangan-modals.html
      supaya file keuangan tetap ringan tiap kali paket-nya diubah. Logic: admin/paket-form.js -->
 <!-- REDESIGN visual mengikuti Landing Page (lihat public/paket.html, kelas .pkg-card dkk) +
-     panel Pratinjau langsung (live preview) di kanan. CATATAN PENTING: blok "HAK AKSES PAKET"
-     di bawah SENGAJA DIBIARKAN PERSIS SAMA (markup/id/class/handler-nya TIDAK diubah sama
-     sekali) — permintaan eksplisit supaya logic hak akses belum disentuh dulu. -->
+     panel Pratinjau langsung (live preview) di kanan. Blok "HAK AKSES PAKET" di bawah sudah
+     ikut di-redesain visualnya (kartu .pf-hak-card dkk, lihat <style> di atas) supaya senada
+     & lebih nyaman dipakai — TAPI markup/id/class/handler yang dipakai logic-nya (switch,
+     hak-sub, hak-chevron, onclick=toggleHakSubMenu, onchange=onPfHakSwitchToggle, semua
+     name="pf-hak"/"pf-aturan" + value-nya, dan semua id yang dibaca admin/keuangan/paket-form.js)
+     TIDAK diubah sama sekali — sistem hak aksesnya tetap sama persis, cuma bungkusnya beda. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap">
 <style>
 /* ── Tema visual form Paket, di-scope semua di bawah #paket-form-overlay
@@ -151,6 +154,48 @@
   background: linear-gradient(135deg, var(--pf-blue-light), var(--pf-blue));
 }
 #paket-form-overlay .modal-footer .btn-secondary { border-radius: 999px; }
+
+/* ══ HAK AKSES PAKET — REDESAIN VISUAL ══
+   PENTING: ini MURNI kosmetik. Semua yang dipakai logic/JS TIDAK disentuh:
+   class switch/switch-row/switch-label/switch-desc/switch-slider, class
+   hak-sub & hak-chevron (di-query oleh toggleHakSubMenu() & direset oleh
+   openAddPaket/openEditPaket di paket-form.js), atribut onclick=
+   "toggleHakSubMenu(this)", onchange="onPfHakSwitchToggle(...)", semua
+   name="pf-hak"/"pf-aturan" + value-nya, dan semua id yang dibaca/ditulis
+   paket-form.js (pf-hak-akses-checks, pf-modul-content-wrap, pf-mentoring-
+   content-wrap, pf-laporan-review-override, pf-mentoring-kuota, picker2
+   modul & mentoring, dst). Yang berubah cuma kelas/bungkus visualnya supaya
+   senada dengan section2 lain di form ini (kartu kaca) + lebih nyaman dibaca
+   & lebih rapi saat di-scroll di layar sempit. ── */
+.pf-hak-hint { font-size:11.5px; color:var(--pf-text-dim); line-height:1.6; margin-bottom:16px; }
+.pf-hak-group-label {
+  font-size:10.5px; font-weight:700; color:var(--pf-blue); letter-spacing:.08em;
+  text-transform:uppercase; opacity:.7; margin:2px 0 9px; display:flex; align-items:center; gap:8px;
+}
+.pf-hak-group-label::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,rgba(44,90,160,.22),transparent); }
+#pf-hak-akses-checks { display:flex; flex-direction:column; gap:10px; margin-bottom:4px; }
+
+.pf-hak-card {
+  border:1.5px solid var(--pf-glass-border); border-radius:14px; overflow:hidden;
+  background:rgba(255,255,255,.68); transition:border-color .18s, box-shadow .18s;
+}
+.pf-hak-card:hover { border-color:rgba(44,90,160,.32); box-shadow:0 10px 24px -20px rgba(21,34,56,.3); }
+.pf-hak-card-head { display:flex; align-items:center; gap:11px; cursor:pointer; padding:12px 14px; user-select:none; }
+.pf-hak-icon {
+  width:32px; height:32px; border-radius:10px; flex-shrink:0; font-size:15px; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(150deg, rgba(44,90,160,.16), rgba(92,134,201,.07));
+}
+.pf-hak-card-title-wrap { min-width:0; }
+.pf-hak-card-title { font-size:12.5px; font-weight:700; color:var(--pf-text); }
+.pf-hak-card-sub { font-size:10.5px; color:var(--pf-text-dim); margin-top:1px; }
+.pf-hak-chev-wrap { margin-left:auto; display:flex; align-items:center; color:var(--pf-text-dim); opacity:.5; flex-shrink:0; }
+.pf-hak-card-head .hak-chevron { transition:transform .2s; }
+.pf-hak-card .hak-sub { padding:2px 14px 14px; border-top:1px solid rgba(21,34,56,.07); background:rgba(246,248,252,.55); }
+.pf-hak-card .switch-row { background:rgba(255,255,255,.9); border-color:var(--pf-glass-border); border-radius:12px; margin-top:10px; }
+.pf-hak-desc { font-size:11px; color:var(--pf-text-dim); line-height:1.65; margin-top:8px; }
+.pf-hak-nested { margin-top:10px; padding-left:12px; border-left:2px solid rgba(44,90,160,.16); }
+.pf-hak-subcard { background:rgba(255,255,255,.85); border:1.5px solid var(--pf-glass-border); border-radius:12px; padding:12px; margin-top:10px; }
 </style>
 
 <!-- paket-form-overlay -->
@@ -254,48 +299,63 @@
             </div>
           </div>
 
-          <!-- ══ HAK AKSES PAKET ══ (TIDAK DIUBAH — markup/id/class/handler persis sama) -->
-          <div style="border-top:1.5px solid rgba(19,50,89,0.08);margin-top:16px;padding-top:16px">
-            <div style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:6px">
-              🔐 Hak Akses Paket
-            </div>
-            <div style="font-size:11px;color:var(--text-sub);margin-bottom:12px;line-height:1.5">Menu & fitur yang dapat diakses user dengan paket ini. Kosongkan dulu — akan dihubungkan dengan item menu akun user nantinya.</div>
+          <!-- ══ HAK AKSES PAKET ══ — REDESAIN VISUAL. Markup/id/class/handler yang
+               dipakai logic (switch, hak-sub, hak-chevron, onclick=toggleHakSubMenu,
+               onchange=onPfHakSwitchToggle, name=pf-hak/pf-aturan + value-nya, dan
+               semua id yang dibaca paket-form.js) TIDAK diubah sama sekali — cuma
+               dibungkus ulang pakai kelas .pf-hak-* (lihat <style> di atas) supaya
+               senada dgn section lain di form ini & lebih nyaman dilihat/dipakai. -->
+          <div class="pf-section">
+            <div class="pf-eyebrow">🔐 Hak Akses Paket</div>
+            <div class="pf-hak-hint">Menu &amp; fitur yang dapat diakses user dengan paket ini. Kosongkan dulu — akan dihubungkan dengan item menu akun user nantinya.</div>
 
             <!-- Menu Utama -->
-            <div style="font-size:10px;font-weight:700;color:var(--blue);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;opacity:.7">Menu Utama</div>
-            <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px" id="pf-hak-akses-checks">
+            <div class="pf-hak-group-label">Menu Utama</div>
+            <div id="pf-hak-akses-checks">
 
               <!-- Ujian -->
-              <div style="border:1.5px solid rgba(19,50,89,0.1);border-radius:10px;overflow:hidden;background:#fff">
-                <div style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;padding:9px 12px;color:var(--blue)" onclick="toggleHakSubMenu(this)">
-                  📝 Ujian Online
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="margin-left:auto;opacity:.4;transition:transform .2s" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+              <div class="pf-hak-card">
+                <div class="pf-hak-card-head" onclick="toggleHakSubMenu(this)">
+                  <div class="pf-hak-icon">📝</div>
+                  <div class="pf-hak-card-title-wrap">
+                    <div class="pf-hak-card-title">Ujian Online</div>
+                    <div class="pf-hak-card-sub">Dock UJIAN · CAT</div>
+                  </div>
+                  <div class="pf-hak-chev-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+                  </div>
                 </div>
-                <div class="hak-sub" style="display:none;padding:0 12px 10px 34px;border-top:1px solid rgba(19,50,89,0.06)">
-                  <div class="switch-row" style="margin-top:8px">
-                    <div class="switch-label" style="font-size:12px">CAT</div>
+                <div class="hak-sub" style="display:none">
+                  <div class="switch-row">
+                    <div class="switch-label">CAT</div>
                     <label class="switch"><input type="checkbox" name="pf-hak" value="ujian" checked onchange="onPfHakSwitchToggle(this)"><span class="switch-slider"></span></label>
                   </div>
-                  <div style="font-size:10px;color:var(--text-sub);margin-top:6px;line-height:1.5">User dengan paket ini bisa mengakses menu Ujian (dock UJIAN). Secara default sudah menyala — matikan switch-nya kalau mau tutup akses CAT untuk paket ini.</div>
+                  <div class="pf-hak-desc">User dengan paket ini bisa mengakses menu Ujian (dock UJIAN). Secara default sudah menyala — matikan switch-nya kalau mau tutup akses CAT untuk paket ini.</div>
                 </div>
               </div>
 
               <!-- Laporan -->
-              <div style="border:1.5px solid rgba(19,50,89,0.1);border-radius:10px;overflow:hidden;background:#fff">
-                <div style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;padding:9px 12px;color:var(--blue)" onclick="toggleHakSubMenu(this)">
-                  📊 Laporan & Statistik
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="margin-left:auto;opacity:.4;transition:transform .2s" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+              <div class="pf-hak-card">
+                <div class="pf-hak-card-head" onclick="toggleHakSubMenu(this)">
+                  <div class="pf-hak-icon">📊</div>
+                  <div class="pf-hak-card-title-wrap">
+                    <div class="pf-hak-card-title">Laporan &amp; Statistik</div>
+                    <div class="pf-hak-card-sub">Dock RIWAYAT · HISTORI</div>
+                  </div>
+                  <div class="pf-hak-chev-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+                  </div>
                 </div>
-                <div class="hak-sub" style="display:none;padding:0 12px 10px 34px;border-top:1px solid rgba(19,50,89,0.06)">
-                  <div class="switch-row" style="margin-top:8px">
-                    <div class="switch-label" style="font-size:12px">HISTORI</div>
+                <div class="hak-sub" style="display:none">
+                  <div class="switch-row">
+                    <div class="switch-label">HISTORI</div>
                     <label class="switch"><input type="checkbox" name="pf-hak" value="laporan" checked onchange="onPfHakSwitchToggle(this)"><span class="switch-slider"></span></label>
                   </div>
-                  <div style="font-size:10px;color:var(--text-sub);margin-top:6px;line-height:1.5">User dengan paket ini bisa mengakses menu Laporan (dock RIWAYAT). Secara default sudah menyala — matikan switch-nya kalau mau tutup akses HISTORI untuk paket ini.</div>
-                  <div class="form-group" style="margin:10px 0 0">
+                  <div class="pf-hak-desc">User dengan paket ini bisa mengakses menu Laporan (dock RIWAYAT). Secara default sudah menyala — matikan switch-nya kalau mau tutup akses HISTORI untuk paket ini.</div>
+                  <div class="pf-hak-nested">
                     <div class="switch-row">
                       <div>
-                        <div class="switch-label" style="font-size:12px">Review</div>
+                        <div class="switch-label">Review</div>
                         <div class="switch-desc">Kalau aktif, SELURUH riwayat ujian user dengan paket ini bisa direview (tombol "Lihat Hasil" tampil), walau token/kode ujiannya sendiri tidak disetel "Izinkan Review" saat dibuat. Ini override di level paket, terpisah dari switch Izinkan Review per-token.</div>
                       </div>
                       <label class="switch"><input type="checkbox" name="pf-aturan" value="laporan.review_override" id="pf-laporan-review-override" onchange="setDirty('paket')"><span class="switch-slider"></span></label>
@@ -305,94 +365,110 @@
               </div>
 
               <!-- Modul / Materi -->
-              <div style="border:1.5px solid rgba(19,50,89,0.1);border-radius:10px;overflow:hidden;background:#fff">
-                <div style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;padding:9px 12px;color:var(--blue)" onclick="toggleHakSubMenu(this)">
-                  📚 Modul / Materi
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="margin-left:auto;opacity:.4;transition:transform .2s" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+              <div class="pf-hak-card">
+                <div class="pf-hak-card-head" onclick="toggleHakSubMenu(this)">
+                  <div class="pf-hak-icon">📚</div>
+                  <div class="pf-hak-card-title-wrap">
+                    <div class="pf-hak-card-title">Modul / Materi</div>
+                    <div class="pf-hak-card-sub">Menu E-BOOK</div>
+                  </div>
+                  <div class="pf-hak-chev-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+                  </div>
                 </div>
-                <div class="hak-sub" style="display:none;padding:0 12px 10px 34px;border-top:1px solid rgba(19,50,89,0.06)">
-                  <div class="switch-row" style="margin-top:8px">
-                    <div class="switch-label" style="font-size:12px">E-BOOK</div>
+                <div class="hak-sub" style="display:none">
+                  <div class="switch-row">
+                    <div class="switch-label">E-BOOK</div>
                     <label class="switch"><input type="checkbox" name="pf-hak" value="modul" checked onchange="onPfHakSwitchToggle(this,'pf-modul-content-wrap')"><span class="switch-slider"></span></label>
                   </div>
                   <div id="pf-modul-content-wrap">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 8px;flex-wrap:wrap;gap:6px">
-                      <span style="font-size:10px;color:var(--text-sub)" id="pf-modul-picker-hint">User dengan paket ini akan mengakses menu E-BOOK. Pilih modul e-book mana saja yang boleh diakses:</span>
-                    </div>
-                    <div class="search-bar" id="pf-modul-picker-searchbar" style="flex-wrap:wrap;gap:8px;margin-bottom:8px">
-                      <div class="search-input-wrap" style="min-width:120px">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <input class="search-input" type="text" id="pf-modul-picker-search-input" placeholder="Cari modul e-book..." oninput="_pfModulPickerSearch=this.value;_renderPfModulPicker()">
+                    <div class="pf-hak-subcard">
+                      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+                        <span style="font-size:10px;color:var(--text-sub)" id="pf-modul-picker-hint">User dengan paket ini akan mengakses menu E-BOOK. Pilih modul e-book mana saja yang boleh diakses:</span>
                       </div>
-                      <div id="pf-modul-picker-filters"></div>
-                    </div>
-                    <div id="pf-modul-picker-list" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
-                    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
-                      <button type="button" class="btn btn-secondary btn-sm" id="pf-modul-back-btn" style="display:none" onclick="_pfModulGoToSelectStep()">&larr; Kembali</button>
-                      <button type="button" class="btn btn-primary btn-sm" id="pf-modul-next-btn" onclick="_pfModulGoToViewStep()">Lihat E-BOOK &rarr;</button>
+                      <div class="search-bar" id="pf-modul-picker-searchbar" style="flex-wrap:wrap;gap:8px;margin-bottom:8px">
+                        <div class="search-input-wrap" style="min-width:120px">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                          <input class="search-input" type="text" id="pf-modul-picker-search-input" placeholder="Cari modul e-book..." oninput="_pfModulPickerSearch=this.value;_renderPfModulPicker()">
+                        </div>
+                        <div id="pf-modul-picker-filters"></div>
+                      </div>
+                      <div id="pf-modul-picker-list" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
+                      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+                        <button type="button" class="btn btn-secondary btn-sm" id="pf-modul-back-btn" style="display:none" onclick="_pfModulGoToSelectStep()">&larr; Kembali</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="pf-modul-next-btn" onclick="_pfModulGoToViewStep()">Lihat E-BOOK &rarr;</button>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
               <!-- Mentoring -->
-              <div style="border:1.5px solid rgba(19,50,89,0.1);border-radius:10px;overflow:hidden;background:#fff">
-                <div style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;padding:9px 12px;color:var(--blue)" onclick="toggleHakSubMenu(this)">
-                  💬 Mentoring & Konsultasi
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="margin-left:auto;opacity:.4;transition:transform .2s" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+              <div class="pf-hak-card">
+                <div class="pf-hak-card-head" onclick="toggleHakSubMenu(this)">
+                  <div class="pf-hak-icon">💬</div>
+                  <div class="pf-hak-card-title-wrap">
+                    <div class="pf-hak-card-title">Mentoring &amp; Konsultasi</div>
+                    <div class="pf-hak-card-sub">Dock JADWAL</div>
+                  </div>
+                  <div class="pf-hak-chev-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" class="hak-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+                  </div>
                 </div>
-                <div class="hak-sub" style="display:none;padding:0 12px 10px 34px;border-top:1px solid rgba(19,50,89,0.06)">
-                  <div class="switch-row" style="margin-top:8px">
-                    <div class="switch-label" style="font-size:12px">MENTORING</div>
+                <div class="hak-sub" style="display:none">
+                  <div class="switch-row">
+                    <div class="switch-label">MENTORING</div>
                     <label class="switch"><input type="checkbox" name="pf-hak" value="mentoring" checked onchange="onPfHakSwitchToggle(this,'pf-mentoring-content-wrap')"><span class="switch-slider"></span></label>
                   </div>
                   <div id="pf-mentoring-content-wrap">
-                  <div style="font-size:10px;color:var(--text-sub);margin:8px 0 4px">User dengan paket ini akan mengakses menu Mentoring (dock JADWAL). Tampilan disiapkan dulu, fungsi booking belum aktif.</div>
-                  <div class="form-group" style="margin:8px 0">
-                    <label class="form-label" style="font-size:10px">Kuota Permintaan Jadwal Mentoring <span style="font-weight:400;color:var(--text-sub)">(kosong = ∞)</span></label>
-                    <input id="pf-mentoring-kuota" class="form-input" type="number" min="0" placeholder="Contoh: 4 per bulan" oninput="onPfMentoringKuotaChange()">
-                  </div>
-                  <div style="font-size:10px;color:var(--text-sub);margin:8px 0 4px">Materi sesi mentoring:</div>
-
-                  <!-- VIEW 1: Daftar Materi (default) -->
-                  <div id="pf-mentoring-materi-view">
-                    <div id="pf-mentoring-materi-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
-                    <button type="button" class="btn btn-secondary btn-sm" style="width:100%" onclick="_pfMentoringAddMateri()">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                      Tambah Materi
-                    </button>
-                  </div>
-
-                  <!-- VIEW 2: Editor Materi (search+pilih modul, lalu atur urutan) -->
-                  <div id="pf-mentoring-editor-view" style="display:none">
-                    <button type="button" class="btn btn-secondary btn-sm" style="margin-bottom:8px" onclick="_pfMentoringBackToList()">&larr; Daftar Materi</button>
-                    <div class="form-group" style="margin-bottom:8px">
-                      <label class="form-label" style="font-size:10px">Nama Materi</label>
-                      <input type="text" id="pf-mentoring-materi-nama" class="form-input" placeholder="Contoh: Sesi 1 - Dasar Public Speaking" oninput="setDirty('paket')">
+                    <div class="pf-hak-desc">User dengan paket ini akan mengakses menu Mentoring (dock JADWAL). Tampilan disiapkan dulu, fungsi booking belum aktif.</div>
+                    <div class="form-group" style="margin:10px 0">
+                      <label class="form-label" style="font-size:10px">Kuota Permintaan Jadwal Mentoring <span style="font-weight:400;color:var(--text-sub)">(kosong = ∞)</span></label>
+                      <input id="pf-mentoring-kuota" class="form-input" type="number" min="0" placeholder="Contoh: 4 per bulan" oninput="onPfMentoringKuotaChange()">
                     </div>
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 8px;flex-wrap:wrap;gap:6px">
-                      <span style="font-size:10px;color:var(--text-sub)">Modul terkait sesi mentoring ini:</span>
-                      <span style="font-size:10px;color:var(--text-sub)" id="pf-mentoring-picker-hint">Cari &amp; pilih modul untuk sesi mentoring</span>
-                    </div>
-                    <div class="search-bar" id="pf-mentoring-picker-searchbar" style="flex-wrap:wrap;gap:8px;margin-bottom:8px">
-                      <div class="search-input-wrap" style="min-width:120px">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <input class="search-input" type="text" id="pf-mentoring-picker-search-input" placeholder="Cari modul..." oninput="_pfMentoringPickerSearch=this.value;_renderPfMentoringPicker()">
+                    <div class="pf-hak-subcard">
+                      <div style="font-size:10px;color:var(--text-sub);margin-bottom:8px">Materi sesi mentoring:</div>
+
+                      <!-- VIEW 1: Daftar Materi (default) -->
+                      <div id="pf-mentoring-materi-view">
+                        <div id="pf-mentoring-materi-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+                        <button type="button" class="btn btn-secondary btn-sm" style="width:100%" onclick="_pfMentoringAddMateri()">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                          Tambah Materi
+                        </button>
                       </div>
-                      <div id="pf-mentoring-picker-filters"></div>
-                    </div>
-                    <div id="pf-mentoring-picker-list" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
-                    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
-                      <button type="button" class="btn btn-secondary btn-sm" id="pf-mentoring-back-btn" style="display:none" onclick="_pfMentoringGoToSelectStep()">&larr; Kembali</button>
-                      <button type="button" class="btn btn-primary btn-sm" id="pf-mentoring-next-btn" onclick="_pfMentoringGoToOrderStep()">Atur Urutan &rarr;</button>
-                      <button type="button" class="btn btn-primary btn-sm" id="pf-mentoring-save-btn" style="display:none" onclick="_pfMentoringSaveMateri()">💾 Simpan</button>
-                    </div>
-                  </div>
 
-                  <!-- Input tersembunyi: merepresentasikan seluruh materi (nama+modul terurut) yg
-                       SUDAH di-"Simpan" sbg checkbox name="pf-aturan" (dibaca submitPaket() sama
-                       seperti checkbox lain, jadi kebawa otomatis tanpa ubah logic submit). -->
-                  <div id="pf-mentoring-order-inputs" style="display:none"></div>
+                      <!-- VIEW 2: Editor Materi (search+pilih modul, lalu atur urutan) -->
+                      <div id="pf-mentoring-editor-view" style="display:none">
+                        <button type="button" class="btn btn-secondary btn-sm" style="margin-bottom:8px" onclick="_pfMentoringBackToList()">&larr; Daftar Materi</button>
+                        <div class="form-group" style="margin-bottom:8px">
+                          <label class="form-label" style="font-size:10px">Nama Materi</label>
+                          <input type="text" id="pf-mentoring-materi-nama" class="form-input" placeholder="Contoh: Sesi 1 - Dasar Public Speaking" oninput="setDirty('paket')">
+                        </div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 8px;flex-wrap:wrap;gap:6px">
+                          <span style="font-size:10px;color:var(--text-sub)">Modul terkait sesi mentoring ini:</span>
+                          <span style="font-size:10px;color:var(--text-sub)" id="pf-mentoring-picker-hint">Cari &amp; pilih modul untuk sesi mentoring</span>
+                        </div>
+                        <div class="search-bar" id="pf-mentoring-picker-searchbar" style="flex-wrap:wrap;gap:8px;margin-bottom:8px">
+                          <div class="search-input-wrap" style="min-width:120px">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <input class="search-input" type="text" id="pf-mentoring-picker-search-input" placeholder="Cari modul..." oninput="_pfMentoringPickerSearch=this.value;_renderPfMentoringPicker()">
+                          </div>
+                          <div id="pf-mentoring-picker-filters"></div>
+                        </div>
+                        <div id="pf-mentoring-picker-list" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
+                        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+                          <button type="button" class="btn btn-secondary btn-sm" id="pf-mentoring-back-btn" style="display:none" onclick="_pfMentoringGoToSelectStep()">&larr; Kembali</button>
+                          <button type="button" class="btn btn-primary btn-sm" id="pf-mentoring-next-btn" onclick="_pfMentoringGoToOrderStep()">Atur Urutan &rarr;</button>
+                          <button type="button" class="btn btn-primary btn-sm" id="pf-mentoring-save-btn" style="display:none" onclick="_pfMentoringSaveMateri()">💾 Simpan</button>
+                        </div>
+                      </div>
+
+                      <!-- Input tersembunyi: merepresentasikan seluruh materi (nama+modul terurut) yg
+                           SUDAH di-"Simpan" sbg checkbox name="pf-aturan" (dibaca submitPaket() sama
+                           seperti checkbox lain, jadi kebawa otomatis tanpa ubah logic submit). -->
+                      <div id="pf-mentoring-order-inputs" style="display:none"></div>
+                    </div>
                   </div>
                 </div>
               </div>
