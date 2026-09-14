@@ -2059,7 +2059,17 @@ app.put('/api/materi/:kode', auth(['admin']), ah(async (req, res) => {
     if (!old) return res.status(404).json({ error: 'Tidak ditemukan' });
 
     const { nama, nama_internal, kelompok } = req.body || {};
-    let modul_list = []; try { modul_list = Array.isArray(req.body.modul_list) ? req.body.modul_list : JSON.parse(req.body.modul_list || '[]'); } catch (e) { modul_list = []; }
+    // PENTING: kalau modul_list TIDAK dikirim di body (mis. request bulk-set
+    // kelompok dari submitBulkSetKelompokMateri() yang cuma kirim {kelompok}),
+    // JANGAN default ke [] — pertahankan modul_list lama dari DB. Kalau di-
+    // default ke [] tiap PUT yang tidak menyertakan modul_list, isi modul materi
+    // ikut kehapus tiap kali cuma mau pindah grup.
+    let modul_list;
+    if (req.body.modul_list === undefined) {
+        modul_list = (() => { try { return JSON.parse(old.modul_list || '[]'); } catch (e) { return []; } })();
+    } else {
+        try { modul_list = Array.isArray(req.body.modul_list) ? req.body.modul_list : JSON.parse(req.body.modul_list || '[]'); } catch (e) { modul_list = []; }
+    }
 
     await db.prepare('UPDATE materi SET nama=?,nama_internal=?,kelompok=?,modul_list=? WHERE kode=?')
         .run((nama || old.nama).trim(), (nama_internal !== undefined ? ((nama_internal || '').trim() || null) : old.nama_internal), (kelompok !== undefined ? (kelompok || null) : old.kelompok), JSON.stringify(modul_list), req.params.kode);
