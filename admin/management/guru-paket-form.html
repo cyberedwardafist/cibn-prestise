@@ -1,0 +1,81 @@
+<!-- ══ MANAGEMENT > GURU > + PAKET (wizard form) ══
+     HALAMAN (bukan popup — page ID 'management-guru-paket', file sendiri)
+     buat bikin/edit satu "grup": nama + nama_internal, daftar akun guru/
+     review, daftar paket. Dibuka dari tombol "+ Paket" (buat baru) atau
+     tombol edit di kartu grup (admin/management/guru.html) & di halaman
+     detail (guru-paket-detail.html) — window._guruPaketEditKode diisi kode
+     grup kalau mode edit, null kalau mode buat baru.
+
+     Wizard step-by-step (bukan 1 halaman scroll panjang):
+       1) Nama + Nama Internal
+       2) Pilih akun guru/review (search + checklist, dari role='review')
+       3) Pilih paket (search + checklist, dari Keuangan) -> Simpan
+
+     Tombol kembali di header selalu balik ke slide GURU (management-guru),
+     BUKAN mundur 1 step wizard (itu tombol "Kembali" di footer tiap step).
+     Logic ada di admin/management/guru-paket-form.js. -->
+
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+  <button class="btn-icon" onclick="navigateTo('management-guru')" title="Kembali ke daftar Guru">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+  </button>
+  <div class="section-title" style="margin-bottom:0" id="gpf-title">Grup Guru Baru</div>
+</div>
+<div class="section-sub">Hubungkan sekumpulan akun guru/review dengan paket-paket yang jadi tanggung jawabnya.</div>
+
+<!-- Indikator step -->
+<div style="display:flex;gap:6px;margin:14px 0 18px">
+  <div class="badge gpf-step-pill" id="gpf-step-pill-1" style="flex:1;text-align:center;padding:7px 4px;border-radius:8px;background:rgba(19,50,89,0.08);color:var(--blue);font-size:11px;font-weight:700">1. Nama</div>
+  <div class="badge gpf-step-pill" id="gpf-step-pill-2" style="flex:1;text-align:center;padding:7px 4px;border-radius:8px;background:rgba(19,50,89,0.08);color:var(--blue);font-size:11px;font-weight:700">2. Guru/Review</div>
+  <div class="badge gpf-step-pill" id="gpf-step-pill-3" style="flex:1;text-align:center;padding:7px 4px;border-radius:8px;background:rgba(19,50,89,0.08);color:var(--blue);font-size:11px;font-weight:700">3. Paket</div>
+</div>
+
+<div class="card">
+  <!-- STEP 1: Nama + Nama Internal -->
+  <div class="gpf-step" id="gpf-step-1">
+    <div class="form-group">
+      <label class="form-label">Nama Grup</label>
+      <input type="text" id="gpf-nama" class="form-input" placeholder="Contoh: Tim Pengajar Silver">
+      <div class="ld-hint" style="margin-top:4px">Nama ini yang akan tampil di daftar & pencarian.</div>
+    </div>
+    <div class="form-group" style="margin-top:12px">
+      <label class="form-label">Nama Internal <span style="font-weight:400;color:var(--text-sub)">(opsional)</span></label>
+      <input type="text" id="gpf-nama-internal" class="form-input" placeholder="Catatan internal, tidak tampil ke user">
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-primary" onclick="_gpfGoStep(2)">Lanjut &rarr;</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Pilih akun guru/review -->
+  <div class="gpf-step" id="gpf-step-2" style="display:none">
+    <div style="font-size:12px;color:var(--text-sub);margin-bottom:8px">Pilih akun guru/review yang masuk ke grup ini (<span id="gpf-akun-count">0</span> dipilih):</div>
+    <div class="search-bar">
+      <div class="search-input-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="search-input" type="text" id="gpf-akun-search-input" placeholder="Cari nama/email guru..." oninput="_gpfAkunSearch=this.value;_gpfRenderAkunList()">
+      </div>
+    </div>
+    <div id="gpf-akun-list" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
+    <div style="display:flex;justify-content:space-between;margin-top:16px">
+      <button class="btn btn-secondary" onclick="_gpfGoStep(1)">&larr; Kembali</button>
+      <button class="btn btn-primary" onclick="_gpfGoStep(3)">Lanjut &rarr;</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Pilih paket -->
+  <div class="gpf-step" id="gpf-step-3" style="display:none">
+    <div style="font-size:12px;color:var(--text-sub);margin-bottom:8px">Pilih paket yang jadi tanggung jawab grup ini (<span id="gpf-paket-count">0</span> dipilih):</div>
+    <div class="search-bar">
+      <div class="search-input-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="search-input" type="text" id="gpf-paket-search-input" placeholder="Cari nama paket..." oninput="_gpfPaketSearch=this.value;_gpfRenderPaketList()">
+      </div>
+    </div>
+    <div id="gpf-paket-list" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
+    <div style="display:flex;justify-content:space-between;margin-top:16px">
+      <button class="btn btn-secondary" onclick="_gpfGoStep(2)">&larr; Kembali</button>
+      <button class="btn btn-primary" id="gpf-save-btn" onclick="_gpfSubmit()">Simpan Grup</button>
+    </div>
+  </div>
+</div>
