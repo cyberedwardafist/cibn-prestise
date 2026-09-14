@@ -654,26 +654,60 @@ function renderFitur(f) {
   grid.innerHTML = cards.map((c, i) => bentoCard(i, `<div class="bento-icon">${icon(FITUR_ICON_CYCLE[i % FITUR_ICON_CYCLE.length])}</div><h3>${esc(c.title)}</h3><p>${esc(c.desc)}</p>`)).join('');
 }
 
-function renderPaket(p, keuanganPakets) {
-  const grid = document.getElementById('paketGrid'); if (!grid || !p) return;
-  document.querySelector('#paket .section-tag').textContent = p.tag || 'Paket Harga';
-  document.querySelector('#paket .section-title').textContent = p.title || '';
-  document.querySelector('#paket .section-sub').textContent = p.sub || '';
-  const list = (p.list || []).slice(0, 3);
+// Paket ditampilkan dari data ASLI (/api/pakets/public — tabel `pakets` di
+// database, dikelola admin lewat menu Keuangan > Paket Harga), PERSIS seperti
+// public/index.html dan public/paket.html. Tidak ada lagi daftar paket statis
+// di sini — apa pun yang admin buat/ubah/hapus lewat panel admin otomatis
+// muncul di landing ini. Teks judul/label bagian ("Paket Harga", dst) tetap
+// bisa diatur admin lewat Editor Landing (field eyebrow/title/desc).
+function mapPaketRowLanding(p) {
+  const hasHarga = p.harga && Number(p.harga) > 0;
+  return {
+    kode: p.kode,
+    name: p.nama,
+    desc: p.deskripsi || '',
+    price: hasHarga ? ('Rp' + Number(p.harga).toLocaleString('id-ID')) : 'Hubungi Kami',
+    unit: hasHarga ? (p.periode || ('/' + (p.periode_tipe || 'bulan'))) : '',
+    features: Array.isArray(p.fitur) ? p.fitur : [],
+    featured: !!p.popular,
+    btnText: 'Pilih Paket'
+  };
+}
+
+function renderPaket(p, realPakets) {
+  const grid = document.getElementById('paketGrid'); if (!grid) return;
+  p = p || {};
+  document.querySelector('#paket .section-tag').textContent = p.eyebrow || p.tag || 'Paket Harga';
+  document.querySelector('#paket .section-title').textContent = p.title || 'Pilih Paket yang Tepat';
+  document.querySelector('#paket .section-sub').textContent = p.desc || p.sub || '';
+  const list = (realPakets || []).map(mapPaketRowLanding).slice(0, 3);
+  if (!list.length) {
+    grid.innerHTML = '<div class="glass" style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--text-sub,#69768a)">Belum ada paket tersedia saat ini.</div>';
+    return;
+  }
   grid.innerHTML = list.map((pk, i) => {
-    const fl = (Array.isArray(pk.features) ? pk.features : (pk.features || '').split('\n')).filter(x => x.trim());
-    const linkedKeu = pk.link_keuangan ? (keuanganPakets || []).find(kp => (kp.kode || kp.id) === pk.link_keuangan) : null;
-    let displayPrice = pk.price, displayUnit = pk.unit;
-    if (linkedKeu) { const h = parseInt(linkedKeu.harga || 0); displayPrice = h > 0 ? 'Rp' + h.toLocaleString('id-ID') : pk.price; displayUnit = linkedKeu.periode || pk.unit || '/bulan'; }
+    const fl = (pk.features || []).filter(x => (x || '').trim());
     return `<div class="glass glass-hover c-4 paket-card${pk.featured ? ' featured' : ''} reveal${i===1?' reveal-delay-1':i===2?' reveal-delay-2':''}">
       <div class="paket-name">${esc(pk.name)}</div>
-      <div class="paket-price">${esc(displayPrice)} <span>${esc(displayUnit)}</span></div>
+      <div class="paket-price">${esc(pk.price)} <span>${esc(pk.unit)}</span></div>
       <p class="paket-desc">${esc(pk.desc)}</p>
       <div class="paket-divider"></div>
       <ul class="paket-features">${fl.slice(0,4).map(x => `<li>${esc(x)}</li>`).join('')}</ul>
-      <button class="paket-btn" onclick="openSignup('${esc(pk.name)}','${esc(displayPrice+(displayUnit||''))}')">${esc(pk.btnText)}</button>
+      <button class="paket-btn" onclick="goToPaketSignup('${esc(pk.kode)}','${esc(pk.name)}','${esc(pk.price+(pk.unit||''))}')">${esc(pk.btnText)}</button>
     </div>`;
   }).join('') + moreCard('paket', 'Lihat Semua Paket', 'c-4');
+}
+
+// Alur setelah pilih paket: arahkan ke halaman pendaftaran ASLI (auth/daftar.html)
+// yang sudah punya verifikasi OTP + lanjut ke halaman pembayaran — PERSIS alur
+// yang dipakai public/index.html & public/paket.html. Query string ?paket=&harga=&kode=
+// dibaca otomatis oleh daftar.html.
+function goToPaketSignup(kode, name, harga) {
+  const params = new URLSearchParams();
+  if (name) params.set('paket', name);
+  if (harga) params.set('harga', harga);
+  if (kode) params.set('kode', kode);
+  window.location.href = 'daftar' + (params.toString() ? ('?' + params.toString()) : '');
 }
 
 function renderMateri(m) {
@@ -812,7 +846,6 @@ loadLandingData();
 function openExam() { ensureLandingModule('exam-demo').then(() => openExam()); }
 function toggleChat() { ensureLandingModule('chat').then(() => toggleChat()); }
 function openLogin() { ensureLandingModule('auth').then(() => openLogin()); }
-function openSignup(paketName, paketPrice) { ensureLandingModule('auth').then(() => openSignup(paketName, paketPrice)); }
 function openDocModal(type) { ensureLandingModule('doc-modal').then(() => openDocModal(type)); }
 const LANDING_MODULES = { 'exam-demo': 'landing/exam-demo.js', 'chat': 'landing/chat.js', 'auth': 'landing/auth.js', 'doc-modal': 'landing/doc-modal.js' };
 function ensureLandingModule(name) { return LazyLoader.loadMany([{ url: '/' + LANDING_MODULES[name] }]); }

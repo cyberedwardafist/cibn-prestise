@@ -1,6 +1,10 @@
 // landing/auth.js
-// Modul LOGIN/REGISTER (termasuk openSignup dari tombol paket) — lazy-load saat salah satu dari openLogin()/openSignup() pertama kali dipanggil.
+// Modul LOGIN/REGISTER (dari tombol "Masuk" di navbar) — lazy-load saat openLogin() pertama kali dipanggil.
 // Bergantung pada helper global dari shell landing.html yang sudah dimuat lebih dulu.
+// Catatan: tombol paket TIDAK lagi memakai modul ini — sejak diperbaiki, tombol
+// "Pilih Paket" langsung mengarahkan ke auth/daftar.html (alur pendaftaran +
+// OTP + pembayaran yang sama dengan public/index.html & public/paket.html),
+// lihat goToPaketSignup() di landing/landing.html.
 
 const API_BASE_LANDING = window.location.origin + '/api';
 
@@ -38,9 +42,6 @@ function togglePass() {
       : '<svg class="ico" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>';
   }
 }
-
-// Simpan paket yang dipilih user saat klik tombol paket
-let _selectedPaket = null;
 
 async function doLogin() {
   const email = document.getElementById('loginEmail').value.trim();
@@ -92,7 +93,7 @@ async function doRegister() {
     const res = await fetch(API_BASE_LANDING + '/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nama, email, password: pass, paket_nama: _selectedPaket || null })
+      body: JSON.stringify({ nama, email, password: pass, paket_nama: null })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Pendaftaran gagal');
@@ -106,31 +107,15 @@ async function doRegister() {
         <div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:700;color:#0d2038;margin-bottom:.5rem">Pendaftaran Berhasil</div>
         <p style="font-size:.88rem;color:#69768a;font-weight:300;line-height:1.7;margin-bottom:.5rem">
           Akun Anda sedang menunggu konfirmasi dari admin.<br>
-          ${_selectedPaket ? `Paket yang dipilih: <strong>${_selectedPaket}</strong><br>` : ''}
           Anda akan dihubungi setelah diaktifkan.
         </p>
         <button onclick="closeLogin()" style="margin-top:1.5rem;background:#1c3f73;color:#fff;border:none;padding:.85rem 2.2rem;border-radius:50px;font-size:.95rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Tutup</button>
       </div>`;
-    _selectedPaket = null;
   } catch(e) {
     err.style.display = 'block';
     err.textContent = e.message || 'Gagal terhubung ke server.';
     if (btn) { btn.disabled = false; btn.innerHTML = '<span>Buat Akun</span><svg class="ico" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>'; }
   }
-}
-
-function openSignup(paketName, paketPrice) {
-  _selectedPaket = paketName;
-  openLogin();
-  showRegister();
-  const regForm = document.getElementById('registerForm');
-  const existing = document.getElementById('paketBanner');
-  if (existing) existing.remove();
-  const banner = document.createElement('div');
-  banner.id = 'paketBanner';
-  banner.style.cssText = 'background:linear-gradient(135deg,#f3ecda,#eef1e0);border:1.5px solid rgba(28,63,115,0.16);border-radius:12px;padding:.9rem 1.1rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem';
-  banner.innerHTML = '<div><div style="font-size:.7rem;font-weight:600;color:#1c3f73;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.15rem">Paket Dipilih</div><div style="font-size:.92rem;font-weight:700;color:#0d2038">'+paketName+'</div></div><div style="font-size:.88rem;font-weight:600;color:#1c3f73">'+paketPrice+'</div>';
-  regForm.insertBefore(banner, regForm.firstChild);
 }
 
 // ── DOC MODAL ──

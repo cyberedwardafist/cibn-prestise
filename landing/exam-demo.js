@@ -70,7 +70,7 @@ function nextQ() {
       '</div>' +
       '<div style="text-align:center;margin-top:2rem">' +
       '<button class="btn-primary" onclick="openExam()" style="margin-right:.8rem">Coba Lagi</button>' +
-      '<button class="btn-outline" onclick="closeExam();openSignup(\'Professional\',\'Rp299K/bulan\')" style="padding:.8rem 1.6rem">Mulai Berlangganan</button>' +
+      '<button class="btn-outline" onclick="closeExam();location.href=\'paket\'" style="padding:.8rem 1.6rem">Mulai Berlangganan</button>' +
       '</div>';
   }
 }
