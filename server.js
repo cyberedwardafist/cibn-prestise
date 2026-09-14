@@ -450,6 +450,31 @@ async function userPunyaReviewOverride(user_kode) {
     return false;
 }
 
+// Kuota Mentoring & Konsultasi (kuota pengajuan jadwal + kuota pembatalan)
+// milik seorang user — diambil dari kolom mentoring_kuota / mentoring_kuota_batal
+// paket yang lagi AKTIF punya user itu (user_pakets JOIN pakets, status='aktif'
+// & belum expired), BUKAN lagi angka mati 10/3 di frontend. Kalau user punya
+// lebih dari 1 paket aktif sekaligus (numpuk), kuotanya DIJUMLAH semua paket
+// yang mengisi field itu (konsisten dgn semangat "paket aktif nambahin hak",
+// sama seperti aturan_akses/hak_akses yang digabung dari semua paket aktif).
+// Paket yang field-nya kosong/null dianggap TIDAK menambah kuota apa pun
+// (bukan dianggap 0 yang mengunci ke 0 — makanya dicek `!= null` sebelum
+// dijumlah). Kalau user SAMA SEKALI tidak punya paket aktif yang mengisi
+// field ini, hasilnya `null` (artinya: FE pakai fallback default-nya sendiri).
+async function hitungMentoringKuotaUser(user_kode) {
+    const rows = await db.prepare(
+        `SELECT p.mentoring_kuota, p.mentoring_kuota_batal FROM user_pakets up JOIN pakets p ON up.paket_kode = p.kode WHERE up.user_kode=? AND up.status='aktif' AND up.akhir::date >= CURRENT_DATE`
+    ).all(user_kode);
+    let kuota = null, kuotaBatal = null;
+    for (const r of rows) {
+        const k = parseInt(r.mentoring_kuota, 10);
+        if (!isNaN(k)) kuota = (kuota || 0) + k;
+        const kb = parseInt(r.mentoring_kuota_batal, 10);
+        if (!isNaN(kb)) kuotaBatal = (kuotaBatal || 0) + kb;
+    }
+    return { kuota, kuotaBatal };
+}
+
 // ── PERHITUNGAN SKOR UJIAN ───────────────────────────────────────────────────
 function stripKunci(node) {
     if (Array.isArray(node)) return node.map(stripKunci);
@@ -2912,7 +2937,17 @@ function mapJadwalRow(row) {
 // response ini kalau memang perlu dibatasi per guru.
 app.get('/api/jadwal-meta', auth(['admin', 'review', 'user']), ah(async (req, res) => {
     const gurus = await db.prepare(`SELECT kode, nama FROM users WHERE role='review' AND status != 'suspend' ORDER BY nama`).all();
-    res.json({ tentor: gurus.map(g => ({ id: g.kode, name: g.nama, materi: 'ALL', slots: 'ALL' })), statusSlotKosong: JDW_STATUS_SLOT_KOSONG });
+    const meta = { tentor: gurus.map(g => ({ id: g.kode, name: g.nama, materi: 'ALL', slots: 'ALL' })), statusSlotKosong: JDW_STATUS_SLOT_KOSONG };
+    // Kuota mentoring (pengajuan jadwal & pembatalan) cuma relevan buat akun
+    // 'user' (murid) — diambil dari paket AKTIF-nya (lihat hitungMentoringKuotaUser).
+    // Dikirim null kalau tidak ada paket aktif yang mengisi field ini sama
+    // sekali, supaya FE tahu harus pakai fallback default-nya sendiri.
+    if (req.user.role === 'user') {
+        const { kuota, kuotaBatal } = await hitungMentoringKuotaUser(req.user.kode);
+        meta.mentoringKuota = kuota;
+        meta.mentoringKuotaBatal = kuotaBatal;
+    }
+    res.json(meta);
 }));
 
 app.get('/api/jadwal-sesi', auth(['admin','review','user']), ah(async (req, res) => {

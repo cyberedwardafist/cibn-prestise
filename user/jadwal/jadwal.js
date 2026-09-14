@@ -78,7 +78,13 @@ const JDW_STATUS_LABEL = { pending: 'Menunggu', acc: 'Disetujui', ditolak: 'Dito
 //   - TIDAK/SUDAH TIDAK LAGI mengurangi kuota (otomatis balik nambah kuota
 //     begitu status masuk salah satu ini): ditolak (pengajuan ditolak),
 //     batal (dibatalkan), selesai (sesi sudah tuntas).
-const JDW_KUOTA_TOTAL = 10;
+// Nilai di bawah ini cuma fallback SEMENTARA sebelum bootstrap() (JadwalStore)
+// selesai fetch GET /api/jadwal-meta — begitu meta datang & user punya paket
+// aktif yang mengisi mentoring_kuota, angka ini DIGANTI otomatis di
+// _bootstrap() (jadi bukan lagi angka mati, nyambung ke isian admin di
+// paket-form "Mentoring & Konsultasi"). Kalau user tidak punya paket aktif
+// yang mengisi field itu sama sekali, ya tetap pakai fallback ini.
+let JDW_KUOTA_TOTAL = 10;
 function _jdwKuotaTerpakai() {
     return JadwalStore.all().filter(e => e.status !== 'ditolak' && e.status !== 'batal' && e.status !== 'selesai').length;
 }
@@ -115,7 +121,10 @@ function _jdwKuotaSisa() {
 // "Tarik Pembatalan" (JadwalPage.confirmTarikBatal) otomatis ngebalikin
 // kuota juga — statusnya balik jadi "acc" jadi otomatis nggak lolos filter
 // status di bawah lagi, TIDAK perlu kode tambahan buat nambah manual.
-const JDW_KUOTA_BATAL_TOTAL = 3;
+// Sama seperti JDW_KUOTA_TOTAL di atas — fallback sementara, diganti otomatis
+// di _bootstrap() dari mentoring_kuota_batal paket aktif user (lewat
+// GET /api/jadwal-meta), TIDAK lagi angka mati.
+let JDW_KUOTA_BATAL_TOTAL = 3;
 function _jdwKuotaBatalTerpakai() {
     return JadwalStore.all().filter(e =>
         e.pembatalanDihitung === true &&
@@ -227,6 +236,12 @@ const JadwalStore = (function () {
             _cache = (rows || []).map(_fromApi);
             if (meta && Array.isArray(meta.tentor) && meta.tentor.length) JDW_TENTOR = meta.tentor;
             if (meta && Array.isArray(meta.statusSlotKosong) && meta.statusSlotKosong.length) JDW_STATUS_SLOT_KOSONG = meta.statusSlotKosong;
+            // Kuota mentoring beneran dari paket aktif user (lihat catatan di
+            // atas JDW_KUOTA_TOTAL/JDW_KUOTA_BATAL_TOTAL) — cuma dipakai kalau
+            // meta-nya berupa angka (server kirim null kalau user tidak punya
+            // paket aktif yang mengisi field itu, biarkan fallback default).
+            if (meta && typeof meta.mentoringKuota === 'number' && !isNaN(meta.mentoringKuota)) JDW_KUOTA_TOTAL = meta.mentoringKuota;
+            if (meta && typeof meta.mentoringKuotaBatal === 'number' && !isNaN(meta.mentoringKuotaBatal)) JDW_KUOTA_BATAL_TOTAL = meta.mentoringKuotaBatal;
         } catch (e) {
             console.error('[JADWAL] Gagal memuat data dari server:', e.message);
             showToast('Gagal memuat data jadwal dari server: ' + e.message);
