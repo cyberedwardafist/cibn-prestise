@@ -10,6 +10,59 @@
 
 const PAKET_PERIODE_PRESET = ['/bulan', '/tahun', '/hari', 'sekali bayar'];
 
+// ── PRATINJAU LANDING PAGE (kartu #pf-preview-card di admin/keuangan/paket-form.html) ──
+// Markup yang dihasilkan di sini SENGAJA dibuat semirip mungkin dgn pkgCardHTML()
+// di public/paket.html (class pkg-name/pkg-desc/pkg-price/pkg-features/pkg-cta,
+// cuma dibungkus .pf-pkg-card supaya CSS-nya ke-scope terpisah) — biar admin bisa
+// lihat kira-kira tampilan akhirnya sebelum Simpan, TANPA nyentuh section Hak Akses
+// sama sekali (preview ini murni baca field2 non-hak-akses di atasnya).
+function _pfEscHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function _pfPreviewPeriodeText() {
+    const sel = document.getElementById('pf-periode');
+    if (!sel) return '';
+    if (sel.value === 'custom') {
+        return (typeof PaketCalState !== 'undefined' && PaketCalState && typeof paketPeriodeDiffDays === 'function')
+            ? ('/' + paketPeriodeDiffDays() + ' hari') : '';
+    }
+    return sel.value;
+}
+function _pfUpdatePreview() {
+    const card = document.getElementById('pf-preview-card');
+    if (!card) return;
+    const nama = document.getElementById('pf-nama')?.value.trim() || 'Nama Paket';
+    const icon = document.getElementById('pf-icon')?.value.trim() || '';
+    const desc = document.getElementById('pf-desc')?.value.trim() || 'Deskripsi singkat paket akan tampil di sini.';
+    const hargaRaw = parseInt(document.getElementById('pf-harga')?.value || '0') || 0;
+    const popular = !!document.getElementById('pf-popular')?.checked;
+    const fiturRaw = document.getElementById('pf-fitur')?.value || '';
+    const fitur = fiturRaw.split('\n').map(s => s.trim()).filter(Boolean);
+    const priceText = hargaRaw > 0 ? ('Rp ' + hargaRaw.toLocaleString('id-ID')) : 'Hubungi Kami';
+    const periodeText = hargaRaw > 0 ? _pfPreviewPeriodeText() : '';
+
+    card.classList.toggle('featured', popular);
+    card.innerHTML = `
+      ${popular ? '<div class="pkg-badge">Paling Diminati</div>' : ''}
+      <div class="pkg-name serif">${icon ? _pfEscHtml(icon) + ' ' : ''}${_pfEscHtml(nama)}</div>
+      <p class="pkg-desc">${_pfEscHtml(desc)}</p>
+      <div class="pkg-price"><b>${_pfEscHtml(priceText)}</b> <span>${_pfEscHtml(periodeText)}</span></div>
+      <ul class="pkg-features">${fitur.length ? fitur.map(f => `<li>${_pfEscHtml(f)}</li>`).join('') : '<li style="opacity:.55">Belum ada fitur ditambahkan</li>'}</ul>
+      <div class="pkg-cta">Pilih Paket</div>`;
+}
+// Swatch warna aksen (.pf-warna-dot) — select #pf-warna tetap satu2nya sumber
+// nilai yang dibaca submitPaket(), swatch cuma UI cepat buat ganti isinya.
+function _pfSetWarna(w) {
+    const sel = document.getElementById('pf-warna');
+    if (sel) sel.value = w;
+    _pfSyncWarnaSwatch();
+    setDirty('paket');
+}
+function _pfSyncWarnaSwatch() {
+    const val = document.getElementById('pf-warna')?.value || 'blue';
+    document.querySelectorAll('.pf-warna-dot').forEach(d => d.classList.toggle('active', d.dataset.w === val));
+}
+
 let _editPaketKode = null;
 
 // Switch "MODUL"/"MENTORING" di panel Hak Akses (menggantikan checkbox header lama)
@@ -117,6 +170,8 @@ async function _tryRestorePaketDraft() {
         if (cb.value.startsWith('modul.item.') || cb.value.startsWith('mentoring.')) return;
         cb.checked = aturan.includes(cb.value);
     });
+    _pfSyncWarnaSwatch();
+    _pfUpdatePreview();
     setDirty('paket');
     showToast('Draf paket yang belum tersimpan berhasil dipulihkan ✓', 'success');
 }
@@ -526,6 +581,8 @@ async function openAddPaket() {
     var mk=document.getElementById('pf-mentoring-kuota');if(mk)mk.value='';
     await Promise.all([_pfLoadModulPicker([]), _pfLoadMentoringPicker([])]);
     await _populateLinkLandingDropdown('');
+    _pfSyncWarnaSwatch();
+    _pfUpdatePreview();
     openModal('paket-form-overlay');
     _pfDraftSave();
 }
@@ -579,6 +636,8 @@ async function openEditPaket(kode) {
     var mk=document.getElementById('pf-mentoring-kuota');if(mk)mk.value=p.mentoring_kuota||'';
     await Promise.all([_pfLoadModulPicker(aturanArr.filter(v => v.startsWith('modul.item.'))), _pfLoadMentoringPicker(aturanArr.filter(v => v.startsWith('mentoring.')))]);
     await _populateLinkLandingDropdown(p.link_landing || '');
+    _pfSyncWarnaSwatch();
+    _pfUpdatePreview();
     openModal('paket-form-overlay');
     _pfDraftSave();
 }

@@ -68,6 +68,10 @@ function _paketCalUpdateSummary() {
         el.textContent = `${_paketCalFmt(PaketCalState.start)}  →  ${_paketCalFmt(PaketCalState.end)}  (${diff} hari)`;
         el.classList.remove('cal-summary-warn');
     }
+    // Ikut refresh kartu Pratinjau Landing Page (admin/keuangan/paket-form.js) tiap
+    // tanggal custom berubah — dibungkus typeof check karena file ini juga bisa
+    // dimuat sebelum paket-form.js di beberapa alur lazy-load.
+    if (typeof _pfUpdatePreview === 'function') _pfUpdatePreview();
 }
 
 // Dipakai admin/paket-form.js saat submit
