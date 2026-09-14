@@ -24,3 +24,13 @@
           <button class="btn btn-danger" style="width:100%" onclick="logout()">Keluar</button>
         </div>
       </div>
+
+      <!-- Materi Saya: seluruh materi yang ditautkan ke akun ini lewat Management >
+           Guru (guru_paket_grup), digabung (union) dari SEMUA grup yang memuat akun
+           ini — TANPA filter paket/user siapa pun (beda dari sisi murid yang materinya
+           difilter per-paket, lihat catatan di paket-form.js & server.js). -->
+      <div class="profile-card glass" style="margin-top:16px">
+        <div class="section-title" style="font-size:15px;margin-bottom:4px">Materi Saya</div>
+        <div class="section-sub" style="margin-bottom:10px">Materi mentoring yang Anda pegang, ditautkan dari Management &gt; Guru</div>
+        <div id="akunsaya-materi-list" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>

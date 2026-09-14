@@ -25,7 +25,12 @@ const JDW_SLOTS = [
     { id: 'slot6', label: '17.45 - 19.15' },
     { id: 'slot7', label: '19.45 - 20.15' },
 ];
-const JDW_MATERI = [
+// Daftar materi ASLI datang dari Management > Materi (tabel `materi`, dikirim
+// lewat GET /api/jadwal-meta field `materi`), diisi oleh JadwalStore._bootstrap()
+// begitu tab Jadwal dibuka — SAMA PERSIS pola-nya dgn JDW_TENTOR di bawah. Isi
+// di bawah ini cuma fallback SEMENTARA sebelum bootstrap() selesai fetch (biar
+// tidak kosong kalau ada kode yang sempat baca JDW_MATERI sebelum itu kelar).
+let JDW_MATERI = [
     { id: 'twk', label: 'TWK' },
     { id: 'tiu', label: 'TIU' },
     { id: 'tkp', label: 'TKP' },
@@ -242,6 +247,9 @@ const JadwalStore = (function () {
             // paket aktif yang mengisi field itu, biarkan fallback default).
             if (meta && typeof meta.mentoringKuota === 'number' && !isNaN(meta.mentoringKuota)) JDW_KUOTA_TOTAL = meta.mentoringKuota;
             if (meta && typeof meta.mentoringKuotaBatal === 'number' && !isNaN(meta.mentoringKuotaBatal)) JDW_KUOTA_BATAL_TOTAL = meta.mentoringKuotaBatal;
+            // Materi beneran (Management > Materi) gantiin daftar fallback statis
+            // di atas — lihat catatan di JDW_MATERI.
+            if (meta && Array.isArray(meta.materi) && meta.materi.length) JDW_MATERI = meta.materi;
         } catch (e) {
             console.error('[JADWAL] Gagal memuat data dari server:', e.message);
             showToast('Gagal memuat data jadwal dari server: ' + e.message);
@@ -570,26 +578,20 @@ function _jdwCanReschedule(tanggalSesi) {
     return tanggalSesi > _jdwToIso(new Date());
 }
 // Label materi yang diajar seorang tentor, buat ditampilkan di box picker &
-// list "Pilih Tentor" -> "TWK | TIU | TKP" atau "SEMUA" kalau materi:'ALL'.
+// list "Pilih Tentor" -> "TWK | TIU | TKP". Status 'ALL' (dulu "SEMUA") sudah
+// dihapus di sisi user — server (GET /api/jadwal-meta) SEKARANG cuma
+// ngirim guru yang materinya beririsan sama paket aktif user, jadi t.materi
+// di sini SELALU array (guru tanpa materi yang cocok tidak akan pernah ada
+// di JDW_TENTOR sama sekali, lihat _bootstrap()).
 function _jdwTentorMateriLabel(t) {
     if (!t) return '-';
-    if (t.materi === 'ALL') return 'SEMUA';
     return t.materi.map(id => { const m = JDW_MATERI.find(x => x.id === id); return m ? m.label.toUpperCase() : id; }).join(' | ');
 }
 // Cek apakah tentor cocok sama kata kunci pencarian — nama ATAU materi yang
-// diajar. Tentor yang materi:'ALL' (ngajar SEMUA, misal ANGGA) dianggap
-// otomatis cocok buat pencarian materi apa pun (misal dicari "twk" -> ANGGA
-// tetap ikut muncul walau sub-labelnya cuma nulis "SEMUA", karena dia emang
-// ngajar semua materi termasuk TWK).
+// diajar.
 function _jdwTentorMatchesQuery(t, query) {
     if (!query) return true;
     if (t.name.toLowerCase().includes(query)) return true;
-    if (t.materi === 'ALL') {
-        // Tentor "SEMUA" otomatis cocok kalau kata kuncinya memang nyambung ke
-        // pencarian materi (nama materi apa pun, atau kata "semua" itu sendiri)
-        // -- bukan buat kata kunci ngasal yang nggak nyambung ke materi/nama.
-        return 'semua'.includes(query) || JDW_MATERI.some(m => m.label.toLowerCase().includes(query));
-    }
     return t.materi.some(id => {
         const m = JDW_MATERI.find(x => x.id === id);
         return m && m.label.toLowerCase().includes(query);
@@ -602,7 +604,6 @@ function _jdwTentorAllowsMateri(tentorId, materiId) {
     if (!tentorId) return true;
     const t = JDW_TENTOR.find(x => x.id === tentorId);
     if (!t) return true;
-    if (t.materi === 'ALL') return true;
     return t.materi.includes(materiId);
 }
 // Sama seperti _jdwTentorAllowsMateri tapi buat jam (JDW_SLOTS) -> dipakai

@@ -25,7 +25,11 @@ const JDW_SLOTS = [
     { id: 'slot6', label: '17.45 - 19.15' },
     { id: 'slot7', label: '19.45 - 20.15' },
 ];
-const JDW_MATERI = [
+// Daftar materi ASLI datang dari Management > Materi (tabel `materi`, dikirim
+// lewat GET /api/jadwal-meta field `materi`), diisi oleh JadwalStore._bootstrap()
+// — sama pola dgn JDW_TENTOR di bawah. Isi di bawah cuma fallback SEMENTARA
+// sebelum bootstrap() selesai fetch.
+let JDW_MATERI = [
     { id: 'twk', label: 'TWK' },
     { id: 'tiu', label: 'TIU' },
     { id: 'tkp', label: 'TKP' },
@@ -269,6 +273,7 @@ const JadwalStore = (function () {
             _cache = (rows || []).map(_fromApi);
             if (meta && Array.isArray(meta.tentor) && meta.tentor.length) JDW_TENTOR = meta.tentor;
             if (meta && Array.isArray(meta.statusSlotKosong) && meta.statusSlotKosong.length) JDW_STATUS_SLOT_KOSONG = meta.statusSlotKosong;
+            if (meta && Array.isArray(meta.materi) && meta.materi.length) JDW_MATERI = meta.materi;
         } catch (e) {
             console.error('[JADWAL] Gagal memuat data dari server:', e.message);
             showToast('Gagal memuat data jadwal dari server: ' + e.message, 'danger');

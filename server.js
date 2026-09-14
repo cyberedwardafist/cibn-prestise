@@ -475,6 +475,33 @@ async function hitungMentoringKuotaUser(user_kode) {
     return { kuota, kuotaBatal };
 }
 
+// Materi Sesi Mentoring yang DIBAWA paket-paket AKTIF milik seorang user —
+// dipilih admin di paket-form (Keuangan) lewat picker materi (Management >
+// Materi, kode `mentoring.materi.<kode_materi>` di aturan_akses, LIHAT juga
+// _pfMentoringSelected/_pfSyncMentoringHiddenInputs di paket-form.js).
+// Kalau user numpuk >1 paket aktif yang sama-sama membawa materi (termasuk
+// dari guru yang sama), hasilnya DIGABUNG (union) — konsisten dgn semangat
+// "paket aktif nambahin hak" yang sama seperti hitungMentoringKuotaUser() &
+// userPunyaReviewOverride() di atas. Dipakai buat menyaring tentor/materi
+// yang boleh diakses user di GET /api/jadwal-meta (lihat di bawah) — BUKAN
+// buat guru sendiri (profil guru tetap lihat SEMUA materi miliknya, tanpa
+// batasan paket siapa pun — lihat materiPerGuru di /api/jadwal-meta).
+async function materiPaketAktifUser(user_kode) {
+    const rows = await db.prepare(
+        `SELECT p.aturan_akses FROM user_pakets up JOIN pakets p ON up.paket_kode = p.kode WHERE up.user_kode=? AND up.status='aktif' AND up.akhir::date >= CURRENT_DATE`
+    ).all(user_kode);
+    const set = new Set();
+    for (const r of rows) {
+        if (!r.aturan_akses) continue;
+        let arr = [];
+        try { arr = JSON.parse(r.aturan_akses); } catch (e) { continue; }
+        for (const v of arr) {
+            if (typeof v === 'string' && v.startsWith('mentoring.materi.')) set.add(v.slice('mentoring.materi.'.length));
+        }
+    }
+    return set;
+}
+
 // ── PERHITUNGAN SKOR UJIAN ───────────────────────────────────────────────────
 function stripKunci(node) {
     if (Array.isArray(node)) return node.map(stripKunci);
@@ -2844,9 +2871,22 @@ app.post('/api/pengaturan/integrasi/test-email', auth(['admin']), ah(async (req,
 // — field yang JadwalStore.update() kirim tapi BUKAN salah satu kolom utama
 // di bawah otomatis digabung ke sini (lihat mapJadwalRow & PUT handler).
 
-// Label materi statis (sama seperti JDW_MATERI di frontend) — dipakai untuk
-// mengisi materi_nama otomatis kalau frontend cuma kirim materi_id.
+// Label materi statis (fallback LEGACY buat id lama twk/tiu/tkp/toefl_* yang
+// sempat kepakai sebelum materi jadi dinamis dari tabel `materi`) — dipakai
+// untuk mengisi materi_nama otomatis kalau frontend cuma kirim materi_id.
+// Materi BENERAN (kode MTR... dari Management > Materi) dicek ke tabel
+// `materi` dulu lewat materiNamaByKode() di bawah, ini cuma fallback terakhir.
 const JDW_MATERI_LABEL = { twk: 'TWK', tiu: 'TIU', tkp: 'TKP', toefl_struktur: 'TOEFL Struktur', toefl_listening: 'TOEFL Listening', toefl_reading: 'TOEFL Reading' };
+// Cari nama materi dari kode-nya — cek dulu id lama (statis, cepat tanpa query),
+// baru fallback ke tabel `materi` beneran (Management > Materi) buat kode2 baru
+// yang dibuat admin (MTR...). Dipakai pas simpan/update jadwal_sesi supaya
+// materi_nama yang tersimpan selalu sinkron sama nama materi yang beneran ada.
+async function materiNamaByKode(kode) {
+    if (!kode) return null;
+    if (JDW_MATERI_LABEL[kode]) return JDW_MATERI_LABEL[kode];
+    const row = await db.prepare('SELECT nama FROM materi WHERE kode=?').get(kode);
+    return row ? row.nama : null;
+}
 // Jam mulai/selesai per slot (sama seperti JDW_SLOTS di frontend) — dipakai
 // menghitung waktu_mulai/waktu_selesai ASLI (kolom TIMESTAMP, dibutuhkan
 // lib/kelas-reminder.js) dari tanggal+slot_id yang dikirim frontend (frontend
@@ -2937,7 +2977,58 @@ function mapJadwalRow(row) {
 // response ini kalau memang perlu dibatasi per guru.
 app.get('/api/jadwal-meta', auth(['admin', 'review', 'user']), ah(async (req, res) => {
     const gurus = await db.prepare(`SELECT kode, nama FROM users WHERE role='review' AND status != 'suspend' ORDER BY nama`).all();
-    const meta = { tentor: gurus.map(g => ({ id: g.kode, name: g.nama, materi: 'ALL', slots: 'ALL' })), statusSlotKosong: JDW_STATUS_SLOT_KOSONG };
+    // Daftar materi ASLI (Management > Materi) — dulu FE pakai daftar tetap
+    // TWK/TIU/TKP/TOEFL... (JDW_MATERI hardcode), sekarang diambil dari tabel
+    // `materi` beneran supaya materi yang admin tambah/ubah di situ otomatis
+    // kepakai juga di sisi murid, tanpa perlu ubah kode.
+    const materiRows = await db.prepare(`SELECT kode, nama FROM materi ORDER BY id`).all();
+    const materiList = materiRows.map(m => ({ id: m.kode, label: m.nama }));
+    // Materi yang diajar TIAP guru — dari Management > Guru (tombol "+ Materi"),
+    // tabel guru_paket_grup: akun_list = daftar kode guru dlm 1 grup, materi_list
+    // = daftar kode materi yang grup itu ajarkan. Satu guru boleh masuk >1 grup,
+    // materinya digabung (union) dari semua grup yg memuat dia. Guru yang SAMA
+    // SEKALI belum ditautkan ke grup manapun dianggap 'ALL' (tanpa batasan) —
+    // supaya guru baru yang belum sempat diatur admin tidak mendadak hilang dari
+    // pilihan murid (sama seperti perilaku lama sebelum materi jadi dinamis).
+    const grupRows = await db.prepare(`SELECT akun_list, materi_list FROM guru_paket_grup`).all();
+    const materiPerGuru = {};
+    for (const g of grupRows) {
+        let akunList = [], materiListGrup = [];
+        try { akunList = JSON.parse(g.akun_list || '[]'); } catch (e) {}
+        try { materiListGrup = JSON.parse(g.materi_list || '[]'); } catch (e) {}
+        for (const akun of akunList) {
+            if (!materiPerGuru[akun]) materiPerGuru[akun] = new Set();
+            materiListGrup.forEach(mk => materiPerGuru[akun].add(mk));
+        }
+    }
+    let tentorList;
+    if (req.user.role === 'user') {
+        // Sisi USER: guru yang boleh muncul HANYA guru yang materinya beririsan
+        // dengan materi yang dibawa paket AKTIF milik user ini (lihat
+        // materiPaketAktifUser di atas) — bukan lagi seluruh guru & bukan lagi
+        // 'ALL' (fallback 'ALL' untuk guru yang belum masuk grup manapun SENGAJA
+        // tidak dipakai di sini: kalau guru itu belum ditautkan ke materi/paket
+        // apa pun, dari sudut pandang user dia dianggap tidak membawa materi
+        // apa pun juga, jadi tidak muncul). Materi per guru yang dikirim = irisan
+        // itu sendiri (union kalau user numpuk >1 paket yang sama2 bawa guru ini).
+        const materiUser = await materiPaketAktifUser(req.user.kode);
+        tentorList = gurus
+            .map(g => {
+                const materiGuru = materiPerGuru[g.kode] || new Set();
+                const irisan = [...materiGuru].filter(mk => materiUser.has(mk));
+                return { id: g.kode, name: g.nama, materi: irisan, slots: 'ALL' };
+            })
+            .filter(t => t.materi.length > 0);
+    } else {
+        // Sisi ADMIN/REVIEW: tetap daftar guru lengkap apa adanya (guru yang
+        // belum masuk grup manapun tetap fallback 'ALL', sama seperti sebelumnya).
+        tentorList = gurus.map(g => ({ id: g.kode, name: g.nama, materi: materiPerGuru[g.kode] ? Array.from(materiPerGuru[g.kode]) : 'ALL', slots: 'ALL' }));
+    }
+    const meta = {
+        tentor: tentorList,
+        statusSlotKosong: JDW_STATUS_SLOT_KOSONG,
+        materi: materiList,
+    };
     // Kuota mentoring (pengajuan jadwal & pembatalan) cuma relevan buat akun
     // 'user' (murid) — diambil dari paket AKTIF-nya (lihat hitungMentoringKuotaUser).
     // Dikirim null kalau tidak ada paket aktif yang mengisi field ini sama
@@ -2986,7 +3077,7 @@ app.post('/api/jadwal-sesi', auth(['admin','user','review']), ah(async (req, res
     // server dulu buat tahu id-nya, tetap konsisten walau optimistic).
     const kode = (typeof b.kode === 'string' && b.kode) ? b.kode : await genKode('JDS', 'jadwal_sesi');
     const status = (req.user.role !== 'user' && b.status) ? b.status : 'pending';
-    const materi_nama_real = JDW_MATERI_LABEL[materi_id] || materi_nama || null;
+    const materi_nama_real = (await materiNamaByKode(materi_id)) || materi_nama || null;
     const metaStr = (meta && typeof meta === 'object') ? JSON.stringify(meta) : null;
     try {
         await transaction(async (tdb) => {
@@ -3037,7 +3128,7 @@ app.put('/api/jadwal-sesi/:kode', auth(['admin','review','user']), ah(async (req
         try { currentMeta = existing.meta ? JSON.parse(existing.meta) : {}; } catch (e) { currentMeta = {}; }
         mergedMeta = JSON.stringify(Object.assign({}, currentMeta, b.meta));
     }
-    const materi_nama_real = b.materi_id ? (JDW_MATERI_LABEL[b.materi_id] || b.materi_nama || null) : (b.materi_nama || null);
+    const materi_nama_real = b.materi_id ? ((await materiNamaByKode(b.materi_id)) || b.materi_nama || null) : (b.materi_nama || null);
     // Kalau jam mulai ATAU tanggal/slot berubah, reset flag pengingat supaya
     // H-1/notif-mulai dihitung ulang dari jam yang baru (bukan tetap
     // dianggap "sudah dikirim").
