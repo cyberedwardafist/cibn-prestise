@@ -1,0 +1,52 @@
+<!-- ══ AKUN > USER > DETAIL AKUN ══
+     HALAMAN (bukan popup — page ID 'akun-user-detail', file sendiri) yang
+     menampilkan data lengkap 1 akun User: info dasar (nama/email/grup/status/
+     ganti password) + 📦 Paket & Langganan (bisa lebih dari 1 langganan
+     sekaligus, tambah/hapus kapan saja tanpa perlu tombol Simpan terpisah).
+     Dibuka dari tombol Aksi (pensil) di daftar Akun > User — lihat
+     openUserDetailPage(kode) di admin/akun/akun.js — window._akunUserDetailKode
+     diisi kode akun sebelum navigateTo() ke sini, sama pola dgn
+     window._guruPaketDetailKode di admin/management/guru.js.
+     Logic ada di admin/akun/akun-user-detail.js (memakai ulang helper paket
+     dari akun.js: _ufPaketList/_ufLoadPaketList/_ufPaketOptionsHtml/
+     _langgananBadgeHtml/_ufTambahPaket/_ufHapusPaket/_ufRenderLanggananList —
+     elemen #uf-langganan-list & #uf-paket-pilih-edit di bawah SENGAJA pakai
+     id yang sama dengan yang dulu ada di modal akun-modals.html, supaya
+     fungsi2 itu tidak perlu ditulis ulang). -->
+
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+  <button class="btn-icon" onclick="navigateTo('akun')" title="Kembali ke daftar Akun">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+  </button>
+  <div class="section-title" style="margin-bottom:0;flex:1" id="aud-title">-</div>
+  <button class="btn btn-danger" id="aud-delete-btn" onclick="_audDelete()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg> Hapus Akun</button>
+</div>
+<div class="section-sub" id="aud-subtitle">-</div>
+
+<div id="aud-notfound" style="display:none;padding:32px;text-align:center;color:var(--text-sub)">
+  <p>Akun ini tidak ditemukan (mungkin sudah dihapus).</p>
+</div>
+
+<div id="aud-body">
+  <div class="card" style="margin-top:14px">
+    <div style="font-weight:700;font-size:13px;color:var(--blue);margin-bottom:12px">Informasi Akun</div>
+    <div class="form-group"><label class="form-label">Nama Lengkap</label><input id="aud-nama" class="form-input" type="text" placeholder="Nama lengkap"></div>
+    <div class="form-group"><label class="form-label">Email</label><input id="aud-email" class="form-input" type="email" placeholder="email@domain.com"></div>
+    <div class="form-group"><label class="form-label">Grup (Opsional)</label><select id="aud-grub" class="form-select"><option value="">-- Tanpa Grup --</option></select></div>
+    <div class="form-group"><label class="form-label">Status</label><select id="aud-status" class="form-select"><option value="aktif">Aktif</option><option value="pending">Pending</option><option value="suspend">Suspend</option></select></div>
+    <div class="form-group"><label class="form-label">Password Baru <span style="font-size:10px;color:var(--text-sub);font-weight:400">(kosongkan jika tidak diubah)</span></label><div style="position:relative"><input id="aud-password" class="form-input" type="password" placeholder="Min. 6 karakter"><button type="button" onclick="togglePwVis('aud-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-sub);width:22px;height:22px;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="form-group"><label class="form-label">Konfirmasi Password Baru</label><input id="aud-konfirm" class="form-input" type="password" placeholder="Ulangi password baru"></div>
+    <button class="btn btn-primary" onclick="_audSimpan()">Simpan Perubahan</button>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div style="font-weight:700;font-size:13px;color:var(--blue);margin-bottom:12px">📦 Paket &amp; Langganan (<span id="aud-paket-count">0</span>)</div>
+    <div id="uf-langganan-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+    <label class="form-label">+ Tambah Paket</label>
+    <div style="display:flex;gap:8px">
+      <select id="uf-paket-pilih-edit" class="form-select" style="flex:1"><option value="">-- Pilih Paket --</option></select>
+      <button type="button" class="btn btn-secondary" style="flex-shrink:0" onclick="_ufTambahPaket()">Tambah</button>
+    </div>
+    <div style="font-size:11.5px;color:var(--text-sub);margin-top:8px">1 akun bisa punya lebih dari 1 langganan aktif sekaligus — tiap paket ditambahkan lewat pilihan di atas, tersimpan langsung (tidak perlu tombol Simpan).</div>
+  </div>
+</div>

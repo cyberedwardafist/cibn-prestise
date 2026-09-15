@@ -8,26 +8,23 @@
   <div class="form-group"><label class="form-label">Password <span style="font-size:10px;color:var(--text-sub);font-weight:400">(kosongkan saat edit jika tidak diubah)</span></label><div style="position:relative"><input id="uf-password" class="form-input" type="password" placeholder="Min. 6 karakter" oninput="setDirty()"><button type="button" onclick="togglePwVis('uf-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-sub);width:22px;height:22px;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
   <div class="form-group"><label class="form-label">Konfirmasi Password</label><input id="uf-konfirm" class="form-input" type="password" placeholder="Ulangi password" oninput="setDirty()"></div>
   <div class="form-group"><label class="form-label">Status</label><select id="uf-status" class="form-select"><option value="aktif">Aktif</option><option value="pending">Pending</option><option value="suspend">Suspend</option></select></div>
-  <!-- Paket & Langganan — hanya tampil untuk role User -->
+  <!-- Paket & Langganan — hanya tampil untuk role User, dan HANYA di mode
+       Tambah (akun baru). Nama paket & durasi TIDAK lagi diisi manual — semua
+       ditarik dari data paket di Keuangan (PaketAPI), tinggal pilih 1 paket
+       awal (opsional), yang baru benar-benar di-assign SETELAH akun berhasil
+       dibuat (lihat submitUserForm() di akun.js). Untuk akun yang SUDAH ada,
+       kelola paket & langganan (bisa lebih dari 1 sekaligus, tambah/hapus
+       kapan saja) lewat halaman detail tersendiri — lihat openUserDetailPage()
+       & admin/akun/akun-user-detail.html. -->
   <div id="uf-paket-wrap" style="display:none;border-top:1.5px solid rgba(19,50,89,0.08);margin-top:14px;padding-top:14px">
     <div style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">📦 Paket &amp; Langganan</div>
-    <div class="form-group"><label class="form-label">Nama Paket</label><input id="uf-paket-nama" class="form-input" type="text" placeholder="Misal: Professional" oninput="setDirty()"></div>
-    <div class="form-group">
-      <label class="form-label">Durasi Langganan</label>
-      <select id="uf-durasi" class="form-select" onchange="_onUfDurasiChange()">
-        <option value="">-- Tanpa Langganan --</option>
-        <option value="hari">1 Hari</option>
-        <option value="minggu">1 Minggu</option>
-        <option value="bulan">1 Bulan</option>
-        <option value="tahun">1 Tahun</option>
-        <option value="range">Rentang Tanggal (Custom)</option>
-      </select>
+    <div id="uf-langganan-new-wrap" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Paket Awal (Opsional)</label>
+        <select id="uf-paket-pilih-new" class="form-select" onchange="setDirty()"><option value="">-- Tanpa Paket --</option></select>
+      </div>
+      <div style="font-size:11.5px;color:var(--text-sub);margin-top:-6px">Paket yang dipilih akan langsung aktif begitu akun ini disimpan.</div>
     </div>
-    <div id="uf-langganan-range-wrap" class="form-row" style="display:none">
-      <div class="form-group"><label class="form-label">Langganan Mulai</label><input id="uf-langganan-mulai" class="form-input" type="date" oninput="setDirty()"></div>
-      <div class="form-group"><label class="form-label">Langganan Akhir</label><input id="uf-langganan-akhir" class="form-input" type="date" oninput="setDirty()"></div>
-    </div>
-    <div id="uf-durasi-preview" style="display:none;font-size:11.5px;color:var(--text-sub);margin-top:-6px"></div>
   </div>
 </div>
 <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModalCheckDirty('user-form-overlay')">Batal</button><button class="btn btn-primary" onclick="submitUserForm()">Proses</button></div>
@@ -47,25 +44,12 @@
     <select id="bue-status" class="form-select" disabled><option value="aktif">Aktif</option><option value="pending">Pending</option><option value="suspend">Suspend</option></select>
   </div>
   <div id="bue-paket-wrap" style="display:none;border-top:1.5px solid rgba(19,50,89,0.08);margin-top:14px;padding-top:14px">
-    <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px"><input type="checkbox" id="bue-paket-on" onchange="_bueToggle('paket')" style="accent-color:var(--blue);width:16px;height:16px"> 📦 Ganti Paket &amp; Langganan</label>
+    <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px"><input type="checkbox" id="bue-paket-on" onchange="_bueToggle('paket')" style="accent-color:var(--blue);width:16px;height:16px"> 📦 Tambahkan Paket ke Akun Terpilih</label>
+    <!-- Sama seperti form Tambah/Edit akun — nama paket & durasi ditarik dari
+         data paket Keuangan (pilih dari dropdown), bukan diisi manual. -->
     <div id="bue-paket-fields" style="opacity:.45;pointer-events:none">
-      <div class="form-group"><label class="form-label">Nama Paket</label><input id="bue-paket-nama" class="form-input" type="text" placeholder="Misal: Professional"></div>
-      <div class="form-group">
-        <label class="form-label">Durasi Langganan</label>
-        <select id="bue-durasi" class="form-select" onchange="_onBueDurasiChange()">
-          <option value="">-- Tanpa Langganan --</option>
-          <option value="hari">1 Hari</option>
-          <option value="minggu">1 Minggu</option>
-          <option value="bulan">1 Bulan</option>
-          <option value="tahun">1 Tahun</option>
-          <option value="range">Rentang Tanggal (Custom)</option>
-        </select>
-      </div>
-      <div id="bue-langganan-range-wrap" class="form-row" style="display:none">
-        <div class="form-group"><label class="form-label">Langganan Mulai</label><input id="bue-langganan-mulai" class="form-input" type="date"></div>
-        <div class="form-group"><label class="form-label">Langganan Akhir</label><input id="bue-langganan-akhir" class="form-input" type="date"></div>
-      </div>
-      <div id="bue-durasi-preview" style="display:none;font-size:11.5px;color:var(--text-sub);margin-top:-6px"></div>
+      <div class="form-group"><label class="form-label">Pilih Paket</label><select id="bue-paket-pilih" class="form-select"><option value="">-- Pilih Paket --</option></select></div>
+      <div style="font-size:11.5px;color:var(--text-sub);margin-top:-6px">Paket ini akan DITAMBAHKAN sebagai langganan baru ke semua akun terpilih (langganan lama yang sudah ada tidak dihapus).</div>
     </div>
   </div>
 </div>

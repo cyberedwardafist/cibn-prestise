@@ -122,7 +122,7 @@ function renderPage(id, subId) {
         // jadi langsung ReferenceError sebelum sempat cek map[id]. Dengan string +
         // window[...], cuma nama fungsi utk id yang sedang aktif yang di-resolve,
         // dan modul-nya sudah pasti sudah dimuat oleh ensureAdminPageModule di atas.
-        const map = { home:'renderHome', akun:'renderAkun', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', 'akun-pengaturan':'renderAkunPengaturan', 'akun-ganti-password':'renderAkunGantiPassword', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-materi-detail':'renderAnalisaMateriDetail', 'analisa-grafik':'renderAnalisaGrafik', 'analisa-modul':'renderAnalisaModul', 'analisa-modul-detail':'renderAnalisaModulDetail', 'analisa-modul-sampel':'renderAnalisaModulSampel', management_API:'renderManagementAPI', 'management-materi':'renderManagementMateri', 'management-guru':'renderManagementGuru', 'management-guru-paket':'renderManagementGuruPaketForm', 'management-guru-paket-detail':'renderManagementGuruPaketDetail' };
+        const map = { home:'renderHome', akun:'renderAkun', 'akun-user-detail':'renderAkunUserDetail', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', 'akun-pengaturan':'renderAkunPengaturan', 'akun-ganti-password':'renderAkunGantiPassword', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-materi-detail':'renderAnalisaMateriDetail', 'analisa-grafik':'renderAnalisaGrafik', 'analisa-modul':'renderAnalisaModul', 'analisa-modul-detail':'renderAnalisaModulDetail', 'analisa-modul-sampel':'renderAnalisaModulSampel', management_API:'renderManagementAPI', 'management-materi':'renderManagementMateri', 'management-guru':'renderManagementGuru', 'management-guru-paket':'renderManagementGuruPaketForm', 'management-guru-paket-detail':'renderManagementGuruPaketDetail' };
         const fn = map[id] && window[map[id]];
         if (typeof fn === 'function') fn();
         if (subId) switchSubPage(id, subId);
@@ -146,6 +146,15 @@ function renderPage(id, subId) {
 // dipakai bersama.
 const ADMIN_PAGE_MODULES = {
     akun:            { html: 'admin/akun/akun.html',            js: ['admin/akun/akun.js', 'admin/akun/akun-signup.js'], modals: 'admin/akun/akun-modals.html' },
+    // Halaman detail 1 akun User (dibuka dari tombol Aksi/pensil di daftar
+    // Akun > User — openUserDetailPage() di akun.js) — BUKAN popup lagi
+    // sesuai permintaan, supaya nyaman dicek + kelola banyak langganan
+    // sekaligus. akun.js WAJIB ikut dimuat di sini (dipakai bareng) karena
+    // helper paketnya (_ufPaketList/_ufTambahPaket/_ufHapusPaket/dst) & fungsi
+    // UsersAPI/GrubsAPI dipakai ulang oleh akun-user-detail.js — halaman ini
+    // bisa dibuka langsung tanpa pernah mampir ke tab Akun dulu (reload di
+    // tengah alur, lihat _persistAdminNav), sama pola dgn 'management-guru-paket-detail'.
+    'akun-user-detail': { html: 'admin/akun/akun-user-detail.html', js: ['admin/akun/akun.js', 'admin/akun/akun-signup.js', 'admin/akun/akun-user-detail.js'] },
     'akun-admin':    { html: 'admin/akun-admin/akun-admin.html',js: ['admin/akun-admin/akun-admin.js'] },
     // Pecahan dari 'akun-admin' (dulu 1 halaman/1 file berisi nama+email+
     // password+keluar sekaligus) — sekarang tiap tombol menu di akun-admin.html

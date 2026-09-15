@@ -145,13 +145,11 @@ async function openBulkEditAkun(role){
     document.getElementById('bue-status-on').checked=false;document.getElementById('bue-status').disabled=true;document.getElementById('bue-status').value='aktif';
     document.getElementById('bue-paket-on').checked=false;
     const pf=document.getElementById('bue-paket-fields');pf.style.opacity='.45';pf.style.pointerEvents='none';
-    document.getElementById('bue-paket-nama').value='';document.getElementById('bue-durasi').value='';
-    document.getElementById('bue-langganan-mulai').value='';document.getElementById('bue-langganan-akhir').value='';
-    document.getElementById('bue-langganan-range-wrap').style.display='none';
-    document.getElementById('bue-durasi-preview').style.display='none';
     if(isUser){
         await _loadUserGrubList();
         document.getElementById('bue-grub').innerHTML=`<option value="">-- Tanpa Grup --</option>${_userGrubList.map(g=>`<option value="${g.kode||g.id}">${g.nama}</option>`).join('')}`;
+        await _ufLoadPaketList();
+        document.getElementById('bue-paket-pilih').innerHTML=_ufPaketOptionsHtml();
     }
     openModal('bulk-edit-overlay');
 }
@@ -164,40 +162,31 @@ function _bueToggle(kind){
         wrap.style.opacity=on?'1':'.45';wrap.style.pointerEvents=on?'auto':'none';
     }
 }
-function _onBueDurasiChange(){
-    const durasi=document.getElementById('bue-durasi').value;
-    const rangeWrap=document.getElementById('bue-langganan-range-wrap');
-    const preview=document.getElementById('bue-durasi-preview');
-    if(durasi==='range'){rangeWrap.style.display='flex';preview.style.display='none';}
-    else if(durasi&&_DURASI_HARI[durasi]){
-        rangeWrap.style.display='none';
-        const hasil=_hitungDurasiLangganan(durasi);
-        document.getElementById('bue-langganan-mulai').value=hasil.mulai;
-        document.getElementById('bue-langganan-akhir').value=hasil.akhir;
-        preview.style.display='block';preview.textContent=`Aktif ${formatDate(hasil.mulai)} s/d ${formatDate(hasil.akhir)} — berlaku sama untuk semua akun terpilih`;
-    }else{
-        rangeWrap.style.display='none';preview.style.display='none';
-        document.getElementById('bue-langganan-mulai').value='';document.getElementById('bue-langganan-akhir').value='';
-    }
-}
+// Edit Massal "Paket & Langganan" sekarang berarti MENAMBAHKAN 1 paket (dari
+// Keuangan) sbg langganan baru ke tiap akun terpilih lewat UserPaketAPI.assign
+// (satu per satu — endpoint /api/users/:kode/pakets memang per-akun, bukan
+// bulk) — bukan lagi "mengganti" nama+tanggal langganan seperti dulu, karena
+// 1 akun sekarang bisa punya banyak langganan sekaligus.
 async function submitBulkEditAkun(){
     const role=_bueRole;const kodes=Array.from(_akunSelected[role]||[]);
     if(!kodes.length){showToast('Tidak ada akun terpilih','danger');return;}
     const data={};
     if(document.getElementById('bue-grub-on').checked)data.grub=document.getElementById('bue-grub').value||null;
     if(document.getElementById('bue-status-on').checked)data.status=document.getElementById('bue-status').value;
-    if(role==='user'&&document.getElementById('bue-paket-on').checked){
-        data.paket_nama=document.getElementById('bue-paket-nama').value.trim()||null;
-        const durasiSel=document.getElementById('bue-durasi').value;
-        let mulai=document.getElementById('bue-langganan-mulai').value||null;
-        let akhir=document.getElementById('bue-langganan-akhir').value||null;
-        if(durasiSel&&_DURASI_HARI[durasiSel]){const hasil=_hitungDurasiLangganan(durasiSel);mulai=hasil.mulai;akhir=hasil.akhir;}
-        data.langganan_mulai=mulai;data.langganan_akhir=akhir;
-    }
-    if(!Object.keys(data).length){showToast('Centang minimal 1 field yang mau diubah','danger');return;}
+    const tambahPaketOn=role==='user'&&document.getElementById('bue-paket-on').checked;
+    const tambahPaketKode=tambahPaketOn?(document.getElementById('bue-paket-pilih').value||''):'';
+    if(tambahPaketOn&&!tambahPaketKode){showToast('Pilih paket yang mau ditambahkan dulu','danger');return;}
+    if(!Object.keys(data).length&&!tambahPaketKode){showToast('Centang minimal 1 field yang mau diubah','danger');return;}
     try{
-        const res=await UsersAPI.bulkUpdate(kodes,data);
-        showToast(res?.message||`Berhasil memperbarui ${kodes.length} akun`,'success');
+        if(Object.keys(data).length){
+            const res=await UsersAPI.bulkUpdate(kodes,data);
+            showToast(res?.message||`Berhasil memperbarui ${kodes.length} akun`,'success');
+        }
+        if(tambahPaketKode){
+            let sukses=0,gagal=0;
+            for(const kode of kodes){try{await UserPaketAPI.assign(kode,{paket_kode:tambahPaketKode});sukses++;}catch(e){gagal++;}}
+            showToast(gagal?`Paket ditambahkan ke ${sukses} akun, ${gagal} gagal`:`Paket berhasil ditambahkan ke ${sukses} akun`,gagal?'danger':'success');
+        }
         closeModal('bulk-edit-overlay');
         clearAkunSelection(role);
         if(role==='admin')await renderAdminList();else if(role==='review')await renderReviewList();else await renderUserList();
@@ -220,31 +209,83 @@ function _renderUserGrubFilters(){
     renderFilterDropdown('user-grub-filters',{options,current:_userGrubFilter,title:'Grup',onSelect:v=>{_userGrubFilter=v;_renderUserGrubFilters();renderUserList();}});
 }
 
+// ── FILTER PAKET (User) — biar admin bisa cepat lihat "siapa saja yang ada
+// di paket tertentu". Daftar opsi ditarik dari PaketAPI (data Keuangan) yang
+// sama dipakai form Tambah/Edit; cocokkan lewat paket_kode di u.pakets[]
+// (dikirim server per akun, lihat GET /api/users/user). Paket lawas yang
+// diisi manual (paket_kode='MANUAL', dari fitur import Excel/edit lama)
+// sengaja TIDAK ikut match filter ini karena bukan berasal dari Keuangan.
+let _userPaketList=[];
+let _userPaketFilter='all';
+async function _loadUserPaketFilterList(){_userPaketList=await PaketAPI.getAll().catch(()=>[]);return _userPaketList;}
+function _renderUserPaketFilters(){
+    if(!document.getElementById('user-paket-filters'))return;
+    const validKodes=_userPaketList.map(p=>p.kode);
+    if(_userPaketFilter!=='all'&&_userPaketFilter!=='none'&&!validKodes.includes(_userPaketFilter))_userPaketFilter='all';
+    const options=[{value:'all',label:'Semua Paket'},{value:'none',label:'Tanpa Paket'},..._userPaketList.map(p=>({value:p.kode,label:p.nama}))];
+    renderFilterDropdown('user-paket-filters',{options,current:_userPaketFilter,title:'Paket',onSelect:v=>{_userPaketFilter=v;_renderUserPaketFilters();renderUserList();}});
+}
+function _userHasPaket(u,paketKode){
+    const pakets=Array.isArray(u.pakets)?u.pakets:[];
+    return pakets.some(p=>p.paket_kode===paketKode);
+}
+// Ambil 1 langganan "utama" utk ditampilkan di tabel/kartu (yang akhir masa
+// aktifnya paling jauh = paling relevan) + berapa langganan lain di luar itu,
+// dipakai utk teks "Nama Paket +N lainnya" krn 1 akun sekarang bisa punya
+// lebih dari 1 langganan sekaligus (lihat admin/users/:kode/pakets, UserPaketAPI).
+function _userPaketUtama(u){
+    const pakets=Array.isArray(u.pakets)?u.pakets:[];
+    if(!pakets.length)return null;
+    const sorted=[...pakets].sort((a,b)=>new Date(b.akhir)-new Date(a.akhir));
+    return {utama:sorted[0],sisaJumlah:pakets.length-1};
+}
+function _userLanggananCellHtml(u){
+    const info=_userPaketUtama(u);
+    if(!info)return{badge:'<span style="color:#94a3b8;font-size:11px">-</span>',status:'<span style="color:#94a3b8;font-size:11px">-</span>'};
+    const today=new Date();today.setHours(0,0,0,0);
+    const akhir=info.utama.akhir?new Date(info.utama.akhir):null;
+    const expired=akhir?akhir<today:false;
+    const namaTxt=info.sisaJumlah>0?`${info.utama.paket_nama} +${info.sisaJumlah} lainnya`:(info.utama.paket_nama||'-');
+    const badge=`<span class="badge badge-aktif" style="font-size:10px;padding:2px 8px">${namaTxt}</span>`;
+    const status=akhir?(expired?`<span style="color:#dc2626;font-size:11px">Exp ${formatDate(info.utama.akhir)}</span>`:`<span style="color:#16a34a;font-size:11px">s/d ${formatDate(info.utama.akhir)}</span>`):'<span style="color:#94a3b8;font-size:11px">-</span>';
+    return{badge,status};
+}
+// Buka halaman (BUKAN popup lagi) yang berisi data lengkap 1 akun User — lihat
+// admin/akun/akun-user-detail.html + .js, didaftarkan sbg page 'akun-user-detail'
+// di ADMIN_PAGE_MODULES/js/app.js. window._akunUserDetailKode dititip dulu
+// sebelum navigateTo(), sama seperti pola _guruPaketDetailKode di management/guru.js.
+function openUserDetailPage(kode){
+    window._akunUserDetailKode=kode;
+    navigateTo('akun-user-detail');
+}
+
 let _userListCache=[];
 function _userRowHtml(u,i){
     const kode=u.kode||u.id;const chk=_akunSelected.user.has(kode)?'checked':'';
-    const today=new Date(); today.setHours(0,0,0,0);
-    const akhir=u.langganan_akhir?new Date(u.langganan_akhir):null;
-    const langgananStatus=akhir?(akhir>=today?`<span style="color:#16a34a;font-size:11px">s/d ${formatDate(u.langganan_akhir)}</span>`:`<span style="color:#dc2626;font-size:11px">Exp ${formatDate(u.langganan_akhir)}</span>`):`<span style="color:#94a3b8;font-size:11px">-</span>`;
-    const paketBadge=u.paket_nama?`<span class="badge badge-aktif" style="font-size:10px;padding:2px 8px">${u.paket_nama}</span>`:`<span style="color:#94a3b8;font-size:11px">-</span>`;
-    return `<tr><td class="akun-check"><input type="checkbox" class="akun-row-check" data-kode="${kode}" ${chk} onchange="toggleAkunSelect('user','${kode}',this.checked)"></td><td>${i+1}</td><td><strong>${u.nama}</strong></td><td>${u.email}</td><td class="hide-mobile">${_userGrubNama(u.grub)||'-'}</td><td class="hide-mobile">${paketBadge}<br>${langgananStatus}</td><td class="hide-mobile"><span class="badge badge-${u.status}">${u.status}</span></td><td><div style="display:flex;gap:6px"><button class="btn-icon" onclick="openEditUser('user','${kode}','${u.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon danger" onclick="deleteUserAkun('${kode}','${u.nama}','user')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></td></tr>`;
+    const{badge:paketBadge,status:langgananStatus}=_userLanggananCellHtml(u);
+    return `<tr><td class="akun-check"><input type="checkbox" class="akun-row-check" data-kode="${kode}" ${chk} onchange="toggleAkunSelect('user','${kode}',this.checked)"></td><td>${i+1}</td><td><strong>${u.nama}</strong></td><td>${u.email}</td><td class="hide-mobile">${_userGrubNama(u.grub)||'-'}</td><td class="hide-mobile">${paketBadge}<br>${langgananStatus}</td><td class="hide-mobile"><span class="badge badge-${u.status}">${u.status}</span></td><td><div style="display:flex;gap:6px"><button class="btn-icon" onclick="openUserDetailPage('${kode}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon danger" onclick="deleteUserAkun('${kode}','${u.nama}','user')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></td></tr>`;
 }
 function _userCardHtml(u){
     const kode=u.kode||u.id;const sel=_akunSelected.user.has(kode);
-    const subTxt=u.email+(u.paket_nama?` · ${u.paket_nama}`:'');
+    const info=_userPaketUtama(u);
+    const pakLabel=info?(info.sisaJumlah>0?`${info.utama.paket_nama} +${info.sisaJumlah} lainnya`:info.utama.paket_nama):'';
+    const subTxt=u.email+(pakLabel?` · ${pakLabel}`:'');
     return SwipeCards.buildSwipeCardHtml({
         title:u.nama,sub:subTxt,kode,selected:sel,
         sideHtml:`<span class="badge badge-${u.status}" style="font-size:10px">${u.status}</span>`,
-        leftActions:[{icon:'edit',label:'Edit',cls:'act-edit',onClick:`openEditUser('user','${kode}','${u.nama}')`}],
+        leftActions:[{icon:'edit',label:'Edit',cls:'act-edit',onClick:`openUserDetailPage('${kode}')`}],
         rightActions:[{icon:'trash',label:'Hapus',cls:'act-danger',onClick:`deleteUserAkun('${kode}','${u.nama}','user')`}]
     });
 }
 async function renderUserList(){
-    const [users]=await Promise.all([UsersAPI.getByRole('user').catch(()=>[]),_loadUserGrubList()]);
+    const [users]=await Promise.all([UsersAPI.getByRole('user').catch(()=>[]),_loadUserGrubList(),_loadUserPaketFilterList()]);
     _renderUserGrubFilters();
+    _renderUserPaketFilters();
     let list=filterList(users,_userSearch,['nama','email']);
     if(_userGrubFilter==='none')list=list.filter(u=>!u.grub);
     else if(_userGrubFilter!=='all')list=list.filter(u=>u.grub===_userGrubFilter);
+    if(_userPaketFilter==='none')list=list.filter(u=>!Array.isArray(u.pakets)||!u.pakets.length);
+    else if(_userPaketFilter!=='all')list=list.filter(u=>_userHasPaket(u,_userPaketFilter));
     _userListCache=list;
     const tb=document.getElementById('user-tbody');if(!tb)return;
     tb.innerHTML=list.length?list.map(_userRowHtml).join(''):`<tr><td colspan="8"><div class="empty-state"><p>Belum ada user</p></div></td></tr>`;
@@ -445,26 +486,70 @@ function _hitungDurasiLangganan(durasiKey,mulaiIso){
     const akhir=new Date(mulai);akhir.setDate(akhir.getDate()+hari-1);
     return{mulai:_toIsoDate(mulai),akhir:_toIsoDate(akhir)};
 }
-function _onUfDurasiChange(){
-    const durasi=document.getElementById('uf-durasi')?.value||'';
-    const rangeWrap=document.getElementById('uf-langganan-range-wrap');
-    const preview=document.getElementById('uf-durasi-preview');
-    if(durasi==='range'){
-        if(rangeWrap)rangeWrap.style.display='flex';
-        if(preview)preview.style.display='none';
-    }else if(durasi&&_DURASI_HARI[durasi]){
-        if(rangeWrap)rangeWrap.style.display='none';
-        const hasil=_hitungDurasiLangganan(durasi);
-        document.getElementById('uf-langganan-mulai').value=hasil.mulai;
-        document.getElementById('uf-langganan-akhir').value=hasil.akhir;
-        if(preview){preview.style.display='block';preview.textContent=`Aktif ${formatDate?formatDate(hasil.mulai):hasil.mulai} s/d ${formatDate?formatDate(hasil.akhir):hasil.akhir}`;}
-    }else{
-        if(rangeWrap)rangeWrap.style.display='none';
-        if(preview)preview.style.display='none';
-        document.getElementById('uf-langganan-mulai').value='';
-        document.getElementById('uf-langganan-akhir').value='';
-    }
-    setDirty();
+// ── PAKET & LANGGANAN (form akun User) — nama & durasi paket SEKARANG ditarik
+// dari data paket Keuangan (PaketAPI), bukan diisi manual seperti dulu (input
+// teks "Nama Paket" + select "Durasi Langganan" sudah dihapus dari markup).
+// Mode Edit (akun sudah punya kode) bisa tambah/hapus banyak langganan
+// sekaligus lewat UserPaketAPI — LANGSUNG tersimpan ke server saat tombol
+// "Tambah"/"Hapus" diklik, tidak menunggu tombol Simpan/Proses form ini (sama
+// pola dgn modal Kelola Grup). Mode Tambah (akun baru) cuma bisa pilih 1
+// paket awal (opsional), baru benar-benar di-assign SETELAH akun berhasil
+// dibuat — lihat submitUserForm().
+let _ufPaketList=[];
+function _paketOptionLabel(p){
+    const harga=parseInt(p.harga||0);
+    const periodeTxt=p.periode||(p.periode_tipe?'/'+p.periode_tipe:'');
+    return `${p.nama} — Rp ${harga.toLocaleString('id-ID')}${periodeTxt?' '+periodeTxt:''}`;
+}
+async function _ufLoadPaketList(){
+    const all=await PaketAPI.getAll().catch(()=>[]);
+    _ufPaketList=all.filter(p=>p.status==='aktif');
+    return _ufPaketList;
+}
+function _ufPaketOptionsHtml(placeholder){
+    return `<option value="">${placeholder||'-- Pilih Paket --'}</option>${_ufPaketList.map(p=>`<option value="${p.kode}">${_paketOptionLabel(p)}</option>`).join('')}`;
+}
+function _langgananBadgeHtml(up){
+    const today=new Date();today.setHours(0,0,0,0);
+    const akhir=up.akhir?new Date(up.akhir):null;
+    const expired=akhir?akhir<today:false;
+    const statusTxt=akhir?(expired?`Exp ${formatDate(up.akhir)}`:`s/d ${formatDate(up.akhir)}`):'-';
+    const statusColor=expired?'#dc2626':'#16a34a';
+    return `<div class="ebook-pick-item" style="justify-content:space-between">
+      <div>
+        <div style="font-weight:600;font-size:13px;color:var(--blue)">${up.paket_nama||'-'}</div>
+        <div style="font-size:11px;color:${statusColor}">${statusTxt}</div>
+      </div>
+      <button class="btn-icon danger" title="Hapus langganan ini" onclick="_ufHapusPaket('${up.kode}','${(up.paket_nama||'').replace(/'/g,"\\'")}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button>
+    </div>`;
+}
+async function _ufRenderLanggananList(){
+    const el=document.getElementById('uf-langganan-list');if(!el)return;
+    const list=await UserPaketAPI.getByUser(_ufKode).catch(()=>[]);
+    el.innerHTML=list.length?list.map(_langgananBadgeHtml).join(''):'<p style="color:var(--text-sub);font-size:12.5px">Belum ada langganan paket.</p>';
+    // Halaman detail akun User (akun-user-detail.html) punya angka "(N)" di
+    // judul kartu ini — update juga kalau elemennya ada di halaman aktif.
+    const cntEl=document.getElementById('aud-paket-count');if(cntEl)cntEl.textContent=list.length;
+}
+async function _ufTambahPaket(){
+    const sel=document.getElementById('uf-paket-pilih-edit');
+    const paket_kode=sel?.value;
+    if(!paket_kode){showToast('Pilih paket dulu','danger');return;}
+    try{
+        const res=await UserPaketAPI.assign(_ufKode,{paket_kode});
+        showToast(res?.message||'Paket ditambahkan','success');
+        sel.value='';
+        await _ufRenderLanggananList();
+        await renderUserList();
+    }catch(e){showToast('Gagal: '+e.message,'danger');}
+}
+function _ufHapusPaket(up_kode,nama){
+    showConfirm('Hapus Langganan',`Yakin hapus langganan paket "${nama}" dari akun ini?`,'danger',async()=>{
+        await UserPaketAPI.delete(_ufKode,up_kode);
+        showToast('Langganan dihapus','danger');
+        await _ufRenderLanggananList();
+        await renderUserList();
+    });
 }
 
 // ── GENERIC USER FORM ──
@@ -496,8 +581,14 @@ async function openAddUser(role){
     document.getElementById('uf-paket-wrap').style.display=role==='user'?'block':'none';
     document.getElementById('uf-grub').innerHTML=`<option value="">-- Tanpa Grup --</option>${grubs.map(g=>`<option value="${g.kode||g.id}">${g.nama}</option>`).join('')}`;
     document.getElementById('uf-nama').value='';document.getElementById('uf-email').value='';document.getElementById('uf-password').value='';document.getElementById('uf-konfirm').value='';document.getElementById('uf-status').value='aktif';
-    document.getElementById('uf-paket-nama').value='';document.getElementById('uf-durasi').value='';document.getElementById('uf-langganan-mulai').value='';document.getElementById('uf-langganan-akhir').value='';
-    _onUfDurasiChange();
+    if(role==='user'){
+        // Akun baru: belum ada kode -> daftar langganan yang sudah ada tidak
+        // relevan (pasti kosong), tampilkan cuma picker "paket awal" opsional.
+        document.getElementById('uf-langganan-new-wrap').style.display='block';
+        await _ufLoadPaketList();
+        document.getElementById('uf-paket-pilih-new').innerHTML=_ufPaketOptionsHtml('-- Tanpa Paket --');
+        document.getElementById('uf-paket-pilih-new').value='';
+    }
     document.getElementById('uf-form-body').style.display='block';
     openModal('user-form-overlay');
 }
@@ -510,20 +601,16 @@ async function openEditUser(role,kode,nama){
     const u=allUsers.find(x=>(x.kode||x.id)==kode);
     const grubs=await GrubsAPI.getAll().catch(()=>[]);
     document.getElementById('uf-grub-wrap').style.display=role==='user'?'block':'none';
-    document.getElementById('uf-paket-wrap').style.display=role==='user'?'block':'none';
+    // Paket & Langganan akun User sekarang dikelola di halaman detail tersendiri
+    // (openUserDetailPage -> admin/akun/akun-user-detail.html), bukan di modal
+    // ini lagi — jadi modal Edit (dipakai bareng utk Admin/Reviewer) tidak
+    // pernah menampilkan section ini.
+    document.getElementById('uf-paket-wrap').style.display='none';
     document.getElementById('uf-grub').innerHTML=`<option value="">-- Tanpa Grup --</option>${grubs.map(g=>`<option value="${g.kode||g.id}" ${u?.grub===(g.kode||g.id)?'selected':''}>${g.nama}</option>`).join('')}`;
     if(u){
         document.getElementById('uf-nama').value=u.nama||'';
         document.getElementById('uf-email').value=u.email||'';
         document.getElementById('uf-status').value=u.status||'aktif';
-        if(role==='user'){
-            document.getElementById('uf-paket-nama').value=u.paket_nama||'';
-            // Data lama disimpan sebagai tanggal eksplisit — tampilkan sebagai rentang custom agar tidak mengubah tanggal yang sudah berjalan tanpa sengaja.
-            document.getElementById('uf-durasi').value=(u.langganan_mulai||u.langganan_akhir)?'range':'';
-            document.getElementById('uf-langganan-mulai').value=u.langganan_mulai||'';
-            document.getElementById('uf-langganan-akhir').value=u.langganan_akhir||'';
-            _onUfDurasiChange();
-        }
     }
     document.getElementById('uf-password').value='';document.getElementById('uf-konfirm').value='';document.getElementById('uf-form-body').style.display='block';
     openModal('user-form-overlay');
@@ -533,21 +620,24 @@ async function submitUserForm(){
     const nama=document.getElementById('uf-nama').value.trim(),email=document.getElementById('uf-email').value.trim();
     const pw=document.getElementById('uf-password').value,pwk=document.getElementById('uf-konfirm').value;
     const grub=document.getElementById('uf-grub')?.value||null,status=document.getElementById('uf-status').value;
-    const paket_nama=role==='user'?(document.getElementById('uf-paket-nama')?.value.trim()||null):null;
-    const durasiSel=role==='user'?(document.getElementById('uf-durasi')?.value||''):'';
-    let langganan_mulai=role==='user'?(document.getElementById('uf-langganan-mulai')?.value||null):null;
-    let langganan_akhir=role==='user'?(document.getElementById('uf-langganan-akhir')?.value||null):null;
-    if(role==='user'&&durasiSel&&_DURASI_HARI[durasiSel]){
-        const hasil=_hitungDurasiLangganan(durasiSel);
-        langganan_mulai=hasil.mulai;langganan_akhir=hasil.akhir;
-    }
+    // Paket awal HANYA berlaku saat mode 'add' (lihat uf-paket-pilih-new di
+    // openAddUser) — baru benar2 diaktifkan via UserPaketAPI SETELAH akun
+    // berhasil dibuat (butuh kode akun yang baru di-generate server).
+    const paketKodeAwal=(mode==='add'&&role==='user')?(document.getElementById('uf-paket-pilih-new')?.value||''):'';
     if(!nama||!email){showToast('Nama dan email wajib','danger');return;}
     if(mode==='add'&&!pw){showToast('Password wajib untuk akun baru','danger');return;}
     if(pw&&pw!==pwk){showToast('Konfirmasi password tidak cocok','danger');return;}
     if(pw&&pw.length<6){showToast('Password minimal 6 karakter','danger');return;}
     const body=document.getElementById('uf-form-body');body.style.display='none';
     setTimeout(async()=>{
-        try{const d={nama,email,role,grub,status,paket_nama,langganan_mulai,langganan_akhir};if(pw)d.password=pw;if(mode==='add')await UsersAPI.create(d);else await UsersAPI.update(kode,d);
+        try{
+            const d={nama,email,role,grub,status};if(pw)d.password=pw;
+            let resultKode=kode;
+            if(mode==='add'){const res=await UsersAPI.create(d);resultKode=res?.kode||resultKode;}
+            else await UsersAPI.update(kode,d);
+            if(mode==='add'&&paketKodeAwal&&resultKode){
+                await UserPaketAPI.assign(resultKode,{paket_kode:paketKodeAwal}).catch(e=>showToast('Akun dibuat, tapi gagal mengaktifkan paket awal: '+e.message,'danger'));
+            }
             showFormResult(document.getElementById('user-form-overlay').querySelector('.modal'),true,mode==='add'?'Akun berhasil ditambahkan!':'Akun berhasil diperbarui!');
             clearDirty();setTimeout(()=>{closeModal('user-form-overlay');body.style.display='block';if(role==='admin')renderAdminList();else if(role==='review')renderReviewList();else renderUserList();},1800);
         }catch(e){showFormResult(document.getElementById('user-form-overlay').querySelector('.modal'),false,'Gagal: '+e.message);setTimeout(()=>{body.style.display='block';},2000);}
