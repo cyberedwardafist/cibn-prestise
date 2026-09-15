@@ -345,24 +345,28 @@ function _pfToggleModulPick(kode, ck) {
     const el = document.getElementById(`pfmpick-${kode}`); if (el) el.classList.toggle('checked', ck);
 }
 
-// ── PICKER "Mentoring & Konsultasi" — materi sesi mentoring sekarang dipilih
-// LANGSUNG dari master data Management > Materi (tabel `materi`), BUKAN lagi
-// dirakit manual dari modul per-paket seperti sebelumnya. Dengan begini,
-// materi yang dicentang di sini otomatis "membawa" guru yang sudah ditautkan
-// ke materi itu di Management > Guru (tabel guru_paket_grup) — lihat GET
-// /api/jadwal-meta di server.js buat logic penggabungan materi guru per user
-// (irisan materi guru dgn union materi semua paket aktif user, lihat
-// materiPaketAktifUser()). Modul DI DALAM tiap materi (buat nanti generate
-// token otomatis per-modul ke user) SENGAJA belum disentuh di sini — scope
-// update ini cuma sampai level materi dulu.
-// Materi terpilih disimpan lewat hidden checkbox name="pf-aturan" value=
+// ── PICKER "Mentoring & Konsultasi" — sekarang dipilih LANGSUNG per PAKET
+// (grup) dari Management > Guru (tabel guru_paket_grup), BUKAN lagi per
+// materi satu-satu. Nyontreng 1 paket di sini otomatis memasukkan SEMUA
+// materi yang tercakup di paket/grup itu (g.materi_list) — jadi guru yang
+// mengajar pun otomatis ikut kebawa (guru sudah ditautkan ke materi lewat
+// grup itu di Management > Guru), tanpa admin perlu pilih materi manual lagi
+// di sini. Lihat GET /api/jadwal-meta di server.js buat logic penggabungan
+// materi guru per user (irisan materi guru dgn union materi semua paket
+// aktif user, lihat materiPaketAktifUser()). Modul DI DALAM tiap materi
+// (buat nanti generate token otomatis per-modul ke user) SENGAJA belum
+// disentuh di sini — scope update ini cuma sampai level materi dulu.
+// PENTING: format PENYIMPANAN tetap per MATERI (tidak berubah, supaya tidak
+// perlu ubah logic backend) — hidden checkbox name="pf-aturan" value=
 // "mentoring.materi.<kode_materi>" (1 baris per materi, kode_materi = kode
 // asli dari tabel `materi`) — submitPaket() baca semua checkbox pf-aturan:
-// checked apa adanya, jadi format ini otomatis kebawa ke aturan_akses tanpa
-// ubah logic submit.
-let _pfMentoringMateriMaster = [], _pfMentoringKelompokList = [];
-let _pfMentoringPickerSearch = '', _pfMentoringPickerKelompokFilter = 'all';
-let _pfMentoringSelected = []; // kode materi terpilih buat paket ini
+// checked apa adanya. Yang berubah cuma CARA MEMILIHNYA di UI: per paket
+// (grup), bukan per materi; _pfMentoringSelected tetap berisi kode2 materi,
+// cuma sekarang diisi/dikosongkan per rombongan (union materi_list si paket
+// yang dicentang/dilepas), bukan satu-satu lagi.
+let _pfMentoringGrupMaster = [], _pfMentoringMateriMaster = [];
+let _pfMentoringPickerSearch = '';
+let _pfMentoringSelected = []; // kode materi terpilih buat paket ini (union dari materi_list paket/grup yang dicentang)
 
 // Parse checkbox pf-aturan (mentoring.materi.*) balik jadi array kode materi.
 // Data lama (format "mentoring.materi.<id>.nama::..." / ".modul.<kode>", dari
@@ -378,57 +382,60 @@ function _pfParseMentoringAturan(aturanArr = []) {
 
 async function _pfLoadMentoringPicker(mentoringAturan = []) {
     _pfMentoringSelected = _pfParseMentoringAturan(mentoringAturan);
-    [_pfMentoringMateriMaster, _pfMentoringKelompokList] = await Promise.all([
-        MateriAPI.getAll().catch(() => []),
-        MateriKelompokAPI.getAll().catch(() => [])
+    // GuruPaketGrupAPI = daftar "paket" di slide dock Management > Guru (yg
+    // dipilih di sini); MateriAPI cuma dipakai buat nampilin NAMA materi yg
+    // tercakup di tiap paket itu (kartu "Materi: TWK, TIU, TKP" dst), bukan
+    // buat dipilih langsung lagi.
+    [_pfMentoringGrupMaster, _pfMentoringMateriMaster] = await Promise.all([
+        GuruPaketGrupAPI.getAll().catch(() => []),
+        MateriAPI.getAll().catch(() => [])
     ]);
-    // Info guru per materi (read-only) DIHAPUS dari picker ini — sekarang guru
-    // sudah dikelola sbg "paket" tersendiri di slide dock Management > Guru
-    // (guru-paket-grup), jadi gaperlu ditampilin lagi per-materi di sini juga
-    // (dulu dicoba lewat GuruPaketGrupAPI + UsersAPI.getByRole('review'), sudah
-    // dibuang berikut variabel _pfMentoringGuruPerMateri-nya).
     _pfSyncMentoringHiddenInputs();
-    _renderPfMentoringPickerFilters();
     _renderPfMentoringPicker();
 }
 
-function _renderPfMentoringPickerFilters() {
-    if (!document.getElementById('pf-mentoring-picker-filters')) return;
-    const options = [{ value: 'all', label: 'Semua Kelompok' }, { value: 'none', label: 'Tanpa Kelompok' }, ..._pfMentoringKelompokList.map(k => ({ value: k.kode, label: k.nama }))];
-    renderFilterDropdown('pf-mentoring-picker-filters', { title: 'Kelompok', options, current: _pfMentoringPickerKelompokFilter, onSelect: v => { _pfMentoringPickerKelompokFilter = v; _renderPfMentoringPickerFilters(); _renderPfMentoringPicker(); } });
-}
-// Daftar materi (master, dari Management > Materi) dgn search + filter kelompok
-// — centang buat memasukkan materi itu ke paket ini. Info guru per materi
-// SENGAJA tidak ditampilkan lagi di sini (lihat catatan di _pfLoadMentoringPicker);
-// guru sekarang dikelola per-paket di Management > Guru, bukan per-materi.
+function _pfMentoringMateriNama(kode) { const m = _pfMentoringMateriMaster.find(x => x.kode === kode); return m ? m.nama : kode; }
+// Paket/grup dianggap "terpilih" kalau SEMUA materi yang dicakupnya sudah
+// ada di _pfMentoringSelected (paket tanpa materi tidak bisa dicentang).
+function _pfMentoringGrupChecked(g) { const ml = g.materi_list || []; return ml.length > 0 && ml.every(mk => _pfMentoringSelected.includes(mk)); }
+
+// Daftar PAKET (grup, dari Management > Guru) dgn search by nama paket —
+// centang 1 paket buat memasukkan SEMUA materi di paket itu sekaligus ke
+// paket keuangan ini (union, bukan pilih materi satu-satu lagi).
 function _renderPfMentoringPicker() {
     const el = document.getElementById('pf-mentoring-picker-list'); if (!el) return;
-    if (!_pfMentoringMateriMaster.length) { el.innerHTML = '<p style="color:var(--text-sub);font-size:12px">Belum ada materi. Buat dulu di menu Management &gt; Materi.</p>'; return; }
-    let data = _pfMentoringMateriMaster;
+    if (!_pfMentoringGrupMaster.length) { el.innerHTML = '<p style="color:var(--text-sub);font-size:12px">Belum ada paket. Buat dulu di menu Management &gt; Guru.</p>'; return; }
+    let data = _pfMentoringGrupMaster;
     const q = (_pfMentoringPickerSearch || '').toLowerCase();
-    if (q) data = data.filter(m => (m.nama || '').toLowerCase().includes(q) || (m.nama_internal || '').toLowerCase().includes(q));
-    if (_pfMentoringPickerKelompokFilter === 'none') data = data.filter(m => !m.kelompok);
-    else if (_pfMentoringPickerKelompokFilter !== 'all') data = data.filter(m => m.kelompok === _pfMentoringPickerKelompokFilter);
-    const info = `<div style="font-size:10px;color:var(--text-sub);margin-bottom:6px">Terpilih ${_pfMentoringSelected.length} materi</div>`;
-    el.innerHTML = info + (data.length ? data.map(m => _pfMentoringPickCardHtml(m)).join('') : '<p style="color:var(--text-sub);font-size:12px">Tidak ada materi yang cocok.</p>');
+    if (q) data = data.filter(g => (g.nama || '').toLowerCase().includes(q) || (g.nama_internal || '').toLowerCase().includes(q));
+    const jumlahTerpilih = _pfMentoringGrupMaster.filter(g => _pfMentoringGrupChecked(g)).length;
+    const info = `<div style="font-size:10px;color:var(--text-sub);margin-bottom:6px">Terpilih ${jumlahTerpilih} paket (${_pfMentoringSelected.length} materi)</div>`;
+    el.innerHTML = info + (data.length ? data.map(g => _pfMentoringPickCardHtml(g)).join('') : '<p style="color:var(--text-sub);font-size:12px">Tidak ada paket yang cocok.</p>');
 }
-function _pfMentoringKelompokNama(kode) { const k = _pfMentoringKelompokList.find(x => x.kode === kode); return k ? k.nama : ''; }
-function _pfMentoringPickCardHtml(m) {
-    const kode = m.kode;
-    const ck = _pfMentoringSelected.includes(kode);
-    const kelNama = _pfMentoringKelompokNama(m.kelompok);
-    const namaTampil = m.nama_internal ? `${m.nama} | ${m.nama_internal}` : m.nama;
+function _pfMentoringPickCardHtml(g) {
+    const kode = g.kode;
+    const materiList = g.materi_list || [];
+    const ck = _pfMentoringGrupChecked(g);
+    const namaTampil = g.nama_internal ? `${g.nama} | ${g.nama_internal}` : g.nama;
+    const materiNama = materiList.length ? materiList.map(mk => _pfMentoringMateriNama(mk)).join(', ') : 'Belum ditautkan materi';
+    const jumlahGuru = (g.akun_list || []).length;
     return `<label class="ebook-pick-item${ck ? ' checked' : ''}" id="pfmentpick-${kode}">
-      <input type="checkbox" ${ck ? 'checked' : ''} onchange="_pfToggleMentoringPick('${kode}',this.checked)" style="accent-color:var(--blue);width:16px;height:16px;flex-shrink:0">
-      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;color:var(--blue);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namaTampil}</div><div style="font-size:11px;color:var(--text-sub)">${kelNama || kode}</div></div>
+      <input type="checkbox" ${ck ? 'checked' : ''} ${materiList.length ? '' : 'disabled'} onchange="_pfToggleMentoringPick('${kode}',this.checked)" style="accent-color:var(--blue);width:16px;height:16px;flex-shrink:0">
+      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;color:var(--blue);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namaTampil}</div><div style="font-size:11px;color:var(--text-sub)">${jumlahGuru} akun guru/review</div><div style="font-size:11px;color:var(--text-sub);margin-top:2px">Materi: ${materiNama}</div></div>
     </label>`;
 }
+// Centang/lepas 1 PAKET -> tambah/hapus SEMUA materi di paket itu sekaligus
+// dari _pfMentoringSelected. Render ulang seluruh list (bukan cuma toggle
+// class kartu ini) karena paket LAIN yang kebetulan berbagi materi yang sama
+// bisa ikut berubah status centangnya, dan counter "Terpilih ..." perlu update.
 function _pfToggleMentoringPick(kode, ck) {
-    if (ck) { if (!_pfMentoringSelected.includes(kode)) _pfMentoringSelected.push(kode); }
-    else { _pfMentoringSelected = _pfMentoringSelected.filter(k => k !== kode); }
+    const g = _pfMentoringGrupMaster.find(x => x.kode === kode); if (!g) return;
+    const materiList = g.materi_list || [];
+    if (ck) { materiList.forEach(mk => { if (!_pfMentoringSelected.includes(mk)) _pfMentoringSelected.push(mk); }); }
+    else { _pfMentoringSelected = _pfMentoringSelected.filter(mk => !materiList.includes(mk)); }
     _pfSyncMentoringHiddenInputs();
     setDirty('paket');
-    const elc = document.getElementById(`pfmentpick-${kode}`); if (elc) elc.classList.toggle('checked', ck);
+    _renderPfMentoringPicker();
 }
 function onPfMentoringKuotaChange() { setDirty('paket'); }
 
