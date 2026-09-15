@@ -234,7 +234,11 @@ const PaketAPI = {
     async getOne(kode) { return await apiGet(`/pakets/${kode}`); },
     async create(data) { return await apiPost('/pakets', data); },
     async update(kode, data) { return await apiPut(`/pakets/${kode}`, data); },
-    async delete(kode) { return await apiDel(`/pakets/${kode}`); }
+    async delete(kode) { return await apiDel(`/pakets/${kode}`); },
+    // Switch "tampil di landing page" di kartu paket (Keuangan) — endpoint
+    // kecil terpisah dari update() di atas, supaya nyimpen dari form Edit
+    // lengkap tidak ikut menimpa balik switch ini (lihat server.js).
+    async setTampilLanding(kode, tampil_landing) { return await apiPut(`/pakets/${kode}/tampil-landing`, { tampil_landing }); }
 };
 
 // ── USER PAKET API (assign paket ke user) ──

@@ -1821,13 +1821,20 @@ app.get('/api/pakets', auth(['admin']), ah(async (req, res) => {
     rows.forEach(r => {
         r.fitur = parseFiturFromDb(r.fitur);
         r.popular = !!r.popular;
+        r.tampil_landing = r.tampil_landing !== false && r.tampil_landing !== 0; // default TRUE (paket lama)
         if (r.hak_akses) try { r.hak_akses = JSON.parse(r.hak_akses); } catch(e) { r.hak_akses = []; }
         if (r.aturan_akses) try { r.aturan_akses = JSON.parse(r.aturan_akses); } catch(e) { r.aturan_akses = []; }
     });
     res.json(rows);
 }));
+// Endpoint landing/publik: dibaca oleh SEMUA halaman marketing (public/*,
+// landing/landing.html, auth/daftar.html) DAN layar "Beli Paket" di dalam
+// app (js/paket.html). Filter tampil_landing=false di sini MURNI menyembunyikan
+// paket dari daftar publik ini — paket yang sudah dipegang user (user_pakets)
+// tidak dibaca lewat endpoint ini sama sekali, jadi akses/fungsi sistemnya
+// (materi, mentoring, dst) TIDAK terpengaruh oleh switch ini.
 app.get('/api/pakets/public', ah(async (req, res) => {
-    const rows = await db.prepare("SELECT kode,nama,deskripsi,periode_tipe,periode_hari,harga,fitur,status,link_landing,warna,icon,popular,periode FROM pakets WHERE status='aktif' ORDER BY harga ASC").all();
+    const rows = await db.prepare("SELECT kode,nama,deskripsi,periode_tipe,periode_hari,harga,fitur,status,link_landing,warna,icon,popular,periode FROM pakets WHERE status='aktif' AND (tampil_landing IS NULL OR tampil_landing != 0) ORDER BY harga ASC").all();
     rows.forEach(r => {
         r.fitur = parseFiturFromDb(r.fitur);
         r.popular = !!r.popular;
@@ -1838,7 +1845,17 @@ app.get('/api/pakets/:kode', auth(['admin']), ah(async (req, res) => {
     const p = await db.prepare('SELECT * FROM pakets WHERE kode=?').get(req.params.kode);
     if (!p) return res.status(404).json({ error: 'Tidak ditemukan' });
     p.fitur = parseFiturFromDb(p.fitur);
+    p.tampil_landing = p.tampil_landing !== false && p.tampil_landing !== 0;
     res.json(p);
+}));
+// Switch "tampil di landing page" di kartu paket (admin Keuangan, samping
+// tombol Edit) — SENGAJA endpoint terpisah dari PUT /api/pakets/:kode (form
+// Edit lengkap) di bawah, supaya submit form Edit tidak ikut menimpa balik
+// nilai switch ini (form Edit tidak pernah mengirim field tampil_landing).
+app.put('/api/pakets/:kode/tampil-landing', auth(['admin']), ah(async (req, res) => {
+    const { tampil_landing } = req.body;
+    await db.prepare('UPDATE pakets SET tampil_landing=? WHERE kode=?').run(tampil_landing ? 1 : 0, req.params.kode);
+    res.json({ message: 'Berhasil' });
 }));
 app.post('/api/pakets', auth(['admin']), ah(async (req, res) => {
     const { nama, deskripsi, periode_tipe, periode_hari, harga, fitur, status, link_landing, warna, icon, popular, periode, hak_akses, aturan_akses, maks_ujian, durasi_hari, hak_notes, mentoring_kuota, mentoring_kuota_batal } = req.body;

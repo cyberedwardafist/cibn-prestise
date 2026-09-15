@@ -40,6 +40,17 @@ async function renderPaketGrid() {
         _ldPaketCache = (landingData && landingData.paket && landingData.paket.list) ? landingData.paket.list : [];
     } catch(e) { _ldPaketCache = []; }
 
+    _renderPaketCards();
+}
+
+// Gambar ulang grid paket dari _paketData/_ldPaketCache yang SUDAH ada di
+// memori (tanpa fetch ulang ke server) — dipakai renderPaketGrid() setelah
+// muat data, dan juga onTogglePaketTampilLanding() setelah toggle switch
+// landing supaya tidak perlu reload seluruh grid + spinner cuma buat 1 switch.
+function _renderPaketCards() {
+    const grid = document.getElementById('paket-grid');
+    if (!grid) return;
+
     if (!_paketData.length) {
         grid.innerHTML = `<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--text-sub)"><div style="font-size:3rem;margin-bottom:12px">💎</div><p style="font-weight:600;margin-bottom:6px">Belum ada paket harga</p><p style="font-size:12px">Klik "+ Paket Baru" untuk mulai membuat paket</p></div>`;
         return;
@@ -68,13 +79,26 @@ async function renderPaketGrid() {
         const iconHtml = iconIsImg
             ? `<img src="${p.icon}" alt="" style="width:2.4rem;height:2.4rem;border-radius:10px;object-fit:cover">`
             : `<div style="font-size:2rem">${p.icon || '📦'}</div>`;
+        // Switch "tampil di landing" — MURNI visibilitas publik (dibaca oleh
+        // GET /api/pakets/public, yaitu sumber data landing/paket.html/dst).
+        // Kalau dimatikan, paket jadi "private": hilang dari landing page,
+        // tapi fungsi sistemnya (akses materi/mentoring dst user yang SUDAH
+        // punya paket ini) tetap jalan seperti biasa — lihat onTogglePaketTampilLanding().
+        const tampilLanding = p.tampil_landing !== false && p.tampil_landing !== 0;
+        const privateBadge = !tampilLanding ? `<div style="margin-top:8px;font-size:10px;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.2);border-radius:8px;padding:4px 8px;display:flex;align-items:center;gap:5px;color:#dc2626">🔒 <span>Private — disembunyikan dari landing page</span></div>` : '';
         return `<div class="paket-card-admin ${p.popular ? 'popular' : ''}" style="animation:fadeUp 0.3s ${i * 0.06}s both;border-color:${p.popular ? accentColor : ''}">
             ${p.popular ? `<span class="paket-badge-popular" style="background:linear-gradient(90deg,${accentColor},${accentColor}cc)">⭐ PALING POPULER</span>` : ''}
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
                 ${iconHtml}
-                <div style="display:flex;gap:6px">
-                    <button class="btn-icon" onclick="openEditPaket('${p.kode||p.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-                    <button class="btn-icon danger" onclick="deletePaket('${p.kode||p.id}','${p.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button>
+                <div style="display:flex;align-items:center;gap:10px">
+                    <label class="switch" style="transform:scale(.82)" title="${tampilLanding ? 'Tampil di landing page — klik utk jadikan private (sembunyikan)' : 'Private (disembunyikan dari landing page) — klik utk tampilkan lagi'}">
+                        <input type="checkbox" ${tampilLanding ? 'checked' : ''} onchange="onTogglePaketTampilLanding('${p.kode||p.id}',this.checked,this)">
+                        <span class="switch-slider"></span>
+                    </label>
+                    <div style="display:flex;gap:6px">
+                        <button class="btn-icon" onclick="openEditPaket('${p.kode||p.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                        <button class="btn-icon danger" onclick="deletePaket('${p.kode||p.id}','${p.nama}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button>
+                    </div>
                 </div>
             </div>
             <div style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--blue);margin-bottom:2px">${p.nama || 'Paket'}</div>
@@ -87,8 +111,31 @@ async function renderPaketGrid() {
             <ul class="paket-features">${fiturList}</ul>
             ${hakBadges}
             ${linkBadge}
+            ${privateBadge}
         </div>`;
     }).join('');
+}
+
+// Toggle switch di kartu paket (samping tombol Edit) — cuma ubah kolom
+// tampil_landing lewat endpoint kecil khusus (BUKAN lewat PUT /api/pakets/:kode
+// yang dipakai form Edit lengkap), supaya menyimpan paket dari form Edit
+// TIDAK ikut menimpa balik status switch ini. Nyala (default) = tampil di
+// landing seperti sekarang; mati = hilang dari landing (private), tapi paket
+// yang sudah dipegang user (user_pakets) & akses materi/mentoring-nya tetap
+// jalan seperti biasa, dan admin tetap bisa assign paket ini manual ke user.
+async function onTogglePaketTampilLanding(kode, checked, el) {
+    const item = _paketData.find(p => (p.kode||p.id) === kode);
+    const prev = item ? item.tampil_landing : true;
+    if (item) item.tampil_landing = checked; // optimistic, dirapikan lagi kalau gagal
+    try {
+        await PaketAPI.setTampilLanding(kode, checked);
+        showToast(checked ? 'Paket ditampilkan lagi di landing page' : 'Paket disembunyikan dari landing page (private)', 'success');
+        _renderPaketCards();
+    } catch (e) {
+        if (item) item.tampil_landing = prev;
+        if (el) el.checked = prev !== false && prev !== 0;
+        showToast(e.message || 'Gagal mengubah status landing', 'danger');
+    }
 }
 
 // ── Form Tambah/Edit/Hapus Paket: lihat admin/paket-form.js ──

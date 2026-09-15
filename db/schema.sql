@@ -339,6 +339,15 @@ ALTER TABLE pakets ADD COLUMN IF NOT EXISTS mentoring_kuota_batal TEXT;
 -- Grup guru sekarang ditautkan ke MATERI (bukan paket lagi) — lihat catatan di
 -- guru_paket_grup di atas. Kolom lama paket_list dibiarkan apa adanya.
 ALTER TABLE guru_paket_grup ADD COLUMN IF NOT EXISTS materi_list TEXT;
+-- Switch "tampil di landing page" per paket (kartu paket di admin Keuangan,
+-- di samping tombol Edit — lihat admin/keuangan/keuangan.js). MURNI
+-- visibilitas publik (dibaca GET /api/pakets/public): mati = paket hilang
+-- dari landing page/layar Beli Paket (jadi "private"), TAPI fungsi sistemnya
+-- (akses materi/mentoring dst user yang sudah punya paket ini) tetap jalan
+-- seperti biasa, karena endpoint akses (materiPaketAktifUser dkk) tidak baca
+-- kolom ini sama sekali. Default 1 (nyala) supaya paket lama tetap tampil
+-- persis seperti sebelum kolom ini ada.
+ALTER TABLE pakets ADD COLUMN IF NOT EXISTS tampil_landing SMALLINT DEFAULT 1;
 
 CREATE TABLE IF NOT EXISTS landing (
     id   INTEGER PRIMARY KEY DEFAULT 1,
