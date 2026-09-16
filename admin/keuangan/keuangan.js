@@ -87,7 +87,7 @@ function _renderPaketCards() {
         const tampilLanding = p.tampil_landing !== false && p.tampil_landing !== 0;
         const privateBadge = !tampilLanding ? `<div style="margin-top:8px;font-size:10px;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.2);border-radius:8px;padding:4px 8px;display:flex;align-items:center;gap:5px;color:#dc2626">🔒 <span>Private — disembunyikan dari landing page</span></div>` : '';
         return `<div class="paket-card-admin ${p.popular ? 'popular' : ''}" style="animation:fadeUp 0.3s ${i * 0.06}s both;border-color:${p.popular ? accentColor : ''}">
-            ${p.popular ? `<span class="paket-badge-popular" style="background:linear-gradient(90deg,${accentColor},${accentColor}cc)">⭐ PALING POPULER</span>` : ''}
+            ${p.popular ? `<span class="paket-badge-popular" style="background:linear-gradient(90deg,${accentColor},${accentColor}cc)">⭐ ${p.popular}</span>` : ''}
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
                 ${iconHtml}
                 <div style="display:flex;align-items:center;gap:10px">

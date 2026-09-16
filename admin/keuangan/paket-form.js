@@ -105,15 +105,15 @@ function _pfUpdatePreview() {
     const iconHtml = _pfIconIsImageUrl(icon) ? `<img class="pkg-icon-img" src="${icon}" alt="">` : (icon ? _pfEscHtml(icon) + ' ' : '');
     const desc = document.getElementById('pf-desc')?.value.trim() || 'Deskripsi singkat paket akan tampil di sini.';
     const hargaRaw = parseInt(document.getElementById('pf-harga')?.value || '0') || 0;
-    const popular = !!document.getElementById('pf-popular')?.checked;
+    const popular = (document.getElementById('pf-popular')?.value || '').trim();
     const fiturRaw = document.getElementById('pf-fitur')?.value || '';
     const fitur = fiturRaw.split('\n').map(s => s.trim()).filter(Boolean);
     const priceText = hargaRaw > 0 ? ('Rp ' + hargaRaw.toLocaleString('id-ID')) : 'Hubungi Kami';
     const periodeText = hargaRaw > 0 ? _pfPreviewPeriodeText() : '';
 
-    card.classList.toggle('featured', popular);
+    card.classList.toggle('featured', !!popular);
     card.innerHTML = `
-      ${popular ? '<div class="pkg-badge">Paling Diminati</div>' : ''}
+      ${popular ? `<div class="pkg-badge">${_pfEscHtml(popular)}</div>` : ''}
       <div class="pkg-name serif">${iconHtml}${_pfEscHtml(nama)}</div>
       <p class="pkg-desc">${_pfEscHtml(desc)}</p>
       <div class="pkg-price"><b>${_pfEscHtml(priceText)}</b> <span>${_pfEscHtml(periodeText)}</span></div>
@@ -184,7 +184,7 @@ function _pfDraftSave() {
             desc: document.getElementById('pf-desc')?.value || '',
             fitur: document.getElementById('pf-fitur')?.value || '',
             warna: document.getElementById('pf-warna')?.value || 'blue',
-            popular: !!document.getElementById('pf-popular')?.checked,
+            popular: document.getElementById('pf-popular')?.value || '',
             linkLanding: document.getElementById('pf-link-landing')?.value || '',
             mentoringKuota: document.getElementById('pf-mentoring-kuota')?.value || '',
             mentoringKuotaBatal: document.getElementById('pf-mentoring-kuota-batal')?.value || '',
@@ -226,7 +226,7 @@ async function _tryRestorePaketDraft() {
     setVal('pf-desc', d.desc); setVal('pf-fitur', d.fitur); setVal('pf-warna', d.warna);
     setVal('pf-link-landing', d.linkLanding); setVal('pf-mentoring-kuota', d.mentoringKuota); setVal('pf-mentoring-kuota-batal', d.mentoringKuotaBatal);
     const ikEl = document.getElementById('pf-mentoring-izin-keluar'); if (ikEl) ikEl.checked = d.izinKeluar !== undefined ? !!d.izinKeluar : true;
-    const popEl = document.getElementById('pf-popular'); if (popEl) popEl.checked = !!d.popular;
+    const popEl = document.getElementById('pf-popular'); if (popEl) popEl.value = d.popular || '';
     if (d.periode) {
         const perEl = document.getElementById('pf-periode'); if (perEl) perEl.value = d.periode;
         if (d.periode === 'custom' && d.periodeCustomStart && d.periodeCustomEnd) {
@@ -462,7 +462,7 @@ async function openAddPaket() {
     document.getElementById('pf-desc').value = '';
     document.getElementById('pf-fitur').value = '';
     document.getElementById('pf-warna').value = 'blue';
-    document.getElementById('pf-popular').checked = false;
+    document.getElementById('pf-popular').value = '';
     var _dr = document.getElementById('pf-periode-daterange'); if(_dr) _dr.style.display = 'none';
     PaketCalState = null; // reset kalender, di-init ulang kalau user pilih Custom lagi
     document.querySelectorAll('input[name="pf-hak"]').forEach(cb=>cb.checked=true);
@@ -513,7 +513,7 @@ async function openEditPaket(kode) {
     document.getElementById('pf-desc').value = p.deskripsi || p.desc || '';
     document.getElementById('pf-fitur').value = Array.isArray(p.fitur) ? p.fitur.join('\n') : (p.fitur || '');
     document.getElementById('pf-warna').value = p.warna || 'blue';
-    document.getElementById('pf-popular').checked = !!p.popular;
+    document.getElementById('pf-popular').value = p.popular || '';
     const hakArr = Array.isArray(p.hak_akses) ? p.hak_akses : (p.hak_akses ? (() => { try { return JSON.parse(p.hak_akses); } catch(e) { return []; } })() : []);
     const aturanArr = Array.isArray(p.aturan_akses) ? p.aturan_akses : (p.aturan_akses ? (() => { try { return JSON.parse(p.aturan_akses); } catch(e) { return []; } })() : []);
     // Paket lama yang belum pernah disimpan lewat form "Hak Akses Paket" ini
@@ -581,7 +581,7 @@ async function submitPaket() {
         periode_hari,
         fitur: document.getElementById('pf-fitur').value.trim(),
         warna: document.getElementById('pf-warna').value,
-        popular: document.getElementById('pf-popular').checked,
+        popular: document.getElementById('pf-popular').value.trim() || null,
         status: 'aktif',
         link_landing: (document.getElementById('pf-link-landing')?.value || ''),
         hak_akses: JSON.stringify(hak_akses),

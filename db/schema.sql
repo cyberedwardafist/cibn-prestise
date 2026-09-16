@@ -7,9 +7,12 @@
 -- Perbedaan teknis dari versi SQLite (menyesuaikan dialek Postgres):
 --   • INTEGER PRIMARY KEY AUTOINCREMENT  -> SERIAL PRIMARY KEY
 --   • TEXT DEFAULT (datetime('now','localtime')) -> TIMESTAMP DEFAULT now()
---   • Kolom boolean 0/1 (popular, izinkan_review, digunakan) TETAP disimpan
---     sebagai SMALLINT (0/1) — bukan BOOLEAN — supaya perilaku JSON response
---     (angka 0/1) tetap identik dengan versi lama, tidak perlu ubah frontend.
+--   • Kolom boolean 0/1 (izinkan_review, digunakan) TETAP disimpan sebagai
+--     SMALLINT (0/1) — bukan BOOLEAN — supaya perilaku JSON response (angka
+--     0/1) tetap identik dengan versi lama, tidak perlu ubah frontend.
+--   • Kolom pakets.popular BUKAN lagi SMALLINT boolean — sekarang TEXT bebas
+--     (isi = teks badge yang ditampilkan, kosong/NULL = tidak ada badge).
+--     Lihat blok migrasi DO $$ ... $$ tepat di bawah CREATE TABLE pakets.
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 -- Penghitung nomor urut ATOMIK per tabel, dipakai genKode() di server.js.
@@ -65,7 +68,7 @@ CREATE TABLE IF NOT EXISTS pakets (
     link_landing  TEXT,
     warna         TEXT DEFAULT 'blue',
     icon          TEXT DEFAULT '📦',
-    popular       SMALLINT DEFAULT 0,
+    popular       TEXT,
     periode       TEXT DEFAULT '/bulan',
     hak_akses     TEXT,
     aturan_akses  TEXT,
@@ -75,6 +78,24 @@ CREATE TABLE IF NOT EXISTS pakets (
     mentoring_kuota TEXT,
     mentoring_kuota_batal TEXT
 );
+-- popular: dulu SMALLINT 0/1 (cuma nyala/mati badge "PALING POPULER" baku),
+-- sekarang TEXT bebas — isinya LANGSUNG jadi teks badge yang ditampilkan
+-- (mis. "Paling Populer", "Hemat", "Rekomendasi"), kosong/NULL = tidak ada
+-- badge. Blok di bawah migrasi instalasi LAMA yang kolomnya masih SMALLINT:
+-- baris bernilai 1 dikonversi jadi teks default "Paling Populer" (supaya
+-- badge yang sebelumnya nyala tidak tiba-tiba hilang), baris bernilai 0/NULL
+-- jadi NULL. Aman dijalankan berkali-kali — begitu tipenya sudah TEXT, blok
+-- ini tidak melakukan apa-apa lagi.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'pakets' AND column_name = 'popular' AND data_type <> 'text'
+    ) THEN
+        ALTER TABLE pakets ALTER COLUMN popular DROP DEFAULT;
+        ALTER TABLE pakets ALTER COLUMN popular TYPE TEXT USING (CASE WHEN popular = 1 THEN 'Paling Populer' ELSE NULL END);
+    END IF;
+END $$;
 -- izin_keluar: switch "IZIN KELUAR" di Hak Akses Paket (kartu Mentoring &
 -- Konsultasi, admin/keuangan/paket-form.html) — DEFAULT NYALA (1). Dipakai
 -- SATU-SATUNYA sejauh ini oleh token yang digenerate OTOMATIS lewat

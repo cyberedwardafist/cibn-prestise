@@ -293,10 +293,9 @@
               </div>
               <div style="font-size:10px;color:var(--pf-text-dim);margin-top:-6px;margin-bottom:14px;line-height:1.5">Catatan: warna aksen ini tersimpan di data paket, tapi tampilan kartu paket publik saat ini belum membedakan warna per-paket (lihat pratinjau di kanan).</div>
             </div>
-            <div class="pf-popular-row">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--pf-blue)">
-                <input type="checkbox" id="pf-popular" style="width:18px;height:18px;accent-color:var(--pf-blue)" onchange="setDirty('paket');_pfUpdatePreview()"> ⭐ Tandai sebagai Paling Populer
-              </label>
+            <div class="pf-popular-row" style="flex-direction:column;align-items:stretch;gap:6px">
+              <label class="form-label" for="pf-popular" style="color:var(--pf-blue);margin:0">⭐ Label Badge (opsional)</label>
+              <input type="text" id="pf-popular" class="form-input" maxlength="30" placeholder="Contoh: Paling Populer, Hemat, Rekomendasi — kosongkan jika tidak perlu badge" oninput="setDirty('paket');_pfUpdatePreview()">
             </div>
           </div>
 

@@ -723,7 +723,7 @@ function mapPaketRow(p) {
   return {
     id: p.kode,
     name: p.nama,
-    tag: p.popular ? 'Paling Diminati' : '',
+    tag: p.popular || '',
     price: hasHarga ? ('Rp ' + Number(p.harga).toLocaleString('id-ID')) : 'Hubungi Kami',
     period: hasHarga ? (p.periode || ('/' + (p.periode_tipe || 'bulan'))) : '',
     desc: p.deskripsi || '',
