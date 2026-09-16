@@ -106,6 +106,9 @@ function _pfUpdatePreview() {
     const desc = document.getElementById('pf-desc')?.value.trim() || 'Deskripsi singkat paket akan tampil di sini.';
     const hargaRaw = parseInt(document.getElementById('pf-harga')?.value || '0') || 0;
     const popular = (document.getElementById('pf-popular')?.value || '').trim();
+    const warnaColorMap = { gold: '#b8860b', green: '#16a34a', purple: '#7c3aed', blue: '#2c5aa0' };
+    const warna = document.getElementById('pf-warna')?.value || 'blue';
+    card.style.setProperty('--accent', warnaColorMap[warna] || warnaColorMap.blue);
     const fiturRaw = document.getElementById('pf-fitur')?.value || '';
     const fitur = fiturRaw.split('\n').map(s => s.trim()).filter(Boolean);
     const priceText = hargaRaw > 0 ? ('Rp ' + hargaRaw.toLocaleString('id-ID')) : 'Hubungi Kami';
@@ -127,6 +130,7 @@ function _pfSetWarna(w) {
     if (sel) sel.value = w;
     _pfSyncWarnaSwatch();
     setDirty('paket');
+    _pfUpdatePreview();
 }
 function _pfSyncWarnaSwatch() {
     const val = document.getElementById('pf-warna')?.value || 'blue';

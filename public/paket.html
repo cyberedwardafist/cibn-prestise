@@ -377,9 +377,9 @@ input{font-family:inherit}
   position:relative;padding:36px 30px;cursor:pointer;
   display:flex;flex-direction:column;
 }
-.pkg-card.featured{border-color:var(--glass-border-hover)}
+.pkg-card.featured{border-color:var(--accent, var(--glass-border-hover))}
 .pkg-badge{
-  position:absolute;top:-13px;right:28px;background:var(--blue);color:var(--white);
+  position:absolute;top:-13px;right:28px;background:var(--accent, var(--blue));color:var(--white);
   font-size:10px;font-weight:800;letter-spacing:.1em;padding:6px 14px;border-radius:999px;
   transform:translateZ(30px);
 }
@@ -388,7 +388,7 @@ input{font-family:inherit}
 .pkg-icon-emoji{font-size:22px;line-height:1;flex-shrink:0}
 .pkg-desc{font-size:13px;color:var(--text-dim);margin-top:8px;transform:translateZ(18px);min-height:38px}
 .pkg-price{margin-top:22px;transform:translateZ(24px)}
-.pkg-price b{font-family:'Space Grotesk',sans-serif;font-size:32px;color:var(--blue)}
+.pkg-price b{font-family:'Space Grotesk',sans-serif;font-size:32px;color:var(--accent, var(--blue))}
 .pkg-price span{font-size:12px;color:var(--text-dim)}
 .pkg-features{margin-top:22px;flex:1;transform:translateZ(14px)}
 .pkg-features li{
@@ -692,6 +692,7 @@ input{font-family:inherit}
 // Paket diambil dari data ASLI (/api/pakets/public — tabel `pakets` di database,
 // dikelola admin lewat menu Keuangan). Tidak ada lagi data statis di sini.
 let PACKAGES = [];
+const PKG_COLOR_MAP = { gold: '#b8860b', green: '#16a34a', purple: '#7c3aed', blue: '#2c5aa0' };
 function mapPaketRow(p) {
   const hasHarga = p.harga && Number(p.harga) > 0;
   return {
@@ -703,6 +704,7 @@ function mapPaketRow(p) {
     desc: p.deskripsi || '',
     features: Array.isArray(p.fitur) ? p.fitur : [],
     featured: !!p.popular,
+    color: PKG_COLOR_MAP[p.warna] || PKG_COLOR_MAP.blue,
     icon: p.icon || ''
   };
 }
@@ -1014,7 +1016,7 @@ if (footerSpot) {
 
   function pkgCardHTML(p) {
     return `
-      <div class="pkg-card tilt-card filter-item ${p.featured ? 'featured' : ''}">
+      <div class="pkg-card tilt-card filter-item ${p.featured ? 'featured' : ''}" style="--accent:${p.color}">
         ${p.featured ? '<div class="pkg-badge">' + p.tag + '</div>' : ''}
         <div class="pkg-name serif">${pkgIconHtml(p)}${p.name}</div>
         <p class="pkg-desc">${p.desc}</p>

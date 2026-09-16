@@ -112,16 +112,16 @@
   transition: border-color .3s, background .3s;
   min-height: 260px;
 }
-.pf-pkg-card.featured { border-color: rgba(44,90,160,0.42); }
+.pf-pkg-card.featured { border-color: var(--accent, rgba(44,90,160,0.42)); }
 .pf-pkg-card .pkg-badge {
-  position:absolute; top:-13px; right:20px; background:var(--pf-blue); color:#fff;
+  position:absolute; top:-13px; right:20px; background:var(--accent, var(--pf-blue)); color:#fff;
   font-size:10px; font-weight:800; letter-spacing:.1em; padding:6px 14px; border-radius:999px;
 }
 .pf-pkg-card .pkg-name { font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:600; color:var(--pf-text); display:flex; align-items:center; gap:9px; }
 .pf-pkg-card .pkg-icon-img { width:28px; height:28px; border-radius:8px; object-fit:cover; flex-shrink:0; }
 .pf-pkg-card .pkg-desc { font-size:12.5px; color:var(--pf-text-dim); margin-top:8px; min-height:34px; line-height:1.6; }
 .pf-pkg-card .pkg-price { margin-top:18px; }
-.pf-pkg-card .pkg-price b { font-family:'Space Grotesk',sans-serif; font-size:25px; color:var(--pf-blue); }
+.pf-pkg-card .pkg-price b { font-family:'Space Grotesk',sans-serif; font-size:25px; color:var(--accent, var(--pf-blue)); }
 .pf-pkg-card .pkg-price span { font-size:11px; color:var(--pf-text-dim); }
 .pf-pkg-card .pkg-features { margin-top:18px; flex:1; }
 .pf-pkg-card .pkg-features li { font-size:12.5px; color:var(--pf-text-dim); padding:7px 0; border-top:1px solid rgba(21,34,56,.08); display:flex; gap:9px; align-items:flex-start; }
@@ -291,7 +291,7 @@
                 <button type="button" class="pf-warna-dot" data-w="green" title="Hijau" onclick="_pfSetWarna('green')"></button>
                 <button type="button" class="pf-warna-dot" data-w="purple" title="Ungu" onclick="_pfSetWarna('purple')"></button>
               </div>
-              <div style="font-size:10px;color:var(--pf-text-dim);margin-top:-6px;margin-bottom:14px;line-height:1.5">Catatan: warna aksen ini tersimpan di data paket, tapi tampilan kartu paket publik saat ini belum membedakan warna per-paket (lihat pratinjau di kanan).</div>
+              <div style="font-size:10px;color:var(--pf-text-dim);margin-top:-6px;margin-bottom:14px;line-height:1.5">Warna aksen ini dipakai di badge/harga kartu paket — baik di pratinjau kanan, halaman publik, maupun tampilan Keuangan.</div>
             </div>
             <div class="pf-popular-row" style="flex-direction:column;align-items:stretch;gap:6px">
               <label class="form-label" for="pf-popular" style="color:var(--pf-blue);margin:0">⭐ Label Badge (opsional)</label>

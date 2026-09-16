@@ -377,16 +377,16 @@ input{font-family:inherit}
   position:relative;padding:36px 30px;cursor:pointer;
   display:flex;flex-direction:column;
 }
-.pkg-card.featured{border-color:var(--glass-border-hover)}
+.pkg-card.featured{border-color:var(--accent, var(--glass-border-hover))}
 .pkg-badge{
-  position:absolute;top:-13px;right:28px;background:var(--blue);color:var(--white);
+  position:absolute;top:-13px;right:28px;background:var(--accent, var(--blue));color:var(--white);
   font-size:10px;font-weight:800;letter-spacing:.1em;padding:6px 14px;border-radius:999px;
   transform:translateZ(30px);
 }
 .pkg-name{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;transform:translateZ(24px);color:var(--text)}
 .pkg-desc{font-size:13px;color:var(--text-dim);margin-top:8px;transform:translateZ(18px);min-height:38px}
 .pkg-price{margin-top:22px;transform:translateZ(24px)}
-.pkg-price b{font-family:'Space Grotesk',sans-serif;font-size:32px;color:var(--blue)}
+.pkg-price b{font-family:'Space Grotesk',sans-serif;font-size:32px;color:var(--accent, var(--blue))}
 .pkg-price span{font-size:12px;color:var(--text-dim)}
 .pkg-features{margin-top:22px;flex:1;transform:translateZ(14px)}
 .pkg-features li{
@@ -592,7 +592,7 @@ input{font-family:inherit}
 
 .info-side{position:sticky;top:110px;padding:36px 32px 32px}
 .info-price-tag{margin-bottom:6px}
-.info-price-tag b{font-family:'Space Grotesk',sans-serif;font-size:38px;color:var(--blue)}
+.info-price-tag b{font-family:'Space Grotesk',sans-serif;font-size:38px;color:var(--accent, var(--blue))}
 .info-price-tag span{font-size:13px;color:var(--text-dim)}
 .info-side-note{font-size:13px;color:var(--text-dim);margin:16px 0 24px;line-height:1.7}
 .info-side .btn{margin-bottom:12px}
@@ -718,6 +718,7 @@ input{font-family:inherit}
 // Paket diambil dari data ASLI (/api/pakets/public — tabel `pakets` di database,
 // dikelola admin lewat menu Keuangan). Tidak ada lagi data statis di sini.
 let PACKAGES = [];
+const PKG_COLOR_MAP = { gold: '#b8860b', green: '#16a34a', purple: '#7c3aed', blue: '#2c5aa0' };
 function mapPaketRow(p) {
   const hasHarga = p.harga && Number(p.harga) > 0;
   return {
@@ -729,6 +730,7 @@ function mapPaketRow(p) {
     desc: p.deskripsi || '',
     features: Array.isArray(p.fitur) ? p.fitur : [],
     featured: !!p.popular,
+    color: PKG_COLOR_MAP[p.warna] || PKG_COLOR_MAP.blue,
     icon: p.icon || ''
   };
 }
@@ -1058,7 +1060,7 @@ if (footerSpot) {
   function renderInfo(p) {
     document.title = `${p.name} — Info Paket — CIBN PRESTISE`;
     infoGrid.innerHTML = `
-      <div class="info-main glass reveal">
+      <div class="info-main glass reveal" style="--accent:${p.color}">
         ${p.featured ? '<div class="pkg-badge">' + p.tag + '</div>' : ''}
         <h1 class="info-name">${pkgIconHtml(p)}${p.name}</h1>
         <p class="info-desc">${p.desc}</p>
