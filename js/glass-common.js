@@ -139,7 +139,7 @@ window.initCibnCanvas = function (customText) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   let W, H, particles = [], mouse = { x: -999, y: -999 };
-  const TEXT = customText || document.querySelector('.nav-logo')?.textContent?.trim() || 'CIBN PRESTISE';
+  const TEXT = customText || document.querySelector('.nav-logo')?.textContent?.trim() || 'CIBN Akademi';
   const DENSITY = 4;
   if (window._cibnAnimFrame) cancelAnimationFrame(window._cibnAnimFrame);
 
