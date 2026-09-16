@@ -188,6 +188,7 @@ function _pfDraftSave() {
             linkLanding: document.getElementById('pf-link-landing')?.value || '',
             mentoringKuota: document.getElementById('pf-mentoring-kuota')?.value || '',
             mentoringKuotaBatal: document.getElementById('pf-mentoring-kuota-batal')?.value || '',
+            izinKeluar: !!document.getElementById('pf-mentoring-izin-keluar')?.checked,
             hak: [...document.querySelectorAll('input[name="pf-hak"]:checked')].map(cb => cb.value),
             aturan: [...document.querySelectorAll('input[name="pf-aturan"]:checked')].map(cb => cb.value)
         };
@@ -224,6 +225,7 @@ async function _tryRestorePaketDraft() {
     _pfIconLiveUrl = null; _pfRenderIconPreview();
     setVal('pf-desc', d.desc); setVal('pf-fitur', d.fitur); setVal('pf-warna', d.warna);
     setVal('pf-link-landing', d.linkLanding); setVal('pf-mentoring-kuota', d.mentoringKuota); setVal('pf-mentoring-kuota-batal', d.mentoringKuotaBatal);
+    const ikEl = document.getElementById('pf-mentoring-izin-keluar'); if (ikEl) ikEl.checked = d.izinKeluar !== undefined ? !!d.izinKeluar : true;
     const popEl = document.getElementById('pf-popular'); if (popEl) popEl.checked = !!d.popular;
     if (d.periode) {
         const perEl = document.getElementById('pf-periode'); if (perEl) perEl.value = d.periode;
@@ -469,6 +471,7 @@ async function openAddPaket() {
     // klik-buka lagi — lihat admin/keuangan/paket-form.html), jadi tidak perlu di-reset
     // ke display:none / transform chevron di sini seperti sebelumnya.
     _pfSyncHakContentWraps(['ujian','laporan','modul','mentoring']);
+    var ik=document.getElementById('pf-mentoring-izin-keluar');if(ik)ik.checked=true; // paket baru: default nyala
     var mk=document.getElementById('pf-mentoring-kuota');if(mk)mk.value='';
     var mkb=document.getElementById('pf-mentoring-kuota-batal');if(mkb)mkb.value='';
     await Promise.all([_pfLoadModulPicker([]), _pfLoadMentoringPicker([])]);
@@ -527,6 +530,12 @@ async function openEditPaket(kode) {
     // klik-buka lagi — lihat admin/keuangan/paket-form.html), jadi tidak perlu di-reset
     // ke display:none / transform chevron di sini seperti sebelumnya.
     _pfSyncHakContentWraps(hakArr);
+    // izin_keluar: kolom dedicated (bukan lewat aturan_akses) — lihat catatan
+    // panjang di db/schema.sql & izinKeluarUntukMateriUser di server.js.
+    // p.izin_keluar !== false && !== 0 supaya paket lama (kolom belum pernah
+    // disimpan lewat form ini, tapi DEFAULT 1 di DB sudah ngisi otomatis)
+    // tetap kebaca "nyala" apa adanya dari server, bukan diinterpretasi ulang di sini.
+    var ik=document.getElementById('pf-mentoring-izin-keluar');if(ik)ik.checked=(p.izin_keluar!==false && p.izin_keluar!==0);
     var mk=document.getElementById('pf-mentoring-kuota');if(mk)mk.value=p.mentoring_kuota||'';
     var mkb=document.getElementById('pf-mentoring-kuota-batal');if(mkb)mkb.value=p.mentoring_kuota_batal||'';
     await Promise.all([_pfLoadModulPicker(aturanArr.filter(v => v.startsWith('modul.item.'))), _pfLoadMentoringPicker(aturanArr.filter(v => v.startsWith('mentoring.')))]);
@@ -577,6 +586,7 @@ async function submitPaket() {
         link_landing: (document.getElementById('pf-link-landing')?.value || ''),
         hak_akses: JSON.stringify(hak_akses),
         aturan_akses: JSON.stringify(aturan_akses),
+        izin_keluar: !!document.getElementById('pf-mentoring-izin-keluar')?.checked,
         mentoring_kuota: document.getElementById('pf-mentoring-kuota')?.value || '',
         mentoring_kuota_batal: document.getElementById('pf-mentoring-kuota-batal')?.value || ''
     };

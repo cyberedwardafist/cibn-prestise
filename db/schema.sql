@@ -75,6 +75,21 @@ CREATE TABLE IF NOT EXISTS pakets (
     mentoring_kuota TEXT,
     mentoring_kuota_batal TEXT
 );
+-- izin_keluar: switch "IZIN KELUAR" di Hak Akses Paket (kartu Mentoring &
+-- Konsultasi, admin/keuangan/paket-form.html) — DEFAULT NYALA (1). Dipakai
+-- SATU-SATUNYA sejauh ini oleh token yang digenerate OTOMATIS lewat
+-- pengajuan jadwal mentoring (lihat generateTokenUntukJadwal &
+-- izinKeluarUntukMateriUser di server.js): kalau nyala -> token yang
+-- dibuat dapat batas_keluar NULL (perlindungan keluar dimatikan, sama
+-- seperti switch "Batas Keluar Ujian" DIMATIKAN di admin > Buat Token).
+-- Kalau dimatikan -> token dapat batas_keluar=3 (sama seperti default
+-- angka switch "Batas Keluar Ujian" itu kalau DINYALAKAN di admin > Buat
+-- Token, lihat token-batas-keluar-jumlah di admin/cat/token.html/js).
+-- DEFAULT 1 di kolom ini otomatis berlaku juga utk paket LAMA yang sudah
+-- ada sebelum kolom ini dibuat (Postgres ngisi nilai default itu ke baris
+-- yang sudah ada), jadi tetap konsisten "defaultnya nyala" tanpa perlu
+-- migrasi data manual. Untuk instalasi lama — aman dijalankan berkali-kali.
+ALTER TABLE pakets ADD COLUMN IF NOT EXISTS izin_keluar SMALLINT DEFAULT 1;
 
 CREATE TABLE IF NOT EXISTS user_pakets (
     id           SERIAL PRIMARY KEY,

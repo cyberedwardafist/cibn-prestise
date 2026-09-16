@@ -606,6 +606,25 @@ function _jdwTentorAllowsMateri(tentorId, materiId) {
     if (!t) return true;
     return t.materi.includes(materiId);
 }
+// Cek apakah jatah token modul materi ini SUDAH mentok utk user yang lagi
+// login — PERSIS logic yang sama dgn pengecekan server (lihat
+// hitungMateriDipilihUser/materiModulList di POST /api/jadwal-sesi,
+// server.js), dihitung di sini dari cache JadwalStore (bukan fetch baru)
+// biar grid "Pilih Materi" bisa langsung ngunci + ngabu-abukan chip-nya
+// TANPA nunggu ditolak 409 dulu waktu submit. m.modulCount (dari
+// GET /api/jadwal-meta) = 0 berarti materi itu belum disusun modulnya sama
+// sekali -> server juga skip logic token sepenuhnya, jadi TIDAK ada batas.
+// editingId sengaja dikecualikan dari hitungan (sama seperti excludeKode di
+// server) supaya membuka form Edit utk entri materi itu sendiri tidak
+// dianggap "menambah" hitungan dari dirinya sendiri.
+function _jdwMateriJatahHabis(materiId) {
+    const m = JDW_MATERI.find(x => x.id === materiId);
+    if (!m || !m.modulCount) return false;
+    const sudahDipilih = JadwalStore.all().filter(e =>
+        e.materiId === materiId && e.id !== JadwalPage.editingId && !JDW_STATUS_SLOT_KOSONG.includes(e.status)
+    ).length;
+    return sudahDipilih >= m.modulCount;
+}
 // Sama seperti _jdwTentorAllowsMateri tapi buat jam (JDW_SLOTS) -> dipakai
 // buat ngunci chip jam yang bukan available buat tentor yang lagi kepilih.
 function _jdwTentorAllowsSlot(tentorId, slotId) {
@@ -904,6 +923,14 @@ function _jdwEntryGmeetLink(e) {
     return `https://meet.google.com/${_jdwPseudoCode(e.id + '-meet', 'xxx-xxxx-xxx').toLowerCase()}`;
 }
 function _jdwEntryToken(e) {
+    // token_kode: kode token ASLI hasil generate otomatis server (lihat
+    // generateTokenUntukJadwal di server.js, dipicu tiap pengajuan jadwal utk
+    // materi yang modulnya sudah tersusun urut) — dipakai kalau ada, supaya
+    // token yang ditampilkan di overlay "Sesi Berlangsung" beneran valid buat
+    // dipakai murid, bukan lagi cuma kode dummy. Fallback pseudo-code di
+    // bawah cuma buat entri lama/materi yang belum punya modul tersusun
+    // (materi.modul_list kosong -> server sengaja skip generate token).
+    if (e.token_kode) return e.token_kode;
     if (e.token) return e.token;
     return _jdwPseudoCode(e.id + '-token', 'xxxxxx');
 }
@@ -2124,12 +2151,14 @@ const JadwalPage = {
         if (!grid) return;
         grid.innerHTML = JDW_MATERI.map(m => {
             const selected = this.pickedMateri === m.id;
-            const allowed = _jdwTentorAllowsMateri(this.pickedTentor, m.id);
-            return `<div class="jdw-materi-chip${selected ? ' selected' : ''}${!allowed ? ' disabled' : ''}" ${allowed ? `onclick="JadwalPage.pickMateri('${m.id}')"` : ''}>${m.label}</div>`;
+            const habis = _jdwMateriJatahHabis(m.id);
+            const allowed = _jdwTentorAllowsMateri(this.pickedTentor, m.id) && !habis;
+            const titleAttr = habis ? ` title="Jatah token materi ini sudah habis (maks ${m.modulCount}x dipilih)"` : '';
+            return `<div class="jdw-materi-chip${selected ? ' selected' : ''}${!allowed ? ' disabled' : ''}"${titleAttr} ${allowed ? `onclick="JadwalPage.pickMateri('${m.id}')"` : ''}>${m.label}</div>`;
         }).join('');
     },
     pickMateri(id) {
-        if (!_jdwTentorAllowsMateri(this.pickedTentor, id)) return; // jaga-jaga, harusnya sudah tidak punya onclick
+        if (!_jdwTentorAllowsMateri(this.pickedTentor, id) || _jdwMateriJatahHabis(id)) return; // jaga-jaga, harusnya sudah tidak punya onclick
         this.pickedMateri = id;
         this._renderMateriGrid();
         this._refreshSubmitBtn();

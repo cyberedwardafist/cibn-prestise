@@ -502,6 +502,38 @@ async function materiPaketAktifUser(user_kode) {
     return set;
 }
 
+// Switch "IZIN KELUAR" di Hak Akses Paket (kartu Mentoring & Konsultasi,
+// admin/keuangan/paket-form.html, kolom pakets.izin_keluar — lihat catatan
+// panjang di db/schema.sql) — dicek dari paket AKTIF user yang MEMBAWA materi
+// yang lagi dipilih (mentoring.materi.<kode> di aturan_akses, sama sumbernya
+// dgn materiPaketAktifUser di atas), dipakai SATU-SATUNYA sejauh ini oleh
+// token yang digenerate otomatis lewat pengajuan jadwal (lihat
+// generateTokenUntukJadwal & POST /api/jadwal-sesi di bawah).
+// Kalau user numpuk >1 paket aktif yang SAMA-SAMA membawa materi itu dgn
+// nilai izin_keluar BEDA -> dipilih yang PALING KETAT (false menang), beda
+// dari materiPaketAktifUser/hitungMentoringKuotaUser yang union/jumlah —
+// alasannya field ini soal pembatasan anti-keluar ujian, jadi kalau ADA
+// salah satu paket yang bilang "jangan diizinkan keluar", itu yang dipakai
+// (lebih aman drpd diam-diam kebobolan gara-gara paket lain yg lebih longgar).
+// Tidak ada paket aktif yang membawa materi itu sama sekali -> default TRUE
+// (izinkan keluar / tidak dibatasi), konsisten dgn default kolomnya di DB.
+async function izinKeluarUntukMateriUser(user_kode, materiId) {
+    const rows = await db.prepare(
+        `SELECT p.aturan_akses, p.izin_keluar FROM user_pakets up JOIN pakets p ON up.paket_kode = p.kode WHERE up.user_kode=? AND up.status='aktif' AND up.akhir::date >= CURRENT_DATE`
+    ).all(user_kode);
+    let ketemu = false, izin = true;
+    for (const r of rows) {
+        if (!r.aturan_akses) continue;
+        let arr = [];
+        try { arr = JSON.parse(r.aturan_akses); } catch (e) { continue; }
+        if (!arr.includes(`mentoring.materi.${materiId}`)) continue;
+        ketemu = true;
+        const izinPaketIni = r.izin_keluar !== false && r.izin_keluar !== 0;
+        if (!izinPaketIni) izin = false; // paling ketat menang
+    }
+    return ketemu ? izin : true;
+}
+
 // ── PERHITUNGAN SKOR UJIAN ───────────────────────────────────────────────────
 function stripKunci(node) {
     if (Array.isArray(node)) return node.map(stripKunci);
@@ -1821,6 +1853,7 @@ app.get('/api/pakets', auth(['admin']), ah(async (req, res) => {
     rows.forEach(r => {
         r.fitur = parseFiturFromDb(r.fitur);
         r.popular = !!r.popular;
+        r.izin_keluar = r.izin_keluar !== false && r.izin_keluar !== 0; // default TRUE (kolom baru, DEFAULT 1 di DB)
         r.tampil_landing = r.tampil_landing !== false && r.tampil_landing !== 0; // default TRUE (paket lama)
         if (r.hak_akses) try { r.hak_akses = JSON.parse(r.hak_akses); } catch(e) { r.hak_akses = []; }
         if (r.aturan_akses) try { r.aturan_akses = JSON.parse(r.aturan_akses); } catch(e) { r.aturan_akses = []; }
@@ -1845,6 +1878,7 @@ app.get('/api/pakets/:kode', auth(['admin']), ah(async (req, res) => {
     const p = await db.prepare('SELECT * FROM pakets WHERE kode=?').get(req.params.kode);
     if (!p) return res.status(404).json({ error: 'Tidak ditemukan' });
     p.fitur = parseFiturFromDb(p.fitur);
+    p.izin_keluar = p.izin_keluar !== false && p.izin_keluar !== 0;
     p.tampil_landing = p.tampil_landing !== false && p.tampil_landing !== 0;
     res.json(p);
 }));
@@ -1858,24 +1892,24 @@ app.put('/api/pakets/:kode/tampil-landing', auth(['admin']), ah(async (req, res)
     res.json({ message: 'Berhasil' });
 }));
 app.post('/api/pakets', auth(['admin']), ah(async (req, res) => {
-    const { nama, deskripsi, periode_tipe, periode_hari, harga, fitur, status, link_landing, warna, icon, popular, periode, hak_akses, aturan_akses, maks_ujian, durasi_hari, hak_notes, mentoring_kuota, mentoring_kuota_batal } = req.body;
+    const { nama, deskripsi, periode_tipe, periode_hari, harga, fitur, status, link_landing, warna, icon, popular, periode, hak_akses, aturan_akses, maks_ujian, durasi_hari, hak_notes, mentoring_kuota, mentoring_kuota_batal, izin_keluar } = req.body;
     const kode = await genKode('PKT', 'pakets');
     try {
-        await db.prepare(`INSERT INTO pakets (kode,nama,deskripsi,periode_tipe,periode_hari,harga,fitur,status,link_landing,warna,icon,popular,periode,hak_akses,aturan_akses,maks_ujian,durasi_hari,hak_notes,mentoring_kuota,mentoring_kuota_batal) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-            .run(kode, nama, deskripsi || null, periode_tipe || 'bulan', periode_hari || 30, harga || 0, normalizeFiturForDb(fitur), status || 'aktif', link_landing || null, warna || 'blue', icon || null, popular ? 1 : 0, periode || '/bulan', hak_akses || null, aturan_akses || null, maks_ujian || null, durasi_hari || null, hak_notes || null, mentoring_kuota || null, mentoring_kuota_batal || null);
+        await db.prepare(`INSERT INTO pakets (kode,nama,deskripsi,periode_tipe,periode_hari,harga,fitur,status,link_landing,warna,icon,popular,periode,hak_akses,aturan_akses,maks_ujian,durasi_hari,hak_notes,mentoring_kuota,mentoring_kuota_batal,izin_keluar) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+            .run(kode, nama, deskripsi || null, periode_tipe || 'bulan', periode_hari || 30, harga || 0, normalizeFiturForDb(fitur), status || 'aktif', link_landing || null, warna || 'blue', icon || null, popular ? 1 : 0, periode || '/bulan', hak_akses || null, aturan_akses || null, maks_ujian || null, durasi_hari || null, hak_notes || null, mentoring_kuota || null, mentoring_kuota_batal || null, izin_keluar === false ? 0 : 1);
         res.json({ kode, message: 'Berhasil' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 }));
 app.put('/api/pakets/:kode', auth(['admin']), ah(async (req, res) => {
-    const { nama, deskripsi, periode_tipe, periode_hari, harga, fitur, status, link_landing, warna, icon, popular, periode, hak_akses, aturan_akses, maks_ujian, durasi_hari, hak_notes, mentoring_kuota, mentoring_kuota_batal } = req.body;
+    const { nama, deskripsi, periode_tipe, periode_hari, harga, fitur, status, link_landing, warna, icon, popular, periode, hak_akses, aturan_akses, maks_ujian, durasi_hari, hak_notes, mentoring_kuota, mentoring_kuota_batal, izin_keluar } = req.body;
     // Ikon sekarang gambar (URL Supabase Storage) alih-alih emoji — kalau
     // ikonnya berubah & yang lama memang URL upload (bukan emoji lawas), hapus
     // file lama dari storage supaya tidak menumpuk jadi file yatim.
     const old = await db.prepare('SELECT icon FROM pakets WHERE kode=?').get(req.params.kode);
     const newIcon = icon || null;
     if (old && old.icon && old.icon !== newIcon) deleteUploadedFileByUrl(old.icon).catch(() => {});
-    await db.prepare(`UPDATE pakets SET nama=?,deskripsi=?,periode_tipe=?,periode_hari=?,harga=?,fitur=?,status=?,link_landing=?,warna=?,icon=?,popular=?,periode=?,hak_akses=?,aturan_akses=?,maks_ujian=?,durasi_hari=?,hak_notes=?,mentoring_kuota=?,mentoring_kuota_batal=? WHERE kode=?`)
-        .run(nama, deskripsi || null, periode_tipe || 'bulan', periode_hari || 30, harga || 0, normalizeFiturForDb(fitur), status || 'aktif', link_landing || null, warna || 'blue', newIcon, popular ? 1 : 0, periode || '/bulan', hak_akses || null, aturan_akses || null, maks_ujian || null, durasi_hari || null, hak_notes || null, mentoring_kuota || null, mentoring_kuota_batal || null, req.params.kode);
+    await db.prepare(`UPDATE pakets SET nama=?,deskripsi=?,periode_tipe=?,periode_hari=?,harga=?,fitur=?,status=?,link_landing=?,warna=?,icon=?,popular=?,periode=?,hak_akses=?,aturan_akses=?,maks_ujian=?,durasi_hari=?,hak_notes=?,mentoring_kuota=?,mentoring_kuota_batal=?,izin_keluar=? WHERE kode=?`)
+        .run(nama, deskripsi || null, periode_tipe || 'bulan', periode_hari || 30, harga || 0, normalizeFiturForDb(fitur), status || 'aktif', link_landing || null, warna || 'blue', newIcon, popular ? 1 : 0, periode || '/bulan', hak_akses || null, aturan_akses || null, maks_ujian || null, durasi_hari || null, hak_notes || null, mentoring_kuota || null, mentoring_kuota_batal || null, izin_keluar === false ? 0 : 1, req.params.kode);
     res.json({ message: 'Berhasil' });
 }));
 app.delete('/api/pakets/:kode', auth(['admin']), ah(async (req, res) => {
@@ -2904,6 +2938,70 @@ async function materiNamaByKode(kode) {
     const row = await db.prepare('SELECT nama FROM materi WHERE kode=?').get(kode);
     return row ? row.nama : null;
 }
+
+// ── Token otomatis per urutan modul, dipicu tiap kali murid mengajukan
+// jadwal (POST /api/jadwal-sesi) utk materi yang modulnya sudah disusun
+// urut lewat Management > Materi (kolom materi.modul_list). Aturannya:
+// tiap kali murid memilih materi yang SAMA lewat pengajuan jadwal, dibuatkan
+// 1 token baru utk modul ke-N (N = keberapa kali materi ini sudah dipilih
+// murid itu, dihitung dari 1) di urutan modul_list materi tsb — jadi pilihan
+// PERTAMA dapat token modul ke-1, pilihan KEDUA dapat token modul ke-2, dst.
+// Kalau materi itu isinya cuma 3 modul, materi tsb otomatis MENTOK cuma bisa
+// dipilih 3x oleh 1 murid yang sama (lihat pengecekan `sudahDipilih >=
+// modulList.length` di POST /api/jadwal-sesi) — pilihan ke-4 & seterusnya
+// ditolak krn jatah modulnya sudah habis. Token yang dihasilkan LANGSUNG
+// dimiliki (digunakan_oleh) murid yang mengajukan, kode-nya disimpan di
+// jadwal_sesi.meta.token_kode supaya bisa ditampilkan di kartu jadwalnya.
+//
+// "Sudah dipilih" dihitung dari jadwal_sesi yang masih AKTIF saja (status
+// BUKAN salah satu JDW_STATUS_SLOT_KOSONG, sama persis definisi "slot
+// kosong lagi" yang sudah dipakai di jdwSlotBentrok) — jadi kalau sebuah
+// pengajuan untuk materi itu dibatalkan/ditolak, jatah modul yang belum
+// sempat kepakai itu KEMBALI terbuka utk dipilih lagi, bukan hangus
+// permanen. Ini sengaja dibuat konsisten dgn cara slot jam dilepas.
+
+// Ambil urutan modul (array kode modul, urut apa adanya) milik 1 materi.
+async function materiModulList(tdb, materiId) {
+    if (!materiId) return [];
+    const row = await tdb.prepare('SELECT modul_list FROM materi WHERE kode=?').get(materiId);
+    if (!row || !row.modul_list) return [];
+    try { const arr = JSON.parse(row.modul_list); return Array.isArray(arr) ? arr : []; } catch (e) { return []; }
+}
+// Hitung berapa kali murid ini SUDAH memilih materi ini lewat jadwal_sesi
+// yang masih aktif (lihat catatan panjang di atas). excludeKode: kode sesi
+// yang lagi diproses sendiri (dipakai di PUT, supaya sesi yang sedang
+// diedit tidak dobel dihitung menghitung dirinya sendiri).
+async function hitungMateriDipilihUser(tdb, userKode, materiId, excludeKode) {
+    const placeholders = JDW_STATUS_SLOT_KOSONG.map(() => '?').join(',');
+    const row = await tdb.prepare(
+        `SELECT COUNT(*)::int as c FROM jadwal_sesi WHERE user_kode=? AND materi_id=? AND status NOT IN (${placeholders}) AND kode != ?`
+    ).get(userKode, materiId, ...JDW_STATUS_SLOT_KOSONG, excludeKode || '');
+    return row ? row.c : 0;
+}
+// Generate 1 token baru (format sama persis dgn genTokenKode() di
+// /api/tokens/generate, tanpa grup/kode-master krn ini selalu 1 token per
+// panggilan) utk modul tertentu, LANGSUNG di-assign (digunakan_oleh) ke
+// murid yang mengajukan jadwal — beda dari token buatan admin yang biasanya
+// masih nganggur (digunakan_oleh NULL) sampai ada yang input kode-nya sendiri.
+// aktivasi/expired SENGAJA dikunci ke tanggal sesi jadwalnya sendiri (00:00
+// s/d 23:59 tanggal itu, format sama persis dgn jdwHitungWaktu di atas) —
+// BUKAN ke tanggal token ini dibuat (yang bisa jauh lebih awal drpd tanggal
+// sesi, krn murid boleh ajukan jadwal jauh-jauh hari) — supaya token cuma
+// bisa dipakai PAS hari H sesi mentoring itu, sama seperti mode "Hari Ini"
+// di admin > Buat Token tapi diarahkan ke tanggal sesi, bukan tanggal
+// generate. batasKeluar: null = perlindungan keluar dimatikan (izin keluar),
+// angka = jumlah maksimal pelanggaran yang ditoleransi — lihat
+// izinKeluarUntukMateriUser di atas utk cara nentuinnya dari switch "IZIN
+// KELUAR" di paket.
+async function generateTokenUntukJadwal(tdb, modulKode, userKode, tanggal, batasKeluar) {
+    const checkExist = tdb.prepare('SELECT id FROM tokens WHERE kode=?');
+    let kode, tries = 0;
+    do { kode = genTokenKode(); tries++; } while ((await checkExist.get(kode)) && tries < 10);
+    const akt = tanggal ? `${tanggal}T00:00:00` : null;
+    const exp = tanggal ? `${tanggal}T23:59:59` : null;
+    await tdb.prepare('INSERT INTO tokens (kode,modul_kode,digunakan_oleh,aktivasi,expired,batas_keluar) VALUES (?,?,?,?,?,?)').run(kode, modulKode, userKode, akt, exp, (batasKeluar === null || batasKeluar === undefined) ? null : batasKeluar);
+    return kode;
+}
 // Jam mulai/selesai per slot (sama seperti JDW_SLOTS di frontend) — dipakai
 // menghitung waktu_mulai/waktu_selesai ASLI (kolom TIMESTAMP, dibutuhkan
 // lib/kelas-reminder.js) dari tanggal+slot_id yang dikirim frontend (frontend
@@ -2998,8 +3096,18 @@ app.get('/api/jadwal-meta', auth(['admin', 'review', 'user']), ah(async (req, re
     // TWK/TIU/TKP/TOEFL... (JDW_MATERI hardcode), sekarang diambil dari tabel
     // `materi` beneran supaya materi yang admin tambah/ubah di situ otomatis
     // kepakai juga di sisi murid, tanpa perlu ubah kode.
-    const materiRows = await db.prepare(`SELECT kode, nama FROM materi ORDER BY id`).all();
-    const materiList = materiRows.map(m => ({ id: m.kode, label: m.nama }));
+    const materiRows = await db.prepare(`SELECT kode, nama, modul_list FROM materi ORDER BY id`).all();
+    // modulCount: jumlah modul tersusun urut di materi ini (materi.modul_list) —
+    // dikirim ke FE supaya grid "Pilih Materi" (user/jadwal/jadwal.js,
+    // _jdwMateriJatahHabis) bisa ngabu-abukan + ngunci chip materi begitu
+    // jatah token modulnya sudah mentok, TANPA nunggu ditolak 409 dulu oleh
+    // POST /api/jadwal-sesi (lihat logic token otomatis persis di sana).
+    // 0 (materi belum disusun modulnya sama sekali) berarti TIDAK ada batas.
+    const materiList = materiRows.map(m => {
+        let modulCount = 0;
+        try { const arr = JSON.parse(m.modul_list || '[]'); modulCount = Array.isArray(arr) ? arr.length : 0; } catch (e) {}
+        return { id: m.kode, label: m.nama, modulCount };
+    });
     // Materi yang diajar TIAP guru — dari Management > Guru (tombol "+ Materi"),
     // tabel guru_paket_grup: akun_list = daftar kode guru dlm 1 grup, materi_list
     // = daftar kode materi yang grup itu ajarkan. Satu guru boleh masuk >1 grup,
@@ -3095,7 +3203,10 @@ app.post('/api/jadwal-sesi', auth(['admin','user','review']), ah(async (req, res
     const kode = (typeof b.kode === 'string' && b.kode) ? b.kode : await genKode('JDS', 'jadwal_sesi');
     const status = (req.user.role !== 'user' && b.status) ? b.status : 'pending';
     const materi_nama_real = (await materiNamaByKode(materi_id)) || materi_nama || null;
-    const metaStr = (meta && typeof meta === 'object') ? JSON.stringify(meta) : null;
+    // jadwalMeta dimulai dari `meta` yang dikirim body (kalau ada), field
+    // token_kode/token_modul_* (lihat blok token otomatis di bawah) ditambahkan
+    // ke objek yang SAMA ini sebelum di-JSON.stringify & disimpan sekali di INSERT.
+    const jadwalMeta = (meta && typeof meta === 'object') ? Object.assign({}, meta) : {};
     try {
         await transaction(async (tdb) => {
             // Lock + cek-bentrok (lihat jdwKunciSlot/jdwSlotBentrok & catatan
@@ -3111,6 +3222,38 @@ app.post('/api/jadwal-sesi', auth(['admin','user','review']), ah(async (req, res
                     throw err;
                 }
             }
+            // ── Token otomatis per urutan modul materi (lihat catatan panjang
+            // di materiModulList/hitungMateriDipilihUser/generateTokenUntukJadwal
+            // di atas) — cuma jalan kalau materi_id diisi, materi itu memang
+            // punya modul tersusun, DAN status barunya benar2 "mengisi" slot
+            // (sama seperti syarat cek-bentrok di atas; entri yang langsung
+            // batal/ditolak tidak perlu/tidak boleh ikut menjatah token).
+            if (materi_id && !JDW_STATUS_SLOT_KOSONG.includes(status)) {
+                // Lock terpisah per murid+materi (bukan per tentor/tanggal/slot
+                // seperti di atas) supaya 2 pengajuan materi yang SAMA dari murid
+                // yang sama, dikirim nyaris bersamaan ke tentor/jam BERBEDA,
+                // tetap dihitung urut satu-satu (tidak keduanya lolos dapat
+                // jatah modul ke-1 yang sama).
+                await tdb.prepare('SELECT pg_advisory_xact_lock(hashtext(?)::bigint)').run(`jadwal_materi_token:${user_kode}:${materi_id}`);
+                const modulList = await materiModulList(tdb, materi_id);
+                if (modulList.length) {
+                    const sudahDipilih = await hitungMateriDipilihUser(tdb, user_kode, materi_id, kode);
+                    if (sudahDipilih >= modulList.length) {
+                        const err = new Error(`Materi ini sudah dipilih maksimal ${modulList.length}x (sejumlah modul yang tersedia), tidak bisa diajukan lagi`);
+                        err.isMateriHabis = true;
+                        throw err;
+                    }
+                    const modulKode = modulList[sudahDipilih];
+                    const izinKeluar = await izinKeluarUntukMateriUser(user_kode, materi_id);
+                    const batasKeluar = izinKeluar ? null : 3; // 3 = default sama seperti admin > Buat Token
+                    const tokenKode = await generateTokenUntukJadwal(tdb, modulKode, user_kode, tanggal, batasKeluar);
+                    jadwalMeta.token_kode = tokenKode;
+                    jadwalMeta.token_modul_kode = modulKode;
+                    jadwalMeta.token_modul_urutan = sudahDipilih + 1;
+                    jadwalMeta.token_modul_total = modulList.length;
+                }
+            }
+            const metaStr = Object.keys(jadwalMeta).length ? JSON.stringify(jadwalMeta) : null;
             await tdb.prepare(`INSERT INTO jadwal_sesi
                 (kode,user_kode,tentor_id,tentor_nama,materi_id,materi_nama,tanggal,slot_id,slot_label,waktu_mulai,waktu_selesai,meet_link,catatan,status,meta)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
@@ -3118,6 +3261,7 @@ app.post('/api/jadwal-sesi', auth(['admin','user','review']), ah(async (req, res
         });
     } catch (e) {
         if (e.isSlotConflict) return res.status(409).json({ error: e.message });
+        if (e.isMateriHabis) return res.status(409).json({ error: e.message });
         if (/duplicate|unique/i.test(e.message)) return res.status(409).json({ error: 'Kode sesi sudah dipakai, coba lagi' });
         throw e;
     }
@@ -3139,12 +3283,14 @@ app.put('/api/jadwal-sesi/:kode', auth(['admin','review','user']), ah(async (req
         if (!t) return res.status(400).json({ error: 'Akun tentor (review) tidak ditemukan' });
         tentor_nama_real = t.nama;
     }
-    let mergedMeta = null;
-    if (b.meta && typeof b.meta === 'object') {
-        let currentMeta = {};
-        try { currentMeta = existing.meta ? JSON.parse(existing.meta) : {}; } catch (e) { currentMeta = {}; }
-        mergedMeta = JSON.stringify(Object.assign({}, currentMeta, b.meta));
-    }
+    let currentMeta = {};
+    try { currentMeta = existing.meta ? JSON.parse(existing.meta) : {}; } catch (e) { currentMeta = {}; }
+    // jadwalMeta: mutable, mulai dari meta lama + patch meta yang dikirim body
+    // (kalau ada) — field token_kode/token_modul_* (lihat blok token otomatis
+    // di bawah, PERSIS logic yang sama dgn POST /api/jadwal-sesi) ditambahkan
+    // ke objek yang SAMA ini kalau materi-nya berubah, sebelum di-stringify
+    // & disimpan sekali di UPDATE.
+    const jadwalMeta = Object.assign({}, currentMeta, (b.meta && typeof b.meta === 'object') ? b.meta : {});
     const materi_nama_real = b.materi_id ? ((await materiNamaByKode(b.materi_id)) || b.materi_nama || null) : (b.materi_nama || null);
     // Kalau jam mulai ATAU tanggal/slot berubah, reset flag pengingat supaya
     // H-1/notif-mulai dihitung ulang dari jam yang baru (bukan tetap
@@ -3161,6 +3307,13 @@ app.put('/api/jadwal-sesi/:kode', auth(['admin','review','user']), ah(async (req
     const finalTanggal = b.tanggal || existing.tanggal;
     const finalSlotId = b.slot_id || existing.slot_id;
     const finalStatus = b.status || existing.status;
+    // materiBerubah: materi_id BARU dikirim & beda dari yang lama -> ini yang
+    // motong keputusan generate token baru di bawah (bukan cuma materi_id
+    // dikirim apa adanya — Edit form biasa TETAP mengirim materi_id yang SAMA
+    // walau user cuma ganti jam/tanggal, jadi tanpa pengecekan "beda" ini
+    // token akan double-generate tiap kali sesi diedit apa pun perubahannya).
+    const materiBerubah = !!(b.materi_id && b.materi_id !== existing.materi_id);
+    let metaChanged = !!(b.meta && typeof b.meta === 'object');
     try {
         await transaction(async (tdb) => {
             // Sama seperti POST /api/jadwal-sesi: jadwal-ulang (reschedule) bisa
@@ -3175,6 +3328,39 @@ app.put('/api/jadwal-sesi/:kode', auth(['admin','review','user']), ah(async (req
                     throw err;
                 }
             }
+            // ── Token otomatis per urutan modul materi — PERSIS logic yang sama
+            // dgn POST /api/jadwal-sesi (lihat catatan panjang di
+            // materiModulList/hitungMateriDipilihUser/generateTokenUntukJadwal/
+            // izinKeluarUntukMateriUser di atas), cuma dipicu di sini kalau
+            // materi-nya BERUBAH lewat Edit (materiBerubah) — mengubah jam/
+            // tentor/catatan tanpa ganti materi TIDAK ikut menjatah token baru.
+            // Token lama (kalau ada, dari materi SEBELUMNYA) sengaja DIBIARKAN
+            // apa adanya di tabel tokens (tidak dihapus/dicabut) — di luar
+            // cakupan perubahan ini; cuma field jadwalMeta.token_* di baris
+            // jadwal_sesi ini yang ditimpa dgn token BARU biar tetap sinkron
+            // sama materi yang aktif sekarang.
+            if (materiBerubah && !JDW_STATUS_SLOT_KOSONG.includes(finalStatus)) {
+                await tdb.prepare('SELECT pg_advisory_xact_lock(hashtext(?)::bigint)').run(`jadwal_materi_token:${existing.user_kode}:${b.materi_id}`);
+                const modulList = await materiModulList(tdb, b.materi_id);
+                if (modulList.length) {
+                    const sudahDipilih = await hitungMateriDipilihUser(tdb, existing.user_kode, b.materi_id, existing.kode);
+                    if (sudahDipilih >= modulList.length) {
+                        const err = new Error(`Materi ini sudah dipilih maksimal ${modulList.length}x (sejumlah modul yang tersedia), tidak bisa diajukan lagi`);
+                        err.isMateriHabis = true;
+                        throw err;
+                    }
+                    const modulKode = modulList[sudahDipilih];
+                    const izinKeluar = await izinKeluarUntukMateriUser(existing.user_kode, b.materi_id);
+                    const batasKeluar = izinKeluar ? null : 3;
+                    const tokenKode = await generateTokenUntukJadwal(tdb, modulKode, existing.user_kode, finalTanggal, batasKeluar);
+                    jadwalMeta.token_kode = tokenKode;
+                    jadwalMeta.token_modul_kode = modulKode;
+                    jadwalMeta.token_modul_urutan = sudahDipilih + 1;
+                    jadwalMeta.token_modul_total = modulList.length;
+                    metaChanged = true;
+                }
+            }
+            const metaStr = metaChanged ? JSON.stringify(jadwalMeta) : null;
             await tdb.prepare(`UPDATE jadwal_sesi SET
                 status = COALESCE(?, status),
                 tanggal = COALESCE(?, tanggal),
@@ -3198,12 +3384,13 @@ app.put('/api/jadwal-sesi/:kode', auth(['admin','review','user']), ah(async (req
                     b.materi_id || null, materi_nama_real,
                     boleUbahTentor && b.tentor_id ? true : false, boleUbahTentor ? (b.tentor_id || null) : null,
                     boleUbahTentor && b.tentor_id ? true : false, boleUbahTentor ? tentor_nama_real : null,
-                    waktu_mulai, waktu_selesai, b.meet_link || null, b.catatan || null, mergedMeta,
+                    waktu_mulai, waktu_selesai, b.meet_link || null, b.catatan || null, metaStr,
                     jamBerubah, jamBerubah, req.params.kode
                 );
         });
     } catch (e) {
         if (e.isSlotConflict) return res.status(409).json({ error: e.message });
+        if (e.isMateriHabis) return res.status(409).json({ error: e.message });
         throw e;
     }
     res.json(mapJadwalRow(await db.prepare(JADWAL_SELECT + ' WHERE js.kode=?').get(req.params.kode)));

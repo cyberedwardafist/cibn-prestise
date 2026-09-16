@@ -413,6 +413,11 @@
                   </div>
                   <div id="pf-mentoring-content-wrap">
                     <div class="pf-hak-desc">User dengan paket ini akan mengakses menu Mentoring (dock JADWAL). Tampilan disiapkan dulu, fungsi booking belum aktif.</div>
+                    <div class="switch-row">
+                      <div class="switch-label">IZIN KELUAR</div>
+                      <label class="switch"><input type="checkbox" id="pf-mentoring-izin-keluar" checked onchange="setDirty('paket')"><span class="switch-slider"></span></label>
+                    </div>
+                    <div class="pf-hak-desc" style="margin-top:-6px">Kalau nyala, token ujian yang dijatah otomatis dari pengajuan jadwal materi paket ini boleh keluar bebas dari ujian (sama seperti switch "Batas Keluar Ujian" DIMATIKAN di Buat Token). Kalau dimatikan, token itu dibatasi maksimal 3x keluar sebelum ujian otomatis selesai.</div>
                     <div class="form-row" style="margin:10px 0">
                       <div class="form-group">
                         <label class="form-label" style="font-size:10px">Kuota Batal Jadwal <span style="font-weight:400;color:var(--text-sub)">(kosong = ∞)</span></label>
