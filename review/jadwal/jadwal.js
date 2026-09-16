@@ -167,8 +167,8 @@ const JDW_PENGATURAN_HARI = [
 // kode UI di bawah file ini). Alurnya:
 //   - ready(): fetch sekali (GET /api/jadwal-sesi + GET /api/jadwal-meta),
 //     idempotent (dipanggil ulang cukup balikin promise yang sama) — dipanggil
-//     dari renderPage()/goPage() di shell SEBELUM loadJadwal()/renderBahas()/
-//     loadLaporan(), jadi begitu fungsi2 itu jalan datanya sudah pasti ada.
+//     dari renderPage()/goPage() di shell SEBELUM loadJadwal()/loadLaporan(),
+//     jadi begitu fungsi2 itu jalan datanya sudah pasti ada.
 //   - add()/update()/remove(): ubah cache LANGSUNG (sinkron, optimistic) baru
 //     kirim request ke server di belakang layar; kalau request gagal, cache
 //     dikembalikan ke kondisi semula + toast error supaya user tahu
@@ -283,8 +283,8 @@ const JadwalStore = (function () {
     }
 
     return {
-        // Dipanggil shell SEBELUM loadJadwal()/renderBahas()/loadLaporan() —
-        // idempotent, aman dipanggil berkali-kali (fetch beneran cuma sekali).
+        // Dipanggil shell SEBELUM loadJadwal()/loadLaporan() — idempotent,
+        // aman dipanggil berkali-kali (fetch beneran cuma sekali).
         ready() { if (!_readyPromise) _readyPromise = _bootstrap(); return _readyPromise; },
         isReady() { return _ready; },
         all() { return _cache.slice(); },
@@ -1181,6 +1181,14 @@ function _jdwEntryGmeetLink(e) {
     return `https://meet.google.com/${_jdwPseudoCode(e.id + '-meet', 'xxx-xxxx-xxx').toLowerCase()}`;
 }
 function _jdwEntryToken(e) {
+    // token_kode: kode token ASLI hasil generate otomatis server (lihat
+    // generateTokenUntukJadwal di server.js) — dipakai kalau ada, sama
+    // persis polanya kayak _jdwEntryToken di sisi user (user/jadwal/jadwal.js).
+    // BUG LAMA yang baru diperbaiki: sebelumnya di sini cuma dicek `e.token`
+    // (field yang memang tidak pernah diisi), jadi layar "Masuk"/"Mulai"
+    // milik guru selama ini SELALU jatuh ke fallback pseudo-code di bawah —
+    // token yang ditampilkan ke guru bukan token asli yang dikerjakan murid.
+    if (e.token_kode) return e.token_kode;
     if (e.token) return e.token;
     return _jdwPseudoCode(e.id + '-token', 'xxxxxx');
 }
@@ -2077,7 +2085,14 @@ const JadwalPage = {
             return {
                 left: [over
                     ? { icon: 'doc', label: 'Feedback', cls: 'act-primary', onClick: `JadwalPage.feedbackEntry('${e.id}')` }
-                    : { icon: 'login', label: 'Masuk', cls: 'act-primary', onClick: `JadwalPage.masukEntry('${e.id}')` }],
+                    // Label "Mulai" (bukan "Masuk" lagi, beda dari sisi user)
+                    // — dock BAHAS yang dulu terpisah sudah dipindah ke sini,
+                    // jadi tombol ini sekarang jadi titik masuk tunggal buat
+                    // guru MULAI sesi: link Gmeet + token, DAN (menyusul di
+                    // overlay yang sama) status ujian murid + tombol BAHAS
+                    // buat lompat ke Mode Review begitu ujiannya selesai.
+                    // Lihat JadwalPage.masukEntry & _jdwBahas* di bawah.
+                    : { icon: 'login', label: 'Mulai', cls: 'act-primary', onClick: `JadwalPage.masukEntry('${e.id}')` }],
                 right: [],
             };
         }
@@ -3845,8 +3860,14 @@ const JadwalPage = {
         _jdwRenderStatusList();
     },
 
-    /* ── Halaman SESI: "Masuk" (jam mulai sudah tiba) — tampil Link Gmeet + Token,
-       masing2 dengan tombol salin (svg copy) ── */
+    /* ── Halaman SESI: "Mulai" (jam mulai sudah tiba) — tampil Link Gmeet +
+       Token (masing2 dengan tombol salin, svg copy), DITAMBAH status ujian
+       murid (dipoll otomatis) + tombol BAHAS yang lompat ke Mode Review
+       begitu ujiannya "selesai". Bagian status-ujian/BAHAS ini PINDAHAN dari
+       dock BAHAS lama (review/bahas/bahas.js, sekarang dihapus) yang dulu
+       jadi tab terpisah di dock utama — sekarang jadi satu titik masuk
+       bareng Gmeet+Token di sini, dipicu dari tombol "Mulai" pada kartu
+       jadwal berstatus "berlangsung". Lihat juga _jdwBahas* di bawah. ── */
     _sesiEntryId: null,
     _feedbackRating: { paham: null, kualitas: null },
     masukEntry(id) {
@@ -3872,14 +3893,22 @@ const JadwalPage = {
                 </div>
             </div>
             <div class="jdw-sesi-hint">Salin link Gmeet & token di atas, lalu gunakan untuk masuk ke sesi mentoring sesuai jadwal.</div>
-            <div class="jdw-form-section jdw-ajukan-submit-section" style="margin-bottom:0">
-                <a class="jdw-btn jdw-btn-primary jdw-btn-block" style="text-decoration:none;justify-content:center;text-align:center" href="${link}" target="_blank" rel="noopener">BUKA GOOGLE MEET</a>
+            <div class="jdw-form-section" style="margin-bottom:0">
+                <div class="jdw-sesi-item-label" style="margin-bottom:8px">Status Ujian Murid</div>
+                <div class="bahas-card-row">
+                    <span class="jdw-status-badge" id="jdw-mulai-ujian-status">Memeriksa status...</span>
+                </div>
+            </div>
+            <div class="jdw-form-section jdw-ajukan-submit-section" style="margin-bottom:0;display:flex;flex-direction:column;gap:8px">
+                <a class="jdw-btn jdw-btn-secondary jdw-btn-block" style="text-decoration:none;justify-content:center;text-align:center" href="${link}" target="_blank" rel="noopener">BUKA GOOGLE MEET</a>
+                <button type="button" class="jdw-btn jdw-btn-primary jdw-btn-block" id="jdw-mulai-bahas-btn" onclick="JadwalPage._jdwBahasHandleClick('${e.id}')" disabled>BAHAS</button>
             </div>`;
         const sesiFooter1 = document.getElementById('jdw-sesi-footer');
         if (sesiFooter1) { sesiFooter1.innerHTML = ''; sesiFooter1.style.display = 'none'; }
         document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(200px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
         _jdwSyncPageScrollLock();
+        this._jdwBahasStartStatusPolling(e);
     },
     copySesiValue(text, label) {
         if (!navigator.clipboard || !navigator.clipboard.writeText) return;
@@ -3948,6 +3977,90 @@ const JadwalPage = {
         document.getElementById('jdw-sesi-overlay').classList.remove('open');
         _jdwSyncPageScrollLock();
         this._sesiEntryId = null;
+        this._jdwBahasStopStatusPolling();
+    },
+
+    /* ══════════════════════════════════════════
+       STATUS UJIAN + TOMBOL BAHAS — dipindah dari dock BAHAS lama (review/
+       bahas/bahas.js, sekarang dihapus). Dicocokkan LANGSUNG lewat
+       token_kode yang tersimpan di jadwal_sesi.meta (lihat GET
+       /api/jadwal-sesi/:kode/status-ujian & generateTokenSaatBerlangsung di
+       server.js) — 1:1 milik sesi ini saja. Di-poll otomatis selagi overlay
+       "Mulai" ini terbuka (lihat masukEntry & closeSesiOverlay di atas),
+       badge #jdw-mulai-ujian-status berubah sendiri tanpa refresh manual,
+       tombol BAHAS baru aktif begitu statusnya "selesai".
+       ══════════════════════════════════════════ */
+    _jdwBahasStatusLabel: { belum: 'Belum Mulai Ujian', sedang: 'Sedang Ujian', selesai: 'Ujian Selesai' },
+    _jdwBahasStatusPollMs: 8000,
+    _jdwBahasStatusTimer: null,
+    _jdwBahasStatusEntryId: null,
+    async _jdwBahasEntryStatusUjian(e) {
+        try {
+            return await _jdwApiRequest('/jadwal-sesi/' + encodeURIComponent(e.id) + '/status-ujian');
+        } catch (err) {
+            console.error('[BAHAS] Gagal mengecek status ujian:', err.message);
+            return { status: 'belum', _gagalCek: true };
+        }
+    },
+    _jdwBahasApplyUjianStatusUi(hasil) {
+        this._jdwBahasLastHasil = hasil;
+        const badge = document.getElementById('jdw-mulai-ujian-status');
+        const btn = document.getElementById('jdw-mulai-bahas-btn');
+        if (badge) {
+            badge.className = 'jdw-status-badge bahas-ujian-status-' + hasil.status;
+            badge.textContent = this._jdwBahasStatusLabel[hasil.status] || hasil.status;
+        }
+        if (btn) btn.disabled = (hasil.status !== 'selesai');
+    },
+    async _jdwBahasPollUjianStatus(entry) {
+        // Overlay-nya mungkin sudah ditutup/ganti entri sejak tick ini
+        // dijadwalkan — kalau id-nya sudah tidak sama, buang hasilnya.
+        if (this._jdwBahasStatusEntryId !== entry.id) return;
+        const hasil = await this._jdwBahasEntryStatusUjian(entry);
+        if (this._jdwBahasStatusEntryId !== entry.id) return;
+        this._jdwBahasApplyUjianStatusUi(hasil);
+        if (hasil.status === 'selesai') this._jdwBahasStopStatusPolling();
+    },
+    _jdwBahasStartStatusPolling(entry) {
+        this._jdwBahasStopStatusPolling();
+        this._jdwBahasStatusEntryId = entry.id;
+        this._jdwBahasPollUjianStatus(entry);
+        this._jdwBahasStatusTimer = setInterval(() => {
+            // Berhenti sendiri kalau overlay "Mulai"-nya sudah ditutup —
+            // supaya tidak terus nge-poll di belakang layar tanpa perlu.
+            const overlay = document.getElementById('jdw-sesi-overlay');
+            if (!overlay || !overlay.classList.contains('open')) { this._jdwBahasStopStatusPolling(); return; }
+            this._jdwBahasPollUjianStatus(entry);
+        }, this._jdwBahasStatusPollMs);
+    },
+    _jdwBahasStopStatusPolling() {
+        if (this._jdwBahasStatusTimer) clearInterval(this._jdwBahasStatusTimer);
+        this._jdwBahasStatusTimer = null;
+        this._jdwBahasStatusEntryId = null;
+        this._jdwBahasLastHasil = null;
+    },
+    // Tombol BAHAS hanya bisa DIKLIK begitu badge status ujian sudah "Ujian
+    // Selesai" (lihat _jdwBahasApplyUjianStatusUi -> btn.disabled). Tetap
+    // dicek SEKALI LAGI di sini (bukan langsung percaya hasil poll
+    // terakhir) buat jaga-jaga kondisi balapan (mis. murid baru saja submit
+    // ujian tepat di antara 2 tick polling).
+    async _jdwBahasHandleClick(entryId) {
+        const e = JadwalStore.get(entryId);
+        if (!e) return;
+        const btn = document.getElementById('jdw-mulai-bahas-btn');
+        if (btn) btn.disabled = true;
+        const hasil = await this._jdwBahasEntryStatusUjian(e);
+        this._jdwBahasApplyUjianStatusUi(hasil);
+        if (hasil.status === 'belum') {
+            showToast('Maaf, data belum tersedia karena user belum memulai ujian.', 'danger');
+            return;
+        }
+        if (hasil.status === 'sedang') {
+            showToast('Maaf, data belum tersedia, user sedang ujian.', 'danger');
+            return;
+        }
+        const materi = JDW_MATERI.find(m => m.id === e.materiId);
+        openReviewUjian(hasil.laporan_kode, materi ? materi.label : 'Ujian', e.nama || 'Murid');
     },
 
     /* ── Dev helper: hapus data dummy tersimpan & bikin ulang seed lengkap

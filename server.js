@@ -2906,9 +2906,11 @@ app.post('/api/pengaturan/integrasi/test-email', auth(['admin']), ah(async (req,
 
 // ── JADWAL SESI KELAS (sumber data ASLI booking mentoring user<->guru,
 // dipakai juga oleh JadwalStore di user/jadwal/jadwal.js & review/jadwal/jadwal.js
-// (dulu dummy/localStorage, sekarang API ini) DAN dock BAHAS/LAPORAN akun
-// review (review/bahas/bahas.js & review/laporan/laporan.js hanya baca lewat
-// JadwalStore yang sama, jadi otomatis ikut nyambung) DAN pengingat email
+// (dulu dummy/localStorage, sekarang API ini) DAN tombol "Mulai"/LAPORAN akun
+// review (status ujian + BAHAS sekarang menyatu di review/jadwal/jadwal.js
+// -> JadwalPage.masukEntry, dulu di dock BAHAS terpisah yang sudah dihapus —
+// & review/laporan/laporan.js — hanya baca lewat JadwalStore yang sama, jadi
+// otomatis ikut nyambung) DAN pengingat email
 // H-1/mulai (lib/kelas-reminder.js). Vokabuler status sengaja bebas (TEXT,
 // bukan enum) karena JadwalStore punya banyak status siklus (pending/acc/
 // ditolak/berlangsung/selesai/pengajuan_pembatalan/resejuel/batal/dst) yang
@@ -2999,6 +3001,45 @@ async function generateTokenUntukJadwal(tdb, modulKode, userKode, tanggal, batas
     const exp = tanggal ? `${tanggal}T23:59:59` : null;
     await tdb.prepare('INSERT INTO tokens (kode,modul_kode,digunakan_oleh,aktivasi,expired,batas_keluar) VALUES (?,?,?,?,?,?)').run(kode, modulKode, userKode, akt, exp, (batasKeluar === null || batasKeluar === undefined) ? null : batasKeluar);
     return kode;
+}
+// Hitung JATAH modul (modul ke berapa + urutan pilihan ke berapa) utk materi
+// yang dipilih, TANPA bikin baris token sungguhan dulu — dipanggil saat murid
+// mengajukan/mengedit jadwal (POST/PUT /api/jadwal-sesi), supaya validasi
+// "materi sudah dipilih maksimal Nx" & urutan modul tetap dihitung dari
+// URUTAN PENGAJUAN persis seperti sebelumnya. Token SUNGGUHAN (baris tokens)
+// baru dibuat belakangan, persis saat status sesi masuk "berlangsung" — lihat
+// generateTokenSaatBerlangsung di bawah & catatan panjangnya kenapa ditunda.
+async function jatahModulUntukJadwal(tdb, userKode, materiId, excludeKode) {
+    const modulList = await materiModulList(tdb, materiId);
+    if (!modulList.length) return null;
+    const sudahDipilih = await hitungMateriDipilihUser(tdb, userKode, materiId, excludeKode);
+    if (sudahDipilih >= modulList.length) {
+        const err = new Error(`Materi ini sudah dipilih maksimal ${modulList.length}x (sejumlah modul yang tersedia), tidak bisa diajukan lagi`);
+        err.isMateriHabis = true;
+        throw err;
+    }
+    return { modulKode: modulList[sudahDipilih], urutan: sudahDipilih + 1, total: modulList.length };
+}
+// Bikin token SUNGGUHAN (baris baru di tabel tokens) persis saat status sesi
+// BARU SAJA masuk "berlangsung" — dipicu dari PUT /api/jadwal-sesi/:kode
+// (lihat pemanggilnya). Sengaja DITUNDA sampai titik ini (bukan lagi langsung
+// saat murid mengajukan jadwal) supaya aktivasi/expired token (dikunci ke
+// HARI token ini dibuat, lihat generateTokenUntukJadwal di atas -> 00:00 s/d
+// 23:59 tanggalHariIni()) selalu persis "HARI INI" yang SUNGGUHAN saat token
+// itu ditampilkan ke murid (overlay "Sesi Berlangsung" + link GMeet di
+// user/jadwal/jadwal.js, _jdwEntryToken) — bukan tanggal sesi yang sudah
+// ditentukan jauh-jauh hari saat ajuan & bisa "basi"/berubah kalau sesinya
+// sempat diedit/dijadwal-ulang. jadwalMeta diubah LANGSUNG (mutasi objek yang
+// dikirim, bukan return objek baru) supaya pemanggil tinggal lanjut simpan
+// meta yang sama tanpa perlu merge manual lagi; return true kalau memang
+// baru bikin token (dipakai pemanggil buat tahu perlu tandai metaChanged).
+async function generateTokenSaatBerlangsung(tdb, sesiRow, jadwalMeta) {
+    if (!jadwalMeta.token_modul_kode || jadwalMeta.token_kode) return false; // tidak ada jatah modul, atau token sudah pernah dibuat sebelumnya
+    const izinKeluar = await izinKeluarUntukMateriUser(sesiRow.user_kode, sesiRow.materi_id);
+    const batasKeluar = izinKeluar ? null : 3; // 3 = default sama seperti admin > Buat Token
+    const tokenKode = await generateTokenUntukJadwal(tdb, jadwalMeta.token_modul_kode, sesiRow.user_kode, tanggalHariIni(), batasKeluar);
+    jadwalMeta.token_kode = tokenKode;
+    return true;
 }
 // Jam mulai/selesai per slot (sama seperti JDW_SLOTS di frontend) — dipakai
 // menghitung waktu_mulai/waktu_selesai ASLI (kolom TIMESTAMP, dibutuhkan
@@ -3233,22 +3274,16 @@ app.post('/api/jadwal-sesi', auth(['admin','user','review']), ah(async (req, res
                 // tetap dihitung urut satu-satu (tidak keduanya lolos dapat
                 // jatah modul ke-1 yang sama).
                 await tdb.prepare('SELECT pg_advisory_xact_lock(hashtext(?)::bigint)').run(`jadwal_materi_token:${user_kode}:${materi_id}`);
-                const modulList = await materiModulList(tdb, materi_id);
-                if (modulList.length) {
-                    const sudahDipilih = await hitungMateriDipilihUser(tdb, user_kode, materi_id, kode);
-                    if (sudahDipilih >= modulList.length) {
-                        const err = new Error(`Materi ini sudah dipilih maksimal ${modulList.length}x (sejumlah modul yang tersedia), tidak bisa diajukan lagi`);
-                        err.isMateriHabis = true;
-                        throw err;
-                    }
-                    const modulKode = modulList[sudahDipilih];
-                    const izinKeluar = await izinKeluarUntukMateriUser(user_kode, materi_id);
-                    const batasKeluar = izinKeluar ? null : 3; // 3 = default sama seperti admin > Buat Token
-                    const tokenKode = await generateTokenUntukJadwal(tdb, modulKode, user_kode, tanggal, batasKeluar);
-                    jadwalMeta.token_kode = tokenKode;
-                    jadwalMeta.token_modul_kode = modulKode;
-                    jadwalMeta.token_modul_urutan = sudahDipilih + 1;
-                    jadwalMeta.token_modul_total = modulList.length;
+                const jatah = await jatahModulUntukJadwal(tdb, user_kode, materi_id, kode);
+                if (jatah) {
+                    jadwalMeta.token_modul_kode = jatah.modulKode;
+                    jadwalMeta.token_modul_urutan = jatah.urutan;
+                    jadwalMeta.token_modul_total = jatah.total;
+                    // Token sungguhan baru dibuat kalau entri ini LANGSUNG dibuat berstatus
+                    // "berlangsung" (mis. admin bikin manual) — kasus normal (murid ajukan
+                    // -> status "pending") token-nya menunggu sampai auto-maju ke
+                    // "berlangsung" lewat PUT (lihat generateTokenSaatBerlangsung).
+                    if (status === 'berlangsung') await generateTokenSaatBerlangsung(tdb, { user_kode, materi_id }, jadwalMeta);
                 }
             }
             const metaStr = Object.keys(jadwalMeta).length ? JSON.stringify(jadwalMeta) : null;
@@ -3339,24 +3374,33 @@ app.put('/api/jadwal-sesi/:kode', auth(['admin','review','user']), ah(async (req
             // sama materi yang aktif sekarang.
             if (materiBerubah && !JDW_STATUS_SLOT_KOSONG.includes(finalStatus)) {
                 await tdb.prepare('SELECT pg_advisory_xact_lock(hashtext(?)::bigint)').run(`jadwal_materi_token:${existing.user_kode}:${b.materi_id}`);
-                const modulList = await materiModulList(tdb, b.materi_id);
-                if (modulList.length) {
-                    const sudahDipilih = await hitungMateriDipilihUser(tdb, existing.user_kode, b.materi_id, existing.kode);
-                    if (sudahDipilih >= modulList.length) {
-                        const err = new Error(`Materi ini sudah dipilih maksimal ${modulList.length}x (sejumlah modul yang tersedia), tidak bisa diajukan lagi`);
-                        err.isMateriHabis = true;
-                        throw err;
-                    }
-                    const modulKode = modulList[sudahDipilih];
-                    const izinKeluar = await izinKeluarUntukMateriUser(existing.user_kode, b.materi_id);
-                    const batasKeluar = izinKeluar ? null : 3;
-                    const tokenKode = await generateTokenUntukJadwal(tdb, modulKode, existing.user_kode, finalTanggal, batasKeluar);
-                    jadwalMeta.token_kode = tokenKode;
-                    jadwalMeta.token_modul_kode = modulKode;
-                    jadwalMeta.token_modul_urutan = sudahDipilih + 1;
-                    jadwalMeta.token_modul_total = modulList.length;
+                const jatah = await jatahModulUntukJadwal(tdb, existing.user_kode, b.materi_id, existing.kode);
+                if (jatah) {
+                    jadwalMeta.token_modul_kode = jatah.modulKode;
+                    jadwalMeta.token_modul_urutan = jatah.urutan;
+                    jadwalMeta.token_modul_total = jatah.total;
+                    // Materi ganti -> token LAMA (kalau sempat ke-generate krn sesi ini
+                    // sudah/lagi berlangsung sebelum diedit) sudah tidak relevan lagi buat
+                    // sesi ini; dihapus dari meta di sini (baris tokens lamanya sendiri
+                    // sengaja dibiarkan apa adanya, di luar cakupan). Token yang BENAR utk
+                    // materi baru dibuatkan lagi di bawah kalau memang perlu (lihat
+                    // masukBerlangsung).
+                    delete jadwalMeta.token_kode;
                     metaChanged = true;
                 }
+            }
+            // Token sungguhan (baris baru di tabel tokens) BARU dibuat di sini, persis
+            // saat status sesi baru saja MASUK "berlangsung" (transisi dari status
+            // lain) — bukan lagi saat murid mengajukan jadwal. Ini yang bikin auto-maju
+            // client-side (_jdwAutoAdvanceStatus di user/jadwal/jadwal.js, dipicu begitu
+            // jam mulai slot tiba) otomatis memicu generate token PAS overlay "Sesi
+            // Berlangsung" + link GMeet itu ditampilkan ke murid — lihat catatan panjang
+            // di generateTokenSaatBerlangsung kenapa ditunda sampai titik ini (supaya
+            // aktivasi/expired token selalu persis "hari ini" yang sungguhan).
+            const masukBerlangsung = finalStatus === 'berlangsung' && existing.status !== 'berlangsung';
+            if ((masukBerlangsung || (finalStatus === 'berlangsung' && materiBerubah)) && jadwalMeta.token_modul_kode) {
+                const sesiUntukToken = { user_kode: existing.user_kode, materi_id: b.materi_id || existing.materi_id };
+                if (await generateTokenSaatBerlangsung(tdb, sesiUntukToken, jadwalMeta)) metaChanged = true;
             }
             const metaStr = metaChanged ? JSON.stringify(jadwalMeta) : null;
             await tdb.prepare(`UPDATE jadwal_sesi SET
@@ -3400,25 +3444,35 @@ app.delete('/api/jadwal-sesi/:kode', auth(['admin','user']), ah(async (req, res)
     await db.prepare('DELETE FROM jadwal_sesi WHERE kode=?').run(req.params.kode);
     res.json({ message: 'Dihapus' });
 }));
-// ── Status ujian REAL utk dock BAHAS (review/bahas/bahas.js) — dulu dummy
-// (dihitung dari hash id entri). Sistem belum menyimpan modul_kode eksplisit
-// per sesi mentoring, jadi dipakai heuristik data REAL: laporan (hasil ujian)
-// milik siswa itu yang dibuat SEJAK jam mulai sesi ini dianggap hasil ujian
-// dari sesi ini ("selesai"); kalau belum ada laporan tapi ada token yang
-// sudah dipakai siswa itu sejak jam mulai sesi -> "sedang"; selain itu "belum".
+// ── Status ujian REAL utk tombol "Mulai"/BAHAS akun review (sekarang di
+// review/jadwal/jadwal.js -> JadwalPage._jdwBahas*, dulu di dock BAHAS
+// terpisah yang sudah dihapus) — dulu dummy
+// (dihitung dari hash id entri), lalu sempat pakai heuristik "laporan/token
+// TERBARU milik siswa itu sejak jam mulai sesi" (bisa salah ambil kalau siswa
+// itu punya sesi jadwal lain yang berdekatan, atau sempat ngerjain token lain
+// di jendela waktu yang sama). SEKARANG dicocokkan LANGSUNG & CUMA lewat
+// token_kode yang tersimpan di jadwal_sesi.meta (lihat
+// generateTokenSaatBerlangsung) — token itu 1:1 milik sesi ini saja.
+// SENGAJA TIDAK ADA fallback tebak-tebakan lagi: kalau sesi ini belum punya
+// token_kode di meta (mis. status belum sempat masuk "berlangsung" sama
+// sekali, atau materi-nya memang tidak punya modul_list tersusun sehingga
+// sistem sengaja skip generate token), langsung dianggap "belum" apa adanya
+// — TIDAK mencari/menampilkan laporan atau token siswa lain manapun sebagai
+// pengganti, walau kelihatannya "paling dekat" sekalipun. Guru akan lihat
+// pesan "user belum mulai ujian" pada kasus itu, bukan data yang salah.
 app.get('/api/jadwal-sesi/:kode/status-ujian', auth(['admin','review']), ah(async (req, res) => {
     const sesi = await db.prepare('SELECT * FROM jadwal_sesi WHERE kode=?').get(req.params.kode);
     if (!sesi) return res.status(404).json({ error: 'Sesi tidak ditemukan' });
     if (req.user.role === 'review' && sesi.tentor_id !== req.user.kode) return res.status(403).json({ error: 'Forbidden' });
     if (!sesi.user_kode) return res.json({ status: 'belum' });
-    const laporan = await db.prepare(
-        `SELECT kode FROM laporan WHERE user_kode=? AND created_at >= ? ORDER BY created_at ASC LIMIT 1`
-    ).get(sesi.user_kode, sesi.waktu_mulai);
+    let meta = {};
+    try { meta = sesi.meta ? JSON.parse(sesi.meta) : {}; } catch (e) { meta = {}; }
+    const tokenKode = meta.token_kode || null;
+    if (!tokenKode) return res.json({ status: 'belum' });
+    const laporan = await db.prepare(`SELECT kode FROM laporan WHERE token_kode=? LIMIT 1`).get(tokenKode);
     if (laporan) return res.json({ status: 'selesai', laporan_kode: laporan.kode });
-    const tokenDipakai = await db.prepare(
-        `SELECT kode FROM tokens WHERE digunakan_oleh=? AND digunakan=1 AND created_at >= ? ORDER BY created_at ASC LIMIT 1`
-    ).get(sesi.user_kode, sesi.waktu_mulai);
-    if (tokenDipakai) return res.json({ status: 'sedang' });
+    const tokenRow = await db.prepare(`SELECT digunakan FROM tokens WHERE kode=?`).get(tokenKode);
+    if (tokenRow && tokenRow.digunakan) return res.json({ status: 'sedang' });
     res.json({ status: 'belum' });
 }));
 // ── KETERSEDIAAN / REQUEST / PENGATURAN TENTOR (khusus akun review/guru) ──

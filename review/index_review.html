@@ -469,18 +469,13 @@
        konsisten secara makna (merah=pembatalan, ungu=jadwal ulang). */
     .jdw-status-badge.murid_batal { background:rgba(220,38,38,.10); color:var(--danger); }
     .jdw-status-badge.murid_reschedule { background:rgba(124,58,237,.12); color:#7c3aed; }
-
-    /* ── BAHAS: kartu ringkas sesi mentoring terdekat (lihat
-       review/bahas/bahas.html + bahas.js) — layout mirip
-       #home-jadwal-next-card di sisi user, dibuat inline di sini (bukan di
-       css/base.css) karena memang khusus dipakai tab Bahas saja. ── */
-    .bahas-card { padding:16px 18px; }
-    .bahas-card-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
-    .bahas-countdown { font-size:12px; font-weight:700; color:var(--accent); }
-    .bahas-card-title { font-family:var(--font-head); font-size:17px; font-weight:700; color:var(--blue); margin-bottom:6px; }
+    /* Badge status ujian di overlay "Mulai" tab Jadwal (dulu di kartu dock
+       BAHAS terpisah, sekarang dipindah ke review/jadwal/jadwal.js ->
+       JadwalPage.masukEntry, lihat _jdwBahas* di sana — di-poll otomatis). */
+    .jdw-status-badge.bahas-ujian-status-belum { background:rgba(90,122,154,.14); color:var(--text-sub); }
+    .jdw-status-badge.bahas-ujian-status-sedang { background:rgba(217,119,6,.12); color:var(--warning); }
+    .jdw-status-badge.bahas-ujian-status-selesai { background:rgba(22,163,74,.12); color:var(--success); }
     .bahas-card-row { font-size:13px; color:var(--text-sub); display:flex; align-items:center; gap:8px; margin-bottom:2px; }
-    .bahas-dot { opacity:.5; }
-    .bahas-card-actions { display:flex; flex-direction:column; gap:8px; margin-top:16px; }
 
     /* ── LAPORAN: list kartu sesi "selesai" DIKELOMPOKKAN per tanggal
        (lihat review/laporan/laporan.js) — gap ANTAR grup tanggal lebih
@@ -644,9 +639,6 @@
     <!-- JADWAL -->
 <div class="page" id="page-jadwal"></div>
 
-    <!-- BAHAS -->
-<div class="page" id="page-bahas"></div>
-
     <!-- LAPORAN -->
 <div class="page" id="page-laporan"></div>
 
@@ -692,10 +684,6 @@
       <button class="dock-item dock-overflow-item" data-page="jadwal" onclick="navigateTo('jadwal')">
         <div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
         <span class="dock-label">JADWAL</span>
-      </button>
-      <button class="dock-item dock-overflow-item" data-page="bahas" onclick="navigateTo('bahas')">
-        <div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
-        <span class="dock-label">BAHAS</span>
       </button>
       <button class="dock-item dock-overflow-item" data-page="ebook" onclick="navigateTo('ebook')">
         <div class="dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
@@ -792,16 +780,17 @@ function navigateTo(pageId) {
 
 function renderPage(id) {
   ensureReviewPageModule(id).then(() => {
-    // jadwal/bahas/laporan semua butuh JadwalStore (backend asli, lihat
+    // jadwal/laporan sama-sama butuh JadwalStore (backend asli, lihat
     // review/jadwal/jadwal.js) sudah kelar fetch dulu sebelum dirender —
-    // bahas & laporan baca datanya lewat JadwalStore yang sama. Tab jadwal
-    // sendiri (akun review/guru) juga butuh 3 store guru lain (backend asli
-    // juga sekarang — GuruKetersediaanStore/GuruRequestStore/
-    // GuruPengaturanStore, lihat review/jadwal/jadwal.js) sudah kelar fetch
-    // sebelum loadJadwal() jalan, supaya #jdw-status-list langsung dapat
-    // data ketersediaan/request/pengaturan yang benar sejak render pertama
-    // (bukan nyusul kosong lalu berubah).
-    const needsJadwal = (id === 'jadwal' || id === 'bahas' || id === 'laporan');
+    // laporan baca datanya lewat JadwalStore yang sama. Tab jadwal sendiri
+    // (akun review/guru) juga butuh 3 store guru lain (backend asli juga
+    // sekarang — GuruKetersediaanStore/GuruRequestStore/GuruPengaturanStore,
+    // lihat review/jadwal/jadwal.js) sudah kelar fetch sebelum loadJadwal()
+    // jalan, supaya #jdw-status-list langsung dapat data ketersediaan/
+    // request/pengaturan yang benar sejak render pertama (bukan nyusul
+    // kosong lalu berubah). (Dock BAHAS yang dulu ikut butuh JadwalStore di
+    // sini sudah dihapus — fungsinya sekarang menyatu di dalam tab jadwal.)
+    const needsJadwal = (id === 'jadwal' || id === 'laporan');
     const needsGuruStores = (id === 'jadwal');
     const ready = !needsJadwal ? Promise.resolve() : Promise.all([
       (typeof JadwalStore !== 'undefined') ? JadwalStore.ready() : Promise.resolve(),
@@ -816,7 +805,6 @@ function renderPage(id) {
       else if (id === 'akun-saya') renderAkunSaya();
       else if (id === 'ebook') EbookLib.load();
       else if (id === 'jadwal') loadJadwal();
-      else if (id === 'bahas') renderBahas();
       else if (id === 'laporan') loadLaporan();
       // halaman baru (kosong, siap diisi)
       // else if (id === 'keuangan') renderKeuangan();
@@ -850,6 +838,12 @@ const REVIEW_PAGE_MODULES = {
     // (di LUAR #page-jadwal) biar overlay fullscreen-nya beneran fixed ke
     // layar & urutan tumpukannya konsisten. Lihat catatan panjangnya di
     // user/index_user.html dekat #jdw-overlays-root & USER_PAGE_MODULES.jadwal.
+    // js & needsModals ikut nambah 'review/riwayat/riwayat.js' + modal Mode
+    // Review (review-ujian-overlay) — dulu cuma dipakai dock BAHAS terpisah
+    // (sekarang dihapus), sekarang dibutuhkan LANGSUNG di sini karena tombol
+    // "Mulai" (status berlangsung, lihat JadwalPage.masukEntry & _jdwBahas*
+    // di jadwal.js) sudah menyatukan link Gmeet+Token DENGAN status ujian +
+    // tombol BAHAS (openReviewUjian) yang dulu ada di dock BAHAS itu.
     jadwal: {
         html: 'review/jadwal/jadwal.html',
         htmlAppend: [
@@ -861,17 +855,7 @@ const REVIEW_PAGE_MODULES = {
             'review/jadwal/jadwal-pengaturan.html',
         ],
         htmlAppendTarget: 'jdw-overlays-root',
-        js: ['review/jadwal/jadwal.js'],
-    },
-    // bahas: butuh JadwalStore/JDW_SLOTS/dst dari jadwal.js (buat cari sesi
-    // terdekat & link Gmeet-nya) DAN openReviewUjian dari riwayat.js (buat
-    // tombol BAHAS lompat ke MODE REVIEW yang sama persis dgn tab Riwayat)
-    // — needsModals:true supaya review-ujian-overlay ikut ke-load walau
-    // user belum pernah buka tab Riwayat/Akun sama sekali. Lihat catatan
-    // panjang di review/bahas/bahas.js.
-    bahas: {
-        html: 'review/bahas/bahas.html',
-        js: ['review/jadwal/jadwal.js', 'review/riwayat/riwayat.js', 'review/bahas/bahas.js'],
+        js: ['review/jadwal/jadwal.js', 'review/riwayat/riwayat.js'],
         needsModals: true,
     },
     // laporan: list sesi "selesai" (JadwalStore) -> tap kartu buka overlay
