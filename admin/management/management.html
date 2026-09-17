@@ -69,11 +69,11 @@
         <h3>Google Meet — Jadwal</h3>
         <p>Dipakai untuk membuat tautan Google Meet otomatis pada fitur Jadwal di halaman User &amp; Review.</p>
       </div>
-      <span class="badge-pending" id="mgmt-gmeet-status-badge" style="margin-left:auto;flex-shrink:0">Dummy / Belum Terhubung</span>
+      <span class="badge-pending" id="mgmt-gmeet-status-badge" style="margin-left:auto;flex-shrink:0">Belum Terhubung</span>
     </div>
 
     <div class="ld-notice">
-      Bagian ini <b>masih placeholder</b> — belum ada alur OAuth Google yang sesungguhnya. Field &amp; tombol di bawah disiapkan lebih dulu supaya begitu integrasi asli dipasang, halaman Jadwal di User &amp; Review tinggal pakai data yang sama tanpa perlu bongkar ulang tampilan.
+      Isi Client ID &amp; Client Secret dari Google Cloud Console (OAuth client tipe "Web application", dengan Authorized redirect URI diisi persis <code>&lt;domain-anda&gt;/api/gmeet/oauth/callback</code>), simpan, lalu klik "Hubungkan Akun Google" untuk menyetujui akses lewat layar consent Google yang sesungguhnya.
     </div>
 
     <div class="ld-field-group ld-cols-2">
@@ -101,7 +101,7 @@
 
     <div style="display:flex;gap:.7rem;flex-wrap:wrap;margin-top:1.3rem">
       <button class="btn btn-primary" id="mgmt-gmeet-save-btn" onclick="mgmtSaveGmeet()">Simpan Pengaturan Gmeet</button>
-      <button class="btn btn-secondary" id="mgmt-gmeet-connect-btn" onclick="mgmtDummyConnectGmeet()">Hubungkan Akun Google</button>
+      <button class="btn btn-secondary" id="mgmt-gmeet-connect-btn" onclick="mgmtConnectGmeet()">Hubungkan Akun Google</button>
     </div>
   </div>
 </div>

@@ -18,6 +18,7 @@ function renderManagementSub(sub) {
 }
 
 async function renderManagement() {
+  _mgmtHandleGmeetOauthReturn();
   if (!_mgmtLoaded) {
     try { _mgmtData = await ManagementAPI.get() || {}; }
     catch (e) { console.error('[management] Gagal memuat pengaturan integrasi:', e); _mgmtData = {}; }
@@ -109,7 +110,7 @@ async function mgmtTestGmail() {
   }
 }
 
-// ── GMEET (masih dummy — lihat catatan di admin/management/management.html) ──
+// ── GMEET (OAuth2 asli — lihat lib/gmeet.js & server.js /api/gmeet/oauth/*) ──
 function _mgmtFillGmeet() {
   const g = _mgmtData.gmeet || {};
   const cid = document.getElementById('mgmt-gmeet-client-id');
@@ -128,7 +129,8 @@ function _mgmtUpdateGmeetBadge(g) {
   if (!el) return;
   const status = (g && g.status) || 'belum_terhubung';
   if (status === 'terhubung') { el.className = 'badge-success'; el.textContent = 'Terhubung'; }
-  else { el.className = 'badge-pending'; el.textContent = 'Dummy / Belum Terhubung'; }
+  else if (status === 'terputus') { el.className = 'badge-pending'; el.textContent = 'Terputus — hubungkan ulang'; }
+  else { el.className = 'badge-pending'; el.textContent = 'Belum Terhubung'; }
 }
 
 async function mgmtSaveGmeet() {
@@ -145,7 +147,7 @@ async function mgmtSaveGmeet() {
     await ManagementAPI.save({ gmeet });
     _mgmtData.gmeet = gmeet;
     _mgmtUpdateGmeetBadge(gmeet);
-    showToast('Pengaturan Gmeet tersimpan (masih dummy)!', 'success');
+    showToast('Pengaturan Gmeet tersimpan!', 'success');
   } catch (e) {
     showToast('Gagal menyimpan: ' + e.message, 'danger');
   } finally {
@@ -153,26 +155,45 @@ async function mgmtSaveGmeet() {
   }
 }
 
-// Tombol "Hubungkan Akun Google" — SENGAJA masih dummy: belum ada alur OAuth
-// Google beneran di backend, jadi tombol ini cuma menandai status "terhubung"
-// secara lokal (tersimpan ke DB) supaya bagian Jadwal (user/review) yang akan
-// dibangun berikutnya sudah punya sinyal status utk ditampilkan, walau link
-// Meet asli belum benar-benar dibuat. Ganti isi fungsi ini nanti begitu OAuth
-// Google beneran dipasang (redirect ke consent screen, simpan refresh_token dst).
-async function mgmtDummyConnectGmeet() {
+// Tombol "Hubungkan Akun Google" — minta URL consent OAuth asli ke backend
+// (GET /api/gmeet/oauth/url, lihat server.js & lib/gmeet.js), lalu ALIHKAN
+// PENUH browser (window.location.href, bukan fetch biasa) ke URL itu supaya
+// admin login/approve akun Google-nya sungguhan. Google nanti redirect balik
+// ke /api/gmeet/oauth/callback yang menukar code jadi refresh_token & simpan
+// sendiri status "terhubung" ke DB — makanya di sini TIDAK ada penyimpanan
+// status manual, cuma memicu redirect-nya saja. Setelah balik ke halaman ini
+// (lihat _mgmtHandleGmeetOauthReturn di bawah), badge status akan me-refresh
+// sesuai hasil sebenarnya.
+async function mgmtConnectGmeet() {
   const btn = document.getElementById('mgmt-gmeet-connect-btn');
   const label = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = 'Menghubungkan...'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Membuka layar Google...'; }
   try {
-    await new Promise(r => setTimeout(r, 600));
-    const gmeet = { ..._mgmtData.gmeet, status: 'terhubung' };
-    await ManagementAPI.save({ gmeet });
-    _mgmtData.gmeet = gmeet;
-    _mgmtUpdateGmeetBadge(gmeet);
-    showToast('Status ditandai "Terhubung" — ini masih placeholder, integrasi asli menyusul', '');
+    const { url } = await apiFetch('/gmeet/oauth/url');
+    if (!url) throw new Error('URL consent Google tidak diterima dari server');
+    window.location.href = url;
   } catch (e) {
-    showToast('Gagal update status: ' + e.message, 'danger');
-  } finally {
+    showToast('Gagal memulai koneksi ke Google: ' + e.message, 'danger');
     if (btn) { btn.disabled = false; btn.textContent = label; }
   }
+}
+
+// Dipanggil sekali saat panel Management dibuka — baca ?gmeet=connected atau
+// ?gmeet=error&msg=... dari redirect balik /api/gmeet/oauth/callback (lihat
+// server.js), tampilkan toast hasilnya, lalu bersihkan query string dari URL
+// supaya toast tidak muncul lagi kalau halaman di-refresh manual.
+function _mgmtHandleGmeetOauthReturn() {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has('gmeet')) return;
+  const hasil = params.get('gmeet');
+  if (hasil === 'connected') {
+    showToast('Akun Google berhasil terhubung!', 'success');
+    _mgmtLoaded = false; // paksa reload data terbaru (status + refresh_token sudah tersimpan di server)
+  } else if (hasil === 'error') {
+    showToast('Gagal menghubungkan akun Google: ' + (params.get('msg') || 'terjadi kesalahan'), 'danger');
+  }
+  params.delete('gmeet');
+  params.delete('msg');
+  const qs = params.toString();
+  window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : ''));
 }
