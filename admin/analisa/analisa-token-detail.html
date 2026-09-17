@@ -20,6 +20,15 @@
     <div class="empty-state"><p>Memuat data peserta…</p></div>
   </div>
 
+  <!-- Analitik TOEFL — 1 kartu per soal TOEFL bernama dlm modul (rata2
+       Listening/Structure/Reading + total + sebaran CEFR gabungan seluruh
+       peserta grup ini), dibangun oleh _atdRenderToefl() di analisa-token-
+       detail.js sesuai agg.toefl dari server. Soal TOEFL SENGAJA tidak
+       masuk agg.per_soal (kartu grafik per-butir di bawah) — lihat komentar
+       blok `if (s.type === 'toefl')` di computeAnalisaGrupAggregate,
+       server.js — jadi kartu ini kartu terpisah, bukan bagian atd-charts-wrap. -->
+  <div id="atd-toefl-wrap"></div>
+
   <!-- Grafik Per Soal — 1 kartu per SOAL BERNAMA dlm modul (bukan lagi 3
        kartu tetap digabung se-modul), dibangun dinamis oleh
        _atdRenderCharts() di analisa-token-detail.js sesuai agg.per_soal

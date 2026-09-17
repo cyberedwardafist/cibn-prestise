@@ -1224,8 +1224,13 @@ function onTplTypeChange() {
     const t = document.getElementById('tpl-type')?.value;
     const skorWrap = document.getElementById('tpl-skor-wrap');
     const jumlahLabel = document.querySelector('#tpl-jumlah-wrap .form-label');
-    if (skorWrap) skorWrap.style.display = t === 'sikap_kerja' ? 'none' : 'block';
-    if (jumlahLabel) jumlahLabel.textContent = t === 'sikap_kerja' ? 'Jumlah Soal Digenerate per Kolom' : 'Jumlah Baris Soal di Template';
+    // TOEFL punya sistem penilaian resmi sendiri (tabel konversi ITP, lihat
+    // lib/toefl.js) — bukan Benar/Salah atau Nilai per Jawaban spt tipe lain,
+    // jadi kartu "Sistem Penilaian" disembunyikan sama spt Sikap Kerja.
+    if (skorWrap) skorWrap.style.display = (t === 'sikap_kerja' || t === 'toefl') ? 'none' : 'block';
+    if (jumlahLabel) jumlahLabel.textContent = t === 'sikap_kerja' ? 'Jumlah Soal Digenerate per Kolom'
+        : t === 'toefl' ? 'Jumlah Baris Soal per Section (Listening/Structure/Reading)'
+        : 'Jumlah Baris Soal di Template';
 }
 
 function _escHtmlSoal(str) {
@@ -1248,10 +1253,10 @@ async function downloadSoalTemplate() {
         ['Nama Soal', 'Contoh: Tes Wawasan Kebangsaan'],
         ['Nama Internal', ''],
         ['Kelompok', ''],
-        ['Materi', type === 'sikap_kerja' ? '-' : 'Contoh: TWK, TIU, TKP'],
+        ['Materi', (type === 'sikap_kerja' || type === 'toefl') ? '-' : 'Contoh: TWK, TIU, TKP'],
         ['Tipe Soal', type],
-        ['Sistem Penilaian', type === 'sikap_kerja' ? '-' : skorType],
-        ['Jumlah Jawaban Dipilih Peserta', type === 'sikap_kerja' ? '-' : 1],
+        ['Sistem Penilaian', (type === 'sikap_kerja' || type === 'toefl') ? '-' : skorType],
+        ['Jumlah Jawaban Dipilih Peserta', (type === 'sikap_kerja' || type === 'toefl') ? '-' : 1],
         ['Timer Jam', 0],
         ['Timer Menit', 30],
         ['Timer Detik', 0],
@@ -1272,6 +1277,63 @@ async function downloadSoalTemplate() {
             ['5. "Nama Internal" di sheet Info bersifat opsional — hanya terlihat di admin, kosongkan jika tidak perlu.'],
             ['6. "Kelompok" di sheet Info bersifat opsional — isi PERSIS sama dengan nama kelompok yang sudah ada di aplikasi (besar/kecil huruf tidak masalah). Kosongkan jika soal tidak perlu masuk kelompok manapun. Jika nama yang ditulis tidak cocok dengan kelompok manapun, soal akan tetap terimport tapi kelompoknya dikosongkan (akan ada notifikasi).'],
             _soalKelompokList.length ? ['   Kelompok yang sudah ada: ' + _soalKelompokList.map(k => k.nama).join(', ')] : ['   Belum ada kelompok yang dibuat — kolom ini bisa dikosongkan.'],
+        ];
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(petunjuk), 'Petunjuk');
+    } else if (type === 'toefl') {
+        // ── TOEFL: 4 sheet — Bacaan (khusus Reading, referensi dipakai bersama
+        // beberapa soal via kolom "No Bacaan"), lalu 1 sheet per section
+        // (Listening/Structure/Reading). Struktur mengikuti SoalState.toefl di
+        // admin/soal/soal.js (builder) & lib/toefl.js (mesin skor server) —
+        // TIDAK ada Pembahasan/Materi (builder TOEFL memang belum punya field
+        // itu per-soal, beda dari Multiple Choice/Linier).
+        const jmlBacaan = 2;
+        const bacaanRows = [['No', 'Judul', 'Teks Bacaan']];
+        for (let i = 1; i <= jmlBacaan; i++) {
+            bacaanRows.push(i === 1
+                ? [1, 'Contoh: Sejarah Kereta Api', 'Contoh: Tempel teks bacaan panjang di sini. 1 baris = 1 bacaan, dipakai bersama oleh beberapa soal Reading lewat kolom "No Bacaan".']
+                : [i, '', '']);
+        }
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(bacaanRows), 'Bacaan');
+
+        const mkSoalRows = (extraHeaderAfterNo, exampleExtra) => {
+            const header = ['No', ...extraHeaderAfterNo, 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban'];
+            const exampleRow = [1, ...exampleExtra];
+            const rows = [header, exampleRow];
+            for (let i = 2; i <= jumlah; i++) {
+                const r = new Array(header.length).fill('');
+                r[0] = i;
+                rows.push(r);
+            }
+            return rows;
+        };
+
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mkSoalRows(
+            ['Audio URL'],
+            ['https://contoh-link-audio.mp3', 'Contoh: What does the woman mean?', 'She is busy', 'She agrees', 'She is late', '', '', 'B']
+        )), 'Listening');
+
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mkSoalRows(
+            ['Subtipe (rumpang/salah)'],
+            ['rumpang', 'Contoh: The train ___ at 9 AM every day.', 'leave', 'leaves', 'left', 'leaving', '', 'B']
+        )), 'Structure');
+
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mkSoalRows(
+            ['No Bacaan (opsional, sesuai No di sheet Bacaan)'],
+            [1, 'Contoh: Kapan kereta api pertama di Indonesia dibangun?', '1864', '1900', '1945', '', '', 'A']
+        )), 'Reading');
+
+        const petunjuk = [
+            ['PETUNJUK PENGISIAN — TOEFL (LISTENING · STRUCTURE · READING)'],
+            ['1. Sheet "Bacaan" khusus utk Reading — isi teks bacaan sekali per baris, boleh dipakai bersama oleh beberapa soal Reading (soal 1 bacaan yang sama otomatis tetap berurutan/berdekatan saat ujian, walau "acak soal" dinyalakan di modul).'],
+            ['2. Kolom "No Bacaan" di sheet Reading diisi angka sesuai kolom "No" di sheet Bacaan (mis. isi 1 utk pakai bacaan baris pertama). Kosongkan jika soal Reading itu berdiri sendiri tanpa bacaan bersama.'],
+            ['3. Sheet "Listening": kolom "Audio URL" diisi link audio (mis. hasil upload file audio yang sudah diunggah lebih dulu di aplikasi, atau link publik lain). Bisa dikosongkan dulu lalu diisi manual di aplikasi setelah upload.'],
+            ['4. Sheet "Structure": kolom "Subtipe" WAJIB diisi persis "rumpang" (melengkapi kalimat) atau "salah" (cari kesalahan struktur) — dipakai sistem utk menjaga urutan blok soal tetap sesuai format resmi TOEFL ITP (blok rumpang dulu, baru blok salah).'],
+            ['5. Kolom Pilihan C, D, E boleh dikosongkan jika soal hanya punya 2-3 pilihan.'],
+            ['6. Isi pilihan berurutan dari A tanpa melompati kolom (jangan isi C jika B kosong).'],
+            ['7. Isi "Kunci Jawaban" dengan SATU huruf pilihan yang benar (A/B/C/D/E) — semua soal TOEFL single-answer, tidak bisa lebih dari 1 kunci.'],
+            ['8. Kolom "No" di tiap sheet hanya penomoran, tidak wajib berurutan.'],
+            ['9. "Nama Internal" & "Kelompok" di sheet Info bersifat opsional, sama seperti tipe soal lain.'],
+            ['10. Field "Materi", "Sistem Penilaian", dan "Pembahasan" TIDAK berlaku untuk TOEFL (skor dihitung otomatis lewat tabel konversi ITP resmi) — kolom-kolom itu sengaja tidak ada di template ini.'],
         ];
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(petunjuk), 'Petunjuk');
     } else {
@@ -1482,7 +1544,7 @@ async function _importSoalFromWorkbook(wb, imageMap) {
     const nama = (info['Nama Soal'] && String(info['Nama Soal']).trim()) || ('Soal Import ' + new Date().toLocaleDateString('id-ID'));
     const namaInternal = (info['Nama Internal'] && String(info['Nama Internal']).trim()) || '';
     let type = String(info['Tipe Soal'] || 'multiple_choice').trim();
-    if (!['multiple_choice', 'linier', 'sikap_kerja'].includes(type)) type = 'multiple_choice';
+    if (!['multiple_choice', 'linier', 'sikap_kerja', 'toefl'].includes(type)) type = 'multiple_choice';
     const skorType = String(info['Sistem Penilaian'] || 'benar_salah').trim() === 'nilai_sendiri' ? 'nilai_sendiri' : 'benar_salah';
     const opsiJawaban = parseInt(info['Jumlah Jawaban Dipilih Peserta']) || 1;
     const timerJam = parseInt(info['Timer Jam']) || 0;
@@ -1537,6 +1599,81 @@ async function _importSoalFromWorkbook(wb, imageMap) {
         setDirty('import soal');
         showToast(`Import berhasil! ${totalFilled}/10 kolom siap (soal otomatis dibuat)${kelompokNotifSuffix}`, kelompokResolved.notFound ? 'danger' : 'success', kelompokResolved.notFound ? 4200 : 2600);
         _sikapView = 'list'; _animateTo(_renderSikapList);
+    } else if (type === 'toefl') {
+        // ── Import TOEFL: BEDA dari MC/Linier di atas — pertanyaan & teks
+        // jawaban TOEFL disimpan sbg PLAIN TEXT (textarea/input biasa di
+        // builder, BUKAN RichEditor spt MC), jadi TIDAK lewat _escHtmlSoal
+        // (yang menghasilkan HTML). Gambar juga tidak didukung utk TOEFL
+        // (builder-nya memang tidak punya slot gambar per-soal, cuma Audio
+        // URL utk Listening) — imageMap diabaikan sepenuhnya di sini.
+        const parseOpsiKunci = (r, idx) => {
+            const jawaban = [];
+            for (let k = 0; k < 5; k++) {
+                const teks = r[3 + k] !== undefined ? String(r[3 + k]).trim() : '';
+                if (teks) jawaban.push({ id: 'J_' + Date.now() + '_' + idx + '_' + k, teks });
+            }
+            while (jawaban.length < 2) jawaban.push({ id: 'J_' + Date.now() + '_' + idx + '_x' + jawaban.length, teks: '' });
+            const hurufKunci = String(r[8] || '').trim().toUpperCase().charAt(0);
+            const ki = hurufKunci ? hurufKunci.charCodeAt(0) - 65 : -1;
+            const kunci = (ki >= 0 && jawaban[ki] && jawaban[ki].teks) ? [jawaban[ki].id] : [];
+            return { jawaban, kunci };
+        };
+        // Baris valid = kolom Pertanyaan (indeks 2, sama di ketiga sheet) terisi,
+        // ATAU ada isi lain di baris itu (opsi/kunci) yg menandakan baris memang
+        // soal beneran walau pertanyaannya sengaja dikosongkan.
+        const parseSectionRows = (sheetName) => (_sheetToRowsSoal(wb, sheetName) || []).slice(1)
+            .filter(r => String(r[2] || '').trim() !== '' || r.some((c, ci) => ci !== 0 && String(c || '').trim() !== ''));
+
+        // Sheet "Bacaan" -> passages Reading. Dicocokkan ke kolom "No Bacaan" di
+        // sheet Reading lewat NILAI kolom "No" apa adanya (bukan posisi baris) —
+        // supaya cocok persis dgn Petunjuk #2 di template, tahan walau admin
+        // menambah/menghapus baris Bacaan tanpa merapikan ulang penomoran.
+        const bacaanRows = (_sheetToRowsSoal(wb, 'Bacaan') || []).slice(1);
+        const passages = [];
+        const passageByNo = {};
+        bacaanRows.forEach((r, idx) => {
+            const judul = String(r[1] || '').trim();
+            const teks = String(r[2] || '').trim();
+            if (!judul && !teks) return;
+            const id = 'P_' + Date.now() + '_' + idx;
+            passages.push({ id, judul: judul || `Bacaan ${passages.length + 1}`, teks });
+            const noVal = (r[0] !== undefined && r[0] !== '') ? String(r[0]).trim() : String(idx + 1);
+            passageByNo[noVal] = id;
+        });
+
+        const listeningRows = parseSectionRows('Listening');
+        const structureRows = parseSectionRows('Structure');
+        const readingRows = parseSectionRows('Reading');
+
+        const listening = {
+            soal: (listeningRows.length ? listeningRows : [[]]).map((r, idx) => {
+                const { jawaban, kunci } = parseOpsiKunci(r, idx);
+                return { id: 'TQ_' + Date.now() + '_L' + idx, pertanyaan: String(r[2] || '').trim(), jawaban, kunci, audio_url: String(r[1] || '').trim() };
+            })
+        };
+        const structure = {
+            soal: (structureRows.length ? structureRows : [[]]).map((r, idx) => {
+                const { jawaban, kunci } = parseOpsiKunci(r, idx);
+                const subtipeRaw = String(r[1] || '').trim().toLowerCase();
+                return { id: 'TQ_' + Date.now() + '_S' + idx, pertanyaan: String(r[2] || '').trim(), jawaban, kunci, subtipe: subtipeRaw === 'salah' ? 'salah' : 'rumpang' };
+            })
+        };
+        const reading = {
+            passages,
+            soal: (readingRows.length ? readingRows : [[]]).map((r, idx) => {
+                const { jawaban, kunci } = parseOpsiKunci(r, idx);
+                const noBacaan = String(r[1] || '').trim();
+                return { id: 'TQ_' + Date.now() + '_R' + idx, pertanyaan: String(r[2] || '').trim(), jawaban, kunci, passage_id: noBacaan ? (passageByNo[noBacaan] || null) : null };
+            })
+        };
+
+        SoalState.toefl = { listening, structure, reading };
+        SoalState.pertanyaan = []; SoalState.kolom = null;
+        _toeflSection = 'listening'; _toeflIdx = 0;
+        setDirty('import soal');
+        const totalSoalToefl = listening.soal.length + structure.soal.length + reading.soal.length;
+        showToast(`Import berhasil! ${totalSoalToefl} soal TOEFL siap direview (Listening ${listening.soal.length} · Structure ${structure.soal.length} · Reading ${reading.soal.length})${kelompokNotifSuffix}`, kelompokResolved.notFound ? 'danger' : 'success', kelompokResolved.notFound ? 4200 : 2600);
+        _animateTo(_renderToeflHtml);
     } else {
         // Simpan indeks baris asli (0-based, header=0) tiap baris SEBELUM difilter,
         // supaya bisa dicocokkan balik ke imageMap (posisi gambar diambil dari baris mentah Excel).
@@ -1676,6 +1813,12 @@ function _collectSoalImagePositions(s) {
                 }
             });
         });
+    } else if (type === 'toefl') {
+        // TOEFL tidak punya embed gambar di soal/opsi (builder-nya cuma teks
+        // polos + Audio URL utk Listening, lihat komentar branch import) —
+        // jadi tidak ada apa pun utk dikumpulkan di sini, `data` di atas juga
+        // bukan array (object 3 section) jadi `.forEach` di bawah akan error
+        // kalau dipaksa lolos ke cabang else.
     } else {
         const pembahasanCol = skorType === 'nilai_sendiri' ? 12 : 8;
         data.forEach((q, idx) => {
@@ -1857,6 +2000,47 @@ function _buildSoalWorkbook(s) {
         });
         while (kolomRows.length < 11) kolomRows.push([kolomRows.length, '', '', '', '', '']);
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(kolomRows), 'Kolom');
+    } else if (type === 'toefl') {
+        // ── Export TOEFL — kebalikan PERSIS dari _importSoalFromWorkbook()
+        // branch toefl: 4 sheet (Bacaan + 1 per section), teks apa adanya
+        // (plain text, TIDAK lewat _htmlToPlainSoal krn TOEFL memang tidak
+        // pernah disimpan sbg HTML — lihat komentar di branch import).
+        const toefl = s.data || { listening: { soal: [] }, structure: { soal: [] }, reading: { soal: [], passages: [] } };
+        const passages = (toefl.reading && toefl.reading.passages) || [];
+        const passageNoOf = {}; // passage.id -> No (posisi 1-based di sheet Bacaan, urutan sesuai passages)
+        const bacaanRows = [['No', 'Judul', 'Teks Bacaan']];
+        passages.forEach((p, i) => { passageNoOf[p.id] = i + 1; bacaanRows.push([i + 1, p.judul || '', p.teks || '']); });
+        if (bacaanRows.length === 1) bacaanRows.push(['', '', '']);
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(bacaanRows), 'Bacaan');
+
+        const soalRowsFor = (items, extraColFn) => {
+            const rows = [];
+            (items || []).forEach((q, idx) => {
+                const jawaban = q.jawaban || [];
+                const kunciHuruf = (q.kunci && q.kunci[0]) ? (() => {
+                    const ki = jawaban.findIndex(j => j.id === q.kunci[0]);
+                    return ki >= 0 ? String.fromCharCode(65 + ki) : '';
+                })() : '';
+                const r = [idx + 1, extraColFn(q)];
+                r.push(q.pertanyaan || '');
+                for (let k = 0; k < 5; k++) r.push(jawaban[k] ? (jawaban[k].teks || '') : '');
+                r.push(kunciHuruf);
+                rows.push(r);
+            });
+            return rows;
+        };
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+            ['No', 'Audio URL', 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban'],
+            ...soalRowsFor((toefl.listening && toefl.listening.soal) || [], q => q.audio_url || '')
+        ]), 'Listening');
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+            ['No', 'Subtipe (rumpang/salah)', 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban'],
+            ...soalRowsFor((toefl.structure && toefl.structure.soal) || [], q => q.subtipe || 'rumpang')
+        ]), 'Structure');
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+            ['No', 'No Bacaan (opsional, sesuai No di sheet Bacaan)', 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban'],
+            ...soalRowsFor((toefl.reading && toefl.reading.soal) || [], q => q.passage_id && passageNoOf[q.passage_id] ? passageNoOf[q.passage_id] : '')
+        ]), 'Reading');
     } else {
         const header = skorType === 'nilai_sendiri'
             ? ['No', 'Pertanyaan', 'Pilihan A', 'Skor A', 'Pilihan B', 'Skor B', 'Pilihan C', 'Skor C', 'Pilihan D', 'Skor D', 'Pilihan E', 'Skor E', 'Pembahasan', 'Materi']

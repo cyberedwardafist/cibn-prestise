@@ -285,10 +285,63 @@ async function _amodFetchAndRenderCharts() {
         _amodRenderChartsEmpty('Gagal memuat grafik, silakan coba lagi');
         return;
     }
+    _amodRenderToefl(hasil);
     _amodRenderCharts(hasil);
 }
 
+// ── ANALITIK TOEFL — TEMPLATE & LOGIKA DISALIN PERSIS dari _atdRenderToefl()/
+// _atdToeflCardHtml() di analisa-token-detail.js (lihat komentar lengkap di
+// sana); `hasil` di sini = respons POST /api/analisa/modul/:kode/hitung
+// (field `toefl`, bentuknya SAMA PERSIS dgn agg.toefl dari GET /api/analisa/
+// grup/:grubToken, krn keduanya dibangun dari computeAnalisaGrupAggregate()
+// yang sama di server.js).
+function _amodRenderToefl(hasil) {
+    const wrap = document.getElementById('amod-toefl-wrap');
+    if (!wrap) return;
+    const list = (hasil && hasil.toefl) || [];
+    wrap.innerHTML = list.map(_amodToeflCardHtml).join('');
+}
+
+function _amodToeflCardHtml(t) {
+    if (!t.peserta) {
+        return `<div class="card atd-chart-card" style="margin-bottom:18px">
+            <div class="section-title" style="font-size:16px;margin-bottom:2px">${_amodEsc(t.soal_nama)} — Analitik TOEFL</div>
+            <div class="empty-state" style="padding:16px"><p>Belum ada peserta (dari sampel) yang mengerjakan bagian TOEFL ini</p></div>
+        </div>`;
+    }
+    const r = t.rata;
+    const bar = (label, val, max, color) => `
+        <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-sub);margin-bottom:3px">
+                <span>${label}</span><span style="font-weight:700;color:var(--text-main)">${val}</span>
+            </div>
+            <div style="height:8px;border-radius:4px;background:rgba(19,50,89,.08);overflow:hidden">
+                <div style="height:100%;width:${Math.max(2, Math.min(100, Math.round(val / max * 100)))}%;background:${color};border-radius:4px"></div>
+            </div>
+        </div>`;
+    const cefrBadges = Object.entries(t.cefr || {})
+        .sort((a, b) => b[1] - a[1])
+        .map(([lv, n]) => `<span class="history-badge" style="background:rgba(19,50,89,.08);color:var(--text-sub);margin-right:6px">${_amodEsc(lv)}: ${n} orang</span>`)
+        .join('');
+    return `<div class="card atd-chart-card" style="margin-bottom:18px">
+        <div class="section-title" style="font-size:16px;margin-bottom:2px">${_amodEsc(t.soal_nama)} — Analitik TOEFL</div>
+        <div class="section-sub" style="margin-bottom:14px">Rata-rata skor gabungan ${t.peserta} peserta (dari sampel) yang mengerjakan</div>
+        ${bar('Listening (skala 31-68)', r.listening, 68, '#2563eb')}
+        ${bar('Structure (skala 31-68)', r.structure, 68, '#7c3aed')}
+        ${bar('Reading (skala 31-67)', r.reading, 67, '#0891b2')}
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(19,50,89,.08);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <div>
+                <div style="font-size:12px;color:var(--text-sub)">Skor Total ITP (rata-rata)</div>
+                <div style="font-size:24px;font-weight:800;color:var(--blue)">${r.total}</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">${cefrBadges}</div>
+        </div>
+    </div>`;
+}
+
 function _amodRenderChartsEmpty(msg) {
+    const toeflWrap = document.getElementById('amod-toefl-wrap');
+    if (toeflWrap) toeflWrap.innerHTML = '';
     const wrap = document.getElementById('amod-charts-wrap');
     if (!wrap) return;
     wrap.innerHTML = `<div class="card atd-chart-card"><div class="empty-state"><p>${_amodEsc(msg)}</p></div></div>`;
@@ -304,7 +357,7 @@ function _amodRenderCharts(hasil) {
     const wrap = document.getElementById('amod-charts-wrap');
     if (!wrap) return;
 
-    if (!hasil) { wrap.innerHTML = ''; return; }
+    if (!hasil) { wrap.innerHTML = ''; const tw = document.getElementById('amod-toefl-wrap'); if (tw) tw.innerHTML = ''; return; }
 
     // Diisi (nomor GLOBAL, sama pola dgn _ATD_DUMMY_* di analisa-token-
     // detail.js) — dibaca analisa-soal.js (lookup 1 butir soal via klik
@@ -317,7 +370,12 @@ function _amodRenderCharts(hasil) {
     window._amodSikapGroupsByKode = {};
 
     if (!perSoal.length) {
-        wrap.innerHTML = '<div class="card atd-chart-card"><div class="empty-state"><p>Belum ada peserta (dari sampel) yang menyelesaikan ujian utk modul ini</p></div></div>';
+        // Modul bisa saja HANYA berisi soal TOEFL (kartunya di amod-toefl-wrap,
+        // bukan lewat perSoal) — jadi pesan "belum ada peserta" di sini cuma
+        // tepat kalau toefl juga kosong/belum ada yg mengerjakan.
+        wrap.innerHTML = (hasil.toefl && hasil.toefl.some(t => t.peserta))
+            ? ''
+            : '<div class="card atd-chart-card"><div class="empty-state"><p>Belum ada peserta (dari sampel) yang menyelesaikan ujian utk modul ini</p></div></div>';
         return;
     }
 

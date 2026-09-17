@@ -772,6 +772,7 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
     const skorChart = [];     // [{nomor, local, soal_kode, soal_nama, opsi:[{nilai,jumlah}]}]
     const sikapRaw = [];      // [kolomGlobalIdx] -> [{benar,salah,nama,id}] per peserta
     const perSoal = [];       // 1 entri per soal bernama, urut sesuai modul
+    const toeflList = [];     // 1 entri per soal TOEFL bernama — lihat blok `if (s.type === 'toefl')` di bawah
 
     // Komposisi TIPE soal modul ini — dihitung dari `soalRows` (susunan modul
     // itu sendiri), BUKAN dari isi binaryChart/skorChart/sikapRaw di bawah.
@@ -790,14 +791,40 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
         ringkasanSoal.push({ nama: s.nama, butir: _analisaSoalButir(s.type, s.data) });
 
         // Soal TOEFL punya sistem skor & struktur data sendiri (3 section,
-        // bukan array flat) — belum ada grafik khusus TOEFL di Analisa Grup
-        // (lihat lib/toefl.js utk mesin skornya, dipakai di ujian/hasil.js &
-        // review/riwayat saat peserta/admin lihat 1 hasil). Supaya tidak
-        // ikut kebaca sbg soal binary/skor kosong (data bukan array => tiap
-        // forEach di bawah otomatis no-op, aman tapi bikin entri kosong yg
-        // membingungkan), soal TOEFL dilewati sepenuhnya di sini — sama
-        // seperti sikap_kerja dilewati dari grafik binary/skor biasa.
-        if (s.type === 'toefl') continue;
+        // bukan array flat) — jadi TETAP dilewati dari grafik binary/skor
+        // biasa di bawah (data bukan array => forEach otomatis no-op, tapi
+        // bikin entri kosong yg membingungkan kalau dipaksa lolos), sama
+        // spt sikap_kerja dilewati dari grafik binary/skor. GANTINYA: hitung
+        // agregat khusus TOEFL di sini — rata-rata scaled score per section
+        // (Listening/Structure/Reading) + total (skala ITP) + sebaran level
+        // CEFR, digabung dari SEMUA peserta grup ini (bukan per-butir spt
+        // binary/skor). Dipakai kartu "Analitik TOEFL" di admin/analisa/
+        // analisa-token-detail.js & analisa-modul-detail.js (lihat toeflList
+        // di return function ini). Mesin skor per-peserta dipakai ulang
+        // APA ADANYA dari lib/toefl.js (hitungSkorToefl) — SUMBER KEBENARAN
+        // yang sama dgn yang dipakai saat submit ujian/lihat 1 hasil, supaya
+        // rata-rata di sini tidak pernah beda hitung dgn skor individual yg
+        // peserta/admin lihat di ujian/hasil.js & review/riwayat.
+        if (s.type === 'toefl') {
+            const perPeserta = jawabanList.map(jw => toeflLib.hitungSkorToefl(s.data, jw, s.kode));
+            // "Ikut" = peserta yg sudah mengisi minimal 1 section TOEFL soal
+            // ini (anyIsi di hitungSkorToefl) — token yg belum dikerjakan
+            // sama sekali (laporan kosong/belum submit) tidak ikut dihitung
+            // ke rata-rata supaya tidak menyeret turun (dianggap skor 0).
+            const ikut = perPeserta.filter(r => r.listening.total || r.structure.total || r.reading.total);
+            const rataRata = (sec) => Math.round(ikut.reduce((a, r) => a + (r[sec].scaled || 0), 0) / ikut.length);
+            const cefr = {};
+            ikut.forEach(r => { const lv = (r.cefr && r.cefr.level) || '-'; cefr[lv] = (cefr[lv] || 0) + 1; });
+            toeflList.push({
+                soal_kode: s.kode, soal_nama: s.nama, peserta: ikut.length,
+                rata: ikut.length ? {
+                    listening: rataRata('listening'), structure: rataRata('structure'), reading: rataRata('reading'),
+                    total: Math.round(ikut.reduce((a, r) => a + (r.total || 0), 0) / ikut.length)
+                } : null,
+                cefr
+            });
+            continue;
+        }
 
         if (s.type === 'sikap_kerja') {
             tipeSoal.sikap = true;
@@ -907,7 +934,7 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
 
     return {
         modul: { kode: modul.kode, nama: modul.nama, soal: ringkasanSoal },
-        binaryChart, skorChart, sikapRaw, tipeSoal, perSoal
+        binaryChart, skorChart, sikapRaw, tipeSoal, perSoal, toefl: toeflList
     };
 }
 
@@ -2594,7 +2621,7 @@ app.get('/api/analisa/grup/:grubKey', auth(['admin','review']), ah(async (req, r
     `).all(isLegacy ? legacyNama : rawKey);
 
     if (!tokens.length) {
-        return res.json({ grub_key: rawKey, grub_token: legacyNama, ringkasan: { total: 0, used: 0, hangus: 0, modul: null }, peserta: [], charts: { binary: [], skor: [], sikap: [] }, per_soal: [], tipe_soal: { binary: false, skor: false, sikap: false }, multi_modul: false, modul_list: [] });
+        return res.json({ grub_key: rawKey, grub_token: legacyNama, ringkasan: { total: 0, used: 0, hangus: 0, modul: null }, peserta: [], charts: { binary: [], skor: [], sikap: [] }, per_soal: [], toefl: [], tipe_soal: { binary: false, skor: false, sikap: false }, multi_modul: false, modul_list: [] });
     }
 
     const now = Date.now();
@@ -2636,6 +2663,10 @@ app.get('/api/analisa/grup/:grubKey', auth(['admin','review']), ah(async (req, r
         // `charts` di atas TETAP dikirim apa adanya (dipakai analisa-soal.js
         // utk lookup by-nomor & analisa-export.js utk sheet Excel gabungan).
         per_soal: agg.perSoal || [],
+        // toefl: kartu "Analitik TOEFL" (rata2 Listening/Structure/Reading +
+        // total + sebaran CEFR gabungan seluruh peserta grup ini) — lihat
+        // komentar blok `if (s.type === 'toefl')` di computeAnalisaGrupAggregate.
+        toefl: agg.toefl || [],
         tipe_soal: agg.tipeSoal || { binary: false, skor: false, sikap: false },
         multi_modul: multiModul,
         modul_list: modulKodes.map(k => ({ kode: k, nama: (tokens.find(t => t.modul_kode === k) || {}).modul_nama || k, jumlah_token: modulCount[k] }))
@@ -2707,7 +2738,7 @@ app.post('/api/analisa/modul/:kode/hitung', auth(['admin','review']), ah(async (
 
     const userKodes = Array.isArray(req.body.user_kodes) ? [...new Set(req.body.user_kodes.filter(Boolean))] : [];
     if (!userKodes.length) {
-        return res.json({ jumlah_peserta: 0, charts: { binary: [], skor: [], sikap: [] }, per_soal: [], tipe_soal: { binary: false, skor: false, sikap: false } });
+        return res.json({ jumlah_peserta: 0, charts: { binary: [], skor: [], sikap: [] }, per_soal: [], toefl: [], tipe_soal: { binary: false, skor: false, sikap: false } });
     }
 
     const placeholdersUser = userKodes.map(() => '?').join(',');
@@ -2724,6 +2755,7 @@ app.post('/api/analisa/modul/:kode/hitung', auth(['admin','review']), ah(async (
         jumlah_peserta: laporanRows.length,
         charts: { binary: agg.binaryChart, skor: agg.skorChart, sikap: agg.sikapRaw },
         per_soal: agg.perSoal || [],
+        toefl: agg.toefl || [],
         tipe_soal: agg.tipeSoal
     });
 }));

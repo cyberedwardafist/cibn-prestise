@@ -122,6 +122,7 @@ async function renderAnalisaTokenDetail() {
     if (!grup) {
         _atdRenderRingkasan(grup, items, null);
         _atdRenderPeserta(grup, items, null);
+        _atdRenderToefl(null);
         _atdRenderCharts(null);
         return;
     }
@@ -142,7 +143,60 @@ async function renderAnalisaTokenDetail() {
 
     _atdRenderRingkasan(grup, items, agg);
     _atdRenderPeserta(grup, items, agg);
+    _atdRenderToefl(agg);
     _atdRenderCharts(agg);
+}
+
+// ── ANALITIK TOEFL — kartu terpisah dari "Grafik Per Soal" (soal TOEFL
+// SENGAJA tidak masuk agg.per_soal, lihat komentar computeAnalisaGrupAggregate
+// di server.js): 1 kartu per soal TOEFL bernama dlm modul, isinya rata-rata
+// scaled score Listening/Structure/Reading + skor Total (skala ITP 310-677)
+// + sebaran level CEFR, DIGABUNG dari seluruh peserta grup token ini.
+// Sengaja pakai bar sederhana (div width% + CSS), BUKAN template line-chart
+// SVG _atdBuildLineChart (dibuat utk sumbu-X per-BUTIR soal — bentuk data
+// TOEFL beda total, cuma 3 section + 1 total, bukan N butir).
+function _atdRenderToefl(agg) {
+    const wrap = document.getElementById('atd-toefl-wrap');
+    if (!wrap) return;
+    const list = (agg && agg.toefl) || [];
+    wrap.innerHTML = list.map(_atdToeflCardHtml).join('');
+}
+
+function _atdToeflCardHtml(t) {
+    if (!t.peserta) {
+        return `<div class="card atd-chart-card" style="margin-bottom:18px">
+            <div class="section-title" style="font-size:16px;margin-bottom:2px">${_atdEsc(t.soal_nama)} — Analitik TOEFL</div>
+            <div class="empty-state" style="padding:16px"><p>Belum ada peserta yang mengerjakan bagian TOEFL ini</p></div>
+        </div>`;
+    }
+    const r = t.rata;
+    const bar = (label, val, max, color) => `
+        <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-sub);margin-bottom:3px">
+                <span>${label}</span><span style="font-weight:700;color:var(--text-main)">${val}</span>
+            </div>
+            <div style="height:8px;border-radius:4px;background:rgba(19,50,89,.08);overflow:hidden">
+                <div style="height:100%;width:${Math.max(2, Math.min(100, Math.round(val / max * 100)))}%;background:${color};border-radius:4px"></div>
+            </div>
+        </div>`;
+    const cefrBadges = Object.entries(t.cefr || {})
+        .sort((a, b) => b[1] - a[1])
+        .map(([lv, n]) => `<span class="history-badge" style="background:rgba(19,50,89,.08);color:var(--text-sub);margin-right:6px">${_atdEsc(lv)}: ${n} orang</span>`)
+        .join('');
+    return `<div class="card atd-chart-card" style="margin-bottom:18px">
+        <div class="section-title" style="font-size:16px;margin-bottom:2px">${_atdEsc(t.soal_nama)} — Analitik TOEFL</div>
+        <div class="section-sub" style="margin-bottom:14px">Rata-rata skor gabungan ${t.peserta} peserta yang mengerjakan</div>
+        ${bar('Listening (skala 31-68)', r.listening, 68, '#2563eb')}
+        ${bar('Structure (skala 31-68)', r.structure, 68, '#7c3aed')}
+        ${bar('Reading (skala 31-67)', r.reading, 67, '#0891b2')}
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(19,50,89,.08);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <div>
+                <div style="font-size:12px;color:var(--text-sub)">Skor Total ITP (rata-rata)</div>
+                <div style="font-size:24px;font-weight:800;color:var(--blue)">${r.total}</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">${cefrBadges}</div>
+        </div>
+    </div>`;
 }
 
 function _atdEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])); }
@@ -370,7 +424,12 @@ function _atdRenderCharts(agg) {
     window._atdSikapGroupsByKode = {};
 
     if (!perSoal.length) {
-        wrap.innerHTML = '<div class="card atd-chart-card"><div class="empty-state"><p>Modul ini belum berisi soal</p></div></div>';
+        // Modul bisa saja HANYA berisi soal TOEFL (yg kartunya ditampilkan
+        // terpisah lewat _atdRenderToefl(), bukan lewat perSoal di sini) —
+        // jadi "belum berisi soal" cuma tepat kalau toefl juga kosong.
+        wrap.innerHTML = (agg.toefl && agg.toefl.length)
+            ? ''
+            : '<div class="card atd-chart-card"><div class="empty-state"><p>Modul ini belum berisi soal</p></div></div>';
         return;
     }
 
