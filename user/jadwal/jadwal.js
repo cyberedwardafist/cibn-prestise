@@ -230,6 +230,7 @@ const JadwalStore = (function () {
     async function _jdwApiGetMeta() { try { return await apiFetch('/jadwal-meta'); } catch (e) { return { tentor: [] }; } }
     async function _jdwApiCreate(body) { return await apiPost('/jadwal-sesi', body); }
     async function _jdwApiUpdate(id, body) { return await apiPut('/jadwal-sesi/' + id, body); }
+    async function _jdwApiGetOne(id) { return await apiFetch('/jadwal-sesi/' + id); }
     async function _jdwApiDelete(id) { return await apiFetch('/jadwal-sesi/' + id, { method: 'DELETE' }); }
 
     async function _bootstrap() {
@@ -301,6 +302,18 @@ const JadwalStore = (function () {
                 if (typeof _jdwRenderWeek === 'function') _jdwRenderWeek();
             });
             return _cache[idx];
+        },
+        // Muat ulang SATU entri dari server (dipakai tombol "Cek Lagi" di overlay
+        // "Sesi Berlangsung" — lihat JadwalPage.cekLagiGmeetLink di bawah — buat
+        // kasus meet_link belum sempat jadi pas overlay pertama kali dibuka).
+        async refreshOne(id) {
+            const row = await _jdwApiGetOne(id);
+            if (!row) return null;
+            const idx = _cache.findIndex(j => j.id === id);
+            if (idx >= 0) { Object.assign(_cache[idx], _fromApi(row)); return _cache[idx]; }
+            const item = _fromApi(row);
+            _cache.push(item);
+            return item;
         },
         remove(id) {
             const idx = _cache.findIndex(j => j.id === id);
@@ -904,10 +917,15 @@ function _jdwAutoAdvanceStatus() {
 }
 
 /* ══════════════════════════════════════════
-   DUMMY: LINK GMEET & TOKEN SESI
-   Belum ada backend, jadi link/token dibangkitkan deterministik dari id
-   entri (bukan disimpan) — konsisten tiap dibuka tapi tetap gampang nanti
-   diganti jadi field asli dari server (mis. e.gmeetLink / e.token).
+   TOKEN SESI (real, fallback pseudo utk entri lama) & LINK GMEET (real, sudah
+   TIDAK ada fallback dummy lagi — lihat generateMeetLinkSaatBerlangsung di
+   server.js: room Google Meet ASLI dibuat lewat Google Calendar API persis
+   saat status sesi masuk "berlangsung", linknya masuk ke e.meetLink (dipetakan
+   dari kolom meet_link, lihat _fromApi di atas). Bisa null SESAAT kalau baru
+   saja masuk "berlangsung" & server masih memproses / integrasi Gmeet admin
+   belum terhubung / Google API gagal — overlay "Sesi Berlangsung" di bawah
+   menampilkan status "Sedang disiapkan..." + tombol "Cek Lagi" utk kasus itu,
+   BUKAN link palsu lagi seperti sebelumnya.
    ══════════════════════════════════════════ */
 function _jdwPseudoCode(seedStr, pattern) {
     let hash = 0;
@@ -919,8 +937,7 @@ function _jdwPseudoCode(seedStr, pattern) {
     });
 }
 function _jdwEntryGmeetLink(e) {
-    if (e.gmeetLink) return e.gmeetLink;
-    return `https://meet.google.com/${_jdwPseudoCode(e.id + '-meet', 'xxx-xxxx-xxx').toLowerCase()}`;
+    return e.meetLink || null;
 }
 function _jdwEntryToken(e) {
     // token_kode: kode token ASLI hasil generate otomatis server (lihat
@@ -2755,14 +2772,29 @@ const JadwalPage = {
         const link = _jdwEntryGmeetLink(e);
         const token = _jdwEntryToken(e);
         document.getElementById('jdw-sesi-title').textContent = 'Sesi Berlangsung';
-        document.getElementById('jdw-sesi-body').innerHTML = `
-            <div class="jdw-sesi-item">
+        // link bisa null sesaat (room Gmeet masih diproses server / integrasi
+        // belum terhubung) — lihat catatan di _jdwEntryGmeetLink. Tampilkan
+        // status "Sedang disiapkan..." + tombol Cek Lagi, JANGAN link palsu.
+        const gmeetItemHtml = link
+            ? `<div class="jdw-sesi-item">
                 <div class="jdw-sesi-item-label">Link Google Meet</div>
                 <div class="jdw-sesi-item-row">
                     <div class="jdw-sesi-item-value">${link}</div>
                     <button type="button" class="jdw-sesi-copy-btn" onclick="JadwalPage.copySesiValue('${link}','Link Gmeet')" aria-label="Salin link Gmeet">${_jdwCopyIconHtml()}</button>
                 </div>
-            </div>
+            </div>`
+            : `<div class="jdw-sesi-item">
+                <div class="jdw-sesi-item-label">Link Google Meet</div>
+                <div class="jdw-sesi-item-row">
+                    <div class="jdw-sesi-item-value" style="opacity:.65">Sedang disiapkan...</div>
+                    <button type="button" class="jdw-sesi-copy-btn" onclick="JadwalPage.cekLagiGmeetLink('${id}')" aria-label="Cek lagi link Gmeet" title="Cek lagi">↻</button>
+                </div>
+            </div>`;
+        const gmeetButtonHtml = link
+            ? `<a class="jdw-btn jdw-btn-primary jdw-btn-block" style="text-decoration:none;justify-content:center;text-align:center" href="${link}" target="_blank" rel="noopener">BUKA GOOGLE MEET</a>`
+            : `<button type="button" class="jdw-btn jdw-btn-primary jdw-btn-block" onclick="JadwalPage.cekLagiGmeetLink('${id}')">CEK LINK GOOGLE MEET</button>`;
+        document.getElementById('jdw-sesi-body').innerHTML = `
+            ${gmeetItemHtml}
             <div class="jdw-sesi-item">
                 <div class="jdw-sesi-item-label">Token Sesi</div>
                 <div class="jdw-sesi-item-row">
@@ -2772,13 +2804,24 @@ const JadwalPage = {
             </div>
             <div class="jdw-sesi-hint">Salin link Gmeet & token di atas, lalu gunakan untuk masuk ke sesi mentoring sesuai jadwal.</div>
             <div class="jdw-form-section jdw-ajukan-submit-section" style="margin-bottom:0">
-                <a class="jdw-btn jdw-btn-primary jdw-btn-block" style="text-decoration:none;justify-content:center;text-align:center" href="${link}" target="_blank" rel="noopener">BUKA GOOGLE MEET</a>
+                ${gmeetButtonHtml}
             </div>`;
         const sesiFooter1 = document.getElementById('jdw-sesi-footer');
         if (sesiFooter1) { sesiFooter1.innerHTML = ''; sesiFooter1.style.display = 'none'; }
         document.getElementById('jdw-sesi-body').style.paddingBottom = 'calc(200px + env(safe-area-inset-bottom))';
         document.getElementById('jdw-sesi-overlay').classList.add('open');
         _jdwSyncPageScrollLock();
+    },
+    // Tombol "Cek Lagi"/"Cek Link Google Meet" di overlay "Sesi Berlangsung" —
+    // muat ulang SATU entri ini dari server (GET /api/jadwal-sesi/:kode) &
+    // render ulang overlay kalau masih entri yang sama yang sedang terbuka.
+    async cekLagiGmeetLink(id) {
+        try {
+            await JadwalStore.refreshOne(id);
+        } catch (e) {
+            showToast('Gagal memuat ulang: ' + e.message);
+        }
+        if (this._sesiEntryId === id) this.masukEntry(id);
     },
     copySesiValue(text, label) {
         if (!navigator.clipboard || !navigator.clipboard.writeText) return;

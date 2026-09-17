@@ -188,6 +188,22 @@ function onToggleModulModeBebas(checked){
     setDirty('modul');
 }
 
+// ── SETTING SOAL TOEFL (izin putar ulang audio Listening) ── (lihat lib/toefl.js)
+// Satu nilai berlaku utk SEMUA soal Listening TOEFL di modul ini (bukan per-soal),
+// sama seperti pola Mode Bebas di atas: block ini hanya muncul relevan (ditampilkan)
+// begitu masuk step "urutkan" (_modulGoToOrderStep), dan dicek dari tipe soal yang
+// sedang terpilih di _modulOrder.
+function _modulHasToefl(){
+    return _modulOrder.some(kode=>{
+        const s=_soalForModul.find(x=>(x.kode||x.id)===kode);
+        return s && s.type==='toefl';
+    });
+}
+function _modulSyncToeflUI(){
+    const block=document.getElementById('modul-toefl-block');if(!block)return;
+    block.style.display=_modulHasToefl()?'block':'none';
+}
+
 function _modulResetPickerState(existing=[]){
     _modulOrder=[];_modulOpts={};
     _modulPickerSearch='';_modulPickerType='all';_modulPickerKelompokFilter='all';
@@ -209,8 +225,8 @@ function _modulInitPickerUI(){
     _renderModulPickerFilters();
     _renderModulSoalPickerList();
 }
-function openAddModul(){document.getElementById('modul-form-mode').value='add';document.getElementById('modul-form-id').value='';document.getElementById('modul-form-title').textContent='Buat Modul Baru';document.getElementById('modul-nama-input').value='';document.getElementById('modul-nama-internal-input').value='';document.getElementById('modul-nilai-min-input').value=80;_modulModeBebas=false;document.getElementById('modul-timer-jam').value=0;document.getElementById('modul-timer-menit').value=60;document.getElementById('modul-timer-detik').value=0;_populateModulKelompokSelect('');_modulResetPickerState([]);_modulInitPickerUI();openModal('modul-form-overlay');}
-function openEditModul(kode){const m=_modulData.find(x=>(x.kode||x.id)==kode);if(!m)return;document.getElementById('modul-form-mode').value='edit';document.getElementById('modul-form-id').value=kode;document.getElementById('modul-form-title').textContent='Edit Modul';document.getElementById('modul-nama-input').value=m.nama;document.getElementById('modul-nama-internal-input').value=m.nama_internal||'';_modulModeBebas=!!m.mode_bebas;document.getElementById('modul-timer-jam').value=m.timer_utama_jam||0;document.getElementById('modul-timer-menit').value=m.timer_utama_menit||0;document.getElementById('modul-timer-detik').value=m.timer_utama_detik||0;_populateModulKelompokSelect(m.kelompok||'');_modulResetPickerState(m.soal_list||[]);_modulInitPickerUI();openModal('modul-form-overlay');}
+function openAddModul(){document.getElementById('modul-form-mode').value='add';document.getElementById('modul-form-id').value='';document.getElementById('modul-form-title').textContent='Buat Modul Baru';document.getElementById('modul-nama-input').value='';document.getElementById('modul-nama-internal-input').value='';document.getElementById('modul-nilai-min-input').value=80;_modulModeBebas=false;document.getElementById('modul-timer-jam').value=0;document.getElementById('modul-timer-menit').value=60;document.getElementById('modul-timer-detik').value=0;document.getElementById('modul-toefl-maks-putar').value=0;_populateModulKelompokSelect('');_modulResetPickerState([]);_modulInitPickerUI();openModal('modul-form-overlay');}
+function openEditModul(kode){const m=_modulData.find(x=>(x.kode||x.id)==kode);if(!m)return;document.getElementById('modul-form-mode').value='edit';document.getElementById('modul-form-id').value=kode;document.getElementById('modul-form-title').textContent='Edit Modul';document.getElementById('modul-nama-input').value=m.nama;document.getElementById('modul-nama-internal-input').value=m.nama_internal||'';_modulModeBebas=!!m.mode_bebas;document.getElementById('modul-timer-jam').value=m.timer_utama_jam||0;document.getElementById('modul-timer-menit').value=m.timer_utama_menit||0;document.getElementById('modul-timer-detik').value=m.timer_utama_detik||0;document.getElementById('modul-toefl-maks-putar').value=m.toefl_maks_putar||0;_populateModulKelompokSelect(m.kelompok||'');_modulResetPickerState(m.soal_list||[]);_modulInitPickerUI();openModal('modul-form-overlay');}
 
 // -- Tahap 1: daftar soal dgn search + filter tipe/kelompok (dipakai ulang dari Library) --
 function _renderModulPickerFilters(){
@@ -241,6 +257,7 @@ function _buildModulPickCard(s){
 }
 function _buildModulOptsInner(s,kode,opt){
     if(s.type==='sikap_kerja')return'<p style="font-size:12px;color:var(--text-sub)">Sikap kerja: laporan grafik terpisah.</p>';
+    if(s.type==='toefl')return`<label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${opt.acak_soal?'checked':''} onchange="_updateModulOpt('${kode}','acak_soal',this.checked)" style="accent-color:var(--blue)"> Acak Soal <span style="color:var(--text-sub);font-weight:400">(blok sub-tipe Structure & blok bacaan Reading tetap terjaga — lihat setting 🎧 di atas)</span></label>`;
     return `<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px"><label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${opt.acak_soal?'checked':''} onchange="_updateModulOpt('${kode}','acak_soal',this.checked)" style="accent-color:var(--blue)"> Acak Soal</label><label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${opt.acak_jawaban?'checked':''} onchange="_updateModulOpt('${kode}','acak_jawaban',this.checked)" style="accent-color:var(--blue)"> Acak Jawaban</label></div><label style="font-size:12px;color:var(--text-sub)">Bobot (%): <input type="number" value="${opt.persen??100}" min="0" max="100" class="form-input" style="width:80px;display:inline;padding:4px 8px;font-size:13px" oninput="_updateModulOpt('${kode}','persen',parseInt(this.value)||0)"></label>`;
 }
 function toggleModulSoal(kode,ck){
@@ -264,6 +281,7 @@ function _modulGoToOrderStep(){
     const mb=document.getElementById('modul-modebebas-block');if(mb)mb.style.display='block';
     _renderModulOrderList();
     _modulSyncModeBebasUI();
+    _modulSyncToeflUI();
 }
 function _modulGoToSelectStep(){_modulInitPickerUI();}
 function _renderModulOrderList(){
@@ -295,7 +313,7 @@ function _modulMove(kode,dir){
     [_modulOrder[idx],_modulOrder[ni]]=[_modulOrder[ni],_modulOrder[idx]];
     _renderModulOrderList();
 }
-function _modulRemoveSelected(kode){_modulOrder=_modulOrder.filter(k=>k!==kode);_renderModulOrderList();_modulSyncModeBebasUI();}
+function _modulRemoveSelected(kode){_modulOrder=_modulOrder.filter(k=>k!==kode);_renderModulOrderList();_modulSyncModeBebasUI();_modulSyncToeflUI();}
 function _modulDragStart(e,kode){_modulDragFrom=kode;e.dataTransfer.effectAllowed='move';}
 function _modulDrop(e,kode){
     if(_modulDragFrom===null||_modulDragFrom===kode){_modulDragFrom=null;return;}
@@ -320,7 +338,8 @@ async function submitModulForm(){
     const timer_utama_detik=parseInt(document.getElementById('modul-timer-detik')?.value)||0;
     if(mode_bebas && (timer_utama_jam+timer_utama_menit+timer_utama_detik)<=0){showToast('Isi durasi Timer Utama Modul untuk Mode Bebas','danger');return;}
     const soal_list=_modulOrder.map(sk=>{const o=_modulOpts[sk]||{};return{soal_kode:sk,acak_soal:!!o.acak_soal,acak_jawaban:!!o.acak_jawaban,persen:o.persen||100};});
-    const payload={nama,nama_internal,kelompok,soal_list,mode_bebas,timer_utama_jam,timer_utama_menit,timer_utama_detik};
+    const toefl_maks_putar=parseInt(document.getElementById('modul-toefl-maks-putar')?.value)||0;
+    const payload={nama,nama_internal,kelompok,soal_list,mode_bebas,timer_utama_jam,timer_utama_menit,timer_utama_detik,toefl_maks_putar};
     try{if(mode==='add')await ModulAPI.create(payload);else await ModulAPI.update(kode,payload);clearDirty();closeModal('modul-form-overlay');showToast('Modul disimpan!','success');await renderModul();}catch(e){showToast('Gagal: '+e.message,'danger');}
 }
 function deleteModulItem(kode,nama){showConfirm('Hapus Modul',`Yakin hapus "${nama}"?`,'danger',async()=>{await ModulAPI.delete(kode);showToast('Modul dihapus','danger');await renderModul();});}

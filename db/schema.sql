@@ -375,6 +375,17 @@ ALTER TABLE pakets ADD COLUMN IF NOT EXISTS mentoring_kuota_batal TEXT;
 -- Grup guru sekarang ditautkan ke MATERI (bukan paket lagi) — lihat catatan di
 -- guru_paket_grup di atas. Kolom lama paket_list dibiarkan apa adanya.
 ALTER TABLE guru_paket_grup ADD COLUMN IF NOT EXISTS materi_list TEXT;
+
+-- toefl_maks_putar: khusus modul yang berisi soal bertipe 'toefl' (lihat
+-- lib/toefl.js utk penjelasan lengkap struktur data & mesin skornya).
+-- "Izin diputar ulang" audio Listening SENGAJA diatur SEKALI di level modul
+-- ini (bukan per-soal) — berlaku sama untuk semua audio Listening di modul
+-- itu. NULL/0 = tidak boleh diputar ulang sama sekali (cuma 1x putar,
+-- sesuai kondisi tes TOEFL asli); nilai lain = jumlah kali putar ULANG yang
+-- diizinkan SETELAH putaran pertama otomatis. Default 0 di sini murni utk
+-- modul LAMA (dari sebelum kolom ini ada, & bukan modul TOEFL) — modul
+-- TOEFL baru selalu mengisi ini eksplisit lewat form Buat/Edit Modul.
+ALTER TABLE modul ADD COLUMN IF NOT EXISTS toefl_maks_putar INTEGER DEFAULT 0;
 -- Switch "tampil di landing page" per paket (kartu paket di admin Keuangan,
 -- di samping tombol Edit — lihat admin/keuangan/keuangan.js). MURNI
 -- visibilitas publik (dibaca GET /api/pakets/public): mati = paket hilang
@@ -398,8 +409,11 @@ CREATE TABLE IF NOT EXISTS landing (
 -- Struktur data.gmail: { email, app_password, nama_pengirim, aktif } — dipakai utk
 -- kirim OTP (lupa kata sandi) & notifikasi/pesan lain ke user (lihat server.js).
 -- Struktur data.gmeet: { client_id, client_secret, calendar_id, durasi_default,
--- status } — MASIH DUMMY/PLACEHOLDER, disiapkan utk fitur Jadwal di halaman user
--- & review (belum ada alur OAuth Google / pembuatan link Meet asli).
+-- status, refresh_token, connected_at } — integrasi Google Meet ASLI (OAuth2 +
+-- Calendar API, lihat lib/gmeet.js & GMEET_INTEGRATION.md) utk fitur Jadwal di
+-- halaman user & review. refresh_token diisi lewat alur OAuth
+-- (GET /api/gmeet/oauth/url|callback di server.js), TIDAK PERNAH dikirim balik
+-- ke frontend lewat GET /api/pengaturan/integrasi.
 CREATE TABLE IF NOT EXISTS pengaturan_integrasi (
     id   INTEGER PRIMARY KEY DEFAULT 1,
     data TEXT
@@ -462,6 +476,33 @@ DROP INDEX IF EXISTS uniq_jadwal_sesi_slot_aktif;
 -- status berbeda) digabung ke sini supaya tidak perlu ALTER TABLE setiap
 -- ada status/field baru. Untuk instalasi lama — aman dijalankan berkali-kali.
 ALTER TABLE jadwal_sesi ADD COLUMN IF NOT EXISTS meta TEXT;
+
+-- Log tindakan admin (dock LAPORAN > sub TINDAKAN, lihat admin/laporan/laporan.js
+-- & POST/GET /api/admin/tindakan di server.js) — audit trail "peringatan" atau
+-- "suspend" yang dijatuhkan admin ke akun guru/murid krn melanggar aturan/kode
+-- etik, opsional ditautkan ke 1 sesi jadwal_sesi tertentu yang memicunya
+-- (jadwal_kode, NULLABLE — tindakan juga bisa diambil tanpa sesi spesifik).
+-- `jenis` = 'peringatan' (murni catatan, tidak mengubah akses akun) |
+-- 'suspend' (users.status ikut diset 'suspend', akun tidak bisa login lagi —
+-- lihat pengecekan status di middleware auth()) | 'cabut_suspend' (pulihkan
+-- akun, users.status dikembalikan NULL). target_nama/admin_nama SENGAJA
+-- disalin (snapshot) di sini, bukan cuma target_kode/admin_kode — supaya
+-- riwayat tindakan tetap terbaca jelas walau nama akun itu berubah di
+-- kemudian hari, atau (kasus admin) akunnya sendiri sudah dihapus.
+CREATE TABLE IF NOT EXISTS tindakan_log (
+    id          SERIAL PRIMARY KEY,
+    kode        TEXT UNIQUE NOT NULL,
+    target_kode TEXT NOT NULL,
+    target_role TEXT NOT NULL,
+    target_nama TEXT,
+    jenis       TEXT NOT NULL,
+    alasan      TEXT,
+    jadwal_kode TEXT,
+    admin_kode  TEXT,
+    admin_nama  TEXT,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_tindakan_log_target ON tindakan_log(target_kode);
 
 -- Ketersediaan tentor (khusus akun review/guru) — dulu GuruKetersediaanStore
 -- di review/jadwal/jadwal.js, dummy localStorage per-browser. 1 baris = 1 jam

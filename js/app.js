@@ -106,6 +106,7 @@ function _doNav(pageId, subId) {
     if (typeof syncSideDockForPage === 'function') syncSideDockForPage(pageId);
     if (typeof syncLandingDockForPage === 'function') syncLandingDockForPage(pageId);
     if (typeof syncManagementAPIDockForPage === 'function') syncManagementAPIDockForPage(pageId);
+    if (typeof syncLaporanJadwalDockForPage === 'function') syncLaporanJadwalDockForPage(pageId);
     closeDockMore();
     // subId (sub-tab) sengaja DITUNGGU sampai modul halaman ini selesai lazy-load
     // (lihat renderPage) sebelum switchSubPage dipanggil — kalau tidak, di koneksi
@@ -122,7 +123,7 @@ function renderPage(id, subId) {
         // jadi langsung ReferenceError sebelum sempat cek map[id]. Dengan string +
         // window[...], cuma nama fungsi utk id yang sedang aktif yang di-resolve,
         // dan modul-nya sudah pasti sudah dimuat oleh ensureAdminPageModule di atas.
-        const map = { home:'renderHome', akun:'renderAkun', 'akun-user-detail':'renderAkunUserDetail', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', 'akun-pengaturan':'renderAkunPengaturan', 'akun-ganti-password':'renderAkunGantiPassword', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-materi-detail':'renderAnalisaMateriDetail', 'analisa-grafik':'renderAnalisaGrafik', 'analisa-modul':'renderAnalisaModul', 'analisa-modul-detail':'renderAnalisaModulDetail', 'analisa-modul-sampel':'renderAnalisaModulSampel', management_API:'renderManagementAPI', 'management-materi':'renderManagementMateri', 'management-guru':'renderManagementGuru', 'management-guru-paket':'renderManagementGuruPaketForm', 'management-guru-paket-detail':'renderManagementGuruPaketDetail' };
+        const map = { home:'renderHome', akun:'renderAkun', 'akun-user-detail':'renderAkunUserDetail', token:'renderToken', laporan:'renderLaporan', soal:'renderSoal', library:'renderLibrary', modul:'renderModul', landing:'renderLanding', keuangan:'renderKeuangan', 'akun-admin':'renderAkunAdmin', 'akun-pengaturan':'renderAkunPengaturan', 'akun-ganti-password':'renderAkunGantiPassword', review:'renderReviewPage', buku:'renderBuku', 'ebook-library':'renderEbookLibrary', 'ebook-modul':'renderEbookModul', 'analisa-token':'renderAnalisaToken', 'analisa-token-detail':'renderAnalisaTokenDetail', 'analisa-soal':'renderAnalisaSoal', 'analisa-soal-detail':'renderAnalisaSoalDetail', 'analisa-soal-sampel':'renderAnalisaSoalSampel', 'analisa-materi-detail':'renderAnalisaMateriDetail', 'analisa-grafik':'renderAnalisaGrafik', 'analisa-modul':'renderAnalisaModul', 'analisa-modul-detail':'renderAnalisaModulDetail', 'analisa-modul-sampel':'renderAnalisaModulSampel', management_API:'renderManagementAPI', 'management-materi':'renderManagementMateri', 'management-guru':'renderManagementGuru', 'management-guru-paket':'renderManagementGuruPaketForm', 'management-guru-paket-detail':'renderManagementGuruPaketDetail', 'laporan-jadwal':'renderLaporanJadwal' };
         const fn = map[id] && window[map[id]];
         if (typeof fn === 'function') fn();
         if (subId) switchSubPage(id, subId);
@@ -186,12 +187,13 @@ const ADMIN_PAGE_MODULES = {
     landing:         { html: 'admin/landing/landing.html',      js: ['admin/landing/landing.js'], modals: 'admin/landing/landing-modals.html' },
     // Tab MANAGEMENT_API: pengaturan integrasi pihak ketiga, dock sub GMAIL | GMEET
     // (lihat #management-api-dock-wrap & syncManagementAPIDockForPage di admin/index_admin.html).
-    // GMAIL = alamat email pengirim OTP & pesan lain. GMEET = persiapan integrasi
-    // Google Meet utk fitur Jadwal di halaman user/review — masih dummy.
+    // GMAIL = alamat email pengirim OTP & pesan lain. GMEET = integrasi Google Meet
+    // ASLI (OAuth + Calendar API, lihat lib/gmeet.js) utk fitur Jadwal di halaman user/review.
     // Diberi nama "management_API" (bukan "management" polos) karena akan ada
     // dock utama baru "MANAGEMENT" khusus utk management guru — supaya tidak
     // tabrakan key/id/fungsi dengan tab itu nanti.
     management_API:  { html: 'admin/management_API/management_API.html', js: ['admin/management_API/management_API.js'] },
+    'laporan-jadwal': { html: 'admin/laporan-jadwal/laporan-jadwal.html', js: ['admin/laporan-jadwal/laporan-jadwal.js'] },
     // Dock utama MANAGEMENT (management guru) — 2 slide, tiap slide file
     // sendiri (beda dgn MANAGEMENT_API di atas yang sub-nya 1 file gabungan).
     // Panel navigasinya #side-dock-wrap generik (lihat SIDE_DOCK_GROUPS.management
@@ -446,6 +448,28 @@ function togglePwVis(id, btn) {
 function formatDate(s) { if(!s) return '-'; const d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}); }
 function formatDateTime(s) { if(!s) return '-'; const d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})+' '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}); }
 
+// Dipanggil SEKALI di DOMContentLoaded (lihat paling bawah file ini), SETELAH
+// _doNav(lastPage,...) — mendeteksi redirect balik dari layar consent Google
+// (?gmeet=connected|error&msg=...) begitu admin diarahkan balik ke sini oleh
+// GET /api/gmeet/oauth/callback di server.js (lihat mgmtConnectGmeet() di
+// admin/management_API/management_API.js, yang memulai alur ini lewat
+// window.location.href PENUH, bukan fetch — makanya baliknya juga lewat
+// reload halaman biasa, bukan callback JS). Paksa buka tab MANAGEMENT_API >
+// sub GMEET supaya hasilnya (badge status + toast) langsung kelihatan, lalu
+// bersihkan query string-nya dari address bar.
+function _checkGmeetOauthReturn() {
+    const params = new URLSearchParams(location.search);
+    const status = params.get('gmeet');
+    if (!status) return;
+    const msg = params.get('msg');
+    history.replaceState(null, '', location.pathname);
+    navigateTo('management_API');
+    ensureAdminPageModule('management_API').then(() => {
+        if (typeof renderManagementAPISub === 'function') renderManagementAPISub('gmeet');
+        if (typeof _mgmtHandleGmeetOauthReturn === 'function') _mgmtHandleGmeetOauthReturn(status, msg);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     let lastPage = 'home', lastSub = null;
     try {
@@ -462,6 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // yg harus ditampilkan lagi — bukan kosong/'-' spt sblm perbaikan ini.
     _restoreAnalisaCtx();
     _doNav(lastPage, lastSub);
+    _checkGmeetOauthReturn();
 });
 // ══════════════ GENERIC FILTER DROPDOWN (ikon corong, hemat tempat) ══════════════
 // Dipakai untuk filter kelompok (soal/modul/e-book), filter grup user (akun), &

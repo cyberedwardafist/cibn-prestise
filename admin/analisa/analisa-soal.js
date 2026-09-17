@@ -100,7 +100,7 @@ function renderAnalisaSoal() {
 // Soal) — melainkan membuka tab 'analisa-soal-detail' yang untuk saat ini
 // masih MOCKUP (lihat admin/analisa/analisa-soal-detail.html/.js).
 let _aslData = null, _aslKelompokList = [], _aslSearch = '', _aslType = 'all', _aslKelompokFilter = 'all';
-const _aslTypeOptions = [{ value: 'all', label: 'Semua Tipe' }, { value: 'multiple_choice', label: 'Multiple Choice' }, { value: 'linier', label: 'Linier' }, { value: 'sikap_kerja', label: 'Sikap Kerja' }];
+const _aslTypeOptions = [{ value: 'all', label: 'Semua Tipe' }, { value: 'multiple_choice', label: 'Multiple Choice' }, { value: 'linier', label: 'Linier' }, { value: 'sikap_kerja', label: 'Sikap Kerja' }, { value: 'toefl', label: 'TOEFL' }];
 
 // ── OPTIMASI: cache in-memory + index pencarian ─────────────────────────────
 // Sebelumnya SoalAPI.getAll()/SoalKelompokAPI.getAll() ditarik ulang dari

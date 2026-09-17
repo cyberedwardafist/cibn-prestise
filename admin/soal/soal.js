@@ -8,6 +8,10 @@ const SoalState = {
     opsi_jawaban: 1, timer: { jam: 0, menit: 30, detik: 0 },
     kelompok: '',   // kelompok = kode referensi ke soal_kelompok ('' = tanpa kelompok)
     pertanyaan: [], kolom: null, currentIdx: 0, navOpen: true,
+    // toefl = { listening:{soal:[]}, structure:{soal:[]}, reading:{soal:[],passages:[]} }
+    // dipakai HANYA kalau type==='toefl' — lihat lib/toefl.js utk format lengkapnya
+    // & bagian "══ TOEFL BUILD ══" di bawah utk builder-nya.
+    toefl: null,
     _editors: {},
     // materiList = daftar "materi" LOKAL milik soal ini saja (bukan tabel global seperti kelompok).
     // Cuma dipakai sebagai penanda internal per-pertanyaan (lihat q.materi di _newQ), tidak pernah
@@ -59,6 +63,7 @@ function _soalDraftSave() {
             opsi_jawaban: SoalState.opsi_jawaban, timer: SoalState.timer,
             pertanyaan: SoalState.pertanyaan, kolom: SoalState.kolom, currentIdx: SoalState.currentIdx,
             materiList: SoalState.materiList,
+            toefl: SoalState.toefl, _toeflSection, _toeflIdx,
             _sikapView: (typeof _sikapView !== 'undefined') ? _sikapView : 'list',
             _sikapKolIdx: (typeof _sikapKolIdx !== 'undefined') ? _sikapKolIdx : 0,
         }));
@@ -73,12 +78,15 @@ function _tryRestoreSoalDraft() {
     if (!raw) return false;
     let d;
     try { d = JSON.parse(raw); } catch(e) { return false; }
-    if (!d || !d.nama || (!d.pertanyaan?.length && !d.kolom?.length)) return false;
+    if (!d || !d.nama || (!d.pertanyaan?.length && !d.kolom?.length && !(d.toefl && (d.toefl.listening?.soal?.length || d.toefl.structure?.soal?.length || d.toefl.reading?.soal?.length)))) return false;
 
     SoalState.kode = d.kode || null; SoalState.editMode = !!d.editMode;
     SoalState.nama = d.nama; SoalState.nama_internal = d.nama_internal || ''; SoalState.type = d.type; SoalState.skor_type = d.skor_type;
     SoalState.opsi_jawaban = d.opsi_jawaban; SoalState.timer = d.timer || { jam:0, menit:30, detik:0 };
     SoalState.pertanyaan = d.pertanyaan || []; SoalState.kolom = d.kolom || null;
+    SoalState.toefl = d.toefl || null;
+    if (typeof d._toeflSection === 'string') _toeflSection = d._toeflSection;
+    if (typeof d._toeflIdx === 'number') _toeflIdx = d._toeflIdx;
     SoalState.currentIdx = d.currentIdx || 0; SoalState._editors = {}; SoalState.mode = 'build';
     SoalState.materiList = d.materiList || [];
     if (typeof d._sikapView === 'string') _sikapView = d._sikapView;
@@ -88,6 +96,8 @@ function _tryRestoreSoalDraft() {
     showToast('Draf soal yang belum tersimpan berhasil dipulihkan ✓', 'success');
     if (SoalState.type === 'sikap_kerja') {
         if (_sikapView === 'detail') _renderSikapDetail(_sikapKolIdx); else _renderSikapList();
+    } else if (SoalState.type === 'toefl') {
+        _renderToeflHtml();
     } else {
         _renderMCHtml();
     }
@@ -156,6 +166,7 @@ function showSoalSetup() {
       <option value="multiple_choice">Multiple Choice</option>
       <option value="linier">Linier (tidak bisa kembali)</option>
       <option value="sikap_kerja">Sikap Kerja</option>
+      <option value="toefl">TOEFL (Listening · Structure · Reading)</option>
     </select>
   </div>
   <div id="soal-skor-wrap">
@@ -204,7 +215,10 @@ function showSoalSetup() {
 function onSoalTypeChange() {
     const t = document.getElementById('soal-type')?.value;
     const w = document.getElementById('soal-skor-wrap');
-    if (w) w.style.display = t === 'sikap_kerja' ? 'none' : 'block';
+    // TOEFL: sistem penilaian sudah baku (benar/salah, dikonversi ke skala ITP
+    // resmi lewat lib/toefl.js) — tidak ada pilihan "nilai per jawaban" seperti
+    // type lain, sama seperti Sikap Kerja tidak punya form ini juga.
+    if (w) w.style.display = (t === 'sikap_kerja' || t === 'toefl') ? 'none' : 'block';
 }
 function onSkorTypeChange() {
     const v = document.querySelector('input[name="skor_type"]:checked')?.value;
@@ -227,11 +241,14 @@ function startBuatSoal() {
     if (SoalState.type === 'sikap_kerja') {
         SoalState.kolom = Array.from({length:10},(_,i)=>({id:`KOL${String(i+1).padStart(2,'0')}`,no:i+1,items:Array.from({length:5},(_,j)=>({id:`I${i}${j}`,nilai:''})),soal:[]}));
         SoalState.pertanyaan = [];
+    } else if (SoalState.type === 'toefl') {
+        SoalState.pertanyaan = []; SoalState.kolom = null;
+        startToeflBuild();
     } else {
         SoalState.pertanyaan = [_newQ()]; SoalState.currentIdx = 0; SoalState.kolom = null;
     }
     setDirty('pembuatan soal');
-    _animateTo(() => SoalState.type === 'sikap_kerja' ? _renderSikapList() : _renderMCHtml());
+    _animateTo(() => SoalState.type === 'sikap_kerja' ? _renderSikapList() : (SoalState.type === 'toefl' ? _renderToeflHtml() : _renderMCHtml()));
 }
 
 function _newQ() {
@@ -825,6 +842,256 @@ function hapusKolomSoalTerpilih(kIdx){
     });
 }
 
+// ══════════════ TOEFL BUILD ══════════════
+// Struktur data: SoalState.toefl = { listening:{soal:[]}, structure:{soal:[]},
+// reading:{soal:[],passages:[]} } — lihat lib/toefl.js (server) utk penjelasan
+// lengkap format tiap butir soal & mesin skornya (tabel konversi ITP resmi,
+// shuffle yg menjaga blok sub-tipe Structure & blok passage Reading).
+// Builder ini SENGAJA dibuat terpisah total dari _renderMCHtml (bukan numpang
+// reuse editor rich-text/jawaban milik MC) supaya tidak ada risiko mengubah
+// perilaku builder Multiple Choice/Linier yang sudah ada.
+let _toeflSection = 'listening'; // tab section builder yg lagi aktif
+let _toeflIdx = 0;               // index soal aktif di dalam section itu
+
+function _blankToeflData() {
+    return { listening: { soal: [] }, structure: { soal: [] }, reading: { soal: [], passages: [] } };
+}
+function _newToeflQ(section) {
+    const base = { id: 'TQ_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), pertanyaan: '',
+        jawaban: [{ id: 'A_' + Date.now(), teks: '' }, { id: 'B_' + (Date.now() + 1), teks: '' }], kunci: [] };
+    if (section === 'listening') base.audio_url = '';
+    if (section === 'structure') base.subtipe = 'rumpang';
+    if (section === 'reading') base.passage_id = null;
+    return base;
+}
+function startToeflBuild() {
+    SoalState.toefl = _blankToeflData();
+    SoalState.toefl.listening.soal.push(_newToeflQ('listening'));
+    SoalState.toefl.structure.soal.push(_newToeflQ('structure'));
+    SoalState.toefl.reading.soal.push(_newToeflQ('reading'));
+    _toeflSection = 'listening'; _toeflIdx = 0;
+}
+function _toeflEsc(str) { return String(str == null ? '' : str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function _toeflEscAttr(str) { return _toeflEsc(str).replace(/"/g, '&quot;'); }
+function _toeflSectionLabel(s) { return s === 'listening' ? 'Listening' : s === 'structure' ? 'Structure' : 'Reading'; }
+function _toeflSecArr(section) { return (SoalState.toefl && SoalState.toefl[section] && SoalState.toefl[section].soal) || []; }
+function _toeflPassages() { if (!SoalState.toefl.reading.passages) SoalState.toefl.reading.passages = []; return SoalState.toefl.reading.passages; }
+
+function switchToeflSection(section) {
+    if (section === _toeflSection) return;
+    _toeflSection = section; _toeflIdx = 0;
+    _animateTo(_renderToeflHtml);
+}
+function toeflGoToSoal(idx) {
+    const arr = _toeflSecArr(_toeflSection);
+    if (idx < 0 || idx >= arr.length) return;
+    _toeflIdx = idx;
+    _animateTo(_renderToeflHtml);
+}
+function toeflTambahSoal() {
+    _toeflSecArr(_toeflSection).push(_newToeflQ(_toeflSection));
+    _toeflIdx = _toeflSecArr(_toeflSection).length - 1;
+    setDirty('pembuatan soal');
+    _animateTo(_renderToeflHtml);
+}
+function toeflHapusSoal(idx) {
+    const arr = _toeflSecArr(_toeflSection);
+    if (arr.length <= 1) { showToast('Minimal 1 soal per section', 'danger'); return; }
+    arr.splice(idx, 1);
+    if (_toeflIdx >= arr.length) _toeflIdx = arr.length - 1;
+    setDirty('pembuatan soal');
+    _animateTo(_renderToeflHtml);
+}
+function toeflEditPertanyaan(val) {
+    const q = _toeflSecArr(_toeflSection)[_toeflIdx]; if (!q) return;
+    q.pertanyaan = val; setDirty('pembuatan soal'); _soalQueueAutoSave();
+}
+function toeflSetSubtipe(val) {
+    const q = _toeflSecArr('structure')[_toeflIdx]; if (!q) return;
+    q.subtipe = val; setDirty('pembuatan soal'); _soalQueueAutoSave();
+}
+function toeflSetAudioUrl(val) {
+    const q = _toeflSecArr('listening')[_toeflIdx]; if (!q) return;
+    q.audio_url = val; setDirty('pembuatan soal'); _soalQueueAutoSave();
+}
+function toeflTriggerAudioUpload() { document.getElementById('toefl-audio-input')?.click(); }
+async function toeflOnAudioFileSelected(input) {
+    const file = input.files && input.files[0]; if (!file) return;
+    const q = _toeflSecArr('listening')[_toeflIdx]; input.value = '';
+    if (!q) return;
+    showToast('Mengupload audio...', 'success');
+    let res;
+    try { res = await apiUploadAudio(file); } catch (e) { showToast('Gagal upload audio: ' + (e.message || 'error'), 'danger'); return; }
+    if (res && res.url) { q.audio_url = res.url; setDirty('pembuatan soal'); showToast('Audio berhasil diupload ✓', 'success'); _animateTo(_renderToeflHtml); }
+    else showToast('Gagal upload audio: ' + (res && res.error || 'tipe/ukuran file tidak didukung'), 'danger');
+}
+
+// ── Bacaan (passage) Reading — 1 bacaan dipakai bersama oleh beberapa soal ──
+function toeflTambahPassage() {
+    const list = _toeflPassages();
+    const p = { id: 'P_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), judul: 'Bacaan ' + (list.length + 1), teks: '' };
+    list.push(p);
+    const q = _toeflSecArr('reading')[_toeflIdx]; if (q) q.passage_id = p.id;
+    setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
+}
+function toeflSetPassageFor(idOrEmpty) {
+    const q = _toeflSecArr('reading')[_toeflIdx]; if (!q) return;
+    q.passage_id = idOrEmpty || null; setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
+}
+function toeflEditPassageField(pid, field, val) {
+    const p = _toeflPassages().find(x => x.id === pid); if (!p) return;
+    p[field] = val; setDirty('pembuatan soal'); _soalQueueAutoSave();
+}
+function toeflHapusPassage(pid) {
+    showConfirm('Hapus Bacaan', 'Yakin hapus bacaan ini? Soal yang memakainya akan jadi "Tanpa Bacaan" (tidak ikut terhapus).', 'warning', () => {
+        SoalState.toefl.reading.passages = _toeflPassages().filter(p => p.id !== pid);
+        _toeflSecArr('reading').forEach(q => { if (q.passage_id === pid) q.passage_id = null; });
+        setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
+    });
+}
+
+// ── Pilihan jawaban (A/B/C/D...) — semua section TOEFL single-answer ──
+function toeflTambahJawaban() {
+    const q = _toeflSecArr(_toeflSection)[_toeflIdx]; if (!q) return;
+    q.jawaban.push({ id: 'J_' + Date.now() + '_' + Math.random().toString(36).slice(2, 4), teks: '' });
+    setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
+}
+function toeflHapusJawaban(jid) {
+    const q = _toeflSecArr(_toeflSection)[_toeflIdx]; if (!q) return;
+    if (q.jawaban.length <= 2) { showToast('Minimal 2 pilihan jawaban', 'danger'); return; }
+    q.jawaban = q.jawaban.filter(j => j.id !== jid);
+    q.kunci = (q.kunci || []).filter(k => k !== jid);
+    setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
+}
+function toeflEditJawabanTeks(jid, val) {
+    const q = _toeflSecArr(_toeflSection)[_toeflIdx]; if (!q) return;
+    const j = q.jawaban.find(x => x.id === jid); if (j) { j.teks = val; setDirty('pembuatan soal'); _soalQueueAutoSave(); }
+}
+function toeflToggleKunci(jid) {
+    const q = _toeflSecArr(_toeflSection)[_toeflIdx]; if (!q) return;
+    q.kunci = [jid]; // 1 kunci saja (radio, bukan checkbox) — soal TOEFL selalu single-answer
+    setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
+}
+
+function _renderToeflHtml() {
+    document.getElementById('page-soal')?.classList.remove('dock-avoid-center');
+    document.body.classList.add('soal-building');
+    _soalDraftSave();
+    const c = document.getElementById('soal-page-content'); if (!c) return;
+    if (!SoalState.toefl) SoalState.toefl = _blankToeflData();
+    const arr = _toeflSecArr(_toeflSection);
+    const q = arr[_toeflIdx];
+    const total = arr.length;
+
+    c.innerHTML = `
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap">
+  <div>
+    <div class="section-title" style="margin-bottom:2px">${_toeflEsc(SoalState.nama)}</div>
+    <div class="section-sub" style="margin-bottom:0">TOEFL · ${_toeflSectionLabel(_toeflSection)} · Soal ${total ? (_toeflIdx + 1) : 0}/${total}</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-secondary btn-sm" onclick="cancelBuild()">← Batal</button>
+    <button class="btn btn-secondary btn-sm" onclick="openEditSoalInfoModal()">✏ Edit Info</button>
+    <button class="btn btn-primary btn-sm" onclick="simpanSoal()">💾 Simpan</button>
+  </div>
+</div>
+<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+  ${['listening', 'structure', 'reading'].map(s => `
+    <button class="btn ${s === _toeflSection ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="switchToeflSection('${s}')">
+      ${_toeflSectionLabel(s)} <span style="opacity:0.75;font-weight:400">(${_toeflSecArr(s).length})</span>
+    </button>`).join('')}
+</div>
+${!q ? `<div class="card" style="text-align:center;padding:32px;color:var(--text-sub)">Belum ada soal di section ini.<br><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="toeflTambahSoal()">+ Tambah Soal</button></div>` : `
+<div style="display:flex;gap:16px;align-items:flex-start">
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px">
+    ${_toeflSection === 'listening' ? `
+    <div class="card" style="padding:16px">
+      <div class="form-label" style="margin-bottom:8px">🎧 Audio Listening</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input class="form-input" style="flex:1;min-width:200px" type="text" placeholder="Tempel link/URL audio di sini..." value="${_toeflEscAttr(q.audio_url || '')}" oninput="toeflSetAudioUrl(this.value)">
+        <button class="btn btn-secondary btn-sm" onclick="toeflTriggerAudioUpload()">⬆ Upload File Audio</button>
+      </div>
+      <input type="file" id="toefl-audio-input" accept="audio/*" style="display:none" onchange="toeflOnAudioFileSelected(this)">
+      ${q.audio_url ? `<audio controls src="${_toeflEscAttr(q.audio_url)}" style="width:100%;margin-top:10px"></audio>` : ''}
+      <div style="font-size:11px;color:var(--text-sub);margin-top:6px">Isi link/URL ATAU upload file — dua-duanya boleh dipakai.</div>
+    </div>` : ''}
+    ${_toeflSection === 'structure' ? `
+    <div class="card" style="padding:16px">
+      <div class="form-label" style="margin-bottom:8px">Sub-tipe Soal</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <label style="flex:1;min-width:160px;display:flex;align-items:center;gap:8px;padding:12px;border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;cursor:pointer;background:${q.subtipe === 'rumpang' ? 'rgba(26,90,160,0.08)' : 'rgba(255,255,255,0.6)'}">
+          <input type="radio" name="toefl-subtipe" value="rumpang" ${q.subtipe === 'rumpang' ? 'checked' : ''} onchange="toeflSetSubtipe('rumpang')" style="accent-color:var(--blue)">
+          <div><div style="font-weight:700;font-size:13px">Melengkapi Kalimat</div><div style="font-size:11px;color:var(--text-sub)">Kalimat rumpang</div></div>
+        </label>
+        <label style="flex:1;min-width:160px;display:flex;align-items:center;gap:8px;padding:12px;border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;cursor:pointer;background:${q.subtipe === 'salah' ? 'rgba(26,90,160,0.08)' : 'rgba(255,255,255,0.6)'}">
+          <input type="radio" name="toefl-subtipe" value="salah" ${q.subtipe === 'salah' ? 'checked' : ''} onchange="toeflSetSubtipe('salah')" style="accent-color:var(--blue)">
+          <div><div style="font-weight:700;font-size:13px">Cari Kesalahan</div><div style="font-size:11px;color:var(--text-sub)">Error identification</div></div>
+        </label>
+      </div>
+      <div style="font-size:11px;color:var(--text-sub);margin-top:8px">Saat ujian, urutan soal diacak TERPISAH per sub-tipe ini (blok tidak akan pernah tercampur/diselang).</div>
+    </div>` : ''}
+    ${_toeflSection === 'reading' ? `
+    <div class="card" style="padding:16px">
+      <div class="form-label" style="margin-bottom:8px">📖 Bacaan (Passage)</div>
+      <select class="form-input" onchange="toeflSetPassageFor(this.value)">
+        <option value="">-- Tanpa Bacaan --</option>
+        ${_toeflPassages().map(p => `<option value="${p.id}" ${q.passage_id === p.id ? 'selected' : ''}>${_toeflEsc(p.judul || '(tanpa judul)')}</option>`).join('')}
+      </select>
+      <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="toeflTambahPassage()">+ Bacaan Baru</button>
+      ${q.passage_id && _toeflPassages().find(x => x.id === q.passage_id) ? (() => { const p = _toeflPassages().find(x => x.id === q.passage_id); return `
+      <div style="margin-top:12px;padding-top:12px;border-top:1.5px solid rgba(19,50,89,0.08)">
+        <input class="form-input" style="margin-bottom:8px" type="text" placeholder="Judul bacaan" value="${_toeflEscAttr(p.judul || '')}" oninput="toeflEditPassageField('${p.id}','judul',this.value)">
+        <textarea class="form-input" rows="6" placeholder="Isi teks bacaan...">${_toeflEsc(p.teks || '')}</textarea>
+        <div style="font-size:11px;color:var(--text-sub);margin-top:4px">Dipakai oleh ${_toeflSecArr('reading').filter(x => x.passage_id === p.id).length} soal. Soal dari 1 bacaan yang sama tetap berurutan/berdekatan walau "acak soal" dinyalakan di modul.</div>
+        <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="toeflHapusPassage('${p.id}')">🗑 Hapus Bacaan Ini</button>
+      </div>`; })() : ''}
+    </div>` : ''}
+    <div class="card" style="padding:16px">
+      <div class="form-label" style="margin-bottom:8px">Pertanyaan</div>
+      <textarea class="form-input" rows="4" placeholder="Tulis pertanyaan di sini...">${_toeflEsc(q.pertanyaan || '')}</textarea>
+    </div>
+    <div class="card" style="padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="form-label" style="margin:0">Pilihan Jawaban <span style="font-size:10px;color:var(--text-sub);font-weight:400">(● = kunci jawaban)</span></div>
+        <button class="btn btn-secondary btn-sm" onclick="toeflTambahJawaban()">+ Jawaban</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${q.jawaban.map((j, i) => `
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="radio" name="toefl-kunci" ${(q.kunci || []).includes(j.id) ? 'checked' : ''} onchange="toeflToggleKunci('${j.id}')" style="accent-color:var(--success);flex-shrink:0">
+          <span style="font-weight:700;font-size:12px;color:var(--text-sub);width:16px;flex-shrink:0">${String.fromCharCode(65 + i)}.</span>
+          <input class="form-input" style="flex:1" type="text" placeholder="Teks pilihan ${String.fromCharCode(65 + i)}" value="${_toeflEscAttr(j.teks || '')}" oninput="toeflEditJawabanTeks('${j.id}',this.value)">
+          <button class="btn-icon" onclick="toeflHapusJawaban('${j.id}')" title="Hapus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>
+  <div class="soal-nav-side" id="soal-nav-side">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <span style="font-size:11px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.06em">${_toeflSectionLabel(_toeflSection)}</span>
+      <button class="btn-icon" onclick="toggleNavSide()" style="width:24px;height:24px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">
+      ${arr.map((p, i) => `
+        <div style="position:relative">
+          <button class="soal-nav-btn ${i === _toeflIdx ? 'active' : (p.pertanyaan ? 'filled' : '')}" onclick="toeflGoToSoal(${i})">${i + 1}</button>
+          <button onclick="toeflHapusSoal(${i})" class="soal-nav-del">×</button>
+        </div>`).join('')}
+    </div>
+    <button class="btn btn-secondary btn-sm" style="width:100%" onclick="toeflTambahSoal()">+ Soal</button>
+  </div>
+</div>` }
+`;
+    // textarea diisi via .value (bukan atribut) supaya newline & karakter apa pun aman persis apa adanya
+    const pertTa = c.querySelector('.card textarea.form-input[placeholder="Tulis pertanyaan di sini..."]');
+    if (pertTa) { pertTa.value = q.pertanyaan || ''; pertTa.oninput = (e) => toeflEditPertanyaan(e.target.value); }
+    const bacaanTa = c.querySelector('textarea.form-input[placeholder="Isi teks bacaan..."]');
+    if (bacaanTa && q.passage_id) {
+        const p = _toeflPassages().find(x => x.id === q.passage_id);
+        if (p) { bacaanTa.value = p.teks || ''; bacaanTa.oninput = (e) => toeflEditPassageField(p.id, 'teks', e.target.value); }
+    }
+}
+
 // ══════════════ PREVIEW ══════════════
 function showPreview(){
     syncEditors();
@@ -867,7 +1134,7 @@ function _compactSikapKolom(kolom){
 async function simpanSoal(){
     syncEditors();
     if(!SoalState.nama){showToast('Nama soal wajib','danger');return;}
-    const payload={nama:SoalState.nama,nama_internal:SoalState.nama_internal||'',type:SoalState.type,skor_type:SoalState.skor_type,opsi_jawaban:SoalState.opsi_jawaban,timer_jam:SoalState.timer.jam,timer_menit:SoalState.timer.menit,timer_detik:SoalState.timer.detik,kelompok:SoalState.kelompok||'',data:SoalState.type==='sikap_kerja'?_compactSikapKolom(SoalState.kolom):SoalState.pertanyaan,materi_list:SoalState.materiList||[]};
+    const payload={nama:SoalState.nama,nama_internal:SoalState.nama_internal||'',type:SoalState.type,skor_type:SoalState.skor_type,opsi_jawaban:SoalState.opsi_jawaban,timer_jam:SoalState.timer.jam,timer_menit:SoalState.timer.menit,timer_detik:SoalState.timer.detik,kelompok:SoalState.kelompok||'',data:SoalState.type==='sikap_kerja'?_compactSikapKolom(SoalState.kolom):(SoalState.type==='toefl'?SoalState.toefl:SoalState.pertanyaan),materi_list:SoalState.materiList||[]};
     try {
         if(SoalState.kode) await SoalAPI.update(SoalState.kode,payload);
         else await SoalAPI.create(payload);
@@ -894,9 +1161,10 @@ async function editSoalFromLibrary(kode){
             SoalState.materiList=soal.materi_list||[]; // materi milik soal INI saja, dimuat balik hanya saat edit soal yang sama
             const rawData=soal.data;
             if(soal.type==='sikap_kerja'){SoalState.kolom=rawData||Array.from({length:10},(_,i)=>({id:`KOL${String(i+1).padStart(2,'0')}`,no:i+1,items:Array.from({length:5},(_,j)=>({id:`I${i}${j}`,nilai:''})),soal:[]}));SoalState.pertanyaan=[];}
+            else if(soal.type==='toefl'){SoalState.toefl=rawData||_blankToeflData();SoalState.pertanyaan=[];SoalState.kolom=null;_toeflSection='listening';_toeflIdx=0;}
             else{SoalState.pertanyaan=rawData||[_newQ()];SoalState.currentIdx=0;SoalState.kolom=null;}
             setDirty('edit soal');
-            _animateTo(()=>SoalState.type==='sikap_kerja'?_renderSikapList():_renderMCHtml());
+            _animateTo(()=>soal.type==='sikap_kerja'?_renderSikapList():(soal.type==='toefl'?_renderToeflHtml():_renderMCHtml()));
         },350);
     } catch(e){ showToast('Gagal memuat soal','danger'); }
 }
@@ -916,8 +1184,8 @@ async function openEditSoalInfoModal(){
     document.getElementById('esi-menit').value = SoalState.timer?.menit ?? 0;
     document.getElementById('esi-detik').value = SoalState.timer?.detik ?? 0;
     const typeWrap = document.getElementById('esi-type-wrap');
-    if (SoalState.type === 'sikap_kerja') {
-        // Tipe Sikap Kerja tidak bisa diubah (struktur data berbeda total)
+    if (SoalState.type === 'sikap_kerja' || SoalState.type === 'toefl') {
+        // Tipe Sikap Kerja & TOEFL tidak bisa diubah (struktur data berbeda total)
         if (typeWrap) typeWrap.style.display = 'none';
     } else {
         if (typeWrap) typeWrap.style.display = 'block';
@@ -939,7 +1207,7 @@ function saveSoalInfo(){
         detik: parseInt(document.getElementById('esi-detik')?.value) || 0,
     };
     // Tipe hanya boleh ditukar antara multiple_choice <-> linier (data pertanyaan kompatibel)
-    if (SoalState.type !== 'sikap_kerja') {
+    if (SoalState.type !== 'sikap_kerja' && SoalState.type !== 'toefl') {
         const newType = document.getElementById('esi-type')?.value;
         if ((newType === 'multiple_choice' || newType === 'linier') && newType !== SoalState.type) {
             SoalState.type = newType;
@@ -948,7 +1216,7 @@ function saveSoalInfo(){
     setDirty('edit soal');
     closeModal('edit-soal-info-overlay');
     showToast('Info soal diperbarui', 'success');
-    if (SoalState.type === 'sikap_kerja') _renderSikapList(); else _renderMCHtml();
+    if (SoalState.type === 'sikap_kerja') _renderSikapList(); else if (SoalState.type === 'toefl') _renderToeflHtml(); else _renderMCHtml();
 }
 
 // ══════════════ TEMPLATE & UPLOAD SOAL (Import Excel) ══════════════

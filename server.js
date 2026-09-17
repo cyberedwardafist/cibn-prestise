@@ -13,6 +13,8 @@ const { db, transaction } = require('./db/pool');
 const { initSchema, seedIfEmpty, sanityCheckEbooks, ensureGatewayConfig } = require('./db/init');
 const { kirimEmail, invalidateMailerCache, verifikasiDanKirimTes } = require('./lib/mailer');
 const { mulaiScheduler, jalankanCekReminder } = require('./lib/kelas-reminder');
+const { getGmeetConfig, buildGmeetAuthUrl, exchangeGmeetCode, disconnectGmeet, invalidateGmeetTokenCache, createMeetEvent } = require('./lib/gmeet');
+const toeflLib = require('./lib/toefl');
 
 const app       = express();
 const PORT      = process.env.PORT || 3000;
@@ -189,6 +191,12 @@ const ALLOWED_PDF_MIME = { 'application/pdf': '.pdf' };
 const MAX_EBOOK_PDF_SIZE = 80 * 1024 * 1024; // 80MB (PDF e-book)
 const ALLOWED_LANDING_VIDEO_MIME = { 'video/mp4': '.mp4', 'video/webm': '.webm' };
 const MAX_LANDING_VIDEO_SIZE = 40 * 1024 * 1024; // 40MB (video landing)
+// Audio Listening soal TOEFL (lihat lib/toefl.js) — admin boleh upload file
+// LANGSUNG (kind ini) ATAU cukup isi link/URL audio (tanpa lewat upload sama
+// sekali, disimpan apa adanya di field audio_url) — dua-duanya didukung,
+// makanya endpoint upload ini opsional dipakai, bukan wajib.
+const ALLOWED_AUDIO_MIME = { 'audio/mpeg': '.mp3', 'audio/mp3': '.mp3', 'audio/wav': '.wav', 'audio/ogg': '.ogg', 'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a' };
+const MAX_AUDIO_SIZE = 25 * 1024 * 1024; // 25MB (audio listening)
 
 // Setiap "kind" = 1 jenis upload yang boleh diminta lewat /api/upload-init.
 // folder      → folder utama di bucket Supabase.
@@ -206,7 +214,8 @@ const UPLOAD_KINDS = {
     // Ikon paket (Keuangan > Paket) — dulu cuma teks emoji tersimpan langsung di
     // kolom pakets.icon, sekarang diganti gambar square yang di-upload lewat alur
     // presigned yang sama; folder baru 'paket-icon' di Supabase Storage utk ini.
-    'paket-icon':         { folder: 'paket-icon',  allowedMime: ALLOWED_IMAGE_MIME,         maxSize: MAX_UPLOAD_SIZE,       roles: ['admin'] }
+    'paket-icon':         { folder: 'paket-icon',  allowedMime: ALLOWED_IMAGE_MIME,         maxSize: MAX_UPLOAD_SIZE,       roles: ['admin'] },
+    'soal-audio':         { folder: 'soal',        allowedMime: ALLOWED_AUDIO_MIME,         maxSize: MAX_AUDIO_SIZE,        roles: ['admin'] }
 };
 
 // ── UPLOAD CLEANUP HELPERS (SUPABASE) ─────────────────────────────────────────
@@ -613,7 +622,12 @@ async function hitungSkorUjianServer(modul_kode, jawaban) {
     let totalBobot = 0, totalTerbobot = 0;
     for (const sl of soalList) {
         const s = await db.prepare('SELECT * FROM soal WHERE kode=?').get(sl.soal_kode);
-        if (!s || s.type === 'sikap_kerja') continue;
+        // sikap_kerja & toefl punya sistem skor sendiri yg tidak sejalan dgn
+        // persen-bobot 0-100 di sini (toefl: skala 310-677, lihat
+        // lib/toefl.js:hitungSkorToefl — dihitung on-the-fly di ujian/hasil.js
+        // & review/riwayat saat 1 hasil dibuka, PERSIS pola sikap_kerja yg
+        // juga tidak pernah masuk ke kolom laporan.skor blended ini).
+        if (!s || s.type === 'sikap_kerja' || s.type === 'toefl') continue;
 
         let data = []; try { data = JSON.parse(s.data || '[]'); } catch (e) {}
         if (!Array.isArray(data) || !data.length) continue;
@@ -704,6 +718,11 @@ async function hitungSkorUjianServer(modul_kode, jawaban) {
 // "legacy:<nama>", grub_id NULL, dikelompokkan by nama) yang mungkin memang
 // campur modul dari sebelum kolom ini ada.
 function _analisaSoalButir(type, data) {
+    if (type === 'toefl') {
+        if (!data || typeof data !== 'object') return 0;
+        return ['listening', 'structure', 'reading'].reduce((a, sec) =>
+            a + ((data[sec] && Array.isArray(data[sec].soal)) ? data[sec].soal.length : 0), 0);
+    }
     if (!Array.isArray(data)) return 0;
     if (type === 'sikap_kerja') return data.reduce((a, kol) => a + ((kol && Array.isArray(kol.soal)) ? kol.soal.length : 0), 0);
     return data.length;
@@ -768,7 +787,17 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
 
     for (const s of soalRows) {
         const data = Array.isArray(s.data) ? s.data : [];
-        ringkasanSoal.push({ nama: s.nama, butir: _analisaSoalButir(s.type, data) });
+        ringkasanSoal.push({ nama: s.nama, butir: _analisaSoalButir(s.type, s.data) });
+
+        // Soal TOEFL punya sistem skor & struktur data sendiri (3 section,
+        // bukan array flat) — belum ada grafik khusus TOEFL di Analisa Grup
+        // (lihat lib/toefl.js utk mesin skornya, dipakai di ujian/hasil.js &
+        // review/riwayat saat peserta/admin lihat 1 hasil). Supaya tidak
+        // ikut kebaca sbg soal binary/skor kosong (data bukan array => tiap
+        // forEach di bawah otomatis no-op, aman tapi bikin entri kosong yg
+        // membingungkan), soal TOEFL dilewati sepenuhnya di sini — sama
+        // seperti sikap_kerja dilewati dari grafik binary/skor biasa.
+        if (s.type === 'toefl') continue;
 
         if (s.type === 'sikap_kerja') {
             tipeSoal.sikap = true;
@@ -935,6 +964,17 @@ async function computeAnalisaSoalAggregate(soalKode, laporanRows) {
             });
         });
         return { binaryChart, skorChart, sikapRaw, tipeSoal };
+    }
+
+    if (s.type === 'toefl') {
+        // TOEFL punya struktur data & skor sendiri (3 section, skala ITP —
+        // lihat lib/toefl.js), tidak cocok dgn chart binary/skor per-butir di
+        // sini. Belum ada chart analisa khusus TOEFL, jadi dikembalikan kosong
+        // apa adanya (tipeSoal semua false) supaya FE tahu tidak perlu render
+        // kartu grafik apa pun utk soal ini — bukan salah tampil sbg binary
+        // kosong (yang akan terjadi kalau lolos ke bawah, karena `data` sudah
+        // dipaksa jadi [] oleh baris di atas).
+        return { binaryChart: [], skorChart: [], sikapRaw: [], tipeSoal: { binary: false, skor: false, sikap: false } };
     }
 
     const isNilaiSendiri = s.skor_type === 'nilai_sendiri';
@@ -2148,9 +2188,10 @@ app.post('/api/modul', auth(['admin']), ah(async (req, res) => {
     try { await assertModeBebasValid(mode_bebas, soal_list); }
     catch (e) { return res.status(e.status || 400).json({ error: e.message }); }
     const kode = await genKode('MOD', 'modul');
-    await db.prepare('INSERT INTO modul (kode,nama,nama_internal,kelompok,soal_list,mode_bebas,timer_utama_jam,timer_utama_menit,timer_utama_detik) VALUES (?,?,?,?,?,?,?,?,?)')
+    await db.prepare('INSERT INTO modul (kode,nama,nama_internal,kelompok,soal_list,mode_bebas,timer_utama_jam,timer_utama_menit,timer_utama_detik,toefl_maks_putar) VALUES (?,?,?,?,?,?,?,?,?,?)')
         .run(kode, req.body.nama, (req.body.nama_internal || '').trim() || null, (req.body.kelompok || '').trim() || null,
-             JSON.stringify(soal_list), mode_bebas, req.body.timer_utama_jam || 0, req.body.timer_utama_menit || 0, req.body.timer_utama_detik || 0);
+             JSON.stringify(soal_list), mode_bebas, req.body.timer_utama_jam || 0, req.body.timer_utama_menit || 0, req.body.timer_utama_detik || 0,
+             req.body.toefl_maks_putar || 0);
     res.json({ kode, message: 'Berhasil' });
 }));
 app.put('/api/modul/:kode', auth(['admin']), ah(async (req, res) => {
@@ -2169,11 +2210,12 @@ app.put('/api/modul/:kode', auth(['admin']), ah(async (req, res) => {
     const timer_utama_jam   = b.timer_utama_jam    !== undefined ? (b.timer_utama_jam || 0) : oldRow.timer_utama_jam;
     const timer_utama_menit = b.timer_utama_menit  !== undefined ? (b.timer_utama_menit || 0) : oldRow.timer_utama_menit;
     const timer_utama_detik = b.timer_utama_detik  !== undefined ? (b.timer_utama_detik || 0) : oldRow.timer_utama_detik;
+    const toefl_maks_putar  = b.toefl_maks_putar   !== undefined ? (b.toefl_maks_putar || 0) : (oldRow.toefl_maks_putar || 0);
 
     try { await assertModeBebasValid(mode_bebas, soal_list); }
     catch (e) { return res.status(e.status || 400).json({ error: e.message }); }
-    await db.prepare('UPDATE modul SET nama=?,nama_internal=?,kelompok=?,soal_list=?,mode_bebas=?,timer_utama_jam=?,timer_utama_menit=?,timer_utama_detik=? WHERE kode=?')
-        .run(nama, nama_internal, kelompok, JSON.stringify(soal_list), mode_bebas, timer_utama_jam, timer_utama_menit, timer_utama_detik, req.params.kode);
+    await db.prepare('UPDATE modul SET nama=?,nama_internal=?,kelompok=?,soal_list=?,mode_bebas=?,timer_utama_jam=?,timer_utama_menit=?,timer_utama_detik=?,toefl_maks_putar=? WHERE kode=?')
+        .run(nama, nama_internal, kelompok, JSON.stringify(soal_list), mode_bebas, timer_utama_jam, timer_utama_menit, timer_utama_detik, toefl_maks_putar, req.params.kode);
     res.json({ message: 'Berhasil' });
 }));
 app.delete('/api/modul/:kode', auth(['admin']), ah(async (req, res) => {
@@ -2735,7 +2777,7 @@ app.post('/api/exam/validate-token', auth(['user','admin','review']), ah(async (
     if (!modul) return res.status(404).json({ error: 'Modul tidak ditemukan' });
     const soalDetail = await buildSoalDetail(modul);
     if (!soalDetail.length) return res.status(400).json({ error: 'Modul tidak memiliki soal' });
-    res.json({ token: { kode: token.kode, aktivasi: token.aktivasi, expired: token.expired, batas_keluar: token.batas_keluar }, modul: { kode: modul.kode, nama: modul.nama, mode_bebas: !!modul.mode_bebas, timer_utama_jam: modul.timer_utama_jam || 0, timer_utama_menit: modul.timer_utama_menit || 0, timer_utama_detik: modul.timer_utama_detik || 0 }, soal: soalDetail });
+    res.json({ token: { kode: token.kode, aktivasi: token.aktivasi, expired: token.expired, batas_keluar: token.batas_keluar }, modul: { kode: modul.kode, nama: modul.nama, mode_bebas: !!modul.mode_bebas, timer_utama_jam: modul.timer_utama_jam || 0, timer_utama_menit: modul.timer_utama_menit || 0, timer_utama_detik: modul.timer_utama_detik || 0, toefl_maks_putar: modul.toefl_maks_putar || 0 }, soal: soalDetail });
 }));
 
 app.post('/api/exam/submit', auth(['user','admin','review']), ah(async (req, res) => {
@@ -2882,15 +2924,78 @@ app.put('/api/landing', auth(['admin']), ah(async (req, res) => { const existing
 // ── Pengaturan Integrasi (tab MANAGEMENT admin: dock GMAIL | GMEET) ──
 // Sama pola merge spt /api/landing di atas, tapi GET-nya JUGA dikunci auth(['admin'])
 // (bukan publik) karena data.resend bisa memuat API Key Resend.
-app.get('/api/pengaturan/integrasi', auth(['admin']), ah(async (req, res) => { const row = await db.prepare('SELECT data FROM pengaturan_integrasi WHERE id=1').get(); res.json(row ? JSON.parse(row.data) : {}); }));
+app.get('/api/pengaturan/integrasi', auth(['admin']), ah(async (req, res) => {
+    const row = await db.prepare('SELECT data FROM pengaturan_integrasi WHERE id=1').get();
+    let data = row ? JSON.parse(row.data) : {};
+    // refresh_token Gmeet SENGAJA tidak ikut dikirim ke frontend (beda dgn
+    // api_key Resend yg memang ditampilkan lagi di field-nya) — tidak ada
+    // input yang menampilkannya, dan ini kredensial jangka panjang yg tidak
+    // perlu pernah menyentuh browser admin sama sekali begitu tersimpan.
+    if (data.gmeet && data.gmeet.refresh_token) data = { ...data, gmeet: { ...data.gmeet, refresh_token: undefined } };
+    res.json(data);
+}));
 app.put('/api/pengaturan/integrasi', auth(['admin']), ah(async (req, res) => {
     const existing = await db.prepare('SELECT data FROM pengaturan_integrasi WHERE id=1').get();
-    const merged = { ...(existing ? JSON.parse(existing.data) : {}), ...req.body };
+    const existingData = existing ? JSON.parse(existing.data) : {};
+    // client_id/client_secret/calendar_id/durasi_default boleh diedit lewat
+    // endpoint umum ini, TAPI refresh_token/status/connected_at HANYA boleh
+    // ditulis lewat alur OAuth (lib/gmeet.js exchangeGmeetCode/disconnectGmeet)
+    // — kalau body.gmeet ikut mengirim field itu (mis. field lama nyangkut di
+    // localStorage form admin), jangan sampai tertimpa jadi rusak/kosong.
+    let bodyGmeet = req.body.gmeet;
+    if (bodyGmeet) {
+        const { refresh_token, status, connected_at, ...editable } = bodyGmeet;
+        bodyGmeet = editable;
+    }
+    const merged = { ...existingData, ...req.body, ...(bodyGmeet ? { gmeet: { ...(existingData.gmeet || {}), ...bodyGmeet } } : {}) };
     await db.prepare('INSERT INTO pengaturan_integrasi (id,data) VALUES (1,?) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data').run(JSON.stringify(merged));
     // Kredensial Resend bisa berubah di sini (from_email/api_key/aktif) — invalidateMailerCache()
     // dipertahankan utk kompatibilitas (lihat lib/mailer.js) walau sekarang no-op.
     if (req.body.resend) invalidateMailerCache();
+    // client_id/secret Gmeet bisa berubah di sini juga -> access token yg sempat
+    // di-cache in-memory (lihat lib/gmeet.js) tidak boleh kepakai lagi.
+    if (req.body.gmeet) invalidateGmeetTokenCache();
     res.json({ message: 'Berhasil' });
+}));
+
+// ── Google Meet: alur OAuth (dock GMEET di Management) ──────────────────────
+// 1) Admin klik "Hubungkan Akun Google" -> frontend GET endpoint di bawah ini
+//    (butuh Authorization header biasa) buat dapat URL consent Google, lalu
+//    browser DIARAHKAN PENUH (window.location.href, bukan fetch biasa) ke URL
+//    itu supaya pengguna login/approve akun Google-nya sungguhan.
+// 2) Google redirect balik browser (GET biasa, TANPA header Authorization sama
+//    sekali — makanya callback di bawah SENGAJA tidak dipasangi auth() middleware)
+//    ke /api/gmeet/oauth/callback?code=...&state=... — `state` (JWT pendek umur
+//    10 menit) itulah satu-satunya bukti bahwa admin yg sah yg memulai alur ini.
+app.get('/api/gmeet/oauth/url', auth(['admin']), ah(async (req, res) => {
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/gmeet/oauth/callback`;
+    const state = jwt.sign({ purpose: 'gmeet_oauth', admin_kode: req.user.kode }, JWT_SECRET, { expiresIn: '10m' });
+    try {
+        const url = await buildGmeetAuthUrl(redirectUri, state);
+        res.json({ url });
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
+}));
+app.get('/api/gmeet/oauth/callback', ah(async (req, res) => {
+    const redirectBack = (qs) => res.redirect(`/index_admin?${qs}`);
+    try {
+        const { code, state, error: googleError } = req.query;
+        if (googleError) throw new Error('Ditolak/dibatalkan di layar consent Google (' + googleError + ')');
+        if (!code || !state) throw new Error('Callback Google tidak lengkap (code/state hilang)');
+        let decoded;
+        try { decoded = jwt.verify(state, JWT_SECRET); } catch (e) { throw new Error('State tidak valid/kadaluarsa, ulangi dari tombol Hubungkan'); }
+        if (decoded.purpose !== 'gmeet_oauth') throw new Error('State tidak valid');
+        const redirectUri = `${req.protocol}://${req.get('host')}/api/gmeet/oauth/callback`;
+        await exchangeGmeetCode(code, redirectUri);
+        redirectBack('gmeet=connected');
+    } catch (e) {
+        redirectBack('gmeet=error&msg=' + encodeURIComponent(e.message || 'Gagal terhubung ke Google'));
+    }
+}));
+app.post('/api/gmeet/oauth/disconnect', auth(['admin']), ah(async (req, res) => {
+    await disconnectGmeet();
+    res.json({ message: 'Koneksi akun Google diputuskan' });
 }));
 // Tombol "Tes Koneksi & Kirim Email Percobaan" di dock EMAIL — verifikasi
 // beneran ke Resend (bukan cuma simpan field) lalu kirim 1 email percobaan ke
@@ -3040,6 +3145,34 @@ async function generateTokenSaatBerlangsung(tdb, sesiRow, jadwalMeta) {
     const tokenKode = await generateTokenUntukJadwal(tdb, jadwalMeta.token_modul_kode, sesiRow.user_kode, tanggalHariIni(), batasKeluar);
     jadwalMeta.token_kode = tokenKode;
     return true;
+}
+// Bikin room Google Meet ASLI (lib/gmeet.js) persis saat status sesi baru saja
+// masuk "berlangsung" — dipanggil dari POST/PUT /api/jadwal-sesi di bawah,
+// PERSIS titik pemicu yang sama dgn generateTokenSaatBerlangsung di atas
+// (auto-maju client-side _jdwAutoAdvanceStatus begitu jam mulai slot tiba,
+// ATAU admin/review langsung bikin/ubah entri jadi berstatus "berlangsung").
+// SENGAJA dipanggil di LUAR transaction DB oleh pemanggil (lihat catatan di
+// masing2 pemanggil) karena ini network call ke Google yang bisa lambat —
+// tidak boleh menahan advisory lock/koneksi Postgres selama itu.
+//
+// Durasi event Meet-nya pakai `durasi_default` dari Management > GMEET (dalam
+// menit, admin yg atur) — BUKAN lagi durasi tetap slot (waktu_selesai kolom
+// jadwal_sesi tetap dipertahankan apa adanya buat keperluan lain / tampilan
+// jadwal, cuma room Meet-nya sendiri yang durasinya ikut setting terpisah ini).
+//
+// Best-effort: kalau integrasi belum terhubung / token invalid / Google API
+// error apapun, return null (bukan throw) — pemanggil membiarkan meet_link
+// kosong & sesi TETAP lanjut masuk "berlangsung" seperti biasa.
+async function generateMeetLinkSaatBerlangsung({ materiNama, tentorNama, userKode, waktuMulai }) {
+    try {
+        const user = userKode ? await db.prepare('SELECT nama FROM users WHERE kode=?').get(userKode) : null;
+        const summary = `Mentoring${materiNama ? ' - ' + materiNama : ''} (${tentorNama || 'Tentor'} & ${(user && user.nama) || 'Siswa'})`.slice(0, 200);
+        const { meetLink } = await createMeetEvent({ summary, mulaiISO: waktuMulai });
+        return meetLink;
+    } catch (e) {
+        console.error('[GMEET] Gagal membuat room Google Meet utk sesi berlangsung:', e.message);
+        return null;
+    }
 }
 // Jam mulai/selesai per slot (sama seperti JDW_SLOTS di frontend) — dipakai
 // menghitung waktu_mulai/waktu_selesai ASLI (kolom TIMESTAMP, dibutuhkan
@@ -3216,6 +3349,138 @@ app.get('/api/jadwal-sesi', auth(['admin','review','user']), ah(async (req, res)
     }
     res.json(rows.map(mapJadwalRow));
 }));
+// Satu entri saja by kode — dipakai tombol "Cek Lagi" di overlay "Sesi
+// Berlangsung" (user/jadwal/jadwal.js & review/jadwal/jadwal.js) buat
+// memuat ulang SATU sesi tanpa fetch semua jadwal, kalau meet_link belum
+// sempat jadi pas overlay pertama kali dibuka (lihat generateMeetLinkSaatBerlangsung
+// yg best-effort & bisa gagal/lambat).
+app.get('/api/jadwal-sesi/:kode', auth(['admin','review','user']), ah(async (req, res) => {
+    const row = await db.prepare(JADWAL_SELECT + ' WHERE js.kode=?').get(req.params.kode);
+    if (!row) return res.status(404).json({ error: 'Sesi tidak ditemukan' });
+    if (req.user.role === 'user' && row.user_kode !== req.user.kode) return res.status(403).json({ error: 'Forbidden' });
+    if (req.user.role === 'review' && row.tentor_id !== req.user.kode) return res.status(403).json({ error: 'Forbidden' });
+    res.json(mapJadwalRow(row));
+}));
+// Log penggunaan Gmeet — admin only. Dipakai panel Management > GMEET buat
+// lihat SEMUA room Meet yang pernah/sedang dipakai (setiap baris jadwal_sesi
+// yang meet_link-nya sudah pernah dibuat, lihat generateMeetLinkSaatBerlangsung),
+// beserta status "Menyala" (status sesi masih `berlangsung`, room aktif) /
+// historis (`selesai`/`batal`/dst) — jadi kalau jam 09.45 ada 6 guru mengajar
+// bersamaan, log ini menampilkan ke-6 room Meet-nya sekaligus, masing2 dgn
+// info tentor/materi/murid-nya sendiri2 (lihat mapJadwalRow: tentor_nama,
+// materi_nama, nama = murid).
+//
+// Query param buat mode "pantau pergerakan guru & murid" (riwayat, bukan cuma
+// log room Meet hari ini):
+//   tanggal        tanggal tunggal (YYYY-MM-DD) — kalau diisi, dari/sampai diabaikan
+//   dari, sampai   rentang tanggal (YYYY-MM-DD), salah satu boleh kosong
+//                  (mis. cuma `dari` = "sejak tanggal itu s/d sekarang")
+//   tentor_id      filter ke 1 tentor tertentu (dropdown di panel, dari
+//                  /api/jadwal-meta) — buat lihat riwayat/pergerakan guru itu
+//   murid          filter cocok sebagian nama murid (case-insensitive) — buat
+//                  lihat riwayat/pergerakan murid itu
+//   semua=1        SERTAKAN sesi yang belum/tidak pernah punya meet_link juga
+//                  (pending/acc/batal/ditolak dst) — jadi riwayat PENUH
+//                  pergerakan orang itu, bukan cuma yang sempat pakai Gmeet.
+//                  Tanpa param ini (default), tetap seperti semula: HANYA
+//                  baris yang meet_link-nya sudah pernah dibuat.
+// Tanpa filter sama sekali: 200 baris meet_link TERBARU lintas tanggal
+// (perilaku lama, dipertahankan apa adanya).
+app.get('/api/admin/gmeet-log', auth(['admin']), ah(async (req, res) => {
+    const { tanggal, dari, sampai, tentor_id, murid, semua } = req.query;
+    const where = [];
+    const params = [];
+    if (semua !== '1') where.push('js.meet_link IS NOT NULL');
+    if (tanggal) {
+        where.push('js.tanggal = ?'); params.push(tanggal);
+    } else {
+        if (dari) { where.push('js.tanggal >= ?'); params.push(dari); }
+        if (sampai) { where.push('js.tanggal <= ?'); params.push(sampai); }
+    }
+    if (tentor_id) { where.push('js.tentor_id = ?'); params.push(tentor_id); }
+    if (murid) { where.push('u.nama ILIKE ?'); params.push(`%${murid}%`); }
+    const adaFilter = !!(tanggal || dari || sampai || tentor_id || murid);
+    const whereSql = where.length ? ('WHERE ' + where.join(' AND ')) : '';
+    // Urut NAIK (kronologis) kalau memang lagi menelusuri riwayat/rentang
+    // tanggal tertentu — lebih enak dibaca sebagai "pergerakan" dari waktu ke
+    // waktu. Tanpa filter (mode log biasa), tetap TERBARU dulu spt semula.
+    const orderSql = adaFilter ? 'ORDER BY js.tanggal ASC, js.waktu_mulai ASC' : 'ORDER BY js.waktu_mulai DESC';
+    const limitSql = adaFilter ? 'LIMIT 500' : 'LIMIT 200';
+    const rows = await db.prepare(JADWAL_SELECT + ' ' + whereSql + ' ' + orderSql + ' ' + limitSql).all(...params);
+    res.json(rows.map(mapJadwalRow));
+}));
+
+// ══════════════════════════════════════════════════════════════════════
+// DOCK LAPORAN (admin, sub MAIL | TINDAKAN — lihat admin/laporan/laporan.js)
+// MAIL: log jadwal peserta & guru yang sudah SELESAI — 1 halaman berisi
+// laporan pembelajaran guru, feedback murid, link bukti Gmeet dilaksanakan,
+// & data pengerjaan ujian murid (semuanya sudah ada di jadwal_sesi.meta +
+// tabel `laporan`, lihat generateMeetLinkSaatBerlangsung/LaporanPage di
+// review/laporan/laporan.js/JadwalPage.feedbackEntry di user/jadwal/jadwal.js
+// utk asal datanya). TINDAKAN: suspend/beri peringatan ke guru/murid yang
+// melanggar aturan/kode etik (tabel tindakan_log), opsional ditautkan ke 1
+// sesi jadwal tertentu yang memicunya.
+// ══════════════════════════════════════════════════════════════════════
+
+// MAIL — daftar sesi berstatus "selesai" saja (SENGAJA beda dari
+// /api/admin/gmeet-log yang menampilkan segala status — dock ini memang
+// khusus meninjau sesi yang sudah kelar). Filter opsional sama polanya dgn
+// gmeet-log (tentor_id/murid/dari/sampai) biar konsisten dipakai admin.
+app.get('/api/admin/laporan-log', auth(['admin']), ah(async (req, res) => {
+    const { dari, sampai, tentor_id, murid } = req.query;
+    const where = [`js.status = 'selesai'`];
+    const params = [];
+    if (dari) { where.push('js.tanggal >= ?'); params.push(dari); }
+    if (sampai) { where.push('js.tanggal <= ?'); params.push(sampai); }
+    if (tentor_id) { where.push('js.tentor_id = ?'); params.push(tentor_id); }
+    if (murid) { where.push('u.nama ILIKE ?'); params.push(`%${murid}%`); }
+    const rows = await db.prepare(JADWAL_SELECT + ' WHERE ' + where.join(' AND ') + ' ORDER BY js.waktu_mulai DESC LIMIT 300').all(...params);
+    res.json(rows.map(mapJadwalRow));
+}));
+// Detail 1 sesi (dibuka begitu kartu MAIL di-klik) — mapJadwalRow apa adanya
+// (sudah termasuk meta.laporanText/meta.feedback/meet_link) DITAMBAH hasil
+// ujian murid (tabel `laporan`, dicocokkan lewat meta.token_kode — PERSIS
+// pola GET /api/jadwal-sesi/:kode/status-ujian di atas, cuma di sini
+// datanya diambil lengkap sekalian [skor/waktu], bukan cuma status).
+app.get('/api/admin/laporan-log/:kode', auth(['admin']), ah(async (req, res) => {
+    const row = await db.prepare(JADWAL_SELECT + ' WHERE js.kode=?').get(req.params.kode);
+    if (!row) return res.status(404).json({ error: 'Sesi tidak ditemukan' });
+    const sesi = mapJadwalRow(row);
+    let ujian = null;
+    const tokenKode = sesi.meta && sesi.meta.token_kode;
+    if (tokenKode) {
+        ujian = await db.prepare('SELECT kode, skor, waktu_pengerjaan, tgl_selesai FROM laporan WHERE token_kode=? LIMIT 1').get(tokenKode) || null;
+    }
+    res.json({ ...sesi, ujian });
+}));
+
+// TINDAKAN — riwayat tindakan (semua, atau khusus 1 target_kode) + ambil
+// tindakan baru. `jenis` 'suspend'/'cabut_suspend' LANGSUNG mengubah
+// users.status (lihat catatan di db/schema.sql), 'peringatan' murni catatan.
+app.get('/api/admin/tindakan', auth(['admin']), ah(async (req, res) => {
+    const { target_kode } = req.query;
+    const rows = target_kode
+        ? await db.prepare('SELECT * FROM tindakan_log WHERE target_kode=? ORDER BY created_at DESC').all(target_kode)
+        : await db.prepare('SELECT * FROM tindakan_log ORDER BY created_at DESC LIMIT 300').all();
+    res.json(rows);
+}));
+app.post('/api/admin/tindakan', auth(['admin']), ah(async (req, res) => {
+    const { target_kode, target_role, jenis, alasan, jadwal_kode } = req.body || {};
+    if (!target_kode || !target_role || !jenis) return res.status(400).json({ error: 'target_kode, target_role, dan jenis wajib diisi' });
+    if (!['user', 'review'].includes(target_role)) return res.status(400).json({ error: 'target_role tidak valid' });
+    if (!['peringatan', 'suspend', 'cabut_suspend'].includes(jenis)) return res.status(400).json({ error: 'jenis tindakan tidak valid' });
+    if (jenis !== 'cabut_suspend' && !(alasan || '').trim()) return res.status(400).json({ error: 'Alasan wajib diisi' });
+    const target = await db.prepare('SELECT kode, nama FROM users WHERE kode=? AND role=?').get(target_kode, target_role);
+    if (!target) return res.status(404).json({ error: 'Akun target tidak ditemukan' });
+    const kode = await genKode('TDK', 'tindakan_log');
+    await db.prepare(`INSERT INTO tindakan_log (kode,target_kode,target_role,target_nama,jenis,alasan,jadwal_kode,admin_kode,admin_nama)
+        VALUES (?,?,?,?,?,?,?,?,?)`)
+        .run(kode, target_kode, target_role, target.nama, jenis, (alasan || '').trim() || null, jadwal_kode || null, req.user.kode, req.user.nama || null);
+    if (jenis === 'suspend') await db.prepare(`UPDATE users SET status='suspend' WHERE kode=?`).run(target_kode);
+    else if (jenis === 'cabut_suspend') await db.prepare(`UPDATE users SET status=NULL WHERE kode=?`).run(target_kode);
+    res.json({ message: 'Tindakan tersimpan', kode });
+}));
+
 app.post('/api/jadwal-sesi', auth(['admin','user','review']), ah(async (req, res) => {
     const b = req.body || {};
     const { tentor_id, materi_id, materi_nama, tanggal, slot_id, slot_label, meet_link, catatan, meta } = b;
@@ -3246,6 +3511,18 @@ app.post('/api/jadwal-sesi', auth(['admin','user','review']), ah(async (req, res
     // token_kode/token_modul_* (lihat blok token otomatis di bawah) ditambahkan
     // ke objek yang SAMA ini sebelum di-JSON.stringify & disimpan sekali di INSERT.
     const jadwalMeta = (meta && typeof meta === 'object') ? Object.assign({}, meta) : {};
+    // Room Gmeet ASLI (lihat generateMeetLinkSaatBerlangsung di atas) — cuma
+    // dipanggil kalau entri ini LANGSUNG dibuat berstatus "berlangsung" (mis.
+    // admin bikin manual) & belum ada meet_link dari body sendiri. Kasus normal
+    // (murid ajukan -> status "pending") link-nya menunggu sampai auto-maju ke
+    // "berlangsung" lewat PUT di bawah. Dipanggil SEBELUM transaction (lihat
+    // catatan panjang di generateMeetLinkSaatBerlangsung kenapa).
+    let meetLinkBaru = null;
+    if (status === 'berlangsung' && !meet_link) {
+        meetLinkBaru = await generateMeetLinkSaatBerlangsung({
+            materiNama: materi_nama_real, tentorNama: tentorRow.nama, userKode: user_kode, waktuMulai: waktu_mulai,
+        });
+    }
     try {
         await transaction(async (tdb) => {
             // Lock + cek-bentrok (lihat jdwKunciSlot/jdwSlotBentrok & catatan
@@ -3290,7 +3567,7 @@ app.post('/api/jadwal-sesi', auth(['admin','user','review']), ah(async (req, res
             await tdb.prepare(`INSERT INTO jadwal_sesi
                 (kode,user_kode,tentor_id,tentor_nama,materi_id,materi_nama,tanggal,slot_id,slot_label,waktu_mulai,waktu_selesai,meet_link,catatan,status,meta)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-                .run(kode, user_kode, tentor_id, tentorRow.nama, materi_id || null, materi_nama_real, tanggal, slot_id, slot_label || null, waktu_mulai, waktu_selesai, meet_link || null, catatan || null, status, metaStr);
+                .run(kode, user_kode, tentor_id, tentorRow.nama, materi_id || null, materi_nama_real, tanggal, slot_id, slot_label || null, waktu_mulai, waktu_selesai, meet_link || meetLinkBaru || null, catatan || null, status, metaStr);
         });
     } catch (e) {
         if (e.isSlotConflict) return res.status(409).json({ error: e.message });
@@ -3347,6 +3624,26 @@ app.put('/api/jadwal-sesi/:kode', auth(['admin','review','user']), ah(async (req
     // token akan double-generate tiap kali sesi diedit apa pun perubahannya).
     const materiBerubah = !!(b.materi_id && b.materi_id !== existing.materi_id);
     let metaChanged = !!(b.meta && typeof b.meta === 'object');
+    // masukBerlangsung dihitung di SINI (sebelum transaction dibuka) karena
+    // generateMeetLinkSaatBerlangsung di bawah adalah network call ke Google
+    // yang bisa lambat — lihat catatan panjang di fungsi itu kenapa tidak boleh
+    // dipanggil di dalam transaction (menahan advisory lock/koneksi Postgres).
+    const masukBerlangsung = finalStatus === 'berlangsung' && existing.status !== 'berlangsung';
+    // Room Gmeet ASLI cuma dibuat SEKALI per sesi, persis saat baru masuk
+    // "berlangsung" & belum pernah punya meet_link (reschedule/edit lanjutan
+    // TIDAK generate ulang — link lama yang sudah dibagikan ke murid/tentor
+    // tetap sama). Kalau body PUT ini sendiri mengirim meet_link manual
+    // (jarang, mis. override admin), itu yang menang (lihat COALESCE di UPDATE
+    // bawah), room otomatis tidak jadi dibuat.
+    let meetLinkBaru = null;
+    if (masukBerlangsung && !existing.meet_link && !b.meet_link) {
+        meetLinkBaru = await generateMeetLinkSaatBerlangsung({
+            materiNama: materi_nama_real || existing.materi_nama,
+            tentorNama: tentor_nama_real || existing.tentor_nama,
+            userKode: existing.user_kode,
+            waktuMulai: waktu_mulai || existing.waktu_mulai,
+        });
+    }
     try {
         await transaction(async (tdb) => {
             // Sama seperti POST /api/jadwal-sesi: jadwal-ulang (reschedule) bisa
@@ -3397,7 +3694,6 @@ app.put('/api/jadwal-sesi/:kode', auth(['admin','review','user']), ah(async (req
             // Berlangsung" + link GMeet itu ditampilkan ke murid — lihat catatan panjang
             // di generateTokenSaatBerlangsung kenapa ditunda sampai titik ini (supaya
             // aktivasi/expired token selalu persis "hari ini" yang sungguhan).
-            const masukBerlangsung = finalStatus === 'berlangsung' && existing.status !== 'berlangsung';
             if ((masukBerlangsung || (finalStatus === 'berlangsung' && materiBerubah)) && jadwalMeta.token_modul_kode) {
                 const sesiUntukToken = { user_kode: existing.user_kode, materi_id: b.materi_id || existing.materi_id };
                 if (await generateTokenSaatBerlangsung(tdb, sesiUntukToken, jadwalMeta)) metaChanged = true;
@@ -3426,7 +3722,7 @@ app.put('/api/jadwal-sesi/:kode', auth(['admin','review','user']), ah(async (req
                     b.materi_id || null, materi_nama_real,
                     boleUbahTentor && b.tentor_id ? true : false, boleUbahTentor ? (b.tentor_id || null) : null,
                     boleUbahTentor && b.tentor_id ? true : false, boleUbahTentor ? tentor_nama_real : null,
-                    waktu_mulai, waktu_selesai, b.meet_link || null, b.catatan || null, metaStr,
+                    waktu_mulai, waktu_selesai, b.meet_link || meetLinkBaru || null, b.catatan || null, metaStr,
                     jamBerubah, jamBerubah, req.params.kode
                 );
         });

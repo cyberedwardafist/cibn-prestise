@@ -91,7 +91,7 @@ async function renderAnalisaSoalDetail() {
 
 function _asdEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
-const _asdTypeLabel = { multiple_choice: 'Multiple Choice', linier: 'Linier', sikap_kerja: 'Sikap Kerja' };
+const _asdTypeLabel = { multiple_choice: 'Multiple Choice', linier: 'Linier', sikap_kerja: 'Sikap Kerja', toefl: 'TOEFL' };
 
 function _asdKelompokNama(kode) {
     if (!kode) return null;
@@ -112,9 +112,15 @@ function _asdWaktuTampil(s) {
 // Jumlah butir pertanyaan dalam 1 soal — SAMA PERSIS logikanya dgn
 // _analisaSoalButir() di server.js: tipe sikap_kerja dihitung dari total
 // pertanyaan di SELURUH kolom (kol.soal.length dijumlah per kolom), tipe
-// lain (multiple_choice/linier) tinggal jumlah elemen array `data`.
+// toefl dihitung dari total soal di 3 section (listening+structure+reading),
+// tipe lain (multiple_choice/linier) tinggal jumlah elemen array `data`.
 function _asdJumlahButir(soal) {
     const data = soal.data;
+    if (soal.type === 'toefl') {
+        if (!data || typeof data !== 'object') return 0;
+        return ['listening', 'structure', 'reading'].reduce((a, sec) =>
+            a + ((data[sec] && Array.isArray(data[sec].soal)) ? data[sec].soal.length : 0), 0);
+    }
     if (!Array.isArray(data)) return 0;
     if (soal.type === 'sikap_kerja') return data.reduce((a, kol) => a + ((kol && Array.isArray(kol.soal)) ? kol.soal.length : 0), 0);
     return data.length;
@@ -122,11 +128,12 @@ function _asdJumlahButir(soal) {
 
 // Tipe penilaian (skor_type) HANYA berlaku utk multiple_choice/linier (radio
 // "Benar/Salah" vs "Nilai per Jawaban" di admin/soal/soal.js) — soal tipe
-// sikap_kerja tidak punya field ini sama sekali (dinilai lewat kunci per
-// kolom, bukan skor_type), jadi baris ini disembunyikan total kalau tipenya
-// sikap_kerja (bukan ditampilkan "-").
+// sikap_kerja & toefl tidak punya field ini sama sekali (sikap_kerja dinilai
+// lewat kunci per kolom, toefl dinilai lewat rumus ITP resmi — lihat
+// lib/toefl.js), jadi baris ini disembunyikan total kalau tipenya salah satu
+// dari keduanya (bukan ditampilkan "-").
 function _asdSkorTypeLabel(soal) {
-    if (soal.type === 'sikap_kerja') return null;
+    if (soal.type === 'sikap_kerja' || soal.type === 'toefl') return null;
     return soal.skor_type === 'nilai_sendiri' ? 'Nilai Sendiri' : 'Benar/Salah';
 }
 

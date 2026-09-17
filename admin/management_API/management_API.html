@@ -73,11 +73,11 @@
         <h3>Google Meet — Jadwal</h3>
         <p>Dipakai untuk membuat tautan Google Meet otomatis pada fitur Jadwal di halaman User &amp; Review.</p>
       </div>
-      <span class="badge-pending" id="mgmt-gmeet-status-badge" style="margin-left:auto;flex-shrink:0">Dummy / Belum Terhubung</span>
+      <span class="badge-pending" id="mgmt-gmeet-status-badge" style="margin-left:auto;flex-shrink:0">Belum Terhubung</span>
     </div>
 
     <div class="ld-notice">
-      Bagian ini <b>masih placeholder</b> — belum ada alur OAuth Google yang sesungguhnya. Field &amp; tombol di bawah disiapkan lebih dulu supaya begitu integrasi asli dipasang, halaman Jadwal di User &amp; Review tinggal pakai data yang sama tanpa perlu bongkar ulang tampilan.
+      Isi Client ID &amp; Client Secret dari Google Cloud Console (OAuth 2.0 Client, tipe "Web application"), tambahkan Redirect URI <code id="mgmt-gmeet-redirect-uri-hint"></code> di sana, simpan pengaturan, lalu klik "Hubungkan Akun Google" untuk memberi izin akses Kalender. Begitu terhubung, sesi Jadwal yang masuk status "Berlangsung" otomatis dibuatkan room Google Meet asli &amp; linknya dikirim ke akun tentor &amp; murid yang bersangkutan.
     </div>
 
     <div class="ld-field-group ld-cols-2">
@@ -105,7 +105,94 @@
 
     <div style="display:flex;gap:.7rem;flex-wrap:wrap;margin-top:1.3rem">
       <button class="btn btn-primary" id="mgmt-gmeet-save-btn" onclick="mgmtSaveGmeet()">Simpan Pengaturan Gmeet</button>
-      <button class="btn btn-secondary" id="mgmt-gmeet-connect-btn" onclick="mgmtDummyConnectGmeet()">Hubungkan Akun Google</button>
+      <button class="btn btn-secondary" id="mgmt-gmeet-connect-btn" onclick="mgmtConnectGmeet()">Hubungkan Akun Google</button>
+      <button class="btn btn-danger" id="mgmt-gmeet-disconnect-btn" onclick="mgmtDisconnectGmeet()" style="display:none">Putuskan Koneksi</button>
+    </div>
+  </div>
+
+  <!-- ── Log & Riwayat Penggunaan Gmeet — semua room Meet yang pernah dibuat
+       (lihat GET /api/admin/gmeet-log di server.js), 1 baris = 1 sesi
+       jadwal_sesi. Kalau di jam yang sama ada beberapa tentor mengajar
+       bareng, di sini kelihatan sebagai beberapa baris terpisah dgn jam yang
+       sama tapi link/tentor/murid/materi masing2 sendiri2. Filter Tentor/
+       Murid + rentang tanggal + toggle "Riwayat penuh" di bawah dipakai buat
+       memantau PERGERAKAN 1 guru/murid tertentu dari waktu ke waktu (bukan
+       cuma snapshot 1 hari). Status "Menyala" = sesi masih berstatus
+       "berlangsung" (room lagi dipakai), status lain (Selesai/Dibatalkan/
+       Menunggu dst) = riwayat, cuma tampil kalau "Riwayat penuh" dicentang. ── -->
+  <div class="ld-card" style="margin-top:20px">
+    <div class="ld-card-hd">
+      <div class="ld-sc-icon">📋</div>
+      <div>
+        <h3>Log &amp; Riwayat Penggunaan Google Meet</h3>
+        <p id="mgmt-gmeet-log-summary">Daftar semua room Meet yang pernah dibuat otomatis lewat fitur Jadwal, sekaligus pantauan pergerakan guru &amp; murid.</p>
+      </div>
+    </div>
+
+    <div class="ld-field-group ld-cols-2">
+      <div class="ld-field">
+        <label>Tentor</label>
+        <select id="mgmt-gmeet-log-tentor" class="form-select" onchange="mgmtLoadGmeetLog()">
+          <option value="">Semua Tentor</option>
+        </select>
+      </div>
+      <div class="ld-field">
+        <label>Cari Murid (nama)</label>
+        <input type="text" id="mgmt-gmeet-log-murid" placeholder="Ketik nama murid..." oninput="_mgmtGmeetLogMuridDebounced()">
+      </div>
+    </div>
+    <div class="ld-field-group ld-cols-2" style="margin-top:.8rem">
+      <div class="ld-field">
+        <label>Dari Tanggal</label>
+        <input type="date" id="mgmt-gmeet-log-dari" onchange="mgmtLoadGmeetLog()">
+      </div>
+      <div class="ld-field">
+        <label>Sampai Tanggal</label>
+        <input type="date" id="mgmt-gmeet-log-sampai" onchange="mgmtLoadGmeetLog()">
+      </div>
+    </div>
+
+    <div class="search-bar" style="margin:.8rem 0 14px;flex-wrap:wrap;gap:8px;align-items:center">
+      <label style="display:flex;align-items:center;gap:.5rem;font-size:.82rem;font-weight:600;color:var(--blue);cursor:pointer;margin:0">
+        <input type="checkbox" id="mgmt-gmeet-log-semua" style="width:16px;height:16px;accent-color:var(--blue)" onchange="mgmtLoadGmeetLog()">
+        Riwayat penuh (sertakan sesi yang belum/tidak pernah pakai Gmeet)
+      </label>
+      <select id="mgmt-gmeet-log-status-filter" class="form-select" style="max-width:170px;margin-left:auto" onchange="mgmtRenderGmeetLog()">
+        <option value="">Semua Status</option>
+        <option value="berlangsung">Menyala saja</option>
+        <option value="lainnya">Selain Menyala</option>
+      </select>
+      <button class="btn btn-secondary" onclick="mgmtResetGmeetLogFilter()">Reset Filter</button>
+      <button class="btn btn-secondary" onclick="mgmtLoadGmeetLog()">Muat Ulang</button>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="hide-mobile">Tanggal</th><th>Jam</th><th>Tentor</th><th class="hide-mobile">Materi</th><th>Murid</th><th>Status</th><th>Link Meet</th></tr></thead>
+          <tbody id="mgmt-gmeet-log-tbody">
+            <tr><td colspan="7"><div class="empty-state"><p>Memuat...</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
+<script>
+  (function () {
+    var hint = document.getElementById('mgmt-gmeet-redirect-uri-hint');
+    if (hint) hint.textContent = window.location.origin + '/api/gmeet/oauth/callback';
+    var dari = document.getElementById('mgmt-gmeet-log-dari');
+    var sampai = document.getElementById('mgmt-gmeet-log-sampai');
+    if (dari && !dari.value) {
+      var d = new Date();
+      var pad = function (n) { return String(n).padStart(2, '0'); };
+      var todayStr = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+      // Default: cuma hari ini (dari === sampai) — snapshot log biasa. Admin
+      // tinggal kosongkan salah satu/keduanya, atau isi filter Tentor/Murid,
+      // buat mode "riwayat pergerakan" lintas tanggal (lihat mgmtLoadGmeetLog).
+      dari.value = todayStr;
+      if (sampai) sampai.value = todayStr;
+    }
+  })();
+</script>

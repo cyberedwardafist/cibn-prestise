@@ -1,0 +1,165 @@
+<!-- ══════════════════════════════════════════════════════════════════════
+     DOCK LAPORAN (admin) — sub MAIL | TINDAKAN, navigasi lewat panel dock
+     terpisah (#laporan-jadwal-dock-wrap di admin/index_admin.html, pola SAMA
+     PERSIS dgn #management-api-dock-wrap/#landing-dock-wrap).
+     pageId SENGAJA "laporan-jadwal" (bukan "laporan" polos) karena id itu
+     sudah dipakai dock CAT > LAPORAN (admin/cat/laporan.html — laporan HASIL
+     UJIAN per token, beda konsep dgn dock ini yang tentang sesi JADWAL).
+
+     MAIL   : daftar sesi jadwal (peserta+guru) yang sudah SELESAI. Diklik ->
+              overlay detail berisi SELURUH data 1 sesi: link bukti Gmeet,
+              Laporan Pembelajaran guru, Feedback murid, & data pengerjaan
+              ujian murid (skor/waktu) — 1 halaman, tidak perlu pindah2 dock.
+     TINDAKAN: cari akun guru/murid -> lihat riwayat tindakan yg pernah
+              diambil ke akun itu -> ambil tindakan baru (Peringatan/Suspend/
+              Cabut Suspend) dgn alasan wajib diisi, opsional ditautkan ke 1
+              sesi tertentu (kejadian yang memicunya, dibawa otomatis dari
+              tombol "Ambil Tindakan" di overlay detail MAIL).
+     Logic ada di admin/laporan-jadwal/laporan-jadwal.js. ══════════════════ -->
+
+<style>
+  .lapj-detail-section { margin-top: 1.1rem; }
+  .lapj-detail-section h4 { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-sub); margin: 0 0 .3rem; }
+  .lapj-target-result-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
+  .lapj-target-result-row:hover { background: rgba(19,50,89,0.06); }
+</style>
+<button class="btn btn-secondary" style="margin-bottom:14px" onclick="navigateTo('home')">&larr; Kembali</button>
+<div class="section-title">Laporan</div>
+<div class="section-sub">Laporan hasil sesi jadwal (pembelajaran &amp; feedback) dan tindakan pelanggaran guru/murid.</div>
+
+<!-- ── MAIL ── -->
+<div class="sub-page active" id="sub-laporan-jadwal-mail">
+  <div class="ld-card">
+    <div class="ld-card-hd">
+      <div class="ld-sc-icon">📨</div>
+      <div>
+        <h3>Log Sesi Selesai</h3>
+        <p id="lapj-mail-summary">Sesi jadwal yang sudah selesai — klik salah satu baris untuk lihat laporan lengkapnya.</p>
+      </div>
+    </div>
+
+    <div class="ld-field-group ld-cols-2">
+      <div class="ld-field">
+        <label>Tentor</label>
+        <select id="lapj-mail-tentor" class="form-select" onchange="lapjLoadMail()">
+          <option value="">Semua Tentor</option>
+        </select>
+      </div>
+      <div class="ld-field">
+        <label>Cari Murid (nama)</label>
+        <input type="text" id="lapj-mail-murid" placeholder="Ketik nama murid..." oninput="_lapjMailMuridDebounced()">
+      </div>
+    </div>
+    <div class="ld-field-group ld-cols-2" style="margin-top:.8rem">
+      <div class="ld-field">
+        <label>Dari Tanggal</label>
+        <input type="date" id="lapj-mail-dari" onchange="lapjLoadMail()">
+      </div>
+      <div class="ld-field">
+        <label>Sampai Tanggal</label>
+        <input type="date" id="lapj-mail-sampai" onchange="lapjLoadMail()">
+      </div>
+    </div>
+
+    <div class="search-bar" style="margin:.8rem 0 14px;flex-wrap:wrap;gap:8px;align-items:center">
+      <select id="lapj-mail-status-filter" class="form-select" style="max-width:190px" onchange="lapjRenderMail()">
+        <option value="">Semua</option>
+        <option value="belum_lapor">Guru Belum Lapor</option>
+        <option value="belum_feedback">Murid Belum Feedback</option>
+      </select>
+      <button class="btn btn-secondary" style="margin-left:auto" onclick="lapjResetMailFilter()">Reset Filter</button>
+      <button class="btn btn-secondary" onclick="lapjLoadMail()">Muat Ulang</button>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="hide-mobile">Tanggal</th><th>Jam</th><th>Tentor</th><th class="hide-mobile">Materi</th><th>Murid</th><th class="hide-mobile">Laporan Guru</th><th class="hide-mobile">Feedback Murid</th><th></th></tr></thead>
+          <tbody id="lapj-mail-tbody">
+            <tr><td colspan="8"><div class="empty-state"><p>Memuat...</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TINDAKAN ── -->
+<div class="sub-page" id="sub-laporan-jadwal-tindakan">
+  <div class="ld-card">
+    <div class="ld-card-hd">
+      <div class="ld-sc-icon">⚖️</div>
+      <div>
+        <h3>Ambil Tindakan</h3>
+        <p>Cari akun guru atau murid untuk memberi peringatan, men-suspend, atau memulihkan akun yang melanggar aturan/kode etik.</p>
+      </div>
+    </div>
+
+    <div class="ld-field-group ld-cols-2">
+      <div class="ld-field">
+        <label>Cari Akun</label>
+        <div style="display:flex;gap:.5rem">
+          <select id="lapj-tindak-role" class="form-select" style="max-width:120px" onchange="lapjSearchTarget()">
+            <option value="review">Guru</option>
+            <option value="user">Murid</option>
+          </select>
+          <input type="text" id="lapj-tindak-search" placeholder="Ketik nama..." style="flex:1" oninput="_lapjTargetSearchDebounced()">
+        </div>
+      </div>
+    </div>
+    <div id="lapj-tindak-search-results" style="margin-top:.6rem"></div>
+
+    <!-- Muncul begitu 1 akun dipilih dari hasil pencarian di atas -->
+    <div id="lapj-tindak-target-panel" style="display:none;margin-top:1.2rem">
+      <div class="ld-notice" id="lapj-tindak-target-info"></div>
+
+      <div id="lapj-tindak-linked-sesi" style="display:none;margin-top:.6rem" class="ld-notice">
+        Terkait sesi: <b id="lapj-tindak-linked-sesi-label"></b>
+        <button type="button" class="btn btn-secondary" style="margin-left:8px;padding:2px 10px;font-size:.75rem" onclick="lapjClearLinkedSesi()">Lepas Tautan</button>
+      </div>
+
+      <div class="ld-field-group ld-cols-2" style="margin-top:1rem">
+        <div class="ld-field">
+          <label>Jenis Tindakan</label>
+          <select id="lapj-tindak-jenis" class="form-select">
+            <option value="peringatan">Peringatan</option>
+            <option value="suspend">Suspend Akun</option>
+            <option value="cabut_suspend">Cabut Suspend</option>
+          </select>
+        </div>
+      </div>
+      <div class="ld-field" style="margin-top:.8rem">
+        <label>Alasan</label>
+        <textarea id="lapj-tindak-alasan" rows="3" placeholder="Jelaskan pelanggaran/alasan tindakan ini..."></textarea>
+      </div>
+      <button class="btn btn-danger" style="margin-top:1rem" onclick="lapjSubmitTindakan()">Ambil Tindakan</button>
+
+      <div class="card" style="padding:0;overflow:hidden;margin-top:1.4rem">
+        <div class="ld-card-hd" style="padding:14px 16px 0">
+          <h3 style="font-size:.95rem">Riwayat Tindakan Akun Ini</h3>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Tanggal</th><th>Jenis</th><th>Alasan</th><th class="hide-mobile">Oleh</th></tr></thead>
+            <tbody id="lapj-tindak-history-tbody">
+              <tr><td colspan="4"><div class="empty-state"><p>Pilih akun dulu</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── OVERLAY DETAIL (dibuka dari klik baris MAIL) — 1 halaman berisi
+     SELURUH data sesi: link bukti Gmeet, Laporan Pembelajaran guru,
+     Feedback murid, data pengerjaan ujian murid. ── -->
+<div class="overlay" id="lapj-detail-overlay">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title" id="lapj-detail-title">Detail Sesi</div>
+      <button class="modal-close" onclick="closeModal('lapj-detail-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div id="lapj-detail-body">Memuat...</div>
+  </div>
+</div>

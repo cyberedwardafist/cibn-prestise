@@ -115,8 +115,39 @@ async function finalizeHasil(token, result){
   tampilHasil(h);
 }
 
+// ── TOEFL: tabel konversi & fungsi skor (duplikat PERSIS dari lib/toefl.js —
+// browser tidak bisa require() file Node, jadi angka & rumus di bawah ini
+// WAJIB selalu sinkron dgn lib/toefl.js kalau suatu saat direvisi. Ini murni
+// utk TAMPILAN instan ke peserta begitu submit sukses (server.js MASIH tetap
+// sumber kebenaran resmi utk skor yang tersimpan — lihat GET /api/laporan/:kode
+// & review/riwayat yang memakai lib/toefl.js versi server, bukan file ini). ──
+const TOEFL_CONVERSION={
+  listening:[24,25,26,27,28,29,30,31,32,32,33,35,37,38,39,41,41,42,43,44,45,45,46,47,47,48,48,49,49,50,51,51,52,52,53,54,54,55,56,57,57,58,59,60,61,62,63,65,66,67,68],
+  structure:[20,20,21,22,23,25,26,27,29,31,33,35,36,37,38,40,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,60,61,63,65,67,68],
+  reading:[21,22,23,23,24,25,26,27,28,28,29,30,31,32,34,35,36,37,38,39,40,41,42,43,43,44,45,46,46,47,48,48,49,50,51,52,52,53,54,54,55,56,57,58,59,60,61,63,65,66,67]
+};
+const TOEFL_MAX_RAW={listening:50,structure:40,reading:50};
+function toeflScaledScore(section,benar,totalSoalSection){
+  const table=TOEFL_CONVERSION[section];if(!table)return 0;
+  const maxRaw=TOEFL_MAX_RAW[section];
+  const total=totalSoalSection>0?totalSoalSection:maxRaw;
+  const rawProyeksi=Math.round((benar/total)*maxRaw);
+  const idx=Math.max(0,Math.min(maxRaw,rawProyeksi));
+  return table[idx];
+}
+function toeflTotalScore(sL,sS,sR){ return Math.round(((sL+sS+sR)/3)*10); }
+const TOEFL_CEFR_TABLE=[
+  {min:627,level:'C1',label:'Advanced (Mahir)'},
+  {min:543,level:'B2',label:'Upper Intermediate'},
+  {min:433,level:'B1',label:'Intermediate'},
+  {min:343,level:'A2',label:'Elementary'},
+  {min:0,level:'-',label:'Below A2 / Beginner'}
+];
+function toeflCefrLevel(total){ for(const row of TOEFL_CEFR_TABLE) if(total>=row.min) return row; return TOEFL_CEFR_TABLE[TOEFL_CEFR_TABLE.length-1]; }
+function toeflAnswerKey(soalKode,section,idx){ return `${soalKode}_toefl_${section}_${idx}`; }
+
 function hitungHasil(){
-  const perSoal={},skData={};
+  const perSoal={},skData={},toeflData={};
   for(const item of st.flat){
     if(!perSoal[item.soalKode]){
       perSoal[item.soalKode]={
@@ -127,7 +158,27 @@ function hitungHasil(){
         nilaiDapat:0,nilaiMaks:0
       };
     }
-    if(item.type==='sikap_kerja'){
+    if(item.type==='toefl'){
+      if(!toeflData[item.soalKode]){
+        const out={nama:item.soalNama};
+        for(const section of ['listening','structure','reading']){
+          const arr=(item.toefl&&item.toefl[section])||[];
+          let benar=0,dijawab=0;
+          arr.forEach(q=>{
+            const ans=st.jawaban[toeflAnswerKey(item.soalKode,section,q._origIdx)];
+            if(ans==null||ans==='')return;
+            dijawab++;
+            const kunci=Array.isArray(q.kunci)?q.kunci.map(String):(q.kunci!=null?[String(q.kunci)]:[]);
+            if(kunci.includes(String(ans)))benar++;
+          });
+          out[section]={benar,dijawab,total:arr.length,scaled:arr.length>0?toeflScaledScore(section,benar,arr.length):0};
+        }
+        const anyIsi=out.listening.total||out.structure.total||out.reading.total;
+        out.total=anyIsi?toeflTotalScore(out.listening.scaled,out.structure.scaled,out.reading.scaled):0;
+        out.cefr=anyIsi?toeflCefrLevel(out.total):null;
+        toeflData[item.soalKode]=out;
+      }
+    } else if(item.type==='sikap_kerja'){
       if(!skData[item.soalKode]){
         skData[item.soalKode]={nama:item.soalNama,kolom:[]};
         (item.kolom||[]).forEach((kol,ki)=>{
@@ -204,7 +255,7 @@ function hitungHasil(){
   // hitungSkorUjianServer) — supaya angka yang ditampilkan ke siswa sama persis
   // dengan yang tersimpan sebagai skor resmi di database.
   let totalBobot=0, totalTerbobot=0;
-  arr.filter(s=>s.type!=='sikap_kerja').forEach(s=>{
+  arr.filter(s=>s.type!=='sikap_kerja'&&s.type!=='toefl').forEach(s=>{
     const bobot = s.persen!=null ? s.persen : 100;
     totalBobot += bobot;
     totalTerbobot += s.skor * bobot;
@@ -214,7 +265,7 @@ function hitungHasil(){
   // Statistik mentah (jumlah benar/salah, nilai didapat/maks) tetap dihitung TANPA
   // bobot — ini murni untuk kartu statistik ("X Jawaban Benar", dst), bukan skor akhir.
   let totNilaiDapat=0,totNilaiMaks=0,totB=0,totT=0;
-  arr.filter(s=>s.type!=='sikap_kerja').forEach(s=>{
+  arr.filter(s=>s.type!=='sikap_kerja'&&s.type!=='toefl').forEach(s=>{
     if(s.skor_type==='nilai_sendiri'){totNilaiDapat+=s.nilaiDapat;totNilaiMaks+=s.nilaiMaks;}
     else{totB+=s.benar;totT+=s.total;}
   });
@@ -228,7 +279,15 @@ function hitungHasil(){
     sk.kolom.forEach(k=>{ skTotalSoal+=k.totalSoal; skTotalDijawab+=k.total; });
   });
 
-  return{perSoal:arr,skData,skorAkhir,totalBenar:totB,totalSoal:totT,totNilaiDapat,totNilaiMaks,skTotalSoal,skTotalDijawab};
+  // Total soal & dijawab KHUSUS TOEFL (3 section digabung) — pola sama dgn
+  // skTotalSoal/skTotalDijawab di atas, dipakai tampilHasil() saat modul
+  // hanya/turut berisi soal TOEFL.
+  let toeflTotalSoal=0, toeflTotalDijawab=0;
+  Object.values(toeflData).forEach(t=>{
+    ['listening','structure','reading'].forEach(sec=>{ toeflTotalSoal+=t[sec].total; toeflTotalDijawab+=t[sec].dijawab; });
+  });
+
+  return{perSoal:arr,skData,toeflData,skorAkhir,totalBenar:totB,totalSoal:totT,totNilaiDapat,totNilaiMaks,skTotalSoal,skTotalDijawab,toeflTotalSoal,toeflTotalDijawab};
 }
 
 function tampilHasil(h){
@@ -236,7 +295,7 @@ function tampilHasil(h){
   document.getElementById('hasil-page').classList.add('active');
 
   // Pisahkan data: hanya MC dan Linier (bukan sikap_kerja)
-  const perSoalMCLin=h.perSoal.filter(s=>s.type!=='sikap_kerja');
+  const perSoalMCLin=h.perSoal.filter(s=>s.type!=='sikap_kerja'&&s.type!=='toefl');
 
   // Statistik mentah (untuk kartu "Jawaban Benar/Salah" & "Nilai Didapat/Maks") —
   // tidak terbobot, murni jumlah apa adanya.
@@ -280,9 +339,18 @@ function tampilHasil(h){
     if(skorLblEl) skorLblEl.style.display='none';
   }
 
-  // Stat grid — pisahkan benar/salah (hanya benar_salah) dan nilai (nilai_sendiri)
-  const totalMCFlat=adaSoalScored ? st.flat.filter(f=>f.type!=='sikap_kerja').length : h.skTotalSoal;
-  const totalDijawab=adaSoalScored ? st.flat.filter(f=>f.type!=='sikap_kerja'&&!!st.jawaban[`${f.soalKode}_${f.qIdx}`]).length : h.skTotalDijawab;
+  // Stat grid — pisahkan benar/salah (hanya benar_salah) dan nilai (nilai_sendiri).
+  // Fallback total soal/dijawab: utamakan MC/Linier kalau ada; kalau modul
+  // hanya berisi TOEFL pakai total TOEFL; kalau hanya Sikap Kerja pakai itu.
+  let totalMCFlat, totalDijawab;
+  if(adaSoalScored){
+    totalMCFlat=st.flat.filter(f=>f.type!=='sikap_kerja'&&f.type!=='toefl').length;
+    totalDijawab=st.flat.filter(f=>f.type!=='sikap_kerja'&&f.type!=='toefl'&&!!st.jawaban[`${f.soalKode}_${f.qIdx}`]).length;
+  } else if(h.toeflTotalSoal>0){
+    totalMCFlat=h.toeflTotalSoal; totalDijawab=h.toeflTotalDijawab;
+  } else {
+    totalMCFlat=h.skTotalSoal; totalDijawab=h.skTotalDijawab;
+  }
   const adaNilaiSendiri=perSoalMCLin.some(s=>s.skor_type==='nilai_sendiri');
   const adaBenarSalah=perSoalMCLin.some(s=>s.skor_type!=='nilai_sendiri');
 
@@ -334,6 +402,28 @@ function tampilHasil(h){
     });
     document.getElementById('h-sk-section').innerHTML=skHtml;
     setTimeout(()=>Object.entries(h.skData).forEach(([kode,sk])=>drawChart('skc-'+kode,sk.kolom)),120);
+  }
+
+  // ── Kartu Skor TOEFL — skala resmi ITP (310-677), per section + level CEFR ──
+  if(Object.keys(h.toeflData).length){
+    const secLbl={listening:'Listening',structure:'Structure',reading:'Reading'};
+    let toHtml='';
+    Object.values(h.toeflData).forEach(t=>{
+      toHtml+=`<div class="hasil-sec-ttl" style="margin-top:16px">Skor TOEFL — ${t.nama}</div>
+        <div style="text-align:center;margin:14px 0">
+          <div style="font-size:42px;font-weight:800;color:var(--blue);font-family:var(--font-head)">${t.total}</div>
+          <div style="font-size:12px;color:var(--text-sub);margin-top:2px">Skor Total (skala 310–677)${t.cefr?` &nbsp;·&nbsp; Level ${t.cefr.level} (${t.cefr.label})`:''}</div>
+        </div>
+        <div class="hasil-soal-grid">
+          ${['listening','structure','reading'].map(sec=>`
+            <div class="hasil-soal-card">
+              <div class="hasil-soal-nm">${secLbl[sec]}</div>
+              <div class="hasil-soal-sk ok">${t[sec].scaled}</div>
+              <div style="font-size:11px;color:var(--text-sub);margin-top:2px">${t[sec].benar}/${t[sec].total} benar</div>
+            </div>`).join('')}
+        </div>`;
+    });
+    document.getElementById('h-toefl-section').innerHTML=toHtml;
   }
 }
 

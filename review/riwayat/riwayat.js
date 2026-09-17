@@ -4,6 +4,33 @@
 // Semua digabung 1 bundel JS karena saling panggil fungsi satu sama lain.
 // Bergantung pada helper global dari shell index_review.html yang sudah dimuat lebih dulu.
 
+// ── TOEFL: tabel konversi & fungsi skor (duplikat ringkas dari lib/toefl.js,
+// PERSIS sama isinya — lihat file itu utk penjelasan lengkap & sumber tabel.
+// Browser tidak bisa require() file Node, jadi angka ini WAJIB tetap disinkron
+// manual kalau lib/toefl.js direvisi). ──
+const _TOEFL_CONV = {
+  listening: [24,25,26,27,28,29,30,31,32,32,33,35,37,38,39,41,41,42,43,44,45,45,46,47,47,48,48,49,49,50,51,51,52,52,53,54,54,55,56,57,57,58,59,60,61,62,63,65,66,67,68],
+  structure: [20,20,21,22,23,25,26,27,29,31,33,35,36,37,38,40,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,60,61,63,65,67,68],
+  reading:   [21,22,23,23,24,25,26,27,28,28,29,30,31,32,34,35,36,37,38,39,40,41,42,43,43,44,45,46,46,47,48,48,49,50,51,52,52,53,54,54,55,56,57,58,59,60,61,63,65,66,67]
+};
+const _TOEFL_MAXRAW = { listening: 50, structure: 40, reading: 50 };
+function _toeflScaled(section, benar, totalSection) {
+  const table = _TOEFL_CONV[section]; if (!table) return 0;
+  const maxRaw = _TOEFL_MAXRAW[section];
+  const total = totalSection > 0 ? totalSection : maxRaw;
+  const idx = Math.max(0, Math.min(maxRaw, Math.round((benar / total) * maxRaw)));
+  return table[idx];
+}
+const _TOEFL_CEFR = [
+  { min: 627, level: 'C1', label: 'Advanced (Mahir)' },
+  { min: 543, level: 'B2', label: 'Upper Intermediate' },
+  { min: 433, level: 'B1', label: 'Intermediate' },
+  { min: 343, level: 'A2', label: 'Elementary' },
+  { min: 0,   level: '-',  label: 'Below A2 / Beginner' }
+];
+function _toeflCefr(total) { for (const row of _TOEFL_CEFR) if (total >= row.min) return row; return _TOEFL_CEFR[_TOEFL_CEFR.length-1]; }
+function _toeflAnswerKey(soalKode, section, idx) { return `${soalKode}_toefl_${section}_${idx}`; }
+
 async function openRiwayatUser(userKode, nama) {
   _currentUserKode = userKode;
   document.getElementById('rwu-title').textContent = `Riwayat — ${nama}`;
@@ -58,9 +85,9 @@ function renderLaporanDetail(lap) {
   const jawaban = typeof lap.jawaban === 'string' ? JSON.parse(lap.jawaban) : (lap.jawaban || {});
   const soalList = lap.soal_detail || []; 
   
-  const { perSoal, skData } = hitungSkorFromLap(soalList, jawaban);
+  const { perSoal, skData, toeflData } = hitungSkorFromLap(soalList, jawaban);
   
-  const mcArr = perSoal.filter(s => s.type !== 'sikap_kerja');
+  const mcArr = perSoal.filter(s => s.type !== 'sikap_kerja' && s.type !== 'toefl');
   let totBenar_BS = 0, totSalah_BS = 0, totSoal_BS = 0;
   let totNilai_NS = 0, totMaks_NS = 0, totSoal_NS = 0;
   let totDijawab_All = 0;
@@ -81,6 +108,14 @@ function renderLaporanDetail(lap) {
   const totalSoal_All = totSoal_BS + totSoal_NS;
   const tidakDijawab_All = totalSoal_All - totDijawab_All;
 
+  // Fallback total soal/dijawab kalau laporan HANYA berisi TOEFL (mcArr kosong)
+  let toeflTotSoal = 0, toeflTotDijawab = 0;
+  Object.values(toeflData).forEach(t => {
+      ['listening','structure','reading'].forEach(sec => { toeflTotSoal += t[sec].total; toeflTotDijawab += t[sec].dijawab; });
+  });
+  const totalSoalTampil = totalSoal_All > 0 ? totalSoal_All : toeflTotSoal;
+  const tidakDijawabTampil = totalSoal_All > 0 ? tidakDijawab_All : (toeflTotSoal - toeflTotDijawab);
+
   // Skor Akhir Fallback (jika di DB nilainya NaN/Null)
   let computedSkor = 0;
   if(totSoal_BS > 0 && totMaks_NS > 0) computedSkor = Math.round(((totBenar_BS / totSoal_BS * 100) + (totNilai_NS / totMaks_NS * 100)) / 2);
@@ -89,9 +124,16 @@ function renderLaporanDetail(lap) {
 
   const skor = (lap.skor == null || isNaN(lap.skor)) ? computedSkor : Math.round(lap.skor);
 
-  let html = `
+  // Modul tanpa soal MC/Linier/nilai_sendiri sama sekali (murni TOEFL dan/atau
+  // Sikap Kerja): skor 0-100 di atas tidak relevan — sembunyikan hero besar
+  // (pola sama dgn user/riwayat/riwayat.js & ujian/hasil.js).
+  const adaSoalScored = mcArr.length > 0;
+
+  let html = adaSoalScored ? `
     <div class="lap-skor-big">${skor}</div>
     <div class="lap-skor-sub">Skor Akhir · ${formatDateTime(lap.tgl_selesai || lap.created_at)}</div>
+    <div class="lap-cards" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));">` : `
+    <div class="lap-skor-sub" style="margin-top:4px">${formatDateTime(lap.tgl_selesai || lap.created_at)}</div>
     <div class="lap-cards" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));">`;
     
   if (totSoal_BS > 0) {
@@ -102,8 +144,8 @@ function renderLaporanDetail(lap) {
       html += `<div class="lap-card"><div class="lap-card-val" style="font-size:18px">${totNilai_NS.toFixed(1)}</div><div class="lap-card-label">Nilai Didapat</div></div>`;
       html += `<div class="lap-card"><div class="lap-card-val" style="font-size:18px">${totMaks_NS.toFixed(1)}</div><div class="lap-card-label">Nilai Maks</div></div>`;
   }
-  html += `<div class="lap-card"><div class="lap-card-val">${tidakDijawab_All}</div><div class="lap-card-label">Tidak Dijawab</div></div>`;
-  html += `<div class="lap-card"><div class="lap-card-val">${totalSoal_All}</div><div class="lap-card-label">Total Soal</div></div>`;
+  html += `<div class="lap-card"><div class="lap-card-val">${tidakDijawabTampil}</div><div class="lap-card-label">Tidak Dijawab</div></div>`;
+  html += `<div class="lap-card"><div class="lap-card-val">${totalSoalTampil}</div><div class="lap-card-label">Total Soal</div></div>`;
   html += `</div>`;
 
   // Per soal
@@ -126,6 +168,23 @@ function renderLaporanDetail(lap) {
         </div>
       </div>`;
     }).join('') + '</div>';
+  }
+
+  // Kartu Skor TOEFL — skala resmi ITP (310-677), per section + level CEFR
+  const toeflEntries = Object.entries(toeflData);
+  if (toeflEntries.length > 0) {
+    const secLbl = { listening: 'Listening', structure: 'Structure', reading: 'Reading' };
+    toeflEntries.forEach(([kode, t]) => {
+      html += `<div style="font-size:12px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.06em;margin:16px 0 8px">Skor TOEFL — ${t.nama}</div>
+      <div style="text-align:center;margin:10px 0">
+        <div style="font-size:32px;font-weight:800;color:var(--accent);font-family:var(--font-head)">${t.total}</div>
+        <div style="font-size:11px;color:var(--text-sub);margin-top:2px">Skor Total (skala 310–677)${t.cefr ? ` &nbsp;·&nbsp; Level ${t.cefr.level} (${t.cefr.label})` : ''}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:16px">
+        ${['listening','structure','reading'].map(sec => `
+          <div class="lap-card"><div class="lap-card-val">${t[sec].scaled}</div><div class="lap-card-label">${secLbl[sec]} (${t[sec].benar}/${t[sec].total})</div></div>`).join('')}
+      </div>`;
+    });
   }
 
   // Sikap kerja chart
@@ -471,13 +530,38 @@ function renderRiwayatTable() {
 function hitungSkorFromLap(soalList, jawabanUser) {
   let perSoal = {};
   let skData   = {};
+  let toeflData = {};
 
   (soalList || []).forEach(s => {
       const kode = s.kode || s.id || s.nama;
       if (!perSoal[kode]) perSoal[kode] = { nama: s.nama, type: s.type, skor_type: s.skor_type || 'benar_salah', benar: 0, total: 0, nilaiDapat: 0, nilaiMaks: 0, dijawab: 0 };
       const data_soal = typeof s.data === 'string' ? JSON.parse(s.data) : (s.data || []);
 
-      if (s.type === 'sikap_kerja') {
+      if (s.type === 'toefl') {
+          if (!toeflData[kode]) {
+              const out = { nama: s.nama };
+              const src = (typeof s.data === 'string') ? (JSON.parse(s.data || '{}') || {}) : (s.data || {});
+              for (const section of ['listening', 'structure', 'reading']) {
+                  const arr = (src[section] && Array.isArray(src[section].soal)) ? src[section].soal : [];
+                  let benar = 0, dijawab = 0;
+                  arr.forEach((q, i) => {
+                      const ans = jawabanUser[`${kode}_toefl_${section}_${i}`];
+                      if (ans == null || ans === '') return;
+                      dijawab++;
+                      const kunci = Array.isArray(q.kunci) ? q.kunci.map(String) : (q.kunci != null ? [String(q.kunci)] : []);
+                      if (kunci.includes(String(ans))) benar++;
+                  });
+                  out[section] = { benar, dijawab, total: arr.length, scaled: arr.length > 0 ? _toeflScaled(section, benar, arr.length) : 0 };
+              }
+              const anyIsi = out.listening.total || out.structure.total || out.reading.total;
+              out.total = anyIsi ? Math.round(((out.listening.scaled + out.structure.scaled + out.reading.scaled) / 3) * 10) : 0;
+              out.cefr = anyIsi ? _toeflCefr(out.total) : null;
+              toeflData[kode] = out;
+          }
+          perSoal[kode].benar = ['listening','structure','reading'].reduce((a,sec)=>a+(toeflData[kode][sec]?.benar||0),0);
+          perSoal[kode].total = ['listening','structure','reading'].reduce((a,sec)=>a+(toeflData[kode][sec]?.total||0),0);
+          perSoal[kode].dijawab = ['listening','structure','reading'].reduce((a,sec)=>a+(toeflData[kode][sec]?.dijawab||0),0);
+      } else if (s.type === 'sikap_kerja') {
           if (!skData[kode]) {
               skData[kode] = { nama: s.nama, kolom: [] };
               data_soal.forEach((kol, ki) => {
@@ -556,7 +640,8 @@ function hitungSkorFromLap(soalList, jawabanUser) {
           : (v.total > 0 ? Math.round(v.benar / v.total * 100) : 0);
       return { ...v, soalKode: k, skor: sk };
     }),
-    skData
+    skData,
+    toeflData
   };
 }
 
@@ -687,6 +772,23 @@ function buildLaporanExcelWorkbook(lap, soalTampil, jawaban, soalAll) {
           const userAns = jawaban[`${soal.kode}_${ki}_${qi}`];
           const kunci = q.kunci_huruf || q.kunci || '-';
           rows.push([`Kolom ${ki+1}`, qi+1, userAns||'-', kunci, userAns?(userAns===kunci?'BENAR':'SALAH'):'Tidak dijawab']);
+        });
+      });
+    } else if (soal.type === 'toefl') {
+      rows.push(['Section', 'No', 'Pertanyaan', 'Jawaban User (Huruf)', 'Kunci (Huruf)', 'Status']);
+      const src = (rawData && typeof rawData === 'object') ? rawData : {};
+      const secLbl = { listening: 'Listening', structure: 'Structure', reading: 'Reading' };
+      ['listening','structure','reading'].forEach(section => {
+        const arr = (src[section] && Array.isArray(src[section].soal)) ? src[section].soal : [];
+        arr.forEach((q, qi) => {
+          const jArr = q.jawaban || [];
+          const kunciArr = Array.isArray(q.kunci) ? q.kunci.map(String) : (q.kunci != null ? [String(q.kunci)] : []);
+          const ua = jawaban[`${soal.kode}_toefl_${section}_${qi}`];
+          const idToHuruf = id => { const i = jArr.findIndex(j => (j.id != null ? String(j.id) : null) === String(id)); return i >= 0 ? String.fromCharCode(65+i) : String(id); };
+          const uaHuruf = ua != null ? idToHuruf(ua) : '-';
+          const kunciHuruf = kunciArr.map(k => { const i = jArr.findIndex(j => (j.id != null ? String(j.id) : null) === String(k)); return i >= 0 ? String.fromCharCode(65+i) : k; }).join(',');
+          const isBenar = ua != null && kunciArr.includes(String(ua));
+          rows.push([secLbl[section], qi+1, cleanT(q.pertanyaan||'').substring(0,150), uaHuruf, kunciHuruf, ua != null ? (isBenar ? 'BENAR' : 'SALAH') : 'Tidak dijawab']);
         });
       });
     } else {
@@ -821,8 +923,9 @@ function createChartImageRv(details) {
 // (memakai lap.urutan_tampil), sedangkan default (false) memakai urutan asli bank soal.
 function buildLaporanWordHtml(lap, soalTampil, jawaban, soalAll, useAcak) {
   const { perSoal: psArr, skData } = hitungSkorFromLap(soalAll, jawaban);
-  // Hanya hitung dari soal MC/linier (bukan sikap_kerja)
-  const mcArr = psArr.filter(s => s.type !== 'sikap_kerja');
+  // Hanya hitung dari soal MC/linier (bukan sikap_kerja / toefl — keduanya
+  // punya skema skor sendiri, lihat kartu terpisah masing2 di bawah)
+  const mcArr = psArr.filter(s => s.type !== 'sikap_kerja' && s.type !== 'toefl');
   const totalB = mcArr.reduce((a,s)=>a+s.benar,0);
   const totalS = mcArr.reduce((a,s)=>a+(s.dijawab-s.benar),0);
   const totalT = mcArr.reduce((a,s)=>a+s.total,0);
@@ -908,8 +1011,8 @@ function buildLaporanWordHtml(lap, soalTampil, jawaban, soalAll, useAcak) {
   <div class="stat-box"><div class="stat-val">${tidakDijawab}</div><div class="stat-lbl">Tidak Dijawab</div></div>
 </div>`;
 
-  // Per soal summary — hanya tampilkan MC/linier, skip sikap_kerja
-  const mcSummary = psArr.filter(s => s.type !== 'sikap_kerja');
+  // Per soal summary — hanya tampilkan MC/linier, skip sikap_kerja & toefl
+  const mcSummary = psArr.filter(s => s.type !== 'sikap_kerja' && s.type !== 'toefl');
   if (mcSummary.length > 1) {
     html += `<div class="sec-ttl">Nilai Per Subtes</div><div class="per-soal-grid">`;
     mcSummary.forEach(s => {
@@ -928,7 +1031,7 @@ function buildLaporanWordHtml(lap, soalTampil, jawaban, soalAll, useAcak) {
   // Detail per soal
   soalTampil.forEach(soal => {
     let rawData = typeof soal.data === 'string' ? JSON.parse(soal.data) : (soal.data || []);
-    if (useAcak && soal.type !== 'sikap_kerja') {
+    if (useAcak && soal.type !== 'sikap_kerja' && soal.type !== 'toefl') {
       const ord = lap && lap.urutan_tampil ? lap.urutan_tampil[soal.kode] : null;
       rawData = _applyUrutanTampil(rawData, ord);
     }
@@ -988,6 +1091,45 @@ function buildLaporanWordHtml(lap, soalTampil, jawaban, soalAll, useAcak) {
           html+=`</div></div>`;
         });
         html+=`</div>`;
+      });
+    } else if (soal.type === 'toefl') {
+      const src = (rawData && typeof rawData === 'object') ? rawData : {};
+      const secLbl = { listening: '🎧 Listening', structure: '📝 Structure', reading: '📖 Reading' };
+      const ordToefl = (lap && lap.urutan_tampil && lap.urutan_tampil[soal.kode] && lap.urutan_tampil[soal.kode].toefl) || null;
+      ['listening','structure','reading'].forEach(section => {
+        const arr = (src[section] && Array.isArray(src[section].soal)) ? src[section].soal : [];
+        if (!arr.length) return;
+        const order = (ordToefl && Array.isArray(ordToefl[section]) && ordToefl[section].length) ? ordToefl[section] : arr.map((_,i)=>i);
+        const passages = (src.reading && Array.isArray(src.reading.passages)) ? src.reading.passages : [];
+        html += `<div style="font-size:12px;font-weight:700;color:#5a7a9a;margin:12px 0 8px;text-transform:uppercase;letter-spacing:0.06em">${secLbl[section]}</div>`;
+        order.forEach((origIdx, displayIdx) => {
+          const q = arr[origIdx]; if (!q) return;
+          const ans = jawaban[`${soal.kode}_toefl_${section}_${origIdx}`];
+          const jArr = q.jawaban || [];
+          const kunciArr = Array.isArray(q.kunci) ? q.kunci.map(String) : (q.kunci != null ? [String(q.kunci)] : []);
+          const isBenar = ans != null && kunciArr.includes(String(ans));
+          const statusHtml = ans != null ? (isBenar ? '<span style="color:#16a34a">✓ Benar</span>' : '<span style="color:#dc2626">✗ Salah</span>') : '<span style="color:#5a7a9a">Tidak dijawab</span>';
+          let passageHtml = '';
+          if (section === 'reading' && q.passage_id) {
+            const p = passages.find(x => x.id === q.passage_id);
+            if (p) passageHtml = `<div style="background:#f2f6fa;border-radius:8px;padding:10px;margin-bottom:8px;font-size:11px;line-height:1.6"><strong>${(p.judul||'').replace(/</g,'&lt;')}</strong><br>${(p.teks||'').replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>`;
+          }
+          const audioNote = (section === 'listening' && q.audio_url) ? `<div style="font-size:10px;color:#5a7a9a;margin-bottom:6px">🎧 Audio: ${q.audio_url}</div>` : '';
+          html+=`<div class="soal-block">
+            <div class="soal-hdr">Soal ${displayIdx+1} · ${statusHtml}</div>
+            ${audioNote}${passageHtml}
+            <div class="q-teks">${(q.pertanyaan||'').replace(/</g,'&lt;')}</div>`;
+          jArr.forEach((j,i)=>{
+            const letter = String.fromCharCode(65+i);
+            const jid = j.id != null ? String(j.id) : String(i);
+            const picked = ans != null && String(ans) === jid;
+            const isKey = kunciArr.includes(jid);
+            let cls = 'opt';
+            if (picked && isKey) cls += ' benar'; else if (picked && !isKey) cls += ' salah'; else if (!picked && isKey) cls += ' kunci-saja';
+            html+=`<div class="${cls}"><div class="opt-letter">${letter}</div><div style="flex:1">${j.teks||''}</div></div>`;
+          });
+          html+=`</div>`;
+        });
       });
     } else {
       // MC / Linier — Ambil semua jawaban untuk bypass soal acak (Sama seperti UI)
@@ -1264,14 +1406,14 @@ function loadRuvSub(idx) {
   const sub = _ruvState.subResults[idx];
   if (!sub) return;
   let rawData = typeof sub.data === 'string' ? JSON.parse(sub.data) : (sub.data||[]);
-  if (sub.type !== 'sikap_kerja') {
+  if (sub.type !== 'sikap_kerja' && sub.type !== 'toefl') {
     const ord = _ruvState.laporan && _ruvState.laporan.urutan_tampil ? _ruvState.laporan.urutan_tampil[sub.kode] : null;
     rawData = _applyUrutanTampil(rawData, ord);
   }
   
   // Hitung skor sub
-  const { perSoal } = hitungSkorFromLap([sub], _ruvState.jawaban);
-  const subSkor = perSoal[0]?.skor ?? 0;
+  const { perSoal, toeflData } = hitungSkorFromLap([sub], _ruvState.jawaban);
+  const subSkor = sub.type === 'toefl' ? (toeflData[sub.kode]?.total ?? 0) : (perSoal[0]?.skor ?? 0);
   _mrvSetAll(['ruv-sub-score', 'mrv-mob-sub-score'], 'textContent', subSkor);
 
   if (sub.type === 'sikap_kerja') {
@@ -1283,6 +1425,15 @@ function loadRuvSub(idx) {
     _mrvSetAll(['ruv-legend', 'mrv-mob-legend'], 'innerHTML', `
       <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-sub);font-weight:600;"><div style="width:8px;height:8px;border-radius:2px;background:var(--success)"></div>Benar</div>
       <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-sub);font-weight:600;"><div style="width:8px;height:8px;border-radius:2px;background:var(--danger)"></div>Salah</div>`);
+  } else if (sub.type === 'toefl') {
+    renderRuvToefl(sub);
+    document.getElementById('ruv-nav-btns').innerHTML = '';
+    _mrvSetAll(['ruv-nav-grid', 'mrv-mob-nav-grid'], 'innerHTML', '');
+    document.getElementById('ruv-q-counter').textContent = '-';
+    _mrvSetAll(['ruv-legend', 'mrv-mob-legend'], 'innerHTML', `
+      <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-sub);font-weight:600;"><div style="width:8px;height:8px;border-radius:2px;background:var(--success)"></div>Benar</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-sub);font-weight:600;"><div style="width:8px;height:8px;border-radius:2px;background:var(--danger)"></div>Salah</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-sub);font-weight:600;"><div style="width:8px;height:8px;border-radius:2px;background:rgba(19,50,89,0.15)"></div>Tidak dijawab</div>`);
   } else {
     _ruvState.questions = rawData || [];
     const isNS = sub.skor_type === 'nilai_sendiri';
@@ -1465,6 +1616,68 @@ function renderRuvSikapKerja(rawData, sub) {
   document.getElementById('ruv-content').innerHTML = html;
   document.getElementById('ruv-nav-btns').innerHTML = '';
   document.getElementById('ruv-nav-grid').innerHTML = '<div style="font-size:10px;color:var(--text-sub);font-style:italic;padding:4px;">Kecermatan</div>';
+}
+
+function renderRuvToefl(sub) {
+  const kode = sub.kode;
+  const src = typeof sub.data === 'string' ? JSON.parse(sub.data) : (sub.data || {});
+  const ord = (_ruvState.laporan && _ruvState.laporan.urutan_tampil && _ruvState.laporan.urutan_tampil[kode] && _ruvState.laporan.urutan_tampil[kode].toefl) || null;
+  const jawabanUser = _ruvState.jawaban || {};
+  const secLbl = { listening: '🎧 Listening', structure: '📝 Structure', reading: '📖 Reading' };
+
+  let html = '<div style="display:flex;flex-direction:column;gap:20px;">';
+  ['listening', 'structure', 'reading'].forEach(section => {
+    const rawArr = (src[section] && Array.isArray(src[section].soal)) ? src[section].soal : [];
+    if (!rawArr.length) return;
+    const order = (ord && Array.isArray(ord[section]) && ord[section].length) ? ord[section] : rawArr.map((_,i)=>i);
+    const passages = (src.reading && Array.isArray(src.reading.passages)) ? src.reading.passages : [];
+
+    html += `<div><div style="font-size:12px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;">${secLbl[section]}</div>`;
+
+    order.forEach((origIdx, displayIdx) => {
+      const q = rawArr[origIdx]; if (!q) return;
+      const ans = jawabanUser[`${kode}_toefl_${section}_${origIdx}`];
+      const kunci = Array.isArray(q.kunci) ? q.kunci.map(String) : (q.kunci != null ? [String(q.kunci)] : []);
+      const dijawab = ans != null && ans !== '';
+      const benar = dijawab && kunci.includes(String(ans));
+
+      const audioHtml = (section === 'listening' && q.audio_url)
+        ? `<audio controls src="${String(q.audio_url).replace(/"/g,'&quot;')}" style="width:100%;margin-bottom:10px"></audio>` : '';
+      let passageHtml = '';
+      if (section === 'reading' && q.passage_id) {
+        const p = passages.find(x => x.id === q.passage_id);
+        if (p) passageHtml = `<div style="background:rgba(19,50,89,0.04);border-radius:10px;padding:12px;margin-bottom:10px;font-size:12px;line-height:1.7"><div style="font-weight:700;margin-bottom:4px">${(p.judul||'').replace(/</g,'&lt;')}</div>${(p.teks||'').replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>`;
+      }
+      const subtipeLbl = section === 'structure' ? (q.subtipe === 'salah' ? ' <span style="font-size:9px;color:var(--text-sub)">(Cari Kesalahan)</span>' : ' <span style="font-size:9px;color:var(--text-sub)">(Melengkapi Kalimat)</span>') : '';
+
+      const optHtml = (q.jawaban || []).map((j, i) => {
+        const letter = String.fromCharCode(65 + i);
+        const jid = j.id != null ? String(j.id) : String(i);
+        const picked = dijawab && String(ans) === jid;
+        const isKey = kunci.includes(jid);
+        let borderColor = 'rgba(19,50,89,0.09)', bgColor = 'rgba(255,255,255,0.5)', letterBg = 'rgba(255,255,255,0.8)', letterColor = 'var(--text-sub)', badge = '';
+        if (picked && isKey) { borderColor='var(--success)'; bgColor='rgba(22,163,74,0.08)'; letterBg='var(--success)'; letterColor='#fff'; badge='<span style="font-size:10px;color:var(--success);margin-left:auto;font-weight:700;white-space:nowrap;">✓ Benar</span>'; }
+        else if (picked && !isKey) { borderColor='var(--danger)'; bgColor='rgba(220,38,38,0.07)'; letterBg='var(--danger)'; letterColor='#fff'; badge='<span style="font-size:10px;color:var(--danger);margin-left:auto;font-weight:700;white-space:nowrap;">✗ Salah</span>'; }
+        else if (!picked && isKey) { borderColor='#d97706'; bgColor='rgba(217,119,6,0.07)'; letterBg='#d97706'; letterColor='#fff'; badge='<span style="font-size:10px;color:#d97706;margin-left:auto;font-weight:700;white-space:nowrap;">Kunci</span>'; }
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:10px;border:1.5px solid ${borderColor};background:${bgColor}">
+          <div style="width:28px;height:28px;flex-shrink:0;border-radius:8px;border:1.5px solid rgba(19,50,89,0.12);background:${letterBg};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:${letterColor}">${letter}</div>
+          <div style="flex:1;min-width:0;font-size:13px;line-height:1.5;color:var(--text-main);overflow-wrap:break-word">${j.teks||'-'}</div>
+          ${badge}
+        </div>`;
+      }).join('');
+
+      html += `<div style="background:rgba(255,255,255,0.72);border:1.5px solid ${dijawab?(benar?'rgba(22,163,74,0.25)':'rgba(220,38,38,0.25)'):'rgba(19,50,89,0.1)'};border-radius:14px;padding:16px;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px">${displayIdx+1}. ${(q.pertanyaan||'').replace(/</g,'&lt;')}${subtipeLbl}</div>
+        ${audioHtml}${passageHtml}
+        <div style="display:flex;flex-direction:column;gap:7px">${optHtml}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  html += '</div>';
+  document.getElementById('ruv-content').innerHTML = html;
+  document.getElementById('ruv-nav-btns').innerHTML = '';
+  document.getElementById('ruv-nav-grid').innerHTML = '<div style="font-size:10px;color:var(--text-sub);font-style:italic;padding:4px;">Listening · Structure · Reading</div>';
 }
 
 function downloadFromReviewUjian() {

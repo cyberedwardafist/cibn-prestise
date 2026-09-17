@@ -22,7 +22,7 @@ async function renderLibrary(){
     _renderLibFilters();
     _renderLibList();
 }
-const _libTypeOptions=[{value:'all',label:'Semua Tipe'},{value:'multiple_choice',label:'Multiple Choice'},{value:'linier',label:'Linier'},{value:'sikap_kerja',label:'Sikap Kerja'}];
+const _libTypeOptions=[{value:'all',label:'Semua Tipe'},{value:'multiple_choice',label:'Multiple Choice'},{value:'linier',label:'Linier'},{value:'sikap_kerja',label:'Sikap Kerja'},{value:'toefl',label:'TOEFL'}];
 function _renderLibFilters(){
     if(!document.getElementById('library-filters'))return;
     const validKodes=_soalKelompokList.map(k=>k.kode);

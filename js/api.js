@@ -145,6 +145,15 @@ async function apiUploadImage(file) {
     return apiUploadFile('soal-image', file, { subfolder: 'umum' });
 }
 
+// ── UPLOAD AUDIO (soal Listening TOEFL) ──
+// Sama persis pola-nya dgn apiUploadImage di atas — lihat lib/toefl.js utk
+// penjelasan struktur data soal TOEFL. Admin boleh pilih upload file di sini
+// ATAU cukup isi link/URL audio langsung di field-nya tanpa upload sama
+// sekali (dua-duanya valid, disimpan di field yg sama: `audio_url`).
+async function apiUploadAudio(file) {
+    return apiUploadFile('soal-audio', file, { subfolder: 'listening' });
+}
+
 // ── UPLOAD LANDING MEDIA (Editor Landing: Logo Hero, Video Hero, Video Promo) ──
 // kind  : 'image' (logo) atau 'video' (video latar)
 // slot  : nama slot ('heroLogo' | 'heroVideo' | 'videoPromo') — dipakai sbg nama file di Supabase
