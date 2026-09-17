@@ -134,6 +134,29 @@
       </div>
     </div>
   </div>
+  <div id="tpl-toefl-mode-wrap" style="display:none">
+    <div class="form-group">
+      <label class="form-label">Bagian TOEFL</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <label style="flex:1;min-width:130px;display:flex;align-items:flex-start;gap:8px;padding:12px;border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;cursor:pointer;background:rgba(255,255,255,0.6)">
+          <input type="radio" name="tpl_toefl_mode" value="listening" onchange="onTplToeflModeChange()" style="margin-top:2px;accent-color:var(--blue)">
+          <div><div style="font-weight:700;font-size:13px">Listening</div><div style="font-size:11px;color:var(--text-sub)">Sheet Listening saja</div></div>
+        </label>
+        <label style="flex:1;min-width:130px;display:flex;align-items:flex-start;gap:8px;padding:12px;border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;cursor:pointer;background:rgba(255,255,255,0.6)">
+          <input type="radio" name="tpl_toefl_mode" value="structure" onchange="onTplToeflModeChange()" style="margin-top:2px;accent-color:var(--blue)">
+          <div><div style="font-weight:700;font-size:13px">Structure</div><div style="font-size:11px;color:var(--text-sub)">Sheet Structure saja</div></div>
+        </label>
+        <label style="flex:1;min-width:130px;display:flex;align-items:flex-start;gap:8px;padding:12px;border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;cursor:pointer;background:rgba(255,255,255,0.6)">
+          <input type="radio" name="tpl_toefl_mode" value="reading" onchange="onTplToeflModeChange()" style="margin-top:2px;accent-color:var(--blue)">
+          <div><div style="font-weight:700;font-size:13px">Reading</div><div style="font-size:11px;color:var(--text-sub)">Sheet Bacaan + Reading</div></div>
+        </label>
+        <label style="flex:1;min-width:130px;display:flex;align-items:flex-start;gap:8px;padding:12px;border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;cursor:pointer;background:rgba(26,90,160,0.08)">
+          <input type="radio" name="tpl_toefl_mode" value="full" checked onchange="onTplToeflModeChange()" style="margin-top:2px;accent-color:var(--blue)">
+          <div><div style="font-weight:700;font-size:13px">Full (Semua Bagian)</div><div style="font-size:11px;color:var(--text-sub)">Bacaan + Listening + Structure + Reading</div></div>
+        </label>
+      </div>
+    </div>
+  </div>
   <div class="form-group" id="tpl-jumlah-wrap">
     <label class="form-label">Jumlah Baris Soal di Template</label>
     <input id="tpl-jumlah" class="form-input" type="number" value="10" min="1" max="200" style="max-width:120px">

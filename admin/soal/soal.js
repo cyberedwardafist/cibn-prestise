@@ -1324,14 +1324,36 @@ function saveSoalInfo(){
 function onTplTypeChange() {
     const t = document.getElementById('tpl-type')?.value;
     const skorWrap = document.getElementById('tpl-skor-wrap');
-    const jumlahLabel = document.querySelector('#tpl-jumlah-wrap .form-label');
+    const toeflModeWrap = document.getElementById('tpl-toefl-mode-wrap');
     // TOEFL punya sistem penilaian resmi sendiri (tabel konversi ITP, lihat
     // lib/toefl.js) — bukan Benar/Salah atau Nilai per Jawaban spt tipe lain,
-    // jadi kartu "Sistem Penilaian" disembunyikan sama spt Sikap Kerja.
+    // jadi kartu "Sistem Penilaian" disembunyikan sama spt Sikap Kerja, diganti
+    // pilihan Bagian TOEFL (Listening/Structure/Reading/Full) di bawahnya.
     if (skorWrap) skorWrap.style.display = (t === 'sikap_kerja' || t === 'toefl') ? 'none' : 'block';
-    if (jumlahLabel) jumlahLabel.textContent = t === 'sikap_kerja' ? 'Jumlah Soal Digenerate per Kolom'
-        : t === 'toefl' ? 'Jumlah Baris Soal per Section (Listening/Structure/Reading)'
-        : 'Jumlah Baris Soal di Template';
+    if (toeflModeWrap) toeflModeWrap.style.display = (t === 'toefl') ? 'block' : 'none';
+    if (t === 'toefl') onTplToeflModeChange(); else _setTplJumlahLabel(t);
+}
+
+// Label "Jumlah Baris..." ikut berubah sesuai tipe/bagian TOEFL yang dipilih,
+// supaya jelas baris itu bakal masuk sheet mana.
+function _setTplJumlahLabel(type, toeflMode) {
+    const jumlahLabel = document.querySelector('#tpl-jumlah-wrap .form-label');
+    if (!jumlahLabel) return;
+    if (type === 'sikap_kerja') { jumlahLabel.textContent = 'Jumlah Soal Digenerate per Kolom'; return; }
+    if (type === 'toefl') {
+        jumlahLabel.textContent = toeflMode === 'full'
+            ? 'Jumlah Baris Soal per Section (Listening/Structure/Reading)'
+            : `Jumlah Baris Soal ${_toeflSectionLabel(toeflMode)}`;
+        return;
+    }
+    jumlahLabel.textContent = 'Jumlah Baris Soal di Template';
+}
+
+// Pilih Bagian TOEFL di modal Template -> cuma update label jumlah baris
+// (sheet yang di-generate ditentukan langsung di downloadSoalTemplate()).
+function onTplToeflModeChange() {
+    const mode = document.querySelector('input[name="tpl_toefl_mode"]:checked')?.value || 'full';
+    _setTplJumlahLabel('toefl', mode);
 }
 
 function _escHtmlSoal(str) {
@@ -1344,6 +1366,11 @@ async function downloadSoalTemplate() {
     if (typeof XLSX === 'undefined') { showToast('Modul Excel belum siap, muat ulang halaman', 'danger'); return; }
     const type = document.getElementById('tpl-type')?.value || 'multiple_choice';
     const skorType = document.querySelector('input[name="tpl_skor_type"]:checked')?.value || 'benar_salah';
+    // Bagian TOEFL yang mau digenerate template-nya: 'listening'|'structure'|'reading'|'full'.
+    // Menentukan sheet mana saja yang dibikin (lihat blok `type === 'toefl'` di bawah) DAN
+    // ditulis ke sheet Info ('Mode TOEFL') supaya saat diupload lagi, _importSoalFromWorkbook()
+    // tahu bagian mana yang sengaja kosong vs memang tidak diisi admin.
+    const toeflMode = document.querySelector('input[name="tpl_toefl_mode"]:checked')?.value || 'full';
     const jumlah = Math.max(1, parseInt(document.getElementById('tpl-jumlah')?.value) || 10);
     if (!_soalKelompokList.length) await _loadSoalKelompokList();
 
@@ -1362,6 +1389,7 @@ async function downloadSoalTemplate() {
         ['Timer Menit', 30],
         ['Timer Detik', 0],
     ];
+    if (type === 'toefl') infoRows.splice(6, 0, ['Mode TOEFL', toeflMode]);
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(infoRows), 'Info');
 
     if (type === 'sikap_kerja') {
@@ -1381,20 +1409,32 @@ async function downloadSoalTemplate() {
         ];
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(petunjuk), 'Petunjuk');
     } else if (type === 'toefl') {
-        // ── TOEFL: 4 sheet — Bacaan (khusus Reading, referensi dipakai bersama
-        // beberapa soal via kolom "No Bacaan"), lalu 1 sheet per section
+        // ── TOEFL: sampai 4 sheet — Bacaan (khusus Reading, referensi dipakai
+        // bersama beberapa soal via kolom "No Bacaan"), lalu 1 sheet per section
         // (Listening/Structure/Reading). Struktur mengikuti SoalState.toefl di
         // admin/soal/soal.js (builder) & lib/toefl.js (mesin skor server) —
         // TIDAK ada Pembahasan/Materi (builder TOEFL memang belum punya field
         // itu per-soal, beda dari Multiple Choice/Linier).
-        const jmlBacaan = 2;
-        const bacaanRows = [['No', 'Judul', 'Teks Bacaan']];
-        for (let i = 1; i <= jmlBacaan; i++) {
-            bacaanRows.push(i === 1
-                ? [1, 'Contoh: Sejarah Kereta Api', 'Contoh: Tempel teks bacaan panjang di sini. 1 baris = 1 bacaan, dipakai bersama oleh beberapa soal Reading lewat kolom "No Bacaan".']
-                : [i, '', '']);
+        //
+        // Sheet yang dibikin MENYESUAIKAN toeflMode (dipilih di modal, sama spt
+        // Sistem Penilaian utk MC/Linier) — supaya admin yang cuma mau isi 1
+        // bagian (mis. Listening) tidak perlu bingung dgn sheet Structure/Reading
+        // kosong. Dicatat juga di Info->"Mode TOEFL" spy _importSoalFromWorkbook()
+        // tahu section mana yang sengaja tidak disertakan.
+        const includeListening = toeflMode === 'listening' || toeflMode === 'full';
+        const includeStructure = toeflMode === 'structure' || toeflMode === 'full';
+        const includeReading = toeflMode === 'reading' || toeflMode === 'full';
+
+        if (includeReading) {
+            const jmlBacaan = 2;
+            const bacaanRows = [['No', 'Judul', 'Teks Bacaan']];
+            for (let i = 1; i <= jmlBacaan; i++) {
+                bacaanRows.push(i === 1
+                    ? [1, 'Contoh: Sejarah Kereta Api', 'Contoh: Tempel teks bacaan panjang di sini. 1 baris = 1 bacaan, dipakai bersama oleh beberapa soal Reading lewat kolom "No Bacaan".']
+                    : [i, '', '']);
+            }
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(bacaanRows), 'Bacaan');
         }
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(bacaanRows), 'Bacaan');
 
         const mkSoalRows = (extraHeaderAfterNo, exampleExtra) => {
             const header = ['No', ...extraHeaderAfterNo, 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban'];
@@ -1408,34 +1448,41 @@ async function downloadSoalTemplate() {
             return rows;
         };
 
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mkSoalRows(
+        if (includeListening) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mkSoalRows(
             ['Audio URL'],
             ['https://contoh-link-audio.mp3', 'Contoh: What does the woman mean?', 'She is busy', 'She agrees', 'She is late', '', '', 'B']
         )), 'Listening');
 
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mkSoalRows(
+        if (includeStructure) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mkSoalRows(
             ['Subtipe (rumpang/salah)'],
             ['rumpang', 'Contoh: The train ___ at 9 AM every day.', 'leave', 'leaves', 'left', 'leaving', '', 'B']
         )), 'Structure');
 
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mkSoalRows(
+        if (includeReading) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mkSoalRows(
             ['No Bacaan (opsional, sesuai No di sheet Bacaan)'],
             [1, 'Contoh: Kapan kereta api pertama di Indonesia dibangun?', '1864', '1900', '1945', '', '', 'A']
         )), 'Reading');
 
+        const bagianLabel = toeflMode === 'full' ? 'LISTENING · STRUCTURE · READING' : _toeflSectionLabel(toeflMode).toUpperCase();
         const petunjuk = [
-            ['PETUNJUK PENGISIAN — TOEFL (LISTENING · STRUCTURE · READING)'],
-            ['1. Sheet "Bacaan" khusus utk Reading — isi teks bacaan sekali per baris, boleh dipakai bersama oleh beberapa soal Reading (soal 1 bacaan yang sama otomatis tetap berurutan/berdekatan saat ujian, walau "acak soal" dinyalakan di modul).'],
-            ['2. Kolom "No Bacaan" di sheet Reading diisi angka sesuai kolom "No" di sheet Bacaan (mis. isi 1 utk pakai bacaan baris pertama). Kosongkan jika soal Reading itu berdiri sendiri tanpa bacaan bersama.'],
-            ['3. Sheet "Listening": kolom "Audio URL" diisi link audio (mis. hasil upload file audio yang sudah diunggah lebih dulu di aplikasi, atau link publik lain). Bisa dikosongkan dulu lalu diisi manual di aplikasi setelah upload.'],
-            ['4. Sheet "Structure": kolom "Subtipe" WAJIB diisi persis "rumpang" (melengkapi kalimat) atau "salah" (cari kesalahan struktur) — dipakai sistem utk menjaga urutan blok soal tetap sesuai format resmi TOEFL ITP (blok rumpang dulu, baru blok salah).'],
-            ['5. Kolom Pilihan C, D, E boleh dikosongkan jika soal hanya punya 2-3 pilihan.'],
-            ['6. Isi pilihan berurutan dari A tanpa melompati kolom (jangan isi C jika B kosong).'],
-            ['7. Isi "Kunci Jawaban" dengan SATU huruf pilihan yang benar (A/B/C/D/E) — semua soal TOEFL single-answer, tidak bisa lebih dari 1 kunci.'],
-            ['8. Kolom "No" di tiap sheet hanya penomoran, tidak wajib berurutan.'],
-            ['9. "Nama Internal" & "Kelompok" di sheet Info bersifat opsional, sama seperti tipe soal lain.'],
-            ['10. Field "Materi", "Sistem Penilaian", dan "Pembahasan" TIDAK berlaku untuk TOEFL (skor dihitung otomatis lewat tabel konversi ITP resmi) — kolom-kolom itu sengaja tidak ada di template ini.'],
+            ['PETUNJUK PENGISIAN — TOEFL (' + bagianLabel + ')'],
         ];
+        if (includeReading) {
+            petunjuk.push(['Sheet "Bacaan" khusus utk Reading — isi teks bacaan sekali per baris, boleh dipakai bersama oleh beberapa soal Reading (soal 1 bacaan yang sama otomatis tetap berurutan/berdekatan saat ujian, walau "acak soal" dinyalakan di modul).']);
+            petunjuk.push(['Kolom "No Bacaan" di sheet Reading diisi angka sesuai kolom "No" di sheet Bacaan (mis. isi 1 utk pakai bacaan baris pertama). Kosongkan jika soal Reading itu berdiri sendiri tanpa bacaan bersama.']);
+        }
+        if (includeListening) petunjuk.push(['Sheet "Listening": kolom "Audio URL" diisi link audio (mis. hasil upload file audio yang sudah diunggah lebih dulu di aplikasi, atau link publik lain). Bisa dikosongkan dulu lalu diisi manual di aplikasi setelah upload.']);
+        if (includeStructure) petunjuk.push(['Sheet "Structure": kolom "Subtipe" WAJIB diisi persis "rumpang" (melengkapi kalimat) atau "salah" (cari kesalahan struktur) — dipakai sistem utk menjaga urutan blok soal tetap sesuai format resmi TOEFL ITP (blok rumpang dulu, baru blok salah).']);
+        petunjuk.push(
+            ['Kolom Pilihan C, D, E boleh dikosongkan jika soal hanya punya 2-3 pilihan.'],
+            ['Isi pilihan berurutan dari A tanpa melompati kolom (jangan isi C jika B kosong).'],
+            ['Isi "Kunci Jawaban" dengan SATU huruf pilihan yang benar (A/B/C/D/E) — semua soal TOEFL single-answer, tidak bisa lebih dari 1 kunci.'],
+            ['Kolom "No" di tiap sheet hanya penomoran, tidak wajib berurutan.'],
+            ['"Nama Internal" & "Kelompok" di sheet Info bersifat opsional, sama seperti tipe soal lain.'],
+            ['Field "Materi", "Sistem Penilaian", dan "Pembahasan" TIDAK berlaku untuk TOEFL (skor dihitung otomatis lewat tabel konversi ITP resmi) — kolom-kolom itu sengaja tidak ada di template ini.'],
+        );
+        if (toeflMode !== 'full') petunjuk.push([`File ini cuma berisi bagian ${_toeflSectionLabel(toeflMode)} (sesuai pilihan "Bagian TOEFL" saat unduh) — soal yang diupload dari file ini akan jadi 1 soal TOEFL baru dengan bagian lain (${['listening','structure','reading'].filter(s => s !== toeflMode).map(_toeflSectionLabel).join(', ')}) kosong. Kalau mau bikin soal TOEFL lengkap (semua bagian), unduh ulang template dengan "Bagian TOEFL" = Full.`]);
+        petunjuk.forEach((r, i) => { if (i > 0) r[0] = `${i}. ${r[0]}`; });
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(petunjuk), 'Petunjuk');
     } else {
         let header, exampleRow;
@@ -1473,7 +1520,7 @@ async function downloadSoalTemplate() {
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(petunjuk), 'Petunjuk');
     }
 
-    XLSX.writeFile(wb, `Template_Soal_${type}_${skorType}.xlsx`);
+    XLSX.writeFile(wb, type === 'toefl' ? `Template_Soal_toefl_${toeflMode}.xlsx` : `Template_Soal_${type}_${skorType}.xlsx`);
     closeModal('template-soal-overlay');
     showToast('Template berhasil diunduh', 'success');
 }
@@ -1742,18 +1789,30 @@ async function _importSoalFromWorkbook(wb, imageMap) {
             passageByNo[noVal] = id;
         });
 
-        const listeningRows = parseSectionRows('Listening');
-        const structureRows = parseSectionRows('Structure');
-        const readingRows = parseSectionRows('Reading');
+        // Mode TOEFL dicatat di sheet Info saat template diunduh (lihat downloadSoalTemplate()) —
+        // menentukan section mana yang MEMANG dimaksudkan admin utk diisi. File lama (sebelum fitur
+        // ini ada) tidak punya field ini -> dianggap 'full' spy tetap kompatibel & baca semua sheet.
+        let toeflMode = String(info['Mode TOEFL'] || '').trim().toLowerCase();
+        if (!['listening', 'structure', 'reading', 'full'].includes(toeflMode)) toeflMode = 'full';
+        const wantListening = toeflMode === 'listening' || toeflMode === 'full';
+        const wantStructure = toeflMode === 'structure' || toeflMode === 'full';
+        const wantReading = toeflMode === 'reading' || toeflMode === 'full';
 
+        const listeningRows = wantListening ? parseSectionRows('Listening') : [];
+        const structureRows = wantStructure ? parseSectionRows('Structure') : [];
+        const readingRows = wantReading ? parseSectionRows('Reading') : [];
+
+        // Fallback "minimal 1 baris kosong" HANYA berlaku utk section yang memang termasuk
+        // mode file ini — section di luar mode (mis. Structure & Reading saat mode='listening')
+        // dibiarkan benar-benar kosong (0 soal), bukan digenerate 1 soal kosong yang tidak diminta.
         const listening = {
-            soal: (listeningRows.length ? listeningRows : [[]]).map((r, idx) => {
+            soal: (wantListening ? (listeningRows.length ? listeningRows : [[]]) : []).map((r, idx) => {
                 const { jawaban, kunci } = parseOpsiKunci(r, idx);
                 return { id: 'TQ_' + Date.now() + '_L' + idx, pertanyaan: String(r[2] || '').trim(), jawaban, kunci, audio_url: String(r[1] || '').trim() };
             })
         };
         const structure = {
-            soal: (structureRows.length ? structureRows : [[]]).map((r, idx) => {
+            soal: (wantStructure ? (structureRows.length ? structureRows : [[]]) : []).map((r, idx) => {
                 const { jawaban, kunci } = parseOpsiKunci(r, idx);
                 const subtipeRaw = String(r[1] || '').trim().toLowerCase();
                 return { id: 'TQ_' + Date.now() + '_S' + idx, pertanyaan: String(r[2] || '').trim(), jawaban, kunci, subtipe: subtipeRaw === 'salah' ? 'salah' : 'rumpang' };
@@ -1761,19 +1820,22 @@ async function _importSoalFromWorkbook(wb, imageMap) {
         };
         const reading = {
             passages,
-            soal: (readingRows.length ? readingRows : [[]]).map((r, idx) => {
+            soal: (wantReading ? (readingRows.length ? readingRows : [[]]) : []).map((r, idx) => {
                 const { jawaban, kunci } = parseOpsiKunci(r, idx);
                 const noBacaan = String(r[1] || '').trim();
                 return { id: 'TQ_' + Date.now() + '_R' + idx, pertanyaan: String(r[2] || '').trim(), jawaban, kunci, passage_id: noBacaan ? (passageByNo[noBacaan] || null) : null };
             })
         };
 
-        SoalState.toefl = { listening, structure, reading };
+        SoalState.toefl = { listening, structure, reading, mode: toeflMode };
+        SoalState.toefl_mode = toeflMode;
         SoalState.pertanyaan = []; SoalState.kolom = null;
-        _toeflSection = 'listening'; _toeflIdx = 0;
+        _toeflSection = (toeflMode === 'structure' || toeflMode === 'reading') ? toeflMode : 'listening';
+        _toeflIdx = 0;
         setDirty('import soal');
         const totalSoalToefl = listening.soal.length + structure.soal.length + reading.soal.length;
-        showToast(`Import berhasil! ${totalSoalToefl} soal TOEFL siap direview (Listening ${listening.soal.length} · Structure ${structure.soal.length} · Reading ${reading.soal.length})${kelompokNotifSuffix}`, kelompokResolved.notFound ? 'danger' : 'success', kelompokResolved.notFound ? 4200 : 2600);
+        const bagianSuffix = toeflMode === 'full' ? ` (Listening ${listening.soal.length} · Structure ${structure.soal.length} · Reading ${reading.soal.length})` : ` (${_toeflSectionLabel(toeflMode)})`;
+        showToast(`Import berhasil! ${totalSoalToefl} soal TOEFL siap direview${bagianSuffix}${kelompokNotifSuffix}`, kelompokResolved.notFound ? 'danger' : 'success', kelompokResolved.notFound ? 4200 : 2600);
         _animateTo(_renderToeflHtml);
     } else {
         // Simpan indeks baris asli (0-based, header=0) tiap baris SEBELUM difilter,
