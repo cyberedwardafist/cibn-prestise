@@ -235,7 +235,13 @@
             '<svg class="cs-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
 
         sel.classList.add('cs-native');
-        sel.removeAttribute('style');
+        // JAGA-JAGA: sembunyikan lewat inline style JUGA (bukan cuma andalkan
+        // class cs-native + css/custom-select.css). Kalau suatu saat file CSS
+        // itu gagal ke-load di browser user (404 / salah deploy / ke-cache
+        // sebelum file ini pernah ada) select asli tidak akan lagi nongol
+        // dobel di samping tombol pengganti — inline style="display:none"
+        // dari JS ini tidak butuh CSS eksternal apapun buat berlaku.
+        sel.style.display = 'none';
         sel.parentNode.insertBefore(trig, sel.nextSibling);
 
         sel._csTrigger = trig;

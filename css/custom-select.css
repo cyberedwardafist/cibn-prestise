@@ -6,18 +6,43 @@
    kode lama yang baca/isi .value / .innerHTML tetap jalan normal.
    ============================================= */
 
+/* cs-native disembunyikan lewat class INI DAN inline style="display:none"
+   yang di-set langsung oleh js/custom-select.js saat enhance() (lihat
+   komentar di sana) — dua lapis jaga-jaga supaya select asli tidak pernah
+   nongol dobel di samping tombol pengganti walau file CSS ini kenapa-napa. */
 .cs-native { display: none !important; }
 
-/* Tombol pengganti tampilan select (mewarisi class & style asli select,
-   jadi ukuran/posisinya persis sama seperti sebelumnya) */
+/* ── Tombol pengganti tampilan select (desain baru) ──────────────────────
+   Sengaja TIDAK lagi otomatis mewarisi class .form-select bawaan select
+   asli (lihat js/custom-select.js) supaya tampilannya konsisten & bisa
+   didesain bebas, tidak "kebawa" style select generik. */
 .cs-trigger {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 10px;
+    width: 100%;
     text-align: left;
     font-family: inherit;
-    background-color: rgba(19,50,89,0.04);
+    font-size: 14px;
+    color: var(--blue);
+    padding: 11px 14px;
+    background: #fff;
+    border: 1.5px solid rgba(19,50,89,0.14);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.cs-trigger:hover { border-color: rgba(19,50,89,0.28); }
+.cs-trigger:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(26,90,160,0.15);
+}
+.cs-trigger.cs-open {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(26,90,160,0.15);
+    background: rgba(26,90,160,0.04);
 }
 .cs-trigger-label {
     overflow: hidden;
@@ -25,48 +50,53 @@
     white-space: nowrap;
     flex: 1;
     min-width: 0;
+    font-weight: 600;
 }
-.cs-trigger-label.cs-placeholder { color: rgba(19,50,89,0.35); }
+.cs-trigger-label.cs-placeholder { color: rgba(19,50,89,0.38); font-weight: 500; }
 .cs-caret {
     flex-shrink: 0;
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     color: var(--text-sub);
-    transition: transform 0.2s;
+    transition: transform 0.2s ease;
 }
-.cs-trigger.cs-open .cs-caret { transform: rotate(180deg); }
+.cs-trigger.cs-open .cs-caret { transform: rotate(180deg); color: var(--accent); }
 .cs-trigger:disabled,
 .cs-trigger.cs-disabled {
     opacity: 0.5;
     cursor: not-allowed;
     pointer-events: none;
+    background: rgba(19,50,89,0.04);
 }
 
-/* Panel list opsi — satu panel dipakai bergantian untuk semua select,
-   ditempel ke <body> + position:fixed supaya tidak pernah terpotong
-   oleh overflow milik modal/parent manapun. */
+/* ── Panel list opsi (desain baru) — satu panel dipakai bergantian utk
+   semua select, ditempel ke <body> + position:fixed supaya tidak pernah
+   terpotong oleh overflow milik modal/parent manapun. ── */
 .cs-panel {
     position: fixed;
     z-index: 650;
     background: #fff;
-    border: 1.5px solid rgba(19,50,89,0.1);
+    border: 1px solid rgba(19,50,89,0.1);
     border-radius: 14px;
-    box-shadow: 0 12px 32px rgba(19,50,89,0.18);
+    box-shadow: 0 16px 40px rgba(19,50,89,0.16), 0 2px 8px rgba(19,50,89,0.08);
     padding: 6px;
     max-height: 280px;
     overflow-y: auto;
     display: none;
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+    transition: opacity 0.12s ease, transform 0.12s ease;
 }
-.cs-panel.cs-show { display: block; }
+.cs-panel.cs-show { display: block; opacity: 1; transform: translateY(0) scale(1); }
 
 .cs-item {
-    padding: 9px 10px;
+    padding: 10px 12px;
     border-radius: 9px;
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 600;
     color: var(--blue);
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.12s;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -76,16 +106,16 @@
     gap: 10px;
 }
 .cs-item:hover,
-.cs-item.cs-highlight { background: rgba(19,50,89,0.08); }
-.cs-item.cs-selected { background: var(--blue); color: #fff; }
+.cs-item.cs-highlight { background: rgba(26,90,160,0.09); }
+.cs-item.cs-selected { background: var(--accent); color: #fff; }
 .cs-item.cs-selected:hover,
-.cs-item.cs-selected.cs-highlight { background: var(--accent2); }
+.cs-item.cs-selected.cs-highlight { background: var(--blue); }
 .cs-item.cs-disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 .cs-item svg { flex-shrink: 0; }
 .cs-item-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .cs-empty {
-    padding: 14px 10px;
+    padding: 16px 10px;
     font-size: 12.5px;
     color: var(--text-sub);
     text-align: center;
