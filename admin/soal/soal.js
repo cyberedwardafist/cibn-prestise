@@ -1065,6 +1065,13 @@ function _renderToeflHtml() {
     _soalDraftSave();
     const c = document.getElementById('soal-page-content'); if (!c) return;
     if (!SoalState.toefl) SoalState.toefl = _blankToeflData();
+    // Mode TOEFL soal ini ('listening'/'structure'/'reading'/'full', lihat
+    // startToeflBuild) — dipakai buat tahu apakah perlu tampilkan tab pilih
+    // section sama sekali. Non-'full' = soal ini memang cuma 1 section, jadi
+    // tab Listening/Structure/Reading yg 2 lainnya (isinya selalu 0 soal)
+    // tidak perlu ditampilkan sama sekali, biar tidak membingungkan.
+    const toeflMode = (SoalState.toefl && SoalState.toefl.mode) || 'full';
+    if (toeflMode !== 'full' && _toeflSection !== toeflMode) _toeflSection = toeflMode;
     const arr = _toeflSecArr(_toeflSection);
     const q = arr[_toeflIdx];
     const total = arr.length;
@@ -1081,12 +1088,13 @@ function _renderToeflHtml() {
     <button class="btn btn-primary btn-sm" onclick="simpanSoal()">💾 Simpan</button>
   </div>
 </div>
+${toeflMode === 'full' ? `
 <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
   ${['listening', 'structure', 'reading'].map(s => `
     <button class="btn ${s === _toeflSection ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="switchToeflSection('${s}')">
       ${_toeflSectionLabel(s)} <span style="opacity:0.75;font-weight:400">(${_toeflSecArr(s).length})</span>
     </button>`).join('')}
-</div>
+</div>` : ''}
 ${!q ? `<div class="card" style="text-align:center;padding:32px;color:var(--text-sub)">Belum ada soal di section ini.<br><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="toeflTambahSoal()">+ Tambah Soal</button></div>` : `
 <div style="display:flex;gap:16px;align-items:flex-start">
   <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px">
@@ -1254,7 +1262,7 @@ async function editSoalFromLibrary(kode){
             SoalState.materiList=soal.materi_list||[]; // materi milik soal INI saja, dimuat balik hanya saat edit soal yang sama
             const rawData=soal.data;
             if(soal.type==='sikap_kerja'){SoalState.kolom=rawData||Array.from({length:10},(_,i)=>({id:`KOL${String(i+1).padStart(2,'0')}`,no:i+1,items:Array.from({length:5},(_,j)=>({id:`I${i}${j}`,nilai:''})),soal:[]}));SoalState.pertanyaan=[];}
-            else if(soal.type==='toefl'){SoalState.toefl=rawData||_blankToeflData();SoalState.toefl_mode=(rawData&&rawData.mode)||'full';SoalState.pertanyaan=[];SoalState.kolom=null;_toeflSection='listening';_toeflIdx=0;}
+            else if(soal.type==='toefl'){SoalState.toefl=rawData||_blankToeflData();SoalState.toefl_mode=(rawData&&rawData.mode)||'full';SoalState.pertanyaan=[];SoalState.kolom=null;_toeflSection=(SoalState.toefl_mode!=='full')?SoalState.toefl_mode:'listening';_toeflIdx=0;}
             else{SoalState.pertanyaan=rawData||[_newQ()];SoalState.currentIdx=0;SoalState.kolom=null;}
             setDirty('edit soal');
             _animateTo(()=>soal.type==='sikap_kerja'?_renderSikapList():(soal.type==='toefl'?_renderToeflHtml():_renderMCHtml()));
