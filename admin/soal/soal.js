@@ -6,6 +6,10 @@ const SoalState = {
     mode: 'setup', kode: null, editMode: false,
     nama: '', nama_internal: '', type: 'multiple_choice', skor_type: 'benar_salah',
     opsi_jawaban: 1, timer: { jam: 0, menit: 30, detik: 0 },
+    // toefl_mode: HANYA dipakai saat type==='toefl' — 'listening'|'structure'|'reading'|'full'.
+    // Menentukan berapa banyak soal digenerate otomatis per section di startToeflBuild()
+    // (lihat TOEFL_REAL_MODE) & jadi label mode yg disimpan bareng soal.
+    toefl_mode: 'full',
     kelompok: '',   // kelompok = kode referensi ke soal_kelompok ('' = tanpa kelompok)
     pertanyaan: [], kolom: null, currentIdx: 0, navOpen: true,
     // toefl = { listening:{soal:[]}, structure:{soal:[]}, reading:{soal:[],passages:[]} }
@@ -190,6 +194,29 @@ function showSoalSetup() {
       </div>
     </div>
   </div>
+  <div id="soal-toefl-mode-wrap" style="display:none">
+    <div class="form-group">
+      <label class="form-label">Sistem Penilaian</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <label style="flex:1;min-width:130px;display:flex;align-items:flex-start;gap:8px;padding:12px;border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;cursor:pointer;background:rgba(255,255,255,0.6)">
+          <input type="radio" name="toefl_mode" value="listening" onchange="onToeflModeChange()" style="margin-top:2px;accent-color:var(--blue)">
+          <div><div style="font-weight:700;font-size:13px">Listening</div><div style="font-size:11px;color:var(--text-sub)">50 soal · 35 menit</div></div>
+        </label>
+        <label style="flex:1;min-width:130px;display:flex;align-items:flex-start;gap:8px;padding:12px;border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;cursor:pointer;background:rgba(255,255,255,0.6)">
+          <input type="radio" name="toefl_mode" value="structure" onchange="onToeflModeChange()" style="margin-top:2px;accent-color:var(--blue)">
+          <div><div style="font-weight:700;font-size:13px">Structure</div><div style="font-size:11px;color:var(--text-sub)">40 soal · 25 menit</div></div>
+        </label>
+        <label style="flex:1;min-width:130px;display:flex;align-items:flex-start;gap:8px;padding:12px;border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;cursor:pointer;background:rgba(255,255,255,0.6)">
+          <input type="radio" name="toefl_mode" value="reading" onchange="onToeflModeChange()" style="margin-top:2px;accent-color:var(--blue)">
+          <div><div style="font-weight:700;font-size:13px">Reading</div><div style="font-size:11px;color:var(--text-sub)">50 soal · 55 menit</div></div>
+        </label>
+        <label style="flex:1;min-width:130px;display:flex;align-items:flex-start;gap:8px;padding:12px;border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;cursor:pointer;background:rgba(26,90,160,0.08)">
+          <input type="radio" name="toefl_mode" value="full" checked onchange="onToeflModeChange()" style="margin-top:2px;accent-color:var(--blue)">
+          <div><div style="font-weight:700;font-size:13px">Full (Real Test)</div><div style="font-size:11px;color:var(--text-sub)">140 soal · 1 timer keseluruhan (1j 55m), tanpa timer per-section</div></div>
+        </label>
+      </div>
+    </div>
+  </div>
   <div class="form-group">
     <label class="form-label">Timer Pengerjaan</label>
     <div style="display:flex;gap:10px;align-items:center">
@@ -212,13 +239,38 @@ function showSoalSetup() {
     });
 }
 
+// Durasi & jumlah soal RESMI TOEFL ITP per mode (lihat lib/toefl.js —
+// TOEFL_MAX_RAW & komentar tabel konversi utk sumbernya): Listening 50 soal/
+// 35 menit, Structure 40 soal/25 menit, Reading 50 soal/55 menit, Full
+// (gabungan real test) 140 soal/115 menit (1j 55m) — 1 timer keseluruhan,
+// TIDAK ada timer terpisah per section.
+const TOEFL_REAL_MODE = {
+    listening: { jam: 0, menit: 35, jumlah: 50 },
+    structure: { jam: 0, menit: 25, jumlah: 40 },
+    reading:   { jam: 0, menit: 55, jumlah: 50 },
+    full:      { jam: 1, menit: 55, jumlah: 140 },
+};
 function onSoalTypeChange() {
     const t = document.getElementById('soal-type')?.value;
     const w = document.getElementById('soal-skor-wrap');
-    // TOEFL: sistem penilaian sudah baku (benar/salah, dikonversi ke skala ITP
-    // resmi lewat lib/toefl.js) — tidak ada pilihan "nilai per jawaban" seperti
-    // type lain, sama seperti Sikap Kerja tidak punya form ini juga.
+    const tw = document.getElementById('soal-toefl-mode-wrap');
+    // TOEFL: "Sistem Penilaian" biasa (benar/salah, dikonversi ke skala ITP
+    // resmi lewat lib/toefl.js) tidak berlaku — kartu itu diganti pilihan
+    // Mode Tes TOEFL (Listening/Structure/Reading/Full) di bawah. Sikap Kerja
+    // tetap tidak punya form ini sama sekali.
     if (w) w.style.display = (t === 'sikap_kerja' || t === 'toefl') ? 'none' : 'block';
+    if (tw) tw.style.display = (t === 'toefl') ? 'block' : 'none';
+    if (t === 'toefl') onToeflModeChange();
+}
+// Pilih mode TOEFL -> auto-isi Timer Pengerjaan ke durasi resmi mode itu
+// (tetap boleh diubah manual sesudahnya kalau admin mau).
+function onToeflModeChange() {
+    const mode = document.querySelector('input[name="toefl_mode"]:checked')?.value || 'full';
+    const r = TOEFL_REAL_MODE[mode];
+    const jamEl = document.getElementById('soal-jam'), menitEl = document.getElementById('soal-menit'), detikEl = document.getElementById('soal-detik');
+    if (jamEl) jamEl.value = r.jam;
+    if (menitEl) menitEl.value = r.menit;
+    if (detikEl) detikEl.value = 0;
 }
 function onSkorTypeChange() {
     const v = document.querySelector('input[name="skor_type"]:checked')?.value;
@@ -236,6 +288,7 @@ function startBuatSoal() {
     SoalState.skor_type = document.querySelector('input[name="skor_type"]:checked')?.value || 'benar_salah';
     SoalState.opsi_jawaban = parseInt(document.getElementById('soal-opsi-jawaban')?.value) || 1;
     SoalState.timer = { jam: parseInt(document.getElementById('soal-jam')?.value)||0, menit: parseInt(document.getElementById('soal-menit')?.value)||30, detik: parseInt(document.getElementById('soal-detik')?.value)||0 };
+    SoalState.toefl_mode = document.querySelector('input[name="toefl_mode"]:checked')?.value || 'full';
     SoalState.mode = 'build'; SoalState._editors = {};
     SoalState.materiList = []; // soal baru = materi selalu mulai kosong, tidak mewarisi soal lain
     if (SoalState.type === 'sikap_kerja') {
@@ -858,18 +911,47 @@ function _blankToeflData() {
 }
 function _newToeflQ(section) {
     const base = { id: 'TQ_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), pertanyaan: '',
-        jawaban: [{ id: 'A_' + Date.now(), teks: '' }, { id: 'B_' + (Date.now() + 1), teks: '' }], kunci: [] };
+        jawaban: [{ id: 'A_' + Date.now(), teks: '' }, { id: 'B_' + (Date.now() + 1), teks: '' }], kunci: [], pembahasan: '' };
     if (section === 'listening') base.audio_url = '';
     if (section === 'structure') base.subtipe = 'rumpang';
     if (section === 'reading') base.passage_id = null;
     return base;
 }
+// Jumlah soal digenerate otomatis per section sesuai TOEFL_REAL_MODE & mode yg
+// dipilih admin di setup ('listening'/'structure'/'reading' = 1 section saja,
+// 'full' = 3 section sekaligus persis jumlah TOEFL ITP asli).
+function _toeflRealCounts(mode) {
+    if (mode === 'listening') return { listening: 50, structure: 0, reading: 0 };
+    if (mode === 'structure') return { listening: 0, structure: 40, reading: 0 };
+    if (mode === 'reading')   return { listening: 0, structure: 0, reading: 50 };
+    return { listening: 50, structure: 40, reading: 50 }; // full
+}
 function startToeflBuild() {
     SoalState.toefl = _blankToeflData();
-    SoalState.toefl.listening.soal.push(_newToeflQ('listening'));
-    SoalState.toefl.structure.soal.push(_newToeflQ('structure'));
-    SoalState.toefl.reading.soal.push(_newToeflQ('reading'));
-    _toeflSection = 'listening'; _toeflIdx = 0;
+    const mode = SoalState.toefl_mode || 'full';
+    // Disimpan di dalam object data-nya sendiri (bukan kolom terpisah di server)
+    // supaya tidak perlu migrasi skema — cuma dipakai sbg label/metadata mode
+    // saat soal dibuka lagi utk diedit, TIDAK dipakai mesin skor (lib/toefl.js
+    // sama sekali tidak baca field ini, cukup berdasarkan isi soal tiap section).
+    SoalState.toefl.mode = mode;
+    const counts = _toeflRealCounts(mode);
+    for (let i = 0; i < counts.listening; i++) SoalState.toefl.listening.soal.push(_newToeflQ('listening'));
+    for (let i = 0; i < counts.structure; i++) {
+        const q = _newToeflQ('structure');
+        // Format resmi ITP: 15 soal melengkapi kalimat ('rumpang') dulu, baru
+        // 25 soal cari kesalahan ('salah') — lihat lib/toefl.js shuffleStructureSoal.
+        q.subtipe = i < 15 ? 'rumpang' : 'salah';
+        SoalState.toefl.structure.soal.push(q);
+    }
+    for (let i = 0; i < counts.reading; i++) SoalState.toefl.reading.soal.push(_newToeflQ('reading'));
+    // Jaga-jaga: seharusnya tidak pernah terjadi (semua mode di atas selalu isi
+    // minimal 1 section), tapi kalau suatu saat ada mode baru yg lolos tanpa
+    // soal sama sekali, builder tidak boleh benar-benar kosong total.
+    if (!SoalState.toefl.listening.soal.length && !SoalState.toefl.structure.soal.length && !SoalState.toefl.reading.soal.length) {
+        SoalState.toefl.listening.soal.push(_newToeflQ('listening'));
+    }
+    _toeflSection = (mode === 'structure' || mode === 'reading') ? mode : 'listening';
+    _toeflIdx = 0;
 }
 function _toeflEsc(str) { return String(str == null ? '' : str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function _toeflEscAttr(str) { return _toeflEsc(str).replace(/"/g, '&quot;'); }
@@ -905,6 +987,10 @@ function toeflHapusSoal(idx) {
 function toeflEditPertanyaan(val) {
     const q = _toeflSecArr(_toeflSection)[_toeflIdx]; if (!q) return;
     q.pertanyaan = val; setDirty('pembuatan soal'); _soalQueueAutoSave();
+}
+function toeflEditPembahasan(val) {
+    const q = _toeflSecArr(_toeflSection)[_toeflIdx]; if (!q) return;
+    q.pembahasan = val; setDirty('pembuatan soal'); _soalQueueAutoSave();
 }
 function toeflSetSubtipe(val) {
     const q = _toeflSecArr('structure')[_toeflIdx]; if (!q) return;
@@ -1046,10 +1132,11 @@ ${!q ? `<div class="card" style="text-align:center;padding:32px;color:var(--text
         <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="toeflHapusPassage('${p.id}')">🗑 Hapus Bacaan Ini</button>
       </div>`; })() : ''}
     </div>` : ''}
+    ${_toeflSection !== 'listening' ? `
     <div class="card" style="padding:16px">
       <div class="form-label" style="margin-bottom:8px">Pertanyaan</div>
       <textarea class="form-input" rows="4" placeholder="Tulis pertanyaan di sini...">${_toeflEsc(q.pertanyaan || '')}</textarea>
-    </div>
+    </div>` : ''}
     <div class="card" style="padding:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div class="form-label" style="margin:0">Pilihan Jawaban <span style="font-size:10px;color:var(--text-sub);font-weight:400">(● = kunci jawaban)</span></div>
@@ -1065,6 +1152,10 @@ ${!q ? `<div class="card" style="text-align:center;padding:32px;color:var(--text
         </div>`).join('')}
       </div>
     </div>
+    <div class="card" style="padding:16px">
+      <div class="form-label" style="margin-bottom:8px">Pembahasan <span style="font-size:10px;color:var(--text-sub);font-weight:400">(opsional)</span></div>
+      <textarea class="form-input" rows="3" placeholder="Tulis pembahasan di sini...">${_toeflEsc(q.pembahasan || '')}</textarea>
+    </div>
   </div>
   <div class="soal-nav-side" id="soal-nav-side">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -1074,7 +1165,7 @@ ${!q ? `<div class="card" style="text-align:center;padding:32px;color:var(--text
     <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">
       ${arr.map((p, i) => `
         <div style="position:relative">
-          <button class="soal-nav-btn ${i === _toeflIdx ? 'active' : (p.pertanyaan ? 'filled' : '')}" onclick="toeflGoToSoal(${i})">${i + 1}</button>
+          <button class="soal-nav-btn ${i === _toeflIdx ? 'active' : ((_toeflSection === 'listening' ? p.audio_url : p.pertanyaan) ? 'filled' : '')}" onclick="toeflGoToSoal(${i})">${i + 1}</button>
           <button onclick="toeflHapusSoal(${i})" class="soal-nav-del">×</button>
         </div>`).join('')}
     </div>
@@ -1085,6 +1176,8 @@ ${!q ? `<div class="card" style="text-align:center;padding:32px;color:var(--text
     // textarea diisi via .value (bukan atribut) supaya newline & karakter apa pun aman persis apa adanya
     const pertTa = c.querySelector('.card textarea.form-input[placeholder="Tulis pertanyaan di sini..."]');
     if (pertTa) { pertTa.value = q.pertanyaan || ''; pertTa.oninput = (e) => toeflEditPertanyaan(e.target.value); }
+    const pembTa = c.querySelector('.card textarea.form-input[placeholder="Tulis pembahasan di sini..."]');
+    if (pembTa) { pembTa.value = q.pembahasan || ''; pembTa.oninput = (e) => toeflEditPembahasan(e.target.value); }
     const bacaanTa = c.querySelector('textarea.form-input[placeholder="Isi teks bacaan..."]');
     if (bacaanTa && q.passage_id) {
         const p = _toeflPassages().find(x => x.id === q.passage_id);
@@ -1161,7 +1254,7 @@ async function editSoalFromLibrary(kode){
             SoalState.materiList=soal.materi_list||[]; // materi milik soal INI saja, dimuat balik hanya saat edit soal yang sama
             const rawData=soal.data;
             if(soal.type==='sikap_kerja'){SoalState.kolom=rawData||Array.from({length:10},(_,i)=>({id:`KOL${String(i+1).padStart(2,'0')}`,no:i+1,items:Array.from({length:5},(_,j)=>({id:`I${i}${j}`,nilai:''})),soal:[]}));SoalState.pertanyaan=[];}
-            else if(soal.type==='toefl'){SoalState.toefl=rawData||_blankToeflData();SoalState.pertanyaan=[];SoalState.kolom=null;_toeflSection='listening';_toeflIdx=0;}
+            else if(soal.type==='toefl'){SoalState.toefl=rawData||_blankToeflData();SoalState.toefl_mode=(rawData&&rawData.mode)||'full';SoalState.pertanyaan=[];SoalState.kolom=null;_toeflSection='listening';_toeflIdx=0;}
             else{SoalState.pertanyaan=rawData||[_newQ()];SoalState.currentIdx=0;SoalState.kolom=null;}
             setDirty('edit soal');
             _animateTo(()=>soal.type==='sikap_kerja'?_renderSikapList():(soal.type==='toefl'?_renderToeflHtml():_renderMCHtml()));

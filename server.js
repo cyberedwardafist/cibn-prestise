@@ -815,13 +815,44 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
             const rataRata = (sec) => Math.round(ikut.reduce((a, r) => a + (r[sec].scaled || 0), 0) / ikut.length);
             const cefr = {};
             ikut.forEach(r => { const lv = (r.cefr && r.cefr.level) || '-'; cefr[lv] = (cefr[lv] || 0) + 1; });
+            // ── Detail per-butir (Listening/Structure/Reading) — dipakai kartu
+            // "Detail Butir Soal & Pembahasan" di admin/analisa/analisa-token-
+            // detail.js & analisa-modul-detail.js, supaya admin bisa lihat
+            // pembahasan tiap butir TOEFL sama seperti soal MC/Linier (lihat
+            // blok binaryChart di atas: pertanyaan+pembahasan per butir). TOEFL
+            // tetap sengaja tidak digabung ke binaryChart/skorChart itu sendiri
+            // (struktur data beda total: 3 section, bukan array flat) — butir-
+            // nya dihitung manual di sini, dari data soal + jawabanList yang
+            // sudah dimuat di scope function ini.
+            const butirPerSection = (section) => {
+                const items = (s.data && s.data[section] && Array.isArray(s.data[section].soal)) ? s.data[section].soal : [];
+                return items.map((q, idx) => {
+                    let benar = 0, dijawab = 0;
+                    jawabanList.forEach(jw => {
+                        const ans = jw[toeflLib.toeflAnswerKey(s.kode, section, idx)];
+                        if (ans == null || ans === '') return;
+                        dijawab++;
+                        const kunciRaw = q.kunci;
+                        const kunci = Array.isArray(kunciRaw) ? kunciRaw.map(String) : (kunciRaw != null ? [String(kunciRaw)] : []);
+                        const isBenar = Array.isArray(ans)
+                            ? (ans.length === kunci.length && ans.every(a => kunci.includes(String(a))))
+                            : kunci.includes(String(ans));
+                        if (isBenar) benar++;
+                    });
+                    const label = section === 'listening'
+                        ? (q.audio_url ? '🎧 Audio Listening #' + (idx + 1) : '(Listening #' + (idx + 1) + ', belum ada audio)')
+                        : (q.pertanyaan || '');
+                    return { nomor: idx + 1, pertanyaan: label, pembahasan: q.pembahasan || '', benar, salah: dijawab - benar, dijawab };
+                });
+            };
             toeflList.push({
                 soal_kode: s.kode, soal_nama: s.nama, peserta: ikut.length,
                 rata: ikut.length ? {
                     listening: rataRata('listening'), structure: rataRata('structure'), reading: rataRata('reading'),
                     total: Math.round(ikut.reduce((a, r) => a + (r.total || 0), 0) / ikut.length)
                 } : null,
-                cefr
+                cefr,
+                butir: { listening: butirPerSection('listening'), structure: butirPerSection('structure'), reading: butirPerSection('reading') }
             });
             continue;
         }

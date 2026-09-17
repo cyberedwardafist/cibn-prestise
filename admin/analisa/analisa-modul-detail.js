@@ -307,6 +307,7 @@ function _amodToeflCardHtml(t) {
         return `<div class="card atd-chart-card" style="margin-bottom:18px">
             <div class="section-title" style="font-size:16px;margin-bottom:2px">${_amodEsc(t.soal_nama)} — Analitik TOEFL</div>
             <div class="empty-state" style="padding:16px"><p>Belum ada peserta (dari sampel) yang mengerjakan bagian TOEFL ini</p></div>
+            ${_amodToeflButirHtml(t)}
         </div>`;
     }
     const r = t.rata;
@@ -336,6 +337,42 @@ function _amodToeflCardHtml(t) {
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:6px">${cefrBadges}</div>
         </div>
+        ${_amodToeflButirHtml(t)}
+    </div>`;
+}
+
+// ── Detail Butir Soal & Pembahasan (TOEFL) — DISALIN PERSIS dari
+// _atdToeflButirHtml() di analisa-token-detail.js (lihat komentar lengkap di
+// sana), `t.butir` bentuknya sama krn dibangun dari computeAnalisaGrupAggregate
+// yang sama di server.js.
+function _amodToeflButirHtml(t) {
+    const secLbl = { listening: 'Listening', structure: 'Structure', reading: 'Reading' };
+    const sections = ['listening', 'structure', 'reading'];
+    const hasAny = sections.some(sec => t.butir && t.butir[sec] && t.butir[sec].length);
+    if (!hasAny) return '';
+    return `<div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(19,50,89,.08)">
+        <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">Detail Butir Soal &amp; Pembahasan</div>
+        ${sections.map(sec => {
+            const items = (t.butir && t.butir[sec]) || [];
+            if (!items.length) return '';
+            return `<div style="margin-bottom:14px">
+                <div style="font-size:12px;font-weight:700;color:var(--text-main);margin-bottom:6px">${secLbl[sec]} <span style="font-weight:400;color:var(--text-sub)">(${items.length} butir)</span></div>
+                <div style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto">
+                    ${items.map((b, i) => {
+                        const uid = `amod-toefl-b-${_amodEsc(t.soal_kode)}-${sec}-${i}`;
+                        return `<div style="border:1px solid rgba(19,50,89,.08);border-radius:8px;padding:8px 10px">
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer" onclick="const e=document.getElementById('${uid}');if(e)e.style.display=e.style.display==='none'?'block':'none'">
+                                <div style="font-size:12px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.nomor}. ${_amodEsc(b.pertanyaan || ('Butir ' + b.nomor))}</div>
+                                <div style="font-size:11px;color:var(--text-sub);flex-shrink:0">${b.benar} benar · ${b.salah} salah</div>
+                            </div>
+                            <div id="${uid}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(19,50,89,.1)">
+                                ${b.pembahasan ? `<div style="padding:8px 10px;background:rgba(26,90,160,0.05);border-radius:8px;border-left:3px solid var(--accent)"><div style="font-size:10px;font-weight:700;color:var(--accent);margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em">Pembahasan</div><div style="font-size:12px;color:var(--text-main)">${b.pembahasan}</div></div>` : `<div style="font-size:11px;color:var(--text-sub);font-style:italic">Belum ada pembahasan untuk butir ini.</div>`}
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+        }).join('')}
     </div>`;
 }
 
