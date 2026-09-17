@@ -226,7 +226,16 @@
 
         var trig = document.createElement('button');
         trig.type = 'button';
-        trig.className = (sel.className ? sel.className + ' ' : '') + 'cs-trigger';
+        // Redesign: cs-trigger SENGAJA tidak lagi mewarisi class ".form-select"
+        // dari select asli (lihat komentar di css/custom-select.css) — biar
+        // styling-nya berdiri sendiri lewat .cs-trigger, tidak dobel-tabrakan
+        // sama style generik .form-input/.form-select/.form-textarea di
+        // base.css. Class LAIN yang mungkin sengaja ditaruh developer di
+        // select (bukan .form-select) tetap ikut dibawa ke tombolnya.
+        var _csKeepClasses = (sel.className || '').split(/\s+/).filter(function (c) {
+            return c && c !== 'form-select';
+        }).join(' ');
+        trig.className = (_csKeepClasses ? _csKeepClasses + ' ' : '') + 'cs-trigger';
         var styleAttr = sel.getAttribute('style');
         if (styleAttr) trig.setAttribute('style', styleAttr);
         trig.setAttribute('aria-haspopup', 'listbox');
