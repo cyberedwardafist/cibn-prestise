@@ -178,7 +178,7 @@ const ADMIN_PAGE_MODULES = {
     // library.js, soal.js refresh renderLibrary), jadi ketiganya dimuat sebagai
     // satu bundel JS+modal supaya tidak ada risiko "function is not defined" —
     // tapi fragmen HTML halamannya sendiri tetap terpisah per tab.
-    soal:            { html: 'admin/soal/soal.html',            js: ['admin/soal/editor.js', 'admin/soal/soal.js', 'admin/soal/library.js', 'admin/soal/modul.js'], modals: 'admin/soal/soal-modals.html' },
+    soal:            { html: 'admin/soal/soal.html',            js: ['admin/soal/editor.js', 'admin/soal/voicebox-client.js', 'admin/soal/soal.js', 'admin/soal/library.js', 'admin/soal/modul.js'], modals: 'admin/soal/soal-modals.html' },
     library:         { html: 'admin/soal/library.html',         js: ['admin/soal/editor.js', 'admin/soal/soal.js', 'admin/soal/library.js', 'admin/soal/modul.js'], modals: 'admin/soal/soal-modals.html' },
     modul:           { html: 'admin/soal/modul.html',           js: ['admin/soal/editor.js', 'admin/soal/soal.js', 'admin/soal/library.js', 'admin/soal/modul.js'], modals: 'admin/soal/soal-modals.html' },
     buku:            { html: 'admin/ebook/buku.html',           js: ['admin/ebook/ebook.js'], modals: 'admin/ebook/ebook-modals.html' },

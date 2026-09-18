@@ -1014,17 +1014,28 @@ async function toeflOnAudioFileSelected(input) {
 
 // ── Generate Suara (Text-to-Speech) utk Audio Listening ────────────────────
 // Alternatif dari link/upload manual: admin tulis beberapa "bagian" teks
-// (mis. dialog A lalu dialog B), tiap bagian pilih suara & kecepatan sendiri,
-// lalu semuanya digabung jadi 1 file audio SEKALI JADI (persis kayak hasil
-// upload manual) begitu soal disimpan — lihat _toeflFinalizeGeneratedAudio()
-// & hook-nya di simpanSoal(). Sintesis suaranya lewat server (lib/edge-tts.js,
-// pakai layanan Microsoft Edge Read Aloud — gratis & tanpa API key), BUKAN
-// speechSynthesis bawaan browser, karena suara browser tidak bisa direkam
-// jadi file (keterbatasan browser, bukan pilihan desain).
+// (mis. dialog A lalu dialog B), tiap bagian pilih suara sendiri, lalu
+// semuanya digabung jadi 1 file audio SEKALI JADI (persis kayak hasil upload
+// manual) begitu soal disimpan — lihat _toeflFinalizeGeneratedAudio() & hook-nya
+// di simpanSoal(). Ada 2 SUMBER SUARA yang bisa dipilih per-soal (q.audio_source,
+// TIDAK BISA dicampur per-bagian dalam 1 soal karena format audio mentahnya beda):
 //
-// PENTING: daftar suara di bawah HARUS SAMA (id-nya) dengan TTS_VOICE_CATALOG
-// di lib/edge-tts.js — cuma dipakai buat render pilihan di UI, validasi asli
-// tetap di server.
+//  - 'edge' (default, lama): lib/edge-tts.js di server.js kita sendiri, pakai
+//    layanan Microsoft Edge Read Aloud gratis tanpa API key. Selalu tersedia
+//    (jalan di server Vercel), tapi cuma 7 suara neural bawaan Microsoft & ini
+//    protokol tidak resmi (reverse-engineered) — lihat catatan di edge-tts.js.
+//  - 'voicebox' (baru): server voicebox (github.com/jamiepine/voicebox) yang
+//    dijalankan LOKAL di komputer admin sendiri (python -m backend.main),
+//    dipanggil LANGSUNG dari browser admin (lihat voicebox-client.js) —
+//    server Vercel kita tidak bisa menjalankan model TTS neural (butuh GPU/
+//    proses hidup lama, tidak ada di serverless). Engine yang dipakai adalah
+//    "voxcpm" (VoxCPM2, github.com/OpenBMB/VoxCPM) yang didaftarkan sbg engine
+//    baru di server voicebox (lihat backends/voxcpm_backend.py) — suaranya
+//    ditentukan lewat "voice profile" yang admin buat sendiri di aplikasi
+//    voicebox (kloning dari rekaman singkat ATAU "voice design" dari deskripsi
+//    teks), BUKAN daftar tetap spt Edge TTS. Hasil generate tetap diupload ke
+//    server aplikasi ini lewat jalur upload yang SAMA PERSIS dgn upload manual
+//    (apiUploadAudio) — cuma proses sintesisnya yang jalan di mesin admin.
 const TTS_VOICES = [
     { id: 'en-US-GuyNeural',   label: '🚹 Guy (Pria, US)' },
     { id: 'en-US-DavisNeural', label: '🚹 Davis (Pria, US)' },
@@ -1034,8 +1045,10 @@ const TTS_VOICES = [
     { id: 'en-US-AriaNeural',  label: '🚺 Aria (Wanita, US)' },
     { id: 'en-GB-SoniaNeural', label: '🚺 Sonia (Wanita, UK)' },
 ];
-function _toeflNewTtsSegment() {
-    return { id: 'SEG_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), text: '', voice: TTS_VOICES[0].id, rate: '0%' };
+function _toeflNewTtsSegment(source) {
+    const base = { id: 'SEG_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), text: '' };
+    if (source === 'voicebox') return { ...base, profileId: '', instruct: '' };
+    return { ...base, voice: TTS_VOICES[0].id, rate: '0%' };
 }
 // on=true -> buka mode Generate (dari box link/upload biasa). on=false -> balik
 // ke mode link/upload manual (segmen yang sudah ditulis tetap tersimpan di
@@ -1043,13 +1056,28 @@ function _toeflNewTtsSegment() {
 function toeflToggleAudioGenerate(on) {
     const q = _toeflSecArr('listening')[_toeflIdx]; if (!q) return;
     q.audio_mode = on ? 'generate' : 'link';
-    if (on && !(q.tts_segments && q.tts_segments.length)) q.tts_segments = [_toeflNewTtsSegment()];
+    if (on && !q.audio_source) q.audio_source = 'edge';
+    if (on && !(q.tts_segments && q.tts_segments.length)) q.tts_segments = [_toeflNewTtsSegment(q.audio_source)];
+    setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
+}
+// Ganti sumber suara utk soal ini. Segmen lama TIDAK bisa dipakai lintas
+// sumber (bentuk field beda & format audio mentahnya beda), jadi teksnya
+// dipertahankan tapi field voice/profile-nya direset sesuai sumber baru.
+function toeflSetAudioSource(src) {
+    const q = _toeflSecArr('listening')[_toeflIdx]; if (!q) return;
+    if (q.audio_source === src) return;
+    q.audio_source = src;
+    const oldSegs = q.tts_segments || [];
+    q.tts_segments = oldSegs.length
+        ? oldSegs.map(s => ({ ..._toeflNewTtsSegment(src), text: s.text || '' }))
+        : [_toeflNewTtsSegment(src)];
+    if (src === 'voicebox') _toeflEnsureVoiceboxProfilesLoaded();
     setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
 }
 function toeflTtsAddSegment() {
     const q = _toeflSecArr('listening')[_toeflIdx]; if (!q) return;
     if (!q.tts_segments) q.tts_segments = [];
-    q.tts_segments.push(_toeflNewTtsSegment());
+    q.tts_segments.push(_toeflNewTtsSegment(q.audio_source));
     setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
 }
 function toeflTtsRemoveSegment(sid) {
@@ -1063,9 +1091,30 @@ function toeflTtsEditSegment(sid, field, val) {
     const seg = q.tts_segments.find(s => s.id === sid); if (!seg) return;
     seg[field] = val; setDirty('pembuatan soal'); _soalQueueAutoSave();
 }
-// Minta server sintesis + gabungkan semua segmen jadi 1 blob MP3. Dipakai
-// utk preview (Play) MAUPUN finalisasi (beda cuma langkah upload sesudahnya).
-async function _toeflGenerateTtsBlob(segments) {
+
+// ── Voicebox Lokal: daftar voice profile (cache di memori tab ini saja) ────
+let _voiceboxProfilesCache = null; // null = belum pernah dicoba, [] = sudah dicoba tapi kosong/gagal
+let _voiceboxProfilesLoading = false;
+let _voiceboxProfilesError = '';
+async function _toeflEnsureVoiceboxProfilesLoaded(force) {
+    if (_voiceboxProfilesLoading) return;
+    if (_voiceboxProfilesCache && !force) return;
+    _voiceboxProfilesLoading = true; _voiceboxProfilesError = '';
+    try {
+        _voiceboxProfilesCache = await VoiceboxClient.listProfiles('voxcpm');
+    } catch (e) {
+        _voiceboxProfilesCache = [];
+        _voiceboxProfilesError = e.message || 'Gagal memuat daftar voice profile';
+    } finally {
+        _voiceboxProfilesLoading = false;
+        _animateTo(_renderToeflHtml);
+    }
+}
+
+// ── Sintesis suara (dipanggil utk preview MAUPUN finalisasi saat simpan) ───
+// source 'edge': minta server.js sintesis (lib/edge-tts.js) & gabungkan
+// beberapa segmen jadi 1 Buffer MP3 (concat frame mentah, tanpa re-encode).
+async function _toeflGenerateEdgeBlob(segments) {
     const clean = (segments || []).filter(s => (s.text || '').trim());
     if (!clean.length) throw new Error('Isi dulu teks yang mau digenerate');
     let res;
@@ -1083,13 +1132,75 @@ async function _toeflGenerateTtsBlob(segments) {
     }
     return await res.blob();
 }
+// source 'voicebox': panggil server voicebox LOKAL langsung dari browser utk
+// tiap segmen (lihat voicebox-client.js), lalu gabungkan semua hasil WAV-nya
+// jadi 1 file WAV utuh. Beda dari Edge TTS (yang formatnya MP3 & bisa
+// digabung dgn concat byte mentah), audio WAV harus di-decode ke PCM dulu
+// (Web Audio API) baru digabung & ditulis ulang headernya — RIFF/WAVE header
+// 1 file tidak bisa "disambung" begitu saja spt frame MP3.
+let _voiceboxAudioCtxInstance = null;
+function _voiceboxAudioCtx() {
+    if (!_voiceboxAudioCtxInstance) _voiceboxAudioCtxInstance = new (window.AudioContext || window.webkitAudioContext)();
+    return _voiceboxAudioCtxInstance;
+}
+async function _voiceboxDecodeToFloat32(blob) {
+    const arrBuf = await blob.arrayBuffer();
+    const audioBuf = await _voiceboxAudioCtx().decodeAudioData(arrBuf);
+    return { samples: audioBuf.getChannelData(0), sampleRate: audioBuf.sampleRate }; // ambil channel pertama (cukup utk suara TTS mono/nyaris-mono)
+}
+async function _voiceboxResampleTo(float32, fromRate, toRate) {
+    if (fromRate === toRate) return float32;
+    const ctx = new OfflineAudioContext(1, Math.ceil(float32.length * toRate / fromRate), toRate);
+    const buf = ctx.createBuffer(1, float32.length, fromRate);
+    buf.copyToChannel(float32, 0);
+    const src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start();
+    const rendered = await ctx.startRendering();
+    return rendered.getChannelData(0);
+}
+function _voiceboxEncodeWav(samples, sampleRate) {
+    const bytesPerSample = 2, dataSize = samples.length * bytesPerSample;
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+    const writeStr = (offset, str) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
+    writeStr(0, 'RIFF'); view.setUint32(4, 36 + dataSize, true); writeStr(8, 'WAVE');
+    writeStr(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * bytesPerSample, true);
+    view.setUint16(32, bytesPerSample, true); view.setUint16(34, 16, true);
+    writeStr(36, 'data'); view.setUint32(40, dataSize, true);
+    let offset = 44;
+    for (let i = 0; i < samples.length; i++) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        offset += 2;
+    }
+    return new Blob([buffer], { type: 'audio/wav' });
+}
+async function _toeflGenerateVoiceboxBlob(segments) {
+    const clean = (segments || []).filter(s => (s.text || '').trim());
+    if (!clean.length) throw new Error('Isi dulu teks yang mau digenerate');
+    if (clean.some(s => !s.profileId)) throw new Error('Pilih voice profile utk tiap bagian teks');
+    const parts = []; let targetRate = null;
+    for (const seg of clean) {
+        const blob = await VoiceboxClient.generateAndWait({ profileId: seg.profileId, text: seg.text, instruct: (seg.instruct || '').trim() || undefined });
+        const { samples, sampleRate } = await _voiceboxDecodeToFloat32(blob);
+        if (targetRate == null) targetRate = sampleRate;
+        parts.push(sampleRate === targetRate ? samples : await _voiceboxResampleTo(samples, sampleRate, targetRate));
+    }
+    const total = parts.reduce((a, p) => a + p.length, 0);
+    const merged = new Float32Array(total);
+    let off = 0; for (const p of parts) { merged.set(p, off); off += p.length; }
+    return _voiceboxEncodeWav(merged, targetRate);
+}
+async function _toeflGenerateTtsBlob(segments, source) {
+    return source === 'voicebox' ? _toeflGenerateVoiceboxBlob(segments) : _toeflGenerateEdgeBlob(segments);
+}
 let _toeflTtsPreviewAudio = null;
 async function toeflTtsPreview() {
     const q = _toeflSecArr('listening')[_toeflIdx]; if (!q) return;
     const btn = document.getElementById('toefl-tts-play-btn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Memproses...'; }
     try {
-        const blob = await _toeflGenerateTtsBlob(q.tts_segments);
+        const blob = await _toeflGenerateTtsBlob(q.tts_segments, q.audio_source);
         if (_toeflTtsPreviewAudio) { _toeflTtsPreviewAudio.pause(); URL.revokeObjectURL(_toeflTtsPreviewAudio.src); }
         _toeflTtsPreviewAudio = new Audio(URL.createObjectURL(blob));
         await _toeflTtsPreviewAudio.play();
@@ -1102,8 +1213,9 @@ async function toeflTtsPreview() {
 // audio_url spt biasa & balik ke mode 'link'. Kalau gagal, lempar error
 // supaya simpanSoal() membatalkan simpan (bukan menyimpan soal tanpa audio).
 async function _toeflFinalizeGeneratedAudio(q) {
-    const blob = await _toeflGenerateTtsBlob(q.tts_segments);
-    const file = new File([blob], `tts-${Date.now()}.mp3`, { type: 'audio/mpeg' });
+    const blob = await _toeflGenerateTtsBlob(q.tts_segments, q.audio_source);
+    const isVoicebox = q.audio_source === 'voicebox';
+    const file = new File([blob], `tts-${Date.now()}.${isVoicebox ? 'wav' : 'mp3'}`, { type: isVoicebox ? 'audio/wav' : 'audio/mpeg' });
     const res = await apiUploadAudio(file);
     if (!res || !res.url) throw new Error((res && res.error) || 'Gagal upload hasil generate suara');
     q.audio_url = res.url; q.audio_mode = 'link';
@@ -1172,6 +1284,12 @@ function _renderToeflHtml() {
     const arr = _toeflSecArr(_toeflSection);
     const q = arr[_toeflIdx];
     const total = arr.length;
+    // Kalau soal ini lagi mode generate dgn sumber voicebox (mis. dibuka lagi
+    // utk diedit) tapi daftar profile belum pernah dimuat di tab ini, mulai
+    // muat sekarang (async, re-render sendiri lewat _toeflEnsureVoiceboxProfilesLoaded).
+    if (q && q.audio_mode === 'generate' && q.audio_source === 'voicebox' && _voiceboxProfilesCache === null && !_voiceboxProfilesLoading) {
+        _toeflEnsureVoiceboxProfilesLoaded();
+    }
 
     c.innerHTML = `
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap">
@@ -1203,7 +1321,23 @@ ${!q ? `<div class="card" style="text-align:center;padding:32px;color:var(--text
       </div>
       ${q.audio_mode === 'generate' ? `
       <div style="display:flex;flex-direction:column;gap:8px">
-        ${(q.tts_segments || []).map(seg => `
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <button class="btn ${(!q.audio_source || q.audio_source === 'edge') ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="toeflSetAudioSource('edge')">Edge TTS (gratis)</button>
+          <button class="btn ${q.audio_source === 'voicebox' ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="toeflSetAudioSource('voicebox')">Voicebox Lokal (VoxCPM2)</button>
+          ${q.audio_source === 'voicebox' ? `<button class="btn-icon" title="Pengaturan server voicebox" onclick="VoiceboxClient.openSettingsModal()" style="flex-shrink:0">⚙️</button>` : ''}
+        </div>
+        ${q.audio_source === 'voicebox' ? `<div style="font-size:11px;color:var(--text-sub)">Disintesis LANGSUNG dari browser ini ke server voicebox yang jalan di komputer kamu sendiri (bukan lewat server aplikasi) — pastikan server voicebox sudah dijalankan. Voice profile dikelola di aplikasi voicebox sendiri (kloning rekaman atau voice design dari deskripsi teks).</div>` : ''}
+        ${(q.tts_segments || []).map(seg => q.audio_source === 'voicebox' ? `
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn-icon danger" title="Hapus bagian ini" onclick="toeflTtsRemoveSegment('${seg.id}')" style="flex-shrink:0">✕</button>
+          <input class="form-input" style="flex:1;min-width:160px" type="text" placeholder="Teks yang mau diubah jadi suara..." value="${_toeflEscAttr(seg.text || '')}" oninput="toeflTtsEditSegment('${seg.id}','text',this.value)">
+          <select class="form-input" style="width:200px;flex-shrink:0" onchange="toeflTtsEditSegment('${seg.id}','profileId',this.value)" ${_voiceboxProfilesLoading ? 'disabled' : ''}>
+            ${_voiceboxProfilesLoading ? `<option>Memuat daftar suara...</option>` :
+              !(_voiceboxProfilesCache && _voiceboxProfilesCache.length) ? `<option value="">${_voiceboxProfilesError ? '⚠ ' + _toeflEsc(_voiceboxProfilesError) : 'Belum ada voice profile'}</option>` :
+              `<option value="">-- Pilih Profile --</option>` + _voiceboxProfilesCache.map(p => `<option value="${p.id}" ${seg.profileId === p.id ? 'selected' : ''}>${_toeflEsc(p.name)}</option>`).join('')}
+          </select>
+          <input class="form-input" style="width:180px;flex-shrink:0" type="text" placeholder="Gaya bicara (opsional)" value="${_toeflEscAttr(seg.instruct || '')}" oninput="toeflTtsEditSegment('${seg.id}','instruct',this.value)">
+        </div>` : `
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <button class="btn-icon danger" title="Hapus bagian ini" onclick="toeflTtsRemoveSegment('${seg.id}')" style="flex-shrink:0">✕</button>
           <input class="form-input" style="flex:1;min-width:160px" type="text" placeholder="Teks yang mau diubah jadi suara..." value="${_toeflEscAttr(seg.text || '')}" oninput="toeflTtsEditSegment('${seg.id}','text',this.value)">
