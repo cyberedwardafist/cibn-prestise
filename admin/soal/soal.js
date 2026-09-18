@@ -1437,7 +1437,7 @@ async function downloadSoalTemplate() {
         }
 
         const mkSoalRows = (extraHeaderAfterNo, exampleExtra) => {
-            const header = ['No', ...extraHeaderAfterNo, 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban'];
+            const header = ['No', ...extraHeaderAfterNo, 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban', 'Pembahasan (opsional)'];
             const exampleRow = [1, ...exampleExtra];
             const rows = [header, exampleRow];
             for (let i = 2; i <= jumlah; i++) {
@@ -1450,17 +1450,17 @@ async function downloadSoalTemplate() {
 
         if (includeListening) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mkSoalRows(
             ['Audio URL'],
-            ['https://contoh-link-audio.mp3', 'Contoh: What does the woman mean?', 'She is busy', 'She agrees', 'She is late', '', '', 'B']
+            ['https://contoh-link-audio.mp3', 'Contoh: What does the woman mean?', 'She is busy', 'She agrees', 'She is late', '', '', 'B', 'Contoh pembahasan (opsional)']
         )), 'Listening');
 
         if (includeStructure) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mkSoalRows(
             ['Subtipe (rumpang/salah)'],
-            ['rumpang', 'Contoh: The train ___ at 9 AM every day.', 'leave', 'leaves', 'left', 'leaving', '', 'B']
+            ['rumpang', 'Contoh: The train ___ at 9 AM every day.', 'leave', 'leaves', 'left', 'leaving', '', 'B', 'Contoh pembahasan (opsional)']
         )), 'Structure');
 
         if (includeReading) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mkSoalRows(
             ['No Bacaan (opsional, sesuai No di sheet Bacaan)'],
-            [1, 'Contoh: Kapan kereta api pertama di Indonesia dibangun?', '1864', '1900', '1945', '', '', 'A']
+            [1, 'Contoh: Kapan kereta api pertama di Indonesia dibangun?', '1864', '1900', '1945', '', '', 'A', 'Contoh pembahasan (opsional)']
         )), 'Reading');
 
         const bagianLabel = toeflMode === 'full' ? 'LISTENING · STRUCTURE · READING' : _toeflSectionLabel(toeflMode).toUpperCase();
@@ -1477,9 +1477,10 @@ async function downloadSoalTemplate() {
             ['Kolom Pilihan C, D, E boleh dikosongkan jika soal hanya punya 2-3 pilihan.'],
             ['Isi pilihan berurutan dari A tanpa melompati kolom (jangan isi C jika B kosong).'],
             ['Isi "Kunci Jawaban" dengan SATU huruf pilihan yang benar (A/B/C/D/E) — semua soal TOEFL single-answer, tidak bisa lebih dari 1 kunci.'],
+            ['Kolom "Pembahasan" bersifat opsional — diisi teks biasa (bukan format HTML/kaya seperti Multiple Choice), tampil ke peserta setelah submit ujian. Boleh dikosongkan.'],
             ['Kolom "No" di tiap sheet hanya penomoran, tidak wajib berurutan.'],
             ['"Nama Internal" & "Kelompok" di sheet Info bersifat opsional, sama seperti tipe soal lain.'],
-            ['Field "Materi", "Sistem Penilaian", dan "Pembahasan" TIDAK berlaku untuk TOEFL (skor dihitung otomatis lewat tabel konversi ITP resmi) — kolom-kolom itu sengaja tidak ada di template ini.'],
+            ['Field "Materi" dan "Sistem Penilaian" di sheet Info TIDAK berlaku untuk TOEFL (skor dihitung otomatis lewat tabel konversi ITP resmi berdasar jumlah jawaban benar per section, bukan per-soal/per-pilihan) — kolom-kolom itu sengaja tidak ada di template ini.'],
         );
         if (toeflMode !== 'full') petunjuk.push([`File ini cuma berisi bagian ${_toeflSectionLabel(toeflMode)} (sesuai pilihan "Bagian TOEFL" saat unduh) — soal yang diupload dari file ini akan jadi 1 soal TOEFL baru dengan bagian lain (${['listening','structure','reading'].filter(s => s !== toeflMode).map(_toeflSectionLabel).join(', ')}) kosong. Kalau mau bikin soal TOEFL lengkap (semua bagian), unduh ulang template dengan "Bagian TOEFL" = Full.`]);
         petunjuk.forEach((r, i) => { if (i > 0) r[0] = `${i}. ${r[0]}`; });
@@ -1808,14 +1809,14 @@ async function _importSoalFromWorkbook(wb, imageMap) {
         const listening = {
             soal: (wantListening ? (listeningRows.length ? listeningRows : [[]]) : []).map((r, idx) => {
                 const { jawaban, kunci } = parseOpsiKunci(r, idx);
-                return { id: 'TQ_' + Date.now() + '_L' + idx, pertanyaan: String(r[2] || '').trim(), jawaban, kunci, audio_url: String(r[1] || '').trim() };
+                return { id: 'TQ_' + Date.now() + '_L' + idx, pertanyaan: String(r[2] || '').trim(), jawaban, kunci, audio_url: String(r[1] || '').trim(), pembahasan: String(r[9] || '').trim() };
             })
         };
         const structure = {
             soal: (wantStructure ? (structureRows.length ? structureRows : [[]]) : []).map((r, idx) => {
                 const { jawaban, kunci } = parseOpsiKunci(r, idx);
                 const subtipeRaw = String(r[1] || '').trim().toLowerCase();
-                return { id: 'TQ_' + Date.now() + '_S' + idx, pertanyaan: String(r[2] || '').trim(), jawaban, kunci, subtipe: subtipeRaw === 'salah' ? 'salah' : 'rumpang' };
+                return { id: 'TQ_' + Date.now() + '_S' + idx, pertanyaan: String(r[2] || '').trim(), jawaban, kunci, subtipe: subtipeRaw === 'salah' ? 'salah' : 'rumpang', pembahasan: String(r[9] || '').trim() };
             })
         };
         const reading = {
@@ -1823,7 +1824,7 @@ async function _importSoalFromWorkbook(wb, imageMap) {
             soal: (wantReading ? (readingRows.length ? readingRows : [[]]) : []).map((r, idx) => {
                 const { jawaban, kunci } = parseOpsiKunci(r, idx);
                 const noBacaan = String(r[1] || '').trim();
-                return { id: 'TQ_' + Date.now() + '_R' + idx, pertanyaan: String(r[2] || '').trim(), jawaban, kunci, passage_id: noBacaan ? (passageByNo[noBacaan] || null) : null };
+                return { id: 'TQ_' + Date.now() + '_R' + idx, pertanyaan: String(r[2] || '').trim(), jawaban, kunci, passage_id: noBacaan ? (passageByNo[noBacaan] || null) : null, pembahasan: String(r[9] || '').trim() };
             })
         };
 
@@ -2144,14 +2145,19 @@ function _buildSoalWorkbook(s) {
         ['Nama Soal', s.nama || ''],
         ['Nama Internal', s.nama_internal || ''],
         ['Kelompok', _soalKelompokNama(s.kelompok) || ''],
-        ['Materi', type === 'sikap_kerja' ? '-' : materiListExport.map(m => m.nama).join(', ')],
+        ['Materi', type === 'sikap_kerja' ? '-' : (type === 'toefl' ? '-' : materiListExport.map(m => m.nama).join(', '))],
         ['Tipe Soal', type],
-        ['Sistem Penilaian', type === 'sikap_kerja' ? '-' : skorType],
-        ['Jumlah Jawaban Dipilih Peserta', type === 'sikap_kerja' ? '-' : (s.opsi_jawaban || 1)],
+        ['Sistem Penilaian', (type === 'sikap_kerja' || type === 'toefl') ? '-' : skorType],
+        ['Jumlah Jawaban Dipilih Peserta', (type === 'sikap_kerja' || type === 'toefl') ? '-' : (s.opsi_jawaban || 1)],
         ['Timer Jam', (s.timer && s.timer.jam) ?? s.timer_jam ?? 0],
         ['Timer Menit', (s.timer && s.timer.menit) ?? s.timer_menit ?? 30],
         ['Timer Detik', (s.timer && s.timer.detik) ?? s.timer_detik ?? 0],
     ];
+    // Mode TOEFL ikut diekspor supaya kalau file ini diupload ulang (round-trip
+    // edit lewat Excel), _importSoalFromWorkbook() tahu section mana yang
+    // memang sengaja kosong vs section di luar cakupan mode — sama seperti
+    // field ini ditulis saat "Unduh Template" (lihat downloadSoalTemplate()).
+    if (type === 'toefl') infoRows.splice(6, 0, ['Mode TOEFL', (s.data && s.data.mode) || 'full']);
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(infoRows), 'Info');
 
     const data = s.data || [];
@@ -2188,20 +2194,21 @@ function _buildSoalWorkbook(s) {
                 r.push(q.pertanyaan || '');
                 for (let k = 0; k < 5; k++) r.push(jawaban[k] ? (jawaban[k].teks || '') : '');
                 r.push(kunciHuruf);
+                r.push(q.pembahasan || '');
                 rows.push(r);
             });
             return rows;
         };
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
-            ['No', 'Audio URL', 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban'],
+            ['No', 'Audio URL', 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban', 'Pembahasan (opsional)'],
             ...soalRowsFor((toefl.listening && toefl.listening.soal) || [], q => q.audio_url || '')
         ]), 'Listening');
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
-            ['No', 'Subtipe (rumpang/salah)', 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban'],
+            ['No', 'Subtipe (rumpang/salah)', 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban', 'Pembahasan (opsional)'],
             ...soalRowsFor((toefl.structure && toefl.structure.soal) || [], q => q.subtipe || 'rumpang')
         ]), 'Structure');
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
-            ['No', 'No Bacaan (opsional, sesuai No di sheet Bacaan)', 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban'],
+            ['No', 'No Bacaan (opsional, sesuai No di sheet Bacaan)', 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban', 'Pembahasan (opsional)'],
             ...soalRowsFor((toefl.reading && toefl.reading.soal) || [], q => q.passage_id && passageNoOf[q.passage_id] ? passageNoOf[q.passage_id] : '')
         ]), 'Reading');
     } else {
@@ -2292,10 +2299,19 @@ async function exportLibSoalToExcel(kode) {
 
 // Export soal yang SEDANG dibuka di builder (dipanggil dari tombol di layar Buat/Edit Soal)
 async function exportCurrentSoalToExcel() {
+    // BUG lama: cabang toefl tidak ditangani sama sekali di sini -> selalu
+    // kirim `pertanyaan` (kosong utk TOEFL, isinya cuma dipakai MC/Linier),
+    // jadi export soal TOEFL yang lagi dibuka di builder menghasilkan 3 sheet
+    // section yang KOSONG TOTAL walau soalnya sudah diisi penuh. Data TOEFL
+    // yang sebenarnya ada di SoalState.toefl (lihat _blankToeflData()/startToeflBuild()).
+    syncEditors();
+    const data = SoalState.type === 'sikap_kerja' ? (SoalState.kolom || [])
+        : SoalState.type === 'toefl' ? (SoalState.toefl || _blankToeflData())
+        : (SoalState.pertanyaan || []);
     await exportSoalDataToExcel({
         nama: SoalState.nama, nama_internal: SoalState.nama_internal, type: SoalState.type, skor_type: SoalState.skor_type,
         opsi_jawaban: SoalState.opsi_jawaban, timer: SoalState.timer, kelompok: SoalState.kelompok,
-        data: SoalState.type === 'sikap_kerja' ? (SoalState.kolom || []) : (SoalState.pertanyaan || []),
+        data,
         materi_list: SoalState.materiList || [],
     });
 }
