@@ -15,6 +15,7 @@ const { kirimEmail, invalidateMailerCache, verifikasiDanKirimTes } = require('./
 const { mulaiScheduler, jalankanCekReminder } = require('./lib/kelas-reminder');
 const { getGmeetConfig, buildGmeetAuthUrl, exchangeGmeetCode, disconnectGmeet, invalidateGmeetTokenCache, createMeetEvent } = require('./lib/gmeet');
 const toeflLib = require('./lib/toefl');
+const edgeTts = require('./lib/edge-tts');
 
 const app       = express();
 const PORT      = process.env.PORT || 3000;
@@ -2137,6 +2138,34 @@ app.post('/api/upload-finalize', auth(['admin']), ah(async (req, res) => {
     const { oldUrl } = req.body || {};
     if (oldUrl) deleteUploadedFileByUrl(oldUrl).catch(() => {});
     res.json({ ok: true });
+}));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GENERATE SUARA (TTS) — fitur "🎙️ Generate Suara" di form soal Listening TOEFL
+// (lihat lib/edge-tts.js utk penjelasan lengkap & katalog suara). Endpoint ini
+// TIDAK menyimpan apa pun sendiri — cuma sintesis teks -> audio lalu balikin
+// bytes-nya. Browser yang lalu meng-upload hasilnya via /api/upload-init (kind
+// 'soal-audio'), SAMA PERSIS spt upload audio manual, supaya alur penyimpanan
+// & pembersihan file lama (cleanupOrphanedUploads dsb) tidak perlu kode baru.
+app.get('/api/admin/tts/voices', auth(['admin']), ah(async (req, res) => {
+    res.json({ voices: edgeTts.VOICE_CATALOG });
+}));
+app.post('/api/admin/tts/generate', auth(['admin']), ah(async (req, res) => {
+    const segments = Array.isArray(req.body?.segments) ? req.body.segments : [];
+    const clean = segments
+        .map(s => ({ text: String(s?.text || '').trim(), voice: String(s?.voice || ''), rate: String(s?.rate || '0%') }))
+        .filter(s => s.text);
+    if (!clean.length) return res.status(400).json({ error: 'Tidak ada teks untuk digenerate' });
+    if (clean.some(s => s.text.length > 2000)) return res.status(400).json({ error: 'Ada bagian teks yang terlalu panjang (maks 2000 karakter/bagian)' });
+    try {
+        const buffer = await edgeTts.synthesizeSegments(clean);
+        res.set('Content-Type', 'audio/mpeg');
+        res.set('Content-Disposition', 'inline; filename="generated.mp3"');
+        res.send(buffer);
+    } catch (e) {
+        console.error('[TTS] Gagal generate suara:', e.message);
+        res.status(502).json({ error: 'Gagal generate suara: ' + (e.message || 'layanan TTS tidak merespons') });
+    }
 }));
 
 app.get('/api/soal', auth(['admin']), ah(async (req, res) => {

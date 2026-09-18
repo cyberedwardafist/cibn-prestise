@@ -1012,6 +1012,103 @@ async function toeflOnAudioFileSelected(input) {
     else showToast('Gagal upload audio: ' + (res && res.error || 'tipe/ukuran file tidak didukung'), 'danger');
 }
 
+// ── Generate Suara (Text-to-Speech) utk Audio Listening ────────────────────
+// Alternatif dari link/upload manual: admin tulis beberapa "bagian" teks
+// (mis. dialog A lalu dialog B), tiap bagian pilih suara & kecepatan sendiri,
+// lalu semuanya digabung jadi 1 file audio SEKALI JADI (persis kayak hasil
+// upload manual) begitu soal disimpan — lihat _toeflFinalizeGeneratedAudio()
+// & hook-nya di simpanSoal(). Sintesis suaranya lewat server (lib/edge-tts.js,
+// pakai layanan Microsoft Edge Read Aloud — gratis & tanpa API key), BUKAN
+// speechSynthesis bawaan browser, karena suara browser tidak bisa direkam
+// jadi file (keterbatasan browser, bukan pilihan desain).
+//
+// PENTING: daftar suara di bawah HARUS SAMA (id-nya) dengan TTS_VOICE_CATALOG
+// di lib/edge-tts.js — cuma dipakai buat render pilihan di UI, validasi asli
+// tetap di server.
+const TTS_VOICES = [
+    { id: 'en-US-GuyNeural',   label: '🚹 Guy (Pria, US)' },
+    { id: 'en-US-DavisNeural', label: '🚹 Davis (Pria, US)' },
+    { id: 'en-US-TonyNeural',  label: '🚹 Tony (Pria, US)' },
+    { id: 'en-GB-RyanNeural',  label: '🚹 Ryan (Pria, UK)' },
+    { id: 'en-US-JennyNeural', label: '🚺 Jenny (Wanita, US)' },
+    { id: 'en-US-AriaNeural',  label: '🚺 Aria (Wanita, US)' },
+    { id: 'en-GB-SoniaNeural', label: '🚺 Sonia (Wanita, UK)' },
+];
+function _toeflNewTtsSegment() {
+    return { id: 'SEG_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), text: '', voice: TTS_VOICES[0].id, rate: '0%' };
+}
+// on=true -> buka mode Generate (dari box link/upload biasa). on=false -> balik
+// ke mode link/upload manual (segmen yang sudah ditulis tetap tersimpan di
+// q.tts_segments kalau mau lanjut edit lagi nanti, tidak ikut terhapus).
+function toeflToggleAudioGenerate(on) {
+    const q = _toeflSecArr('listening')[_toeflIdx]; if (!q) return;
+    q.audio_mode = on ? 'generate' : 'link';
+    if (on && !(q.tts_segments && q.tts_segments.length)) q.tts_segments = [_toeflNewTtsSegment()];
+    setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
+}
+function toeflTtsAddSegment() {
+    const q = _toeflSecArr('listening')[_toeflIdx]; if (!q) return;
+    if (!q.tts_segments) q.tts_segments = [];
+    q.tts_segments.push(_toeflNewTtsSegment());
+    setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
+}
+function toeflTtsRemoveSegment(sid) {
+    const q = _toeflSecArr('listening')[_toeflIdx]; if (!q || !q.tts_segments) return;
+    if (q.tts_segments.length <= 1) { showToast('Minimal 1 bagian teks', 'danger'); return; }
+    q.tts_segments = q.tts_segments.filter(s => s.id !== sid);
+    setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
+}
+function toeflTtsEditSegment(sid, field, val) {
+    const q = _toeflSecArr('listening')[_toeflIdx]; if (!q || !q.tts_segments) return;
+    const seg = q.tts_segments.find(s => s.id === sid); if (!seg) return;
+    seg[field] = val; setDirty('pembuatan soal'); _soalQueueAutoSave();
+}
+// Minta server sintesis + gabungkan semua segmen jadi 1 blob MP3. Dipakai
+// utk preview (Play) MAUPUN finalisasi (beda cuma langkah upload sesudahnya).
+async function _toeflGenerateTtsBlob(segments) {
+    const clean = (segments || []).filter(s => (s.text || '').trim());
+    if (!clean.length) throw new Error('Isi dulu teks yang mau digenerate');
+    let res;
+    try {
+        res = await fetch(API_BASE + '/admin/tts/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Auth.getToken()}` },
+            body: JSON.stringify({ segments: clean.map(s => ({ text: s.text, voice: s.voice, rate: s.rate })) })
+        });
+    } catch (e) { throw new Error('Tidak bisa terhubung ke server TTS'); }
+    if (!res.ok) {
+        let msg = `Gagal generate suara (HTTP ${res.status})`;
+        try { const j = await res.json(); if (j && j.error) msg = j.error; } catch (e) {}
+        throw new Error(msg);
+    }
+    return await res.blob();
+}
+let _toeflTtsPreviewAudio = null;
+async function toeflTtsPreview() {
+    const q = _toeflSecArr('listening')[_toeflIdx]; if (!q) return;
+    const btn = document.getElementById('toefl-tts-play-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Memproses...'; }
+    try {
+        const blob = await _toeflGenerateTtsBlob(q.tts_segments);
+        if (_toeflTtsPreviewAudio) { _toeflTtsPreviewAudio.pause(); URL.revokeObjectURL(_toeflTtsPreviewAudio.src); }
+        _toeflTtsPreviewAudio = new Audio(URL.createObjectURL(blob));
+        await _toeflTtsPreviewAudio.play();
+    } catch (e) { showToast(e.message || 'Gagal preview suara', 'danger'); }
+    finally { if (btn) { btn.disabled = false; btn.textContent = '▶ Play'; } }
+}
+// Dipanggil OTOMATIS dari simpanSoal() utk tiap soal Listening yang masih
+// mode 'generate' — gabungkan segmen jadi 1 file, upload lewat jalur
+// presigned yang SAMA PERSIS dgn upload manual (apiUploadAudio), lalu isi
+// audio_url spt biasa & balik ke mode 'link'. Kalau gagal, lempar error
+// supaya simpanSoal() membatalkan simpan (bukan menyimpan soal tanpa audio).
+async function _toeflFinalizeGeneratedAudio(q) {
+    const blob = await _toeflGenerateTtsBlob(q.tts_segments);
+    const file = new File([blob], `tts-${Date.now()}.mp3`, { type: 'audio/mpeg' });
+    const res = await apiUploadAudio(file);
+    if (!res || !res.url) throw new Error((res && res.error) || 'Gagal upload hasil generate suara');
+    q.audio_url = res.url; q.audio_mode = 'link';
+}
+
 // ── Bacaan (passage) Reading — 1 bacaan dipakai bersama oleh beberapa soal ──
 function toeflTambahPassage() {
     const list = _toeflPassages();
@@ -1100,14 +1197,39 @@ ${!q ? `<div class="card" style="text-align:center;padding:32px;color:var(--text
   <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px">
     ${_toeflSection === 'listening' ? `
     <div class="card" style="padding:16px">
-      <div class="form-label" style="margin-bottom:8px">🎧 Audio Listening</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+        <div class="form-label" style="margin-bottom:0">🎧 Audio Listening</div>
+        ${q.audio_mode === 'generate' ? `<button id="toefl-tts-play-btn" class="btn btn-secondary btn-sm" onclick="toeflTtsPreview()">▶ Play</button>` : ''}
+      </div>
+      ${q.audio_mode === 'generate' ? `
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${(q.tts_segments || []).map(seg => `
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn-icon danger" title="Hapus bagian ini" onclick="toeflTtsRemoveSegment('${seg.id}')" style="flex-shrink:0">✕</button>
+          <input class="form-input" style="flex:1;min-width:160px" type="text" placeholder="Teks yang mau diubah jadi suara..." value="${_toeflEscAttr(seg.text || '')}" oninput="toeflTtsEditSegment('${seg.id}','text',this.value)">
+          <select class="form-input" style="width:180px;flex-shrink:0" onchange="toeflTtsEditSegment('${seg.id}','voice',this.value)">
+            ${TTS_VOICES.map(v => `<option value="${v.id}" ${seg.voice === v.id ? 'selected' : ''}>${v.label}</option>`).join('')}
+          </select>
+          <select class="form-input" style="width:100px;flex-shrink:0" onchange="toeflTtsEditSegment('${seg.id}','rate',this.value)">
+            <option value="-20%" ${seg.rate === '-20%' ? 'selected' : ''}>🐢 Lambat</option>
+            <option value="0%" ${(!seg.rate || seg.rate === '0%') ? 'selected' : ''}>Normal</option>
+            <option value="20%" ${seg.rate === '20%' ? 'selected' : ''}>🐇 Cepat</option>
+          </select>
+        </div>`).join('')}
+        <button class="btn btn-secondary btn-sm" style="align-self:flex-start" onclick="toeflTtsAddSegment()">+ Tambah Generate</button>
+        <div style="font-size:11px;color:var(--text-sub)">Semua bagian teks di atas otomatis digabung jadi 1 file audio saat soal disimpan.</div>
+        <span onclick="toeflToggleAudioGenerate(false)" style="font-size:12px;color:var(--accent);font-weight:600;cursor:pointer;text-decoration:underline;align-self:flex-start">← Kembali ke Link/Upload manual</span>
+      </div>
+      ` : `
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <input class="form-input" style="flex:1;min-width:200px" type="text" placeholder="Tempel link/URL audio di sini..." value="${_toeflEscAttr(q.audio_url || '')}" oninput="toeflSetAudioUrl(this.value)">
         <button class="btn btn-secondary btn-sm" onclick="toeflTriggerAudioUpload()">⬆ Upload File Audio</button>
+        <button class="btn btn-secondary btn-sm" onclick="toeflToggleAudioGenerate(true)">🎙️ Generate Suara</button>
       </div>
       <input type="file" id="toefl-audio-input" accept="audio/*" style="display:none" onchange="toeflOnAudioFileSelected(this)">
       ${q.audio_url ? `<audio controls src="${_toeflEscAttr(q.audio_url)}" style="width:100%;margin-top:10px"></audio>` : ''}
-      <div style="font-size:11px;color:var(--text-sub);margin-top:6px">Isi link/URL ATAU upload file — dua-duanya boleh dipakai.</div>
+      <div style="font-size:11px;color:var(--text-sub);margin-top:6px">Isi link/URL, upload file, ATAU generate suara dari teks — pilih salah satu.</div>
+      `}
     </div>` : ''}
     ${_toeflSection === 'structure' ? `
     <div class="card" style="padding:16px">
@@ -1235,6 +1357,23 @@ function _compactSikapKolom(kolom){
 async function simpanSoal(){
     syncEditors();
     if(!SoalState.nama){showToast('Nama soal wajib','danger');return;}
+    // Soal TOEFL Listening yg masih mode 'generate' (Text-to-Speech) HARUS
+    // difinalisasi jadi 1 file audio dulu sebelum disimpan — lihat
+    // _toeflFinalizeGeneratedAudio() & penjelasan di deklarasi TTS_VOICES.
+    // Kalau ADA yg gagal, batalkan simpan sama sekali (bukan simpan tanpa
+    // audio) supaya admin sadar & bisa coba lagi.
+    if (SoalState.type === 'toefl') {
+        const pending = ((SoalState.toefl && SoalState.toefl.listening && SoalState.toefl.listening.soal) || [])
+            .filter(q => q.audio_mode === 'generate' && (q.tts_segments || []).some(s => (s.text || '').trim()));
+        if (pending.length) {
+            showToast(`Menggabungkan ${pending.length} suara hasil generate...`, 'success', 5000);
+            for (const q of pending) {
+                try { await _toeflFinalizeGeneratedAudio(q); }
+                catch (e) { showToast('Gagal finalisasi audio generate: ' + (e.message || 'error'), 'danger'); _animateTo(_renderToeflHtml); return; }
+            }
+            _animateTo(_renderToeflHtml);
+        }
+    }
     const payload={nama:SoalState.nama,nama_internal:SoalState.nama_internal||'',type:SoalState.type,skor_type:SoalState.skor_type,opsi_jawaban:SoalState.opsi_jawaban,timer_jam:SoalState.timer.jam,timer_menit:SoalState.timer.menit,timer_detik:SoalState.timer.detik,kelompok:SoalState.kelompok||'',data:SoalState.type==='sikap_kerja'?_compactSikapKolom(SoalState.kolom):(SoalState.type==='toefl'?SoalState.toefl:SoalState.pertanyaan),materi_list:SoalState.materiList||[]};
     try {
         if(SoalState.kode) await SoalAPI.update(SoalState.kode,payload);
