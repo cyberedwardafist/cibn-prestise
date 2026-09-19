@@ -157,6 +157,23 @@ html.vp-resizing *, html.vp-resizing *::before, html.vp-resizing *::after {
    1 baris cuma muat ~10 nomor, nomor ke-11 dst otomatis lanjut ke baris baru. */
 #h-nav-bar-inlaid .nav-grid-v{flex-wrap:wrap;overflow:visible;max-height:none;flex:unset;align-content:flex-start;}
 
+/* ══ TOEFL — memakai kerangka mc-layout (q-box, a-box, tombol nav, timer & grid navigasi sama persis dgn MC) ══ */
+.tf-tabs{display:none;gap:8px;flex-shrink:0;}
+.tf-tab{flex:1;max-width:170px;text-align:center;padding:9px 8px;border-radius:11px;font-size:12px;font-weight:700;letter-spacing:0.02em;background:rgba(255,255,255,0.6);border:1.5px solid rgba(19,50,89,0.09);color:var(--text-sub);}
+.tf-tab.cur{background:var(--blue);border-color:var(--blue);color:#fff;}
+.tf-tab.done{background:rgba(22,163,74,0.12);border-color:rgba(22,163,74,0.25);color:var(--success);}
+.tf-card{background:rgba(255,255,255,0.72);border:1.5px solid rgba(255,255,255,0.9);border-radius:16px;padding:18px 22px;box-shadow:0 4px 16px rgba(19,50,89,0.06);flex-shrink:0;}
+.tf-audio{text-align:center;}
+.tf-audio audio{width:100%;margin-bottom:8px;}
+.tf-audio-info{font-size:12px;color:var(--text-sub);}
+.tf-passage{max-height:min(44vh,440px);overflow-y:auto;font-size:15px;line-height:1.8;color:var(--text-main);overflow-wrap:break-word;}
+.tf-passage-ttl{font-family:var(--font-head);font-weight:700;font-size:15px;color:var(--blue);margin-bottom:8px;}
+@media(max-width:768px){
+  .tf-card{padding:14px 16px;}
+  .tf-passage{max-height:38vh;font-size:14px;}
+  .tf-tab{font-size:11px;padding:8px 4px;}
+}
+
 /* ══ SIKAP KERJA ══ */
 #sk-layout{display:none;flex-direction:column;width:100%;height:100%;}
 #sk-layout.active{display:flex;}
@@ -442,6 +459,11 @@ html.vp-resizing *, html.vp-resizing *::before, html.vp-resizing *::after {
             <div class="timer-val" id="timer-val-top">00:00:00</div>
           </div>
           <div class="mc-scroll" id="mc-scroll">
+            <!-- TOEFL: 3 blok ini hanya terisi saat soal bertipe toefl (lihat renderToeflQ);
+                 untuk tipe lain tetap display:none sehingga tidak mengubah tampilan MC sama sekali. -->
+            <div class="tf-tabs" id="tf-tabs" style="display:none"></div>
+            <div class="tf-card tf-audio" id="tf-audio-box" style="display:none"></div>
+            <div class="tf-card tf-passage" id="tf-passage-box" style="display:none"></div>
             <div class="q-box"><div class="q-num" id="q-num">Soal 1</div><div class="q-text" id="q-text"></div></div>
             <div class="a-box" id="a-box"></div>
             
@@ -499,36 +521,6 @@ html.vp-resizing *, html.vp-resizing *::before, html.vp-resizing *::after {
       </div>
     </div>
 
-    <!-- ══ TOEFL LAYOUT ══ soal type 'toefl' (Listening/Structure/Reading) —
-         lihat lib/toefl.js utk struktur data & mesin skornya, dan renderToeflExam()
-         di bawah utk logikanya. Timer PAKAI elemen timer bersama (#timer-val dkk,
-         sama seperti mc-layout) — dipilih supaya toefl ikut alur "1 timer per
-         bagian soal" yang sudah ada (lihat tickGroupTimer), bukan timer sendiri
-         seperti Sikap Kerja. Dibuat 100% inline-style (tidak menambah blok CSS
-         baru) supaya tidak berisiko bentrok dengan style halaman yang sudah ada. -->
-    <div id="toefl-layout" style="display:none;height:100%;overflow-y:auto;padding:16px;box-sizing:border-box">
-      <div style="max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:14px">
-        <div style="display:flex;gap:8px;justify-content:center">
-          <div id="toefl-tab-listening" style="flex:1;max-width:160px;text-align:center;padding:8px 6px;border-radius:10px;font-size:12px;font-weight:700;background:rgba(255,255,255,0.6);color:var(--text-sub)">🎧 Listening</div>
-          <div id="toefl-tab-structure" style="flex:1;max-width:160px;text-align:center;padding:8px 6px;border-radius:10px;font-size:12px;font-weight:700;background:rgba(255,255,255,0.6);color:var(--text-sub)">📝 Structure</div>
-          <div id="toefl-tab-reading" style="flex:1;max-width:160px;text-align:center;padding:8px 6px;border-radius:10px;font-size:12px;font-weight:700;background:rgba(255,255,255,0.6);color:var(--text-sub)">📖 Reading</div>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.7);border-radius:12px;padding:10px 14px">
-          <div style="font-size:12px;font-weight:700;color:var(--text-sub)" id="toefl-progress-lbl">Soal 1/1</div>
-          <div style="font-size:13px;font-weight:700;color:var(--blue)" id="toefl-timer-val">00:00:00</div>
-        </div>
-        <div id="toefl-passage-box" style="display:none;background:rgba(255,255,255,0.75);border-radius:14px;padding:16px;max-height:220px;overflow-y:auto;font-size:13px;line-height:1.7;color:var(--text-main)"></div>
-        <div id="toefl-audio-box" style="display:none;background:rgba(255,255,255,0.75);border-radius:14px;padding:16px;text-align:center"></div>
-        <div style="background:rgba(255,255,255,0.85);border-radius:16px;padding:18px;box-shadow:0 4px 18px rgba(19,50,89,0.08)">
-          <div id="toefl-q-text" style="font-size:15px;font-weight:600;color:var(--text-main);line-height:1.6;margin-bottom:14px;white-space:pre-wrap"></div>
-          <div id="toefl-choices" style="display:flex;flex-direction:column;gap:9px"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;gap:10px">
-          <button class="btn-nav btn-nav-sec" id="toefl-btn-prev" onclick="toeflPrev()">← Kembali</button>
-          <button class="btn-nav btn-nav-pri" id="toefl-btn-next" onclick="toeflNext()">Lanjut →</button>
-        </div>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -989,7 +981,7 @@ function contentToHtml(v){
 function renderMC(item,resetScroll){
   document.getElementById('mc-layout').style.display='flex';
   document.getElementById('sk-layout').classList.remove('active');
-  document.getElementById('toefl-layout').style.display='none';
+  _toeflHideExtras();
   const {q,soalNama,type,qIdx,soalKode}=item;
   const key=`${soalKode}_${qIdx}`;
   const userAns=st.jawaban[key];
@@ -1103,6 +1095,7 @@ function pilihMC(sk,qi,jid,type){
 
 function prevSoal(){
   const it=st.flat[st.curIdx];
+  if(it&&it.type==='toefl'){toeflPrev();return;}
   if(!it||it.type==='linier')return;
   if(st.curIdx>0){
     if(isCrossingSoalSet(st.curIdx,st.curIdx-1)){
@@ -1114,6 +1107,7 @@ function prevSoal(){
 
 function nextSoal(){
   const it=st.flat[st.curIdx];if(!it)return;
+  if(it.type==='toefl'){toeflNext();return;}
   if(it.type==='linier'){
     const key=`${it.soalKode}_${it.qIdx}`;
     if(!st.jawaban[key]){showToast('Jawab soal ini dulu','danger');return;}
@@ -1146,10 +1140,12 @@ function showNextSetConfirm(nextIdx){
 }
 
 function closeNextSet(){
+  _toPendingAction=null;
   document.getElementById('next-set-overlay').style.display='none';
 }
 
 function doNextSet(){
+  if(_toPendingAction){const fn=_toPendingAction;closeNextSet();fn();return;} // konfirmasi pindah bagian TOEFL
   closeNextSet();
   if(_pendingNextIdx !== null){
     st.curIdx = _pendingNextIdx;
@@ -1174,7 +1170,8 @@ function goSoal(idx){
 }
 
 function toggleFlag(){
-  const it=st.flat[st.curIdx];if(!it||it.type==='sikap_kerja'||it.type==='toefl')return;
+  const it=st.flat[st.curIdx];if(it&&it.type==='toefl'){toeflToggleFlag();return;}
+  if(!it||it.type==='sikap_kerja')return;
   const key=`${it.soalKode}_${it.qIdx}`;
   if(st.flagged.has(key))st.flagged.delete(key);else st.flagged.add(key);
   renderCurrent();
@@ -1183,7 +1180,7 @@ function toggleFlag(){
 function renderSK(item) {
   document.getElementById('mc-layout').style.display = 'none';
   document.getElementById('sk-layout').classList.add('active');
-  document.getElementById('toefl-layout').style.display = 'none';
+  _toeflHideExtras();
   _skItem = item;
   
   const token = st.examData.token.kode;
@@ -1362,107 +1359,180 @@ function finishSK(){
 }
 
 /* ──────── TOEFL RENDER ────────
- * Navigasi: Listening → Structure → Reading, SATU ARAH (persis alur sikap_kerja
- * antar-kolom) — begitu semua soal 1 section dijawab/dilewati & "Lanjut" ditekan
- * dari soal TERAKHIR section itu, section sebelumnya terkunci (tidak bisa
- * kembali). Timer PAKAI timer kelompok yang sudah ada (lihat tickGroupTimer),
- * BUKAN timer sendiri seperti Sikap Kerja — konsisten dgn desain "1 timer utk
- * seluruh soal TOEFL" (lihat lib/toefl.js). Skor TIDAK dihitung di sini sama
- * sekali (lihat catatan ARSITEKTUR di dekat doSelesai()) — mesin ini murni
- * mengumpulkan jawaban ke st.jawaban dgn key toeflAnswerKey(), sama seperti
- * type lain.
+ * Tampilan memakai KERANGKA YANG SAMA dengan soal pilihan ganda (mc-layout):
+ * q-box / a-box / tombol Kembali-Flag-Lanjut / timer & grid navigasi soal
+ * (sidebar kanan, mode horizontal, dan drawer mobile ikut bekerja otomatis).
+ * Yang khas TOEFL hanya: tab section (hanya bila >1 section berisi soal),
+ * kotak audio (Listening) dan kotak bacaan (Reading) di atas soal.
+ *
+ * Alur: Listening → Structure → Reading, SATU ARAH — begitu pindah section,
+ * section sebelumnya terkunci. Di dalam 1 section peserta bebas maju/mundur
+ * lewat tombol atau grid navigasi. Section yang tidak punya soal dilewati &
+ * tidak ditampilkan sama sekali. Timer PAKAI timer kelompok yang sudah ada
+ * (lihat tickGroupTimer). Skor TIDAK dihitung di sini (lihat catatan
+ * ARSITEKTUR di dekat doSelesai()) — mesin ini murni mengumpulkan jawaban ke
+ * st.jawaban dgn key toeflAnswerKey(), sama seperti type lain.
  */
-let _toItem = null, _toSection = 'listening', _toIdx = 0;
+let _toItem = null, _toSection = 'listening', _toIdx = 0, _toPendingAction = null, _toRenderedKey = null;
 const TOEFL_SECTIONS = ['listening', 'structure', 'reading'];
+const TOEFL_LABEL = { listening: 'Listening', structure: 'Structure', reading: 'Reading' };
 function toeflAnswerKey(soalKode, section, idx){ return `${soalKode}_toefl_${section}_${idx}`; }
-
-function renderToeflExam(item){
-  document.getElementById('mc-layout').style.display='none';
-  document.getElementById('sk-layout').classList.remove('active');
-  document.getElementById('toefl-layout').style.display='block';
-  _toItem = item;
-  const token = st.examData.token.kode;
-  const savedSec = localStorage.getItem('cbn_toefl_section_' + token + '_' + item.soalKode);
-  const savedIdx = localStorage.getItem('cbn_toefl_idx_' + token + '_' + item.soalKode);
-  _toSection = (savedSec && TOEFL_SECTIONS.includes(savedSec)) ? savedSec : 'listening';
-  _toIdx = savedIdx ? (parseInt(savedIdx) || 0) : 0;
-  renderToeflQ();
-}
+function _toeflEsc(v){ return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function _toeflArr(section){ return (_toItem && _toItem.toefl && _toItem.toefl[section]) || []; }
+// Hanya section yang benar-benar punya soal (urutan tetap Listening → Structure → Reading)
+function _toeflSections(){ return TOEFL_SECTIONS.filter(s => _toeflArr(s).length > 0); }
+function _toeflSisa(section){
+  return _toeflArr(section).filter(q => !st.jawaban[toeflAnswerKey(_toItem.soalKode, section, q._origIdx)]).length;
+}
 
-function renderToeflQ(){
+// Sembunyikan & kosongkan elemen khusus TOEFL (dipanggil saat pindah ke soal tipe lain / selesai)
+function _toeflHideExtras(){
+  _toRenderedKey = null;
+  const a = document.getElementById('tf-audio-el');
+  if (a){ try{ a.pause(); }catch(e){} }
+  ['tf-tabs','tf-audio-box','tf-passage-box'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el){ el.style.display = 'none'; el.innerHTML = ''; }
+  });
+}
+
+function renderToeflExam(item){
+  document.getElementById('mc-layout').style.display = 'flex';
+  document.getElementById('sk-layout').classList.remove('active');
+  _toItem = item;
+  _toRenderedKey = null;
   const token = st.examData.token.kode;
-  let arr = _toeflArr(_toSection);
-  // Section ini tidak punya soal sama sekali (admin belum isi) -> lompat ke section berikutnya
-  while (!arr.length && TOEFL_SECTIONS.indexOf(_toSection) < TOEFL_SECTIONS.length - 1){
-    _toSection = TOEFL_SECTIONS[TOEFL_SECTIONS.indexOf(_toSection) + 1];
-    arr = _toeflArr(_toSection);
+  const secs = _toeflSections();
+  const savedSec = localStorage.getItem('cbn_toefl_section_' + token + '_' + item.soalKode);
+  const savedIdx = localStorage.getItem('cbn_toefl_idx_' + token + '_' + item.soalKode);
+  if (savedSec && secs.includes(savedSec)){
+    _toSection = savedSec;
+    _toIdx = savedIdx ? (parseInt(savedIdx) || 0) : 0;
+  } else {
+    _toSection = secs[0] || 'listening';
+    _toIdx = 0;
   }
-  if (!arr.length){ toeflFinish(); return; }
+  renderToeflQ(true);
+}
+
+function renderToeflQ(resetScroll){
+  const token = st.examData.token.kode;
+  const secs = _toeflSections();
+  if (!secs.length){ toeflFinish(); return; }
+  if (!secs.includes(_toSection)){
+    // Section aktif kosong -> lompat ke section berikutnya yang ada soalnya
+    const nxt = secs.find(s => TOEFL_SECTIONS.indexOf(s) > TOEFL_SECTIONS.indexOf(_toSection));
+    if (!nxt){ toeflFinish(); return; }
+    _toSection = nxt; _toIdx = 0;
+  }
+  const arr = _toeflArr(_toSection);
   if (_toIdx >= arr.length) _toIdx = arr.length - 1;
   if (_toIdx < 0) _toIdx = 0;
   localStorage.setItem('cbn_toefl_section_' + token + '_' + _toItem.soalKode, _toSection);
   localStorage.setItem('cbn_toefl_idx_' + token + '_' + _toItem.soalKode, _toIdx);
 
-  ['listening','structure','reading'].forEach(s=>{
-    const tab = document.getElementById('toefl-tab-'+s);
-    const order = TOEFL_SECTIONS.indexOf(s), cur = TOEFL_SECTIONS.indexOf(_toSection);
-    tab.style.background = s===_toSection ? 'var(--blue)' : (order<cur ? 'rgba(22,163,74,0.15)' : 'rgba(255,255,255,0.6)');
-    tab.style.color = s===_toSection ? '#fff' : (order<cur ? 'var(--success)' : 'var(--text-sub)');
-  });
-
   const q = arr[_toIdx];
-  document.getElementById('toefl-progress-lbl').textContent =
-    (_toSection==='listening'?'Listening':_toSection==='structure'?'Structure':'Reading') + ' · Soal ' + (_toIdx+1) + '/' + arr.length;
-
-  // Audio (Listening)
-  const audioBox = document.getElementById('toefl-audio-box');
-  if (_toSection==='listening' && q.audio_url){
-    audioBox.style.display='block';
-    const playsKey = toeflAnswerKey(_toItem.soalKode, 'listening', q._origIdx) + '_plays';
-    const playsRaw = JSON.parse(localStorage.getItem('cbn_toefl_plays_' + token) || '{}');
-    const plays = playsRaw[playsKey] || 0;
-    const maksTotal = 1 + (_toItem.maksPutar || 0); // 1x putar awal + N izin putar ulang
-    const sisa = Math.max(0, maksTotal - plays);
-    audioBox.innerHTML = `
-      <audio id="toefl-audio-el" src="${String(q.audio_url).replace(/"/g,'&quot;')}" style="width:100%;margin-bottom:8px" ${plays>=maksTotal?'':'controls'} ${plays>0?'':'autoplay'}></audio>
-      <div style="font-size:12px;color:var(--text-sub)">${sisa>0?`Sisa putar: <b>${sisa}x</b>`:'Audio sudah tidak bisa diputar lagi untuk soal ini'}</div>`;
-    const audioEl = document.getElementById('toefl-audio-el');
-    if (audioEl){
-      const markPlayed = ()=>{
-        const pr = JSON.parse(localStorage.getItem('cbn_toefl_plays_' + token) || '{}');
-        pr[playsKey] = (pr[playsKey]||0) + 1;
-        localStorage.setItem('cbn_toefl_plays_' + token, JSON.stringify(pr));
-        if (pr[playsKey] >= maksTotal) audioEl.removeAttribute('controls');
-      };
-      audioEl.addEventListener('play', markPlayed, { once:true });
-      if (plays >= maksTotal) audioEl.style.pointerEvents='none';
-    }
-  } else audioBox.style.display='none';
-
-  // Bacaan (Reading)
-  const passageBox = document.getElementById('toefl-passage-box');
-  if (_toSection==='reading' && q.passage_id){
-    const p = (_toItem.toefl.passages||[]).find(x=>x.id===q.passage_id);
-    if (p){ passageBox.style.display='block'; passageBox.innerHTML = `<div style="font-weight:700;margin-bottom:8px">${(p.judul||'').replace(/</g,'&lt;')}</div><div>${(p.teks||'').replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>`; }
-    else passageBox.style.display='none';
-  } else passageBox.style.display='none';
-
-  document.getElementById('toefl-q-text').textContent = q.pertanyaan || '';
   const ansKey = toeflAnswerKey(_toItem.soalKode, _toSection, q._origIdx);
   const userAns = st.jawaban[ansKey];
-  document.getElementById('toefl-choices').innerHTML = (q.jawaban||[]).map((j,i)=>{
+  const isFlagged = st.flagged.has(ansKey);
+
+  if (resetScroll && document.getElementById('mc-scroll')) document.getElementById('mc-scroll').scrollTop = 0;
+
+  // Tab section: hanya muncul kalau ada lebih dari 1 section berisi soal
+  const tabs = document.getElementById('tf-tabs');
+  if (secs.length > 1){
+    const cur = secs.indexOf(_toSection);
+    tabs.innerHTML = secs.map((s,i) => `<div class="tf-tab${i===cur?' cur':i<cur?' done':''}">${TOEFL_LABEL[s]}</div>`).join('');
+    tabs.style.display = 'flex';
+  } else { tabs.style.display = 'none'; tabs.innerHTML = ''; }
+
+  document.getElementById('q-num').textContent = `${_toItem.soalNama} — Soal ${_toIdx+1} dari ${arr.length}`;
+
+  // Audio & bacaan hanya dibangun ulang saat pindah soal — TIDAK saat sekadar memilih jawaban,
+  // supaya audio yang sedang diputar tidak terputus & scroll bacaan tidak kembali ke atas.
+  const sameQ = (_toRenderedKey === ansKey);
+  if (!sameQ){
+    _toRenderedKey = ansKey;
+
+    // Audio (Listening)
+    const audioBox = document.getElementById('tf-audio-box');
+    if (_toSection === 'listening' && q.audio_url){
+      audioBox.style.display = 'block';
+      const playsKey = ansKey + '_plays';
+      const playsRaw = JSON.parse(localStorage.getItem('cbn_toefl_plays_' + token) || '{}');
+      const plays = playsRaw[playsKey] || 0;
+      const maksTotal = 1 + (_toItem.maksPutar || 0); // 1x putar awal + N izin putar ulang
+      const sisa = Math.max(0, maksTotal - plays);
+      audioBox.innerHTML = `
+        <audio id="tf-audio-el" src="${String(q.audio_url).replace(/"/g,'&quot;')}" ${plays>=maksTotal?'':'controls'} ${plays>0?'':'autoplay'}></audio>
+        <div class="tf-audio-info">${sisa>0?`Sisa putar: <b>${sisa}x</b>`:'Audio sudah tidak bisa diputar lagi untuk soal ini'}</div>`;
+      const audioEl = document.getElementById('tf-audio-el');
+      if (audioEl){
+        const markPlayed = () => {
+          const pr = JSON.parse(localStorage.getItem('cbn_toefl_plays_' + token) || '{}');
+          pr[playsKey] = (pr[playsKey] || 0) + 1;
+          localStorage.setItem('cbn_toefl_plays_' + token, JSON.stringify(pr));
+          if (pr[playsKey] >= maksTotal) audioEl.removeAttribute('controls');
+        };
+        audioEl.addEventListener('play', markPlayed, { once:true });
+        if (plays >= maksTotal) audioEl.style.pointerEvents = 'none';
+      }
+    } else { audioBox.style.display = 'none'; audioBox.innerHTML = ''; }
+
+    // Bacaan (Reading)
+    const passageBox = document.getElementById('tf-passage-box');
+    const p = (_toSection === 'reading' && q.passage_id) ? (_toItem.toefl.passages || []).find(x => x.id === q.passage_id) : null;
+    if (p){
+      passageBox.style.display = 'block';
+      passageBox.scrollTop = 0;
+      passageBox.innerHTML = `<div class="tf-passage-ttl">${_toeflEsc(p.judul)}</div><div>${_toeflEsc(p.teks).replace(/\n/g,'<br>')}</div>`;
+    } else { passageBox.style.display = 'none'; passageBox.innerHTML = ''; }
+  }
+
+  document.getElementById('q-text').innerHTML = _toeflEsc(q.pertanyaan).replace(/\n/g,'<br>');
+  document.getElementById('a-box').innerHTML = (q.jawaban || []).map((j,i) => {
     const letter = String.fromCharCode(65+i);
     const sel = userAns === j.id;
-    return `<div onclick="toeflPilih('${j.id}')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;border:1.5px solid ${sel?'var(--blue)':'rgba(19,50,89,0.12)'};background:${sel?'rgba(26,90,160,0.08)':'rgba(255,255,255,0.5)'};cursor:pointer">
-      <div style="width:24px;height:24px;border-radius:8px;background:${sel?'var(--blue)':'rgba(19,50,89,0.08)'};color:${sel?'#fff':'var(--text-sub)'};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${letter}</div>
-      <div style="font-size:14px;color:var(--text-main)">${(j.teks||'').replace(/</g,'&lt;')}</div>
-    </div>`;
+    return `<div class="a-opt${sel?' sel':''}" onclick="toeflPilih('${j.id}')"><div class="a-letter">${letter}</div><div class="a-txt">${_toeflEsc(j.teks)}</div></div>`;
   }).join('');
 
-  document.getElementById('toefl-btn-prev').style.visibility = _toIdx===0 ? 'hidden' : 'visible';
-  document.getElementById('toefl-btn-next').textContent = (TOEFL_SECTIONS.indexOf(_toSection)===2 && _toIdx===arr.length-1) ? 'Selesaikan Bagian Ini →' : 'Lanjut →';
+  // Tombol: sama seperti MC (Kembali · Flag · Lanjut / Selesai Bagian / Selesai)
+  const lastQ = _toIdx === arr.length - 1;
+  const lastSec = secs.indexOf(_toSection) === secs.length - 1;
+  const isLastFlat = st.curIdx === st.flat.length - 1;
+  const bPrev = document.getElementById('btn-prev');
+  const bNext = document.getElementById('btn-next');
+  const bFlag = document.getElementById('btn-flag');
+  bPrev.style.visibility = _toIdx === 0 ? 'hidden' : '';
+  bFlag.style.display = '';
+  bFlag.className = 'btn-flag-mc' + (isFlagged ? ' flagged' : '');
+  bNext.disabled = false;
+  if (lastQ && lastSec && isLastFlat){ bNext.textContent = 'Selesai ✓'; bNext.className = 'btn-nav btn-nav-done'; }
+  else if (lastQ){ bNext.textContent = 'Selesai Bagian →'; bNext.className = 'btn-nav btn-nav-done'; }
+  else { bNext.textContent = 'Lanjut →'; bNext.className = 'btn-nav btn-nav-pri'; }
+
+  renderNavGrid();
+  updateTimerDisplay();
+}
+
+// HTML tombol nomor untuk grid navigasi (dipakai renderNavGrid saat soal aktif = TOEFL)
+function _toeflNavHtml(){
+  return _toeflArr(_toSection).map((q,i) => {
+    const key = toeflAnswerKey(_toItem.soalKode, _toSection, q._origIdx);
+    let cls = 'nav-btn';
+    if (i === _toIdx) cls += ' cur'; else if (st.jawaban[key]) cls += ' ans';
+    if (st.flagged.has(key)) cls += ' flag';
+    return `<button class="${cls}" onclick="toeflGo(${i})">${i+1}</button>`;
+  }).join('');
+}
+
+function toeflGo(i){
+  const arr = _toeflArr(_toSection);
+  if (i < 0 || i >= arr.length) return;
+  _toIdx = i;
+  renderToeflQ(true);
+  closeMobNav();
 }
 
 function toeflPilih(jawabId){
@@ -1474,22 +1544,42 @@ function toeflPilih(jawabId){
   renderToeflQ();
 }
 
+function toeflToggleFlag(){
+  const q = _toeflArr(_toSection)[_toIdx];
+  if (!q) return;
+  const key = toeflAnswerKey(_toItem.soalKode, _toSection, q._origIdx);
+  if (st.flagged.has(key)) st.flagged.delete(key); else st.flagged.add(key);
+  renderToeflQ();
+}
+
 function toeflPrev(){
-  if (_toIdx > 0){ _toIdx--; renderToeflQ(); }
+  if (_toIdx > 0){ _toIdx--; renderToeflQ(true); }
+}
+
+// Konfirmasi pindah bagian — pakai overlay yang sama dgn MC (#next-set-overlay)
+function _toeflConfirm(ttl, msg, fn){
+  _toPendingAction = fn;
+  document.getElementById('next-set-ttl').textContent = ttl;
+  document.getElementById('next-set-msg').textContent = msg;
+  document.getElementById('next-set-overlay').style.display = 'flex';
 }
 
 function toeflNext(){
-  const arr = _toeflArr(_toSection);
-  if (_toIdx < arr.length - 1){ _toIdx++; renderToeflQ(); return; }
-  // Sudah di soal terakhir section ini -> lanjut ke section berikutnya (1 arah)
-  const secIdx = TOEFL_SECTIONS.indexOf(_toSection);
-  if (secIdx < TOEFL_SECTIONS.length - 1){
-    _toSection = TOEFL_SECTIONS[secIdx + 1];
-    _toIdx = 0;
-    renderToeflQ();
-  } else {
-    toeflFinish();
+  const arr = _toeflArr(_toSection), secs = _toeflSections();
+  if (_toIdx < arr.length - 1){ _toIdx++; renderToeflQ(true); return; }
+  // Sudah di soal terakhir section ini
+  const sisa = _toeflSisa(_toSection);
+  const info = (sisa > 0 ? ` Masih ada ${sisa} soal belum dijawab di bagian ini.` : '') + ' Setelah lanjut, Anda tidak bisa kembali ke bagian ini.';
+  const si = secs.indexOf(_toSection);
+  if (si < secs.length - 1){
+    const nextSec = secs[si + 1];
+    _toeflConfirm('Lanjut ke Bagian Berikutnya?', `Anda akan melanjutkan ke bagian ${TOEFL_LABEL[nextSec]}.` + info,
+      () => { _toSection = nextSec; _toIdx = 0; renderToeflQ(true); });
+    return;
   }
+  if (st.curIdx === st.flat.length - 1){ konfirmasiSelesai(); return; }
+  const nextItem = st.flat[st.curIdx + 1];
+  _toeflConfirm('Lanjut ke Bagian Berikutnya?', `Anda akan melanjutkan ke "${(nextItem && nextItem.soalNama) || 'bagian berikutnya'}".` + info, toeflFinish);
 }
 
 function toeflFinish(){
@@ -1623,19 +1713,21 @@ function updateTimerDisplay(){
   const tv=document.getElementById('timer-val');if(tv){tv.textContent=str;tv.className='timer-val'+cls;}
   const tvt=document.getElementById('timer-val-top');if(tvt){tvt.textContent=str;tvt.className='timer-val'+cls;}
   const mv=document.getElementById('mob-timer-val');if(mv){mv.textContent=str;mv.className='mob-timer-val'+cls;}
-  const tov=document.getElementById('toefl-timer-val');if(tov){tov.textContent=str;tov.style.color=s<=60?'var(--danger)':s<=300?'var(--warning)':'var(--blue)';}
 }
 
 /* ──────── NAV GRID ──────── */
 function renderNavGrid(){
   const curKode = st.flat[st.curIdx]?.soalKode;
+  const curItem = st.flat[st.curIdx];
+  // Soal aktif = TOEFL: grid berisi nomor soal section yang sedang dibuka
+  const isToefl = !!(curItem && curItem.type==='toefl' && _toItem && _toItem.soalKode===curItem.soalKode);
   // Mode Bebas: tampilkan SEMUA soal di seluruh modul (bukan hanya bagian
   // aktif) supaya peserta bisa lompat ke bagian manapun.
-  const mcIt = st.modeBebas
+  const mcIt = isToefl ? [] : st.modeBebas
     ? st.flat.filter(f=>f.type!=='sikap_kerja'&&f.type!=='toefl')
     : st.flat.filter(f=>f.type!=='sikap_kerja'&&f.type!=='toefl' && f.soalKode === curKode);
   
-  const html=mcIt.map((item, idx)=>{
+  const html=isToefl ? _toeflNavHtml() : mcIt.map((item, idx)=>{
     const fi=st.flat.indexOf(item),key=`${item.soalKode}_${item.qIdx}`;
     const hasAns=!!st.jawaban[key],isCur=fi===st.curIdx,isFlagged=st.flagged.has(key),isLin=item.type==='linier';
     const displayNum = idx + 1;
@@ -1696,7 +1788,14 @@ function konfirmasiSelesai(){
     setIt = st.flat.filter(f=>f.type!=='sikap_kerja'&&f.type!=='toefl' && f.soalKode === curKode);
   }
   const ans=setIt.filter(f=>!!st.jawaban[`${f.soalKode}_${f.qIdx}`]).length;
-  const sisa=setIt.length-ans;
+  let sisa=setIt.length-ans;
+  // TOEFL: hitung juga semua soal di tiap section yang belum dijawab
+  const tfKode = st.flat[st.curIdx]?.soalKode;
+  st.flat.filter(f=>f.type==='toefl' && (st.modeBebas || f.soalKode===tfKode)).forEach(f=>{
+    TOEFL_SECTIONS.forEach(sec=>((f.toefl&&f.toefl[sec])||[]).forEach(q=>{
+      if(!st.jawaban[toeflAnswerKey(f.soalKode,sec,q._origIdx)])sisa++;
+    }));
+  });
   const lingkup = st.modeBebas ? '' : ' di bagian ini';
   document.getElementById('confirm-msg').textContent=sisa>0?`Masih ada ${sisa} soal belum dijawab${lingkup}. Yakin ingin mengakhiri keseluruhan ujian?`:`Semua soal${lingkup} sudah dijawab. Yakin mengakhiri keseluruhan ujian?`;
   document.getElementById('confirm-overlay').classList.add('active');
@@ -1767,6 +1866,7 @@ async function ensureHasilModule(){
 async function doSelesai(){
   if(st.selesaiCalled) return;
   st.selesaiCalled=true;
+  _toeflHideExtras();
   closeConfirm();clearInterval(st.timerInterval);clearInterval(st.skTimerInterval);
   const token = st.examData.token.kode;
   sessionStorage.removeItem('cbn_ujian_data');
