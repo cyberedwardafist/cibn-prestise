@@ -33,3 +33,6 @@ Di builder, mode TOEFL **Full (Real Test)** punya pengaturan timer per section: 
 - Bisa diatur saat buat soal maupun lewat "Edit Info". Excel: template Full punya baris `Timer Listening/Structure/Reading (menit)` di sheet Info (kosong/tidak valid = standar).
 - **Mesin ujian (`ujian/ujian.html`) belum memakai timer per section** — masih 1 timer total. Langkah berikutnya: pecah jadi timer per tahap (Listening A/B/C berbagi timer Listening).
 - Perbaikan kecil terkait: timer dengan menit = 0 (mis. total tepat 2 jam) sebelumnya diam-diam jadi 30 menit di server (`POST/PUT /api/soal`) dan di `ujian.html` (`buildFlat`) — sekarang 0 dihormati.
+
+## Nama tipe: "TOEFL ITP"
+Tipe soal `toefl` sekarang tampil sebagai **TOEFL ITP** (sebelumnya "TOEFL (Listening · Structure · Reading)"), karena nanti akan ada tipe terpisah untuk **TOEFL iBT**. Yang berubah hanya LABEL tampilan (dropdown Tipe Soal, filter tipe, kartu library, picker modul, badge Analisa Soal, header builder, judul petunjuk template Excel) lewat helper `soalTypeLabel()` di `js/app.js`. Value tipe di database / kode tetap `'toefl'` — jangan diganti, dipakai skor, riwayat, analisa, dan Excel (`Tipe Soal = toefl`). Tipe iBT nanti pakai value sendiri (mis. `toefl_ibt`).

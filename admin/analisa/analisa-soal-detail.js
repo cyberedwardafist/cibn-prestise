@@ -91,7 +91,7 @@ async function renderAnalisaSoalDetail() {
 
 function _asdEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
-const _asdTypeLabel = { multiple_choice: 'Multiple Choice', linier: 'Linier', sikap_kerja: 'Sikap Kerja', toefl: 'TOEFL' };
+const _asdTypeLabel = { multiple_choice: 'Multiple Choice', linier: 'Linier', sikap_kerja: 'Sikap Kerja', toefl: 'TOEFL ITP' };
 
 function _asdKelompokNama(kode) {
     if (!kode) return null;

@@ -171,7 +171,7 @@ function showSoalSetup() {
       <option value="multiple_choice">Multiple Choice</option>
       <option value="linier">Linier (tidak bisa kembali)</option>
       <option value="sikap_kerja">Sikap Kerja</option>
-      <option value="toefl">TOEFL (Listening · Structure · Reading)</option>
+      <option value="toefl">TOEFL ITP</option>
     </select>
   </div>
   <div id="soal-skor-wrap">
@@ -1600,7 +1600,7 @@ function _renderToeflHtml() {
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap">
   <div>
     <div class="section-title" style="margin-bottom:2px">${_toeflEsc(SoalState.nama)}</div>
-    <div class="section-sub" style="margin-bottom:0">TOEFL · ${_toeflSectionLabel(_toeflSection)} · Soal ${total ? (_toeflIdx + 1) : 0}/${total}</div>
+    <div class="section-sub" style="margin-bottom:0">TOEFL ITP · ${_toeflSectionLabel(_toeflSection)} · Soal ${total ? (_toeflIdx + 1) : 0}/${total}</div>
     <div style="font-size:11px;color:var(--text-sub);margin-top:3px">⏱ ${_toeflEsc(_toeflTimerSummary())}</div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -2036,7 +2036,7 @@ async function downloadSoalTemplate() {
 
         const bagianLabel = toeflMode === 'full' ? 'LISTENING · STRUCTURE · READING' : _toeflSectionLabel(toeflMode).toUpperCase();
         const petunjuk = [
-            ['PETUNJUK PENGISIAN — TOEFL (' + bagianLabel + ')'],
+            ['PETUNJUK PENGISIAN — TOEFL ITP (' + bagianLabel + ')'],
         ];
         if (includeReading) {
             petunjuk.push(['Sheet "Bacaan" khusus utk Reading — isi teks bacaan sekali per baris, boleh dipakai bersama oleh beberapa soal Reading (soal 1 bacaan yang sama otomatis tetap berurutan/berdekatan saat ujian, walau "acak soal" dinyalakan di modul).']);

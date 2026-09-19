@@ -100,7 +100,7 @@ function renderAnalisaSoal() {
 // Soal) — melainkan membuka tab 'analisa-soal-detail' yang untuk saat ini
 // masih MOCKUP (lihat admin/analisa/analisa-soal-detail.html/.js).
 let _aslData = null, _aslKelompokList = [], _aslSearch = '', _aslType = 'all', _aslKelompokFilter = 'all';
-const _aslTypeOptions = [{ value: 'all', label: 'Semua Tipe' }, { value: 'multiple_choice', label: 'Multiple Choice' }, { value: 'linier', label: 'Linier' }, { value: 'sikap_kerja', label: 'Sikap Kerja' }, { value: 'toefl', label: 'TOEFL' }];
+const _aslTypeOptions = [{ value: 'all', label: 'Semua Tipe' }, { value: 'multiple_choice', label: 'Multiple Choice' }, { value: 'linier', label: 'Linier' }, { value: 'sikap_kerja', label: 'Sikap Kerja' }, { value: 'toefl', label: 'TOEFL ITP' }];
 
 // ── OPTIMASI: cache in-memory + index pencarian ─────────────────────────────
 // Sebelumnya SoalAPI.getAll()/SoalKelompokAPI.getAll() ditarik ulang dari
@@ -223,7 +223,7 @@ function _aslCardHtml(s) {
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:14px;color:var(--blue);margin-bottom:6px;overflow-wrap:break-word">${namaTampil}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <span class="badge" style="background:rgba(26,90,160,0.1);color:var(--accent)">${_asEsc((s.type || '').replace(/_/g, ' '))}</span>
+          <span class="badge" style="background:rgba(26,90,160,0.1);color:var(--accent)">${_asEsc(soalTypeLabel(s.type))}</span>
           <span style="font-size:11px;color:var(--text-sub)">${_asEsc(kode)}</span>
         </div>
       </div>

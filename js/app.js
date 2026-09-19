@@ -446,6 +446,10 @@ function togglePwVis(id, btn) {
         : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
 }
 function formatDate(s) { if(!s) return '-'; const d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}); }
+// Nama TAMPILAN tipe soal. Value di DB/kode tetap 'toefl' (jangan diganti — dipakai skor, riwayat,
+// analisa, dll); yang ini cuma label. TOEFL ITP = Listening · Structure · Reading. Nanti tipe TOEFL iBT
+// akan jadi tipe terpisah dengan value sendiri. Tipe lain tetap tampil seperti sebelumnya.
+function soalTypeLabel(t) { return t === 'toefl' ? 'TOEFL ITP' : String(t || '').replace(/_/g, ' '); }
 function formatDateTime(s) { if(!s) return '-'; const d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})+' '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}); }
 
 // Dipanggil SEKALI di DOMContentLoaded (lihat paling bawah file ini), SETELAH
