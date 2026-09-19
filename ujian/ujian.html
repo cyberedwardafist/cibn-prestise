@@ -1648,9 +1648,20 @@ function _toeflNavHtml(){
   }).join('');
 }
 
+// ATURAN LISTENING (Part A/B/C): tidak boleh maju ke nomor berikutnya (atau ke bagian berikutnya) selama
+// soal yang sedang dibuka / soal sebelum nomor tujuan belum dijawab. Kembali ke nomor sebelumnya tetap bebas.
+function _toeflListeningLock(){ return _toeflBase(_toSection) === 'listening'; }
+// index soal pertama yang belum dijawab di tahap aktif (-1 bila semua sudah dijawab)
+function _toeflFirstUnanswered(){
+  return _toeflArr(_toSection).findIndex(q => !st.jawaban[_toeflKey(_toSection, q)]);
+}
 function toeflGo(i){
   const arr = _toeflArr(_toSection);
   if (i < 0 || i >= arr.length) return;
+  if (_toeflListeningLock() && i > _toIdx){
+    const fu = _toeflFirstUnanswered();
+    if (fu !== -1 && i > fu){ showToast('Jawab soal nomor ' + (fu + 1) + ' dulu sebelum lanjut', 'danger'); return; }
+  }
   _toIdx = i;
   renderToeflQ(true);
   closeMobNav();
@@ -1687,6 +1698,10 @@ function _toeflConfirm(ttl, msg, fn){
 
 function toeflNext(){
   const arr = _toeflArr(_toSection), secs = _toeflSections();
+  if (_toeflListeningLock() && arr[_toIdx] && !st.jawaban[_toeflKey(_toSection, arr[_toIdx])]){
+    showToast('Pilih salah satu jawaban dulu sebelum lanjut ke soal berikutnya', 'danger');
+    return;
+  }
   if (_toIdx < arr.length - 1){ _toIdx++; renderToeflQ(true); return; }
   // Sudah di soal terakhir section ini
   const sisa = _toeflSisa(_toSection);

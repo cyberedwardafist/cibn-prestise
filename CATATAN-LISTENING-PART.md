@@ -23,3 +23,6 @@ Batas putar tetap satu pengaturan di level modul (`toefl_maks_putar`).
 - `admin/soal/soal-modals.html` — keterangan pengaturan putar ulang.
 - `lib/toefl.js`, `server.js` — dokumentasi struktur, helper part/audio, label analisa per butir.
 - `user/riwayat/riwayat.js`, `review/riwayat/riwayat.js` — review menampilkan audio & label Part yang benar.
+
+## Aturan tambahan Listening (khusus TOEFL)
+Di Listening Part A/B/C peserta tidak bisa lanjut ke nomor berikutnya (tombol Lanjut, tombol Selesai Bagian, maupun klik nomor di grid navigasi) selama soal yang sedang dibuka belum dijawab. Kembali ke nomor sebelumnya tetap bebas. Structure dan Reading tidak terpengaruh.
