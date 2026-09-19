@@ -513,6 +513,30 @@ function _buildRiwayatSoalBlock(s, jawabanUser, urutanTampil) {
 // peserta, plus audio player (Listening) & bacaan (Reading). Urutan tampil
 // direkonstruksi dari laporan.urutan_tampil (lihat buildUrutanTampil() &
 // toeflAnswerKey() di ujian/ujian.html) supaya identik dgn yg dilihat peserta.
+// Urutkan pilihan jawaban 1 soal TOEFL sesuai urutan yg dilihat peserta (laporan.urutan_tampil[kode].toefl.jawOrder).
+// Laporan lama (tanpa jawOrder) otomatis memakai urutan asli.
+// Listening dibagi Part A/B/C (lihat lib/toefl.js). Part B/C: audio ada di data.listening.audios (dipakai bersama
+// beberapa soal via q.audio_id), Part A: audio milik soal itu sendiri. Data lama tanpa field `part` = Part A.
+function _toeflAudioOf(src, q) {
+    if (q && (q.part === 'B' || q.part === 'C') && q.audio_id) {
+        const a = ((src && src.listening && src.listening.audios) || []).find(x => x.id === q.audio_id);
+        if (a) return { url: a.audio_url || '', judul: a.judul || '' };
+    }
+    return { url: (q && q.audio_url) || '', judul: '' };
+}
+function _toeflPartBadge(src, q) {
+    const part = (q && (q.part === 'B' || q.part === 'C')) ? q.part : 'A';
+    const judul = _toeflAudioOf(src, q).judul;
+    return ` <span style="font-size:9px;color:var(--text-sub)">(Part ${part}${judul ? ' · ' + String(judul).replace(/</g,'&lt;') : ''})</span>`;
+}
+function _toeflOrdJaw(q, ord, section, origIdx) {
+  const arr = (q && q.jawaban) || [];
+  const jo = ord && ord.jawOrder && ord.jawOrder[section] && ord.jawOrder[section][origIdx];
+  if (!Array.isArray(jo) || !jo.length) return arr;
+  const out = jo.map(ref => arr.find((j, idx) => String(j.id != null ? j.id : idx) === String(ref))).filter(Boolean);
+  return out.length === arr.length ? out : arr;
+}
+
 function _buildRiwayatToeflBlock(s, jawabanUser, urutanTampil) {
     const kode = s.kode || s.id || s.nama;
     const src = (s.data && typeof s.data === 'object') ? s.data : {};
@@ -530,16 +554,17 @@ function _buildRiwayatToeflBlock(s, jawabanUser, urutanTampil) {
             const ans = jawabanUser[`${kode}_toefl_${section}_${origIdx}`];
             const kunci = Array.isArray(q.kunci) ? q.kunci.map(String) : (q.kunci != null ? [String(q.kunci)] : []);
 
-            const audioHtml = (section === 'listening' && q.audio_url)
-                ? `<audio controls src="${String(q.audio_url).replace(/"/g,'&quot;')}" style="width:100%;margin-bottom:8px"></audio>` : '';
+            const _aud = section === 'listening' ? _toeflAudioOf(src, q) : null;
+            const audioHtml = (_aud && _aud.url)
+                ? `<audio controls src="${String(_aud.url).replace(/"/g,'&quot;')}" style="width:100%;margin-bottom:8px"></audio>` : '';
             let passageHtml = '';
             if (section === 'reading' && q.passage_id) {
                 const p = passages.find(x => x.id === q.passage_id);
                 if (p) passageHtml = `<div style="background:rgba(19,50,89,0.04);border-radius:8px;padding:10px;margin-bottom:8px;font-size:12px;line-height:1.6"><div style="font-weight:700;margin-bottom:4px">${(p.judul||'').replace(/</g,'&lt;')}</div>${(p.teks||'').replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>`;
             }
-            const subtipeLbl = section === 'structure' ? (q.subtipe === 'salah' ? ' <span style="font-size:9px;color:var(--text-sub)">(Cari Kesalahan)</span>' : ' <span style="font-size:9px;color:var(--text-sub)">(Melengkapi Kalimat)</span>') : '';
+            const subtipeLbl = section === 'structure' ? (q.subtipe === 'salah' ? ' <span style="font-size:9px;color:var(--text-sub)">(Cari Kesalahan)</span>' : ' <span style="font-size:9px;color:var(--text-sub)">(Melengkapi Kalimat)</span>') : (section === 'listening' ? _toeflPartBadge(src, q) : '');
 
-            const optHtml = (q.jawaban || []).map((j, i) => {
+            const optHtml = _toeflOrdJaw(q, ord, section, origIdx).map((j, i) => {
                 const letter = String.fromCharCode(65 + i);
                 const jid = j.id != null ? String(j.id) : String(i);
                 const picked = ans != null && String(ans) === jid;

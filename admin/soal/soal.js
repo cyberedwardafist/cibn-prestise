@@ -89,7 +89,8 @@ function _tryRestoreSoalDraft() {
     SoalState.opsi_jawaban = d.opsi_jawaban; SoalState.timer = d.timer || { jam:0, menit:30, detik:0 };
     SoalState.pertanyaan = d.pertanyaan || []; SoalState.kolom = d.kolom || null;
     SoalState.toefl = d.toefl || null;
-    if (typeof d._toeflSection === 'string') _toeflSection = d._toeflSection;
+    if (SoalState.toefl) _toeflNormalizeData(SoalState.toefl);
+    if (typeof d._toeflSection === 'string') _toeflSection = _toeflNormPhase(d._toeflSection);
     if (typeof d._toeflIdx === 'number') _toeflIdx = d._toeflIdx;
     SoalState.currentIdx = d.currentIdx || 0; SoalState._editors = {}; SoalState.mode = 'build';
     SoalState.materiList = d.materiList || [];
@@ -903,16 +904,36 @@ function hapusKolomSoalTerpilih(kIdx){
 // Builder ini SENGAJA dibuat terpisah total dari _renderMCHtml (bukan numpang
 // reuse editor rich-text/jawaban milik MC) supaya tidak ada risiko mengubah
 // perilaku builder Multiple Choice/Linier yang sudah ada.
-let _toeflSection = 'listening'; // tab section builder yg lagi aktif
-let _toeflIdx = 0;               // index soal aktif di dalam section itu
+// _toeflSection = TAHAP builder yg lagi aktif: 'listening_A' | 'listening_B' | 'listening_C' | 'structure' | 'reading'.
+// Listening dipecah 3 Part (A: dialog singkat · B: percakapan panjang · C: ceramah/monolog). Data tetap
+// disimpan dlm 1 array listening.soal (tiap soal punya field `part`), jadi mesin skor/kunci jawaban TIDAK berubah.
+//  - Part A  : 1 audio per soal (q.audio_url), sama seperti sebelumnya.
+//  - Part B/C: 1 SUARA (listening.audios[], dipilih lewat q.audio_id) dipakai beberapa soal sekaligus —
+//              persis seperti bacaan/passage di Reading. Batas putar dihitung per suara saat ujian.
+let _toeflSection = 'listening_A'; // tab tahap builder yg lagi aktif
+let _toeflIdx = 0;               // index soal aktif di dalam tahap itu
+
+function _toeflBase(s) { return String(s).indexOf('listening') === 0 ? 'listening' : s; }
+function _toeflPartOf(q) { return (q && (q.part === 'B' || q.part === 'C')) ? q.part : 'A'; }
+function _toeflNormPhase(s) { return s === 'listening' ? 'listening_A' : (s || 'listening_A'); }
+// Data lama (sebelum Part A/B/C): soal Listening tanpa `part` dianggap Part A; pastikan listening.audios ada.
+function _toeflNormalizeData(t) {
+    if (!t) return t;
+    if (!t.listening) t.listening = { soal: [] };
+    if (!Array.isArray(t.listening.soal)) t.listening.soal = [];
+    if (!Array.isArray(t.listening.audios)) t.listening.audios = [];
+    t.listening.soal.forEach(q => { if (q.part !== 'B' && q.part !== 'C') q.part = 'A'; });
+    return t;
+}
 
 function _blankToeflData() {
-    return { listening: { soal: [] }, structure: { soal: [] }, reading: { soal: [], passages: [] } };
+    return { listening: { soal: [], audios: [] }, structure: { soal: [] }, reading: { soal: [], passages: [] } };
 }
-function _newToeflQ(section) {
+function _newToeflQ(section, part) {
     const base = { id: 'TQ_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), pertanyaan: '',
         jawaban: [{ id: 'A_' + Date.now(), teks: '' }, { id: 'B_' + (Date.now() + 1), teks: '' }], kunci: [], pembahasan: '' };
-    if (section === 'listening') base.audio_url = '';
+    section = _toeflBase(section);
+    if (section === 'listening') { base.audio_url = ''; base.part = part || 'A'; base.audio_id = null; }
     if (section === 'structure') base.subtipe = 'rumpang';
     if (section === 'reading') base.passage_id = null;
     return base;
@@ -926,6 +947,21 @@ function _toeflRealCounts(mode) {
     if (mode === 'reading')   return { listening: 0, structure: 0, reading: 50 };
     return { listening: 50, structure: 40, reading: 50 }; // full
 }
+// Kerangka Listening ITP asli (50 soal): Part A 30 dialog singkat · Part B 2 percakapan panjang × 4 soal ·
+// Part C 3 ceramah × 4 soal. Suara Part B/C sudah dibuatkan & soalnya sudah terhubung — admin tinggal isi audionya.
+function _toeflSeedListening(t) {
+    const L = t.listening; L.audios = L.audios || [];
+    for (let i = 0; i < 30; i++) L.soal.push(_newToeflQ('listening', 'A'));
+    const seed = (part, jumlahSuara, soalPerSuara, label) => {
+        for (let v = 1; v <= jumlahSuara; v++) {
+            const a = { id: 'AU_' + Date.now() + '_' + part + v + '_' + Math.random().toString(36).slice(2, 5), part, judul: label + ' ' + v, audio_url: '' };
+            L.audios.push(a);
+            for (let k = 0; k < soalPerSuara; k++) { const q = _newToeflQ('listening', part); q.audio_id = a.id; L.soal.push(q); }
+        }
+    };
+    seed('B', 2, 4, 'Percakapan');
+    seed('C', 3, 4, 'Ceramah');
+}
 function startToeflBuild() {
     SoalState.toefl = _blankToeflData();
     const mode = SoalState.toefl_mode || 'full';
@@ -935,7 +971,7 @@ function startToeflBuild() {
     // sama sekali tidak baca field ini, cukup berdasarkan isi soal tiap section).
     SoalState.toefl.mode = mode;
     const counts = _toeflRealCounts(mode);
-    for (let i = 0; i < counts.listening; i++) SoalState.toefl.listening.soal.push(_newToeflQ('listening'));
+    if (counts.listening) _toeflSeedListening(SoalState.toefl);
     for (let i = 0; i < counts.structure; i++) {
         const q = _newToeflQ('structure');
         // Format resmi ITP: 15 soal melengkapi kalimat ('rumpang') dulu, baru
@@ -948,16 +984,57 @@ function startToeflBuild() {
     // minimal 1 section), tapi kalau suatu saat ada mode baru yg lolos tanpa
     // soal sama sekali, builder tidak boleh benar-benar kosong total.
     if (!SoalState.toefl.listening.soal.length && !SoalState.toefl.structure.soal.length && !SoalState.toefl.reading.soal.length) {
-        SoalState.toefl.listening.soal.push(_newToeflQ('listening'));
+        SoalState.toefl.listening.soal.push(_newToeflQ('listening', 'A'));
     }
-    _toeflSection = (mode === 'structure' || mode === 'reading') ? mode : 'listening';
+    _toeflSection = (mode === 'structure' || mode === 'reading') ? mode : 'listening_A';
     _toeflIdx = 0;
 }
 function _toeflEsc(str) { return String(str == null ? '' : str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function _toeflEscAttr(str) { return _toeflEsc(str).replace(/"/g, '&quot;'); }
-function _toeflSectionLabel(s) { return s === 'listening' ? 'Listening' : s === 'structure' ? 'Structure' : 'Reading'; }
-function _toeflSecArr(section) { return (SoalState.toefl && SoalState.toefl[section] && SoalState.toefl[section].soal) || []; }
+function _toeflSectionLabel(s) {
+    if (s === 'listening') return 'Listening';
+    if (String(s).indexOf('listening_') === 0) return 'Listening · Part ' + String(s).split('_')[1];
+    return s === 'structure' ? 'Structure' : 'Reading';
+}
+// Label pendek + keterangan tiap Part Listening (dipakai tab & judul kartu)
+const TOEFL_PART_INFO = {
+    A: { nama: 'Part A', ket: 'Percakapan Singkat (Short Dialogues)', suara: '' },
+    B: { nama: 'Part B', ket: 'Percakapan Panjang (Long Conversations)', suara: 'Percakapan' },
+    C: { nama: 'Part C', ket: 'Ceramah / Monolog (Talks)', suara: 'Ceramah' }
+};
+// Semua soal 1 section dasar ('listening'|'structure'|'reading') — array ASLI, dipakai utk tambah/hapus.
+function _toeflBaseArr(section) { return (SoalState.toefl && SoalState.toefl[_toeflBase(section)] && SoalState.toefl[_toeflBase(section)].soal) || []; }
+// Soal 1 TAHAP builder. Listening: disaring per Part; Part B/C dikelompokkan per suara (blok suara yg sama
+// selalu berdekatan, urutan blok = kemunculan pertama) — sama dengan urutan yg dipakai saat ujian.
+function _toeflSecArr(section) {
+    const all = _toeflBaseArr(section);
+    if (section === 'listening' || _toeflBase(section) !== 'listening') return all;
+    const part = String(section).split('_')[1];
+    const list = all.filter(q => _toeflPartOf(q) === part);
+    if (part === 'A') return list;
+    const order = [], groups = new Map();
+    list.forEach((q, i) => { const k = q.audio_id ? ('a_' + q.audio_id) : ('single_' + i); if (!groups.has(k)) { groups.set(k, []); order.push(k); } groups.get(k).push(q); });
+    return order.reduce((a, k) => a.concat(groups.get(k)), []);
+}
 function _toeflPassages() { if (!SoalState.toefl.reading.passages) SoalState.toefl.reading.passages = []; return SoalState.toefl.reading.passages; }
+function _toeflAudios() { if (!SoalState.toefl.listening.audios) SoalState.toefl.listening.audios = []; return SoalState.toefl.listening.audios; }
+// Objek yang MEMEGANG audio soal aktif: Part A = soalnya sendiri; Part B/C = "suara" yang dipilih (bisa null).
+function _toeflAudioHolder() {
+    const q = _toeflSecArr(_toeflSection)[_toeflIdx]; if (!q) return null;
+    if (_toeflPartOf(q) === 'A') return q;
+    return _toeflAudios().find(a => a.id === q.audio_id) || null;
+}
+function _toeflQHasAudio(q) {
+    if (_toeflPartOf(q) === 'A') return !!q.audio_url;
+    const a = _toeflAudios().find(x => x.id === q.audio_id);
+    return !!((a && a.audio_url) || q.audio_url);
+}
+// Tahap yang ditampilkan sbg tab menurut mode TOEFL soal ini
+function _toeflPhasesForMode(mode) {
+    if (mode === 'listening') return ['listening_A', 'listening_B', 'listening_C'];
+    if (mode === 'structure' || mode === 'reading') return [];
+    return ['listening_A', 'listening_B', 'listening_C', 'structure', 'reading'];
+}
 
 function switchToeflSection(section) {
     if (section === _toeflSection) return;
@@ -971,16 +1048,27 @@ function toeflGoToSoal(idx) {
     _animateTo(_renderToeflHtml);
 }
 function toeflTambahSoal() {
-    _toeflSecArr(_toeflSection).push(_newToeflQ(_toeflSection));
-    _toeflIdx = _toeflSecArr(_toeflSection).length - 1;
+    const ph = _toeflSection, base = _toeflBase(ph);
+    const nq = _newToeflQ(base, base === 'listening' ? ph.split('_')[1] : undefined);
+    // Part B/C: soal baru langsung ikut suara soal yang sedang dibuka (memudahkan nambah soal ke suara yang sama)
+    if (base === 'listening' && nq.part !== 'A') { const cur = _toeflSecArr(ph)[_toeflIdx]; if (cur && cur.audio_id) nq.audio_id = cur.audio_id; }
+    _toeflBaseArr(ph).push(nq);
+    const arr = _toeflSecArr(ph);
+    _toeflIdx = Math.max(0, arr.indexOf(nq));
     setDirty('pembuatan soal');
     _animateTo(_renderToeflHtml);
 }
 function toeflHapusSoal(idx) {
-    const arr = _toeflSecArr(_toeflSection);
-    if (arr.length <= 1) { showToast('Minimal 1 soal per section', 'danger'); return; }
-    arr.splice(idx, 1);
-    if (_toeflIdx >= arr.length) _toeflIdx = arr.length - 1;
+    const ph = _toeflSection, base = _toeflBase(ph);
+    const arr = _toeflSecArr(ph), q = arr[idx]; if (!q) return;
+    if (base === 'listening') {
+        // Part boleh dikosongkan (mis. tes tanpa Part C), tapi Listening secara keseluruhan minimal 1 soal
+        if (_toeflBaseArr('listening').length <= 1) { showToast('Minimal 1 soal Listening', 'danger'); return; }
+    } else if (arr.length <= 1) { showToast('Minimal 1 soal per section', 'danger'); return; }
+    const baseArr = _toeflBaseArr(ph), bi = baseArr.indexOf(q);
+    if (bi >= 0) baseArr.splice(bi, 1);
+    const now = _toeflSecArr(ph);
+    if (_toeflIdx >= now.length) _toeflIdx = Math.max(0, now.length - 1);
     setDirty('pembuatan soal');
     _animateTo(_renderToeflHtml);
 }
@@ -997,13 +1085,13 @@ function toeflSetSubtipe(val) {
     q.subtipe = val; setDirty('pembuatan soal'); _soalQueueAutoSave();
 }
 function toeflSetAudioUrl(val) {
-    const q = _toeflSecArr('listening')[_toeflIdx]; if (!q) return;
+    const q = _toeflAudioHolder(); if (!q) return;
     q.audio_url = val; setDirty('pembuatan soal'); _soalQueueAutoSave();
 }
 function toeflTriggerAudioUpload() { document.getElementById('toefl-audio-input')?.click(); }
 async function toeflOnAudioFileSelected(input) {
     const file = input.files && input.files[0]; if (!file) return;
-    const q = _toeflSecArr('listening')[_toeflIdx]; input.value = '';
+    const q = _toeflAudioHolder(); input.value = '';
     if (!q) return;
     showToast('Mengupload audio...', 'success');
     let res;
@@ -1054,7 +1142,7 @@ function _toeflNewTtsSegment(source) {
 // ke mode link/upload manual (segmen yang sudah ditulis tetap tersimpan di
 // q.tts_segments kalau mau lanjut edit lagi nanti, tidak ikut terhapus).
 function toeflToggleAudioGenerate(on) {
-    const q = _toeflSecArr('listening')[_toeflIdx]; if (!q) return;
+    const q = _toeflAudioHolder(); if (!q) return;
     q.audio_mode = on ? 'generate' : 'link';
     if (on && !q.audio_source) q.audio_source = 'edge';
     if (on && !(q.tts_segments && q.tts_segments.length)) q.tts_segments = [_toeflNewTtsSegment(q.audio_source)];
@@ -1064,7 +1152,7 @@ function toeflToggleAudioGenerate(on) {
 // sumber (bentuk field beda & format audio mentahnya beda), jadi teksnya
 // dipertahankan tapi field voice/profile-nya direset sesuai sumber baru.
 function toeflSetAudioSource(src) {
-    const q = _toeflSecArr('listening')[_toeflIdx]; if (!q) return;
+    const q = _toeflAudioHolder(); if (!q) return;
     if (q.audio_source === src) return;
     q.audio_source = src;
     const oldSegs = q.tts_segments || [];
@@ -1075,19 +1163,19 @@ function toeflSetAudioSource(src) {
     setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
 }
 function toeflTtsAddSegment() {
-    const q = _toeflSecArr('listening')[_toeflIdx]; if (!q) return;
+    const q = _toeflAudioHolder(); if (!q) return;
     if (!q.tts_segments) q.tts_segments = [];
     q.tts_segments.push(_toeflNewTtsSegment(q.audio_source));
     setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
 }
 function toeflTtsRemoveSegment(sid) {
-    const q = _toeflSecArr('listening')[_toeflIdx]; if (!q || !q.tts_segments) return;
+    const q = _toeflAudioHolder(); if (!q || !q.tts_segments) return;
     if (q.tts_segments.length <= 1) { showToast('Minimal 1 bagian teks', 'danger'); return; }
     q.tts_segments = q.tts_segments.filter(s => s.id !== sid);
     setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
 }
 function toeflTtsEditSegment(sid, field, val) {
-    const q = _toeflSecArr('listening')[_toeflIdx]; if (!q || !q.tts_segments) return;
+    const q = _toeflAudioHolder(); if (!q || !q.tts_segments) return;
     const seg = q.tts_segments.find(s => s.id === sid); if (!seg) return;
     seg[field] = val; setDirty('pembuatan soal'); _soalQueueAutoSave();
 }
@@ -1196,7 +1284,7 @@ async function _toeflGenerateTtsBlob(segments, source) {
 }
 let _toeflTtsPreviewAudio = null;
 async function toeflTtsPreview() {
-    const q = _toeflSecArr('listening')[_toeflIdx]; if (!q) return;
+    const q = _toeflAudioHolder(); if (!q) return;
     const btn = document.getElementById('toefl-tts-play-btn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Memproses...'; }
     try {
@@ -1245,6 +1333,34 @@ function toeflHapusPassage(pid) {
     });
 }
 
+// ── Suara (audio) Listening Part B/C — 1 suara dipakai bersama beberapa soal ──
+// Sama konsepnya dgn bacaan di Reading: soal dari 1 suara yang sama selalu berurutan/berdekatan saat ujian,
+// audio HANYA diputar sesuai batas putar modul (dihitung per suara, bukan per soal).
+function toeflTambahAudio() {
+    const part = String(_toeflSection).split('_')[1]; if (part !== 'B' && part !== 'C') return;
+    const list = _toeflAudios();
+    const n = list.filter(a => a.part === part).length + 1;
+    const a = { id: 'AU_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), part, judul: TOEFL_PART_INFO[part].suara + ' ' + n, audio_url: '' };
+    list.push(a);
+    const q = _toeflSecArr(_toeflSection)[_toeflIdx]; if (q) q.audio_id = a.id;
+    setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
+}
+function toeflSetAudioFor(idOrEmpty) {
+    const q = _toeflSecArr(_toeflSection)[_toeflIdx]; if (!q) return;
+    q.audio_id = idOrEmpty || null; setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
+}
+function toeflEditAudioField(aid, field, val) {
+    const a = _toeflAudios().find(x => x.id === aid); if (!a) return;
+    a[field] = val; setDirty('pembuatan soal'); _soalQueueAutoSave();
+}
+function toeflHapusAudio(aid) {
+    showConfirm('Hapus Suara', 'Yakin hapus suara ini? Soal yang memakainya akan jadi "Belum ada suara" (soalnya tidak ikut terhapus).', 'warning', () => {
+        SoalState.toefl.listening.audios = _toeflAudios().filter(a => a.id !== aid);
+        _toeflBaseArr('listening').forEach(q => { if (q.audio_id === aid) q.audio_id = null; });
+        setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
+    });
+}
+
 // ── Pilihan jawaban (A/B/C/D...) — semua section TOEFL single-answer ──
 function toeflTambahJawaban() {
     const q = _toeflSecArr(_toeflSection)[_toeflIdx]; if (!q) return;
@@ -1268,55 +1384,11 @@ function toeflToggleKunci(jid) {
     setDirty('pembuatan soal'); _animateTo(_renderToeflHtml);
 }
 
-function _renderToeflHtml() {
-    document.getElementById('page-soal')?.classList.remove('dock-avoid-center');
-    document.body.classList.add('soal-building');
-    _soalDraftSave();
-    const c = document.getElementById('soal-page-content'); if (!c) return;
-    if (!SoalState.toefl) SoalState.toefl = _blankToeflData();
-    // Mode TOEFL soal ini ('listening'/'structure'/'reading'/'full', lihat
-    // startToeflBuild) — dipakai buat tahu apakah perlu tampilkan tab pilih
-    // section sama sekali. Non-'full' = soal ini memang cuma 1 section, jadi
-    // tab Listening/Structure/Reading yg 2 lainnya (isinya selalu 0 soal)
-    // tidak perlu ditampilkan sama sekali, biar tidak membingungkan.
-    const toeflMode = (SoalState.toefl && SoalState.toefl.mode) || 'full';
-    if (toeflMode !== 'full' && _toeflSection !== toeflMode) _toeflSection = toeflMode;
-    const arr = _toeflSecArr(_toeflSection);
-    const q = arr[_toeflIdx];
-    const total = arr.length;
-    // Kalau soal ini lagi mode generate dgn sumber voicebox (mis. dibuka lagi
-    // utk diedit) tapi daftar profile belum pernah dimuat di tab ini, mulai
-    // muat sekarang (async, re-render sendiri lewat _toeflEnsureVoiceboxProfilesLoaded).
-    if (q && q.audio_mode === 'generate' && q.audio_source === 'voicebox' && _voiceboxProfilesCache === null && !_voiceboxProfilesLoading) {
-        _toeflEnsureVoiceboxProfilesLoaded();
-    }
-
-    c.innerHTML = `
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap">
-  <div>
-    <div class="section-title" style="margin-bottom:2px">${_toeflEsc(SoalState.nama)}</div>
-    <div class="section-sub" style="margin-bottom:0">TOEFL · ${_toeflSectionLabel(_toeflSection)} · Soal ${total ? (_toeflIdx + 1) : 0}/${total}</div>
-  </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap">
-    <button class="btn btn-secondary btn-sm" onclick="cancelBuild()">← Batal</button>
-    <button class="btn btn-secondary btn-sm" onclick="openEditSoalInfoModal()">✏ Edit Info</button>
-    <button class="btn btn-primary btn-sm" onclick="simpanSoal()">💾 Simpan</button>
-  </div>
-</div>
-${toeflMode === 'full' ? `
-<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-  ${['listening', 'structure', 'reading'].map(s => `
-    <button class="btn ${s === _toeflSection ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="switchToeflSection('${s}')">
-      ${_toeflSectionLabel(s)} <span style="opacity:0.75;font-weight:400">(${_toeflSecArr(s).length})</span>
-    </button>`).join('')}
-</div>` : ''}
-${!q ? `<div class="card" style="text-align:center;padding:32px;color:var(--text-sub)">Belum ada soal di section ini.<br><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="toeflTambahSoal()">+ Tambah Soal</button></div>` : `
-<div style="display:flex;gap:16px;align-items:flex-start">
-  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px">
-    ${_toeflSection === 'listening' ? `
+function _toeflAudioBoxHtml(q, title) {
+    return `
     <div class="card" style="padding:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-        <div class="form-label" style="margin-bottom:0">🎧 Audio Listening</div>
+        <div class="form-label" style="margin-bottom:0">${title}</div>
         ${q.audio_mode === 'generate' ? `<button id="toefl-tts-play-btn" class="btn btn-secondary btn-sm" onclick="toeflTtsPreview()">▶ Play</button>` : ''}
       </div>
       ${q.audio_mode === 'generate' ? `
@@ -1364,7 +1436,87 @@ ${!q ? `<div class="card" style="text-align:center;padding:32px;color:var(--text
       ${q.audio_url ? `<audio controls src="${_toeflEscAttr(q.audio_url)}" style="width:100%;margin-top:10px"></audio>` : ''}
       <div style="font-size:11px;color:var(--text-sub);margin-top:6px">Isi link/URL, upload file, ATAU generate suara dari teks — pilih salah satu.</div>
       `}
-    </div>` : ''}
+    </div>
+    `;
+}
+
+function _toeflListeningCardsHtml(q) {
+    const part = _toeflPartOf(q), info = TOEFL_PART_INFO[part];
+    if (part === 'A') {
+        return `<div style="font-size:11px;color:var(--text-sub);margin:-4px 0 -6px">${info.nama} · ${info.ket} — 1 soal = 1 audio, tampil audio lalu pertanyaan &amp; pilihan jawaban di bawahnya.</div>` + _toeflAudioBoxHtml(q, '🎧 Audio Soal');
+    }
+    const list = _toeflAudios().filter(a => a.part === part);
+    const cur = _toeflAudios().find(a => a.id === q.audio_id);
+    const pakai = cur ? _toeflBaseArr('listening').filter(x => x.audio_id === cur.id).length : 0;
+    const pilih = `
+    <div class="card" style="padding:16px">
+      <div class="form-label" style="margin-bottom:8px">🎙️ Suara ${info.suara} <span style="font-size:10px;color:var(--text-sub);font-weight:400">(${info.nama} · ${info.ket})</span></div>
+      <select class="form-input" onchange="toeflSetAudioFor(this.value)">
+        <option value="">-- Belum ada suara --</option>
+        ${list.map(a => `<option value="${a.id}" ${q.audio_id === a.id ? 'selected' : ''}>${_toeflEsc(a.judul || '(tanpa judul)')}</option>`).join('')}
+      </select>
+      <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="toeflTambahAudio()">+ Suara ${info.suara} Baru</button>
+      ${cur ? `
+      <div style="margin-top:12px;padding-top:12px;border-top:1.5px solid rgba(19,50,89,0.08)">
+        <input class="form-input" style="margin-bottom:6px" type="text" placeholder="Judul suara (mis. ${info.suara} 1)" value="${_toeflEscAttr(cur.judul || '')}" oninput="toeflEditAudioField('${cur.id}','judul',this.value)">
+        <div style="font-size:11px;color:var(--text-sub)">Dipakai oleh ${pakai} soal. Saat ujian, soal dari 1 suara yang sama selalu berurutan/berdekatan (walau "acak soal" dinyalakan di modul) &amp; suara hanya bisa diputar sesuai batas putar modul — dihitung per suara, bukan per soal.</div>
+        <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="toeflHapusAudio('${cur.id}')">🗑 Hapus Suara Ini</button>
+      </div>` : `<div style="font-size:11px;color:var(--warning,#b45309);margin-top:8px">Soal ini belum punya suara. Pilih suara yang sudah ada atau buat suara baru.</div>`}
+    </div>`;
+    return pilih + (cur ? _toeflAudioBoxHtml(cur, '🎧 Audio ' + _toeflEsc(cur.judul || info.suara)) : '');
+}
+
+function _renderToeflHtml() {
+    document.getElementById('page-soal')?.classList.remove('dock-avoid-center');
+    document.body.classList.add('soal-building');
+    _soalDraftSave();
+    const c = document.getElementById('soal-page-content'); if (!c) return;
+    if (!SoalState.toefl) SoalState.toefl = _blankToeflData();
+    // Mode TOEFL soal ini ('listening'/'structure'/'reading'/'full', lihat
+    // startToeflBuild) — dipakai buat tahu apakah perlu tampilkan tab pilih
+    // section sama sekali. Non-'full' = soal ini memang cuma 1 section, jadi
+    // tab Listening/Structure/Reading yg 2 lainnya (isinya selalu 0 soal)
+    // tidak perlu ditampilkan sama sekali, biar tidak membingungkan.
+    const toeflMode = (SoalState.toefl && SoalState.toefl.mode) || 'full';
+    _toeflNormalizeData(SoalState.toefl);
+    _toeflSection = _toeflNormPhase(_toeflSection);
+    if (toeflMode !== 'full' && _toeflBase(_toeflSection) !== toeflMode) _toeflSection = (toeflMode === 'listening') ? 'listening_A' : toeflMode;
+    const arr = _toeflSecArr(_toeflSection);
+    if (_toeflIdx >= arr.length) _toeflIdx = Math.max(0, arr.length - 1);
+    const q = arr[_toeflIdx];
+    const total = arr.length;
+    const phaseTabs = _toeflPhasesForMode(toeflMode);
+    // Kalau soal ini lagi mode generate dgn sumber voicebox (mis. dibuka lagi
+    // utk diedit) tapi daftar profile belum pernah dimuat di tab ini, mulai
+    // muat sekarang (async, re-render sendiri lewat _toeflEnsureVoiceboxProfilesLoaded).
+    const _aH = q ? _toeflAudioHolder() : null;
+    if (_aH && _aH.audio_mode === 'generate' && _aH.audio_source === 'voicebox' && _voiceboxProfilesCache === null && !_voiceboxProfilesLoading) {
+        _toeflEnsureVoiceboxProfilesLoaded();
+    }
+
+    c.innerHTML = `
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap">
+  <div>
+    <div class="section-title" style="margin-bottom:2px">${_toeflEsc(SoalState.nama)}</div>
+    <div class="section-sub" style="margin-bottom:0">TOEFL · ${_toeflSectionLabel(_toeflSection)} · Soal ${total ? (_toeflIdx + 1) : 0}/${total}</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-secondary btn-sm" onclick="cancelBuild()">← Batal</button>
+    <button class="btn btn-secondary btn-sm" onclick="openEditSoalInfoModal()">✏ Edit Info</button>
+    <button class="btn btn-primary btn-sm" onclick="simpanSoal()">💾 Simpan</button>
+  </div>
+</div>
+${phaseTabs.length ? `
+<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+  ${phaseTabs.map(s => `
+    <button class="btn ${s === _toeflSection ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="switchToeflSection('${s}')">
+      ${_toeflSectionLabel(s)} <span style="opacity:0.75;font-weight:400">(${_toeflSecArr(s).length})</span>
+    </button>`).join('')}
+</div>` : ''}
+${!q ? `<div class="card" style="text-align:center;padding:32px;color:var(--text-sub)">Belum ada soal di section ini.<br><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="toeflTambahSoal()">+ Tambah Soal</button></div>` : `
+<div style="display:flex;gap:16px;align-items:flex-start">
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px">
+    ${_toeflBase(_toeflSection) === 'listening' ? _toeflListeningCardsHtml(q) : ''}
     ${_toeflSection === 'structure' ? `
     <div class="card" style="padding:16px">
       <div class="form-label" style="margin-bottom:8px">Sub-tipe Soal</div>
@@ -1396,11 +1548,10 @@ ${!q ? `<div class="card" style="text-align:center;padding:32px;color:var(--text
         <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="toeflHapusPassage('${p.id}')">🗑 Hapus Bacaan Ini</button>
       </div>`; })() : ''}
     </div>` : ''}
-    ${_toeflSection !== 'listening' ? `
     <div class="card" style="padding:16px">
-      <div class="form-label" style="margin-bottom:8px">Pertanyaan</div>
+      <div class="form-label" style="margin-bottom:8px">Pertanyaan${_toeflBase(_toeflSection) === 'listening' ? ' <span style="font-size:10px;color:var(--text-sub);font-weight:400">(opsional — tampil di bawah audio, di atas pilihan jawaban)</span>' : ''}</div>
       <textarea class="form-input" rows="4" placeholder="Tulis pertanyaan di sini...">${_toeflEsc(q.pertanyaan || '')}</textarea>
-    </div>` : ''}
+    </div>
     <div class="card" style="padding:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div class="form-label" style="margin:0">Pilihan Jawaban <span style="font-size:10px;color:var(--text-sub);font-weight:400">(● = kunci jawaban)</span></div>
@@ -1429,7 +1580,7 @@ ${!q ? `<div class="card" style="text-align:center;padding:32px;color:var(--text
     <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">
       ${arr.map((p, i) => `
         <div style="position:relative">
-          <button class="soal-nav-btn ${i === _toeflIdx ? 'active' : ((_toeflSection === 'listening' ? p.audio_url : p.pertanyaan) ? 'filled' : '')}" onclick="toeflGoToSoal(${i})">${i + 1}</button>
+          <button class="soal-nav-btn ${i === _toeflIdx ? 'active' : ((_toeflBase(_toeflSection) === 'listening' ? _toeflQHasAudio(p) : p.pertanyaan) ? 'filled' : '')}" onclick="toeflGoToSoal(${i})">${i + 1}</button>
           <button onclick="toeflHapusSoal(${i})" class="soal-nav-del">×</button>
         </div>`).join('')}
     </div>
@@ -1497,8 +1648,13 @@ async function simpanSoal(){
     // Kalau ADA yg gagal, batalkan simpan sama sekali (bukan simpan tanpa
     // audio) supaya admin sadar & bisa coba lagi.
     if (SoalState.type === 'toefl') {
-        const pending = ((SoalState.toefl && SoalState.toefl.listening && SoalState.toefl.listening.soal) || [])
-            .filter(q => q.audio_mode === 'generate' && (q.tts_segments || []).some(s => (s.text || '').trim()));
+        const isPending = h => h.audio_mode === 'generate' && (h.tts_segments || []).some(x => (x.text || '').trim());
+        const lis = (SoalState.toefl && SoalState.toefl.listening) || {};
+        // Part A: audio milik tiap soal · Part B/C: audio milik tiap "suara" (bukan tiap soal)
+        const pending = [
+            ...((lis.soal || []).filter(q => _toeflPartOf(q) === 'A' && isPending(q))),
+            ...((lis.audios || []).filter(isPending))
+        ];
         if (pending.length) {
             showToast(`Menggabungkan ${pending.length} suara hasil generate...`, 'success', 5000);
             for (const q of pending) {
@@ -1535,7 +1691,7 @@ async function editSoalFromLibrary(kode){
             SoalState.materiList=soal.materi_list||[]; // materi milik soal INI saja, dimuat balik hanya saat edit soal yang sama
             const rawData=soal.data;
             if(soal.type==='sikap_kerja'){SoalState.kolom=rawData||Array.from({length:10},(_,i)=>({id:`KOL${String(i+1).padStart(2,'0')}`,no:i+1,items:Array.from({length:5},(_,j)=>({id:`I${i}${j}`,nilai:''})),soal:[]}));SoalState.pertanyaan=[];}
-            else if(soal.type==='toefl'){SoalState.toefl=rawData||_blankToeflData();SoalState.toefl_mode=(rawData&&rawData.mode)||'full';SoalState.pertanyaan=[];SoalState.kolom=null;_toeflSection=(SoalState.toefl_mode!=='full')?SoalState.toefl_mode:'listening';_toeflIdx=0;}
+            else if(soal.type==='toefl'){SoalState.toefl=_toeflNormalizeData(rawData||_blankToeflData());SoalState.toefl_mode=(rawData&&rawData.mode)||'full';SoalState.pertanyaan=[];SoalState.kolom=null;_toeflSection=(SoalState.toefl_mode==='structure'||SoalState.toefl_mode==='reading')?SoalState.toefl_mode:'listening_A';_toeflIdx=0;}
             else{SoalState.pertanyaan=rawData||[_newQ()];SoalState.currentIdx=0;SoalState.kolom=null;}
             setDirty('edit soal');
             _animateTo(()=>soal.type==='sikap_kerja'?_renderSikapList():(soal.type==='toefl'?_renderToeflHtml():_renderMCHtml()));
@@ -1709,11 +1865,11 @@ async function downloadSoalTemplate() {
             XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(bacaanRows), 'Bacaan');
         }
 
-        const mkSoalRows = (extraHeaderAfterNo, exampleExtra) => {
-            const header = ['No', ...extraHeaderAfterNo, 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban', 'Pembahasan (opsional)'];
+        const mkSoalRows = (extraHeaderAfterNo, exampleExtra, trailingHeader = [], extraExampleRows = []) => {
+            const header = ['No', ...extraHeaderAfterNo, 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D', 'Pilihan E', 'Kunci Jawaban', 'Pembahasan (opsional)', ...trailingHeader];
             const exampleRow = [1, ...exampleExtra];
-            const rows = [header, exampleRow];
-            for (let i = 2; i <= jumlah; i++) {
+            const rows = [header, exampleRow, ...extraExampleRows];
+            for (let i = rows.length; i <= jumlah; i++) {
                 const r = new Array(header.length).fill('');
                 r[0] = i;
                 rows.push(r);
@@ -1721,10 +1877,23 @@ async function downloadSoalTemplate() {
             return rows;
         };
 
-        if (includeListening) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mkSoalRows(
-            ['Audio URL'],
-            ['https://contoh-link-audio.mp3', 'Contoh: What does the woman mean?', 'She is busy', 'She agrees', 'She is late', '', '', 'B', 'Contoh pembahasan (opsional)']
-        )), 'Listening');
+        // Listening dibagi 3 Part: A (dialog singkat, 1 audio/soal), B (percakapan panjang) & C (ceramah) —
+        // B/C memakai sheet "Suara" (1 suara dipakai beberapa soal lewat kolom "No Suara", seperti Bacaan di Reading).
+        if (includeListening) {
+            const contohB = ['Contoh: What is the conversation mainly about?', 'A job interview', 'A class schedule', 'A trip plan', '', '', 'A', ''];
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mkSoalRows(
+                ['Audio URL'],
+                ['https://contoh-link-audio.mp3', 'Contoh: What does the woman mean?', 'She is busy', 'She agrees', 'She is late', '', '', 'B', 'Contoh pembahasan (opsional)', 'A', ''],
+                ['Part (A/B/C)', 'No Suara (Part B/C)'],
+                [[2, '', ...contohB, 'B', 1], [3, '', 'Contoh: Where does the conversation take place?', 'At a campus', 'At a hotel', 'At a hospital', '', '', 'A', '', 'B', 1]]
+            )), 'Listening');
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+                ['No', 'Judul', 'Part (B/C)', 'Audio URL'],
+                [1, 'Contoh: Percakapan Panjang 1', 'B', 'https://contoh-link-audio-percakapan.mp3'],
+                [2, 'Contoh: Ceramah 1', 'C', 'https://contoh-link-audio-ceramah.mp3'],
+                [3, '', '', '']
+            ]), 'Suara');
+        }
 
         if (includeStructure) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mkSoalRows(
             ['Subtipe (rumpang/salah)'],
@@ -1744,7 +1913,11 @@ async function downloadSoalTemplate() {
             petunjuk.push(['Sheet "Bacaan" khusus utk Reading — isi teks bacaan sekali per baris, boleh dipakai bersama oleh beberapa soal Reading (soal 1 bacaan yang sama otomatis tetap berurutan/berdekatan saat ujian, walau "acak soal" dinyalakan di modul).']);
             petunjuk.push(['Kolom "No Bacaan" di sheet Reading diisi angka sesuai kolom "No" di sheet Bacaan (mis. isi 1 utk pakai bacaan baris pertama). Kosongkan jika soal Reading itu berdiri sendiri tanpa bacaan bersama.']);
         }
-        if (includeListening) petunjuk.push(['Sheet "Listening": kolom "Audio URL" diisi link audio (mis. hasil upload file audio yang sudah diunggah lebih dulu di aplikasi, atau link publik lain). Bisa dikosongkan dulu lalu diisi manual di aplikasi setelah upload.']);
+        if (includeListening) {
+            petunjuk.push(['Sheet "Listening" dibagi 3 Part lewat kolom "Part (A/B/C)" (paling kanan): A = Percakapan Singkat, B = Percakapan Panjang, C = Ceramah/Monolog. Kosong = Part A. Urutan tampil saat ujian TETAP A → B → C dan tidak bisa dibalik.']);
+            petunjuk.push(['Part A: kolom "Audio URL" diisi link audio milik soal itu sendiri (1 soal = 1 audio; bisa dikosongkan dulu lalu diisi manual di aplikasi setelah upload).']);
+            petunjuk.push(['Part B & C: satu suara dipakai beberapa soal. Isi suaranya SEKALI di sheet "Suara" (No, Judul, Part, Audio URL), lalu di sheet "Listening" isi kolom "No Suara" dengan angka kolom "No" di sheet "Suara". Kolom "Audio URL" di sheet Listening tidak dipakai untuk Part B/C. Soal dari 1 suara otomatis tetap berurutan/berdekatan & batas putar dihitung per suara.']);
+        }
         if (includeStructure) petunjuk.push(['Sheet "Structure": kolom "Subtipe" WAJIB diisi persis "rumpang" (melengkapi kalimat) atau "salah" (cari kesalahan struktur) — dipakai sistem utk menjaga urutan blok soal tetap sesuai format resmi TOEFL ITP (blok rumpang dulu, baru blok salah).']);
         petunjuk.push(
             ['Kolom Pilihan C, D, E boleh dikosongkan jika soal hanya punya 2-3 pilihan.'],
@@ -2079,12 +2252,35 @@ async function _importSoalFromWorkbook(wb, imageMap) {
         // Fallback "minimal 1 baris kosong" HANYA berlaku utk section yang memang termasuk
         // mode file ini — section di luar mode (mis. Structure & Reading saat mode='listening')
         // dibiarkan benar-benar kosong (0 soal), bukan digenerate 1 soal kosong yang tidak diminta.
+        // Sheet "Suara" (khusus Listening Part B/C) -> listening.audios. Dicocokkan ke kolom "No Suara"
+        // di sheet Listening lewat NILAI kolom "No" apa adanya (sama seperti Bacaan/No Bacaan di Reading).
+        const suaraRows = wantListening ? (_sheetToRowsSoal(wb, 'Suara') || []).slice(1) : [];
+        const audios = [];
+        const audioByNo = {};
+        suaraRows.forEach((r, idx) => {
+            const judul = String(r[1] || '').trim();
+            const partRaw = String(r[2] || '').trim().toUpperCase().charAt(0);
+            const url = String(r[3] || '').trim();
+            if (!judul && !url) return;
+            const id = 'AU_' + Date.now() + '_' + idx;
+            audios.push({ id, part: partRaw === 'C' ? 'C' : 'B', judul: judul || `Suara ${audios.length + 1}`, audio_url: url });
+            const noVal = (r[0] !== undefined && r[0] !== '') ? String(r[0]).trim() : String(idx + 1);
+            audioByNo[noVal] = id;
+        });
+        // Kolom tambahan sheet Listening (setelah Pembahasan): [10] Part (A/B/C) · [11] No Suara (Part B/C).
+        // File lama tanpa 2 kolom ini otomatis dianggap semua Part A (1 audio per soal) — tetap kompatibel.
         const listening = {
+            audios,
             soal: (wantListening ? (listeningRows.length ? listeningRows : [[]]) : []).map((r, idx) => {
                 const { jawaban, kunci } = parseOpsiKunci(r, idx);
-                return { id: 'TQ_' + Date.now() + '_L' + idx, pertanyaan: String(r[2] || '').trim(), jawaban, kunci, audio_url: String(r[1] || '').trim(), pembahasan: String(r[9] || '').trim() };
+                const partRaw = String(r[10] || '').trim().toUpperCase().charAt(0);
+                const part = (partRaw === 'B' || partRaw === 'C') ? partRaw : 'A';
+                const noSuara = String(r[11] !== undefined ? r[11] : '').trim();
+                return { id: 'TQ_' + Date.now() + '_L' + idx, pertanyaan: String(r[2] || '').trim(), jawaban, kunci, part, audio_id: (part !== 'A' && noSuara) ? (audioByNo[noSuara] || null) : null, audio_url: String(r[1] || '').trim(), pembahasan: String(r[9] || '').trim() };
             })
         };
+        // Part suara mengikuti soal yang memakainya (kalau kolom Part di sheet Suara tidak cocok)
+        audios.forEach(a => { const ref = listening.soal.find(q => q.audio_id === a.id); if (ref) a.part = ref.part; });
         const structure = {
             soal: (wantStructure ? (structureRows.length ? structureRows : [[]]) : []).map((r, idx) => {
                 const { jawaban, kunci } = parseOpsiKunci(r, idx);
@@ -2104,7 +2300,7 @@ async function _importSoalFromWorkbook(wb, imageMap) {
         SoalState.toefl = { listening, structure, reading, mode: toeflMode };
         SoalState.toefl_mode = toeflMode;
         SoalState.pertanyaan = []; SoalState.kolom = null;
-        _toeflSection = (toeflMode === 'structure' || toeflMode === 'reading') ? toeflMode : 'listening';
+        _toeflSection = (toeflMode === 'structure' || toeflMode === 'reading') ? toeflMode : 'listening_A';
         _toeflIdx = 0;
         setDirty('import soal');
         const totalSoalToefl = listening.soal.length + structure.soal.length + reading.soal.length;

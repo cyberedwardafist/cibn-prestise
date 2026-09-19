@@ -1105,7 +1105,7 @@ function buildLaporanWordHtml(lap, soalTampil, jawaban, soalAll, useAcak) {
         order.forEach((origIdx, displayIdx) => {
           const q = arr[origIdx]; if (!q) return;
           const ans = jawaban[`${soal.kode}_toefl_${section}_${origIdx}`];
-          const jArr = q.jawaban || [];
+          const jArr = _toeflOrdJaw(q, ordToefl, section, origIdx);
           const kunciArr = Array.isArray(q.kunci) ? q.kunci.map(String) : (q.kunci != null ? [String(q.kunci)] : []);
           const isBenar = ans != null && kunciArr.includes(String(ans));
           const statusHtml = ans != null ? (isBenar ? '<span style="color:#16a34a">✓ Benar</span>' : '<span style="color:#dc2626">✗ Salah</span>') : '<span style="color:#5a7a9a">Tidak dijawab</span>';
@@ -1114,7 +1114,8 @@ function buildLaporanWordHtml(lap, soalTampil, jawaban, soalAll, useAcak) {
             const p = passages.find(x => x.id === q.passage_id);
             if (p) passageHtml = `<div style="background:#f2f6fa;border-radius:8px;padding:10px;margin-bottom:8px;font-size:11px;line-height:1.6"><strong>${(p.judul||'').replace(/</g,'&lt;')}</strong><br>${(p.teks||'').replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>`;
           }
-          const audioNote = (section === 'listening' && q.audio_url) ? `<div style="font-size:10px;color:#5a7a9a;margin-bottom:6px">🎧 Audio: ${q.audio_url}</div>` : '';
+          const _audN = section === 'listening' ? _toeflAudioOf(src, q) : null;
+          const audioNote = (_audN && _audN.url) ? `<div style="font-size:10px;color:#5a7a9a;margin-bottom:6px">🎧 ${_toeflPartBadge(src, q).replace(/<[^>]+>/g,'').trim()} Audio: ${_audN.url}</div>` : '';
           html+=`<div class="soal-block">
             <div class="soal-hdr">Soal ${displayIdx+1} · ${statusHtml}</div>
             ${audioNote}${passageHtml}
@@ -1618,6 +1619,30 @@ function renderRuvSikapKerja(rawData, sub) {
   document.getElementById('ruv-nav-grid').innerHTML = '<div style="font-size:10px;color:var(--text-sub);font-style:italic;padding:4px;">Kecermatan</div>';
 }
 
+// Urutkan pilihan jawaban 1 soal TOEFL sesuai urutan yg dilihat peserta (laporan.urutan_tampil[kode].toefl.jawOrder).
+// Laporan lama (tanpa jawOrder) otomatis memakai urutan asli.
+// Listening dibagi Part A/B/C (lihat lib/toefl.js). Part B/C: audio ada di data.listening.audios (dipakai bersama
+// beberapa soal via q.audio_id), Part A: audio milik soal itu sendiri. Data lama tanpa field `part` = Part A.
+function _toeflAudioOf(src, q) {
+    if (q && (q.part === 'B' || q.part === 'C') && q.audio_id) {
+        const a = ((src && src.listening && src.listening.audios) || []).find(x => x.id === q.audio_id);
+        if (a) return { url: a.audio_url || '', judul: a.judul || '' };
+    }
+    return { url: (q && q.audio_url) || '', judul: '' };
+}
+function _toeflPartBadge(src, q) {
+    const part = (q && (q.part === 'B' || q.part === 'C')) ? q.part : 'A';
+    const judul = _toeflAudioOf(src, q).judul;
+    return ` <span style="font-size:9px;color:var(--text-sub)">(Part ${part}${judul ? ' · ' + String(judul).replace(/</g,'&lt;') : ''})</span>`;
+}
+function _toeflOrdJaw(q, ord, section, origIdx) {
+  const arr = (q && q.jawaban) || [];
+  const jo = ord && ord.jawOrder && ord.jawOrder[section] && ord.jawOrder[section][origIdx];
+  if (!Array.isArray(jo) || !jo.length) return arr;
+  const out = jo.map(ref => arr.find((j, idx) => String(j.id != null ? j.id : idx) === String(ref))).filter(Boolean);
+  return out.length === arr.length ? out : arr;
+}
+
 function renderRuvToefl(sub) {
   const kode = sub.kode;
   const src = typeof sub.data === 'string' ? JSON.parse(sub.data) : (sub.data || {});
@@ -1641,16 +1666,17 @@ function renderRuvToefl(sub) {
       const dijawab = ans != null && ans !== '';
       const benar = dijawab && kunci.includes(String(ans));
 
-      const audioHtml = (section === 'listening' && q.audio_url)
-        ? `<audio controls src="${String(q.audio_url).replace(/"/g,'&quot;')}" style="width:100%;margin-bottom:10px"></audio>` : '';
+      const _aud = section === 'listening' ? _toeflAudioOf(src, q) : null;
+      const audioHtml = (_aud && _aud.url)
+        ? `<audio controls src="${String(_aud.url).replace(/"/g,'&quot;')}" style="width:100%;margin-bottom:10px"></audio>` : '';
       let passageHtml = '';
       if (section === 'reading' && q.passage_id) {
         const p = passages.find(x => x.id === q.passage_id);
         if (p) passageHtml = `<div style="background:rgba(19,50,89,0.04);border-radius:10px;padding:12px;margin-bottom:10px;font-size:12px;line-height:1.7"><div style="font-weight:700;margin-bottom:4px">${(p.judul||'').replace(/</g,'&lt;')}</div>${(p.teks||'').replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>`;
       }
-      const subtipeLbl = section === 'structure' ? (q.subtipe === 'salah' ? ' <span style="font-size:9px;color:var(--text-sub)">(Cari Kesalahan)</span>' : ' <span style="font-size:9px;color:var(--text-sub)">(Melengkapi Kalimat)</span>') : '';
+      const subtipeLbl = section === 'structure' ? (q.subtipe === 'salah' ? ' <span style="font-size:9px;color:var(--text-sub)">(Cari Kesalahan)</span>' : ' <span style="font-size:9px;color:var(--text-sub)">(Melengkapi Kalimat)</span>') : (section === 'listening' ? _toeflPartBadge(src, q) : '');
 
-      const optHtml = (q.jawaban || []).map((j, i) => {
+      const optHtml = _toeflOrdJaw(q, ord, section, origIdx).map((j, i) => {
         const letter = String.fromCharCode(65 + i);
         const jid = j.id != null ? String(j.id) : String(i);
         const picked = dijawab && String(ans) === jid;

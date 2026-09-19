@@ -840,9 +840,19 @@ async function computeAnalisaGrupAggregate(modul_kode, laporanRows) {
                             : kunci.includes(String(ans));
                         if (isBenar) benar++;
                     });
-                    const label = section === 'listening'
-                        ? (q.audio_url ? '🎧 Audio Listening #' + (idx + 1) : '(Listening #' + (idx + 1) + ', belum ada audio)')
-                        : (q.pertanyaan || '');
+                    // Listening dibagi Part A/B/C (lihat lib/toefl.js). Part B/C: audio ada di listening.audios
+                    // (dipakai bersama beberapa soal), bukan di soalnya sendiri.
+                    let label;
+                    if (section === 'listening') {
+                        const part = toeflLib.toeflListeningPart(q);
+                        const aud = toeflLib.toeflListeningAudio(s.data, q);
+                        const ada = !!(aud && aud.url);
+                        const judul = (aud && aud.judul) ? ' · ' + aud.judul : '';
+                        label = ada ? ('🎧 Part ' + part + judul + ' — Listening #' + (idx + 1)) : ('(Listening Part ' + part + ' #' + (idx + 1) + ', belum ada audio)');
+                        if (q.pertanyaan) label += ' — ' + q.pertanyaan;
+                    } else {
+                        label = q.pertanyaan || '';
+                    }
                     return { nomor: idx + 1, pertanyaan: label, pembahasan: q.pembahasan || '', benar, salah: dijawab - benar, dijawab };
                 });
             };
