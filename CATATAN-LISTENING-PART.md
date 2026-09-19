@@ -26,3 +26,10 @@ Batas putar tetap satu pengaturan di level modul (`toefl_maks_putar`).
 
 ## Aturan tambahan Listening (khusus TOEFL)
 Di Listening Part A/B/C peserta tidak bisa lanjut ke nomor berikutnya (tombol Lanjut, tombol Selesai Bagian, maupun klik nomor di grid navigasi) selama soal yang sedang dibuka belum dijawab. Kembali ke nomor sebelumnya tetap bebas. Structure dan Reading tidak terpengaruh.
+
+## Timer per section (mode Full)
+Di builder, mode TOEFL **Full (Real Test)** punya pengaturan timer per section: Listening 35m, Structure 25m, Reading 55m (nilai awal = durasi resmi, boleh diubah; ada tombol "Kembalikan ke standar"). Timer total soal (`timer_jam/menit/detik`) otomatis = jumlah ketiganya (default 1j 55m) dan field-nya jadi read-only di mode Full.
+- Disimpan di `soal.data.timers = { listening, structure, reading }` (detik) — tanpa perubahan skema DB. Soal Full lama tanpa `timers` tetap jalan (1 timer total).
+- Bisa diatur saat buat soal maupun lewat "Edit Info". Excel: template Full punya baris `Timer Listening/Structure/Reading (menit)` di sheet Info (kosong/tidak valid = standar).
+- **Mesin ujian (`ujian/ujian.html`) belum memakai timer per section** — masih 1 timer total. Langkah berikutnya: pecah jadi timer per tahap (Listening A/B/C berbagi timer Listening).
+- Perbaikan kecil terkait: timer dengan menit = 0 (mis. total tepat 2 jam) sebelumnya diam-diam jadi 30 menit di server (`POST/PUT /api/soal`) dan di `ujian.html` (`buildFlat`) — sekarang 0 dihormati.

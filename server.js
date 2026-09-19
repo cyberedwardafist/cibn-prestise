@@ -2198,7 +2198,7 @@ app.post('/api/soal', auth(['admin']), ah(async (req, res) => {
     const { nama, nama_internal, type, skor_type, opsi_jawaban, timer_jam, timer_menit, timer_detik, kelompok, data, materi_list } = req.body;
     const kode = await genKode('SOL', 'soal');
     await db.prepare('INSERT INTO soal (kode,nama,nama_internal,type,skor_type,opsi_jawaban,timer_jam,timer_menit,timer_detik,kelompok,data,materi_list) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-        .run(kode, nama, (nama_internal || '').trim() || null, type, skor_type || null, opsi_jawaban || null, timer_jam || 0, timer_menit || 30, timer_detik || 0,
+        .run(kode, nama, (nama_internal || '').trim() || null, type, skor_type || null, opsi_jawaban || null, timer_jam || 0, (timer_menit ?? 30), timer_detik || 0,
              (kelompok || '').trim() || null, data ? JSON.stringify(data) : null, (materi_list && materi_list.length) ? JSON.stringify(materi_list) : null);
     res.json({ kode, message: 'Berhasil' });
 }));
@@ -2216,7 +2216,7 @@ app.put('/api/soal/:kode', auth(['admin']), ah(async (req, res) => {
     const skor_type     = b.skor_type    !== undefined ? (b.skor_type || null) : oldRow.skor_type;
     const opsi_jawaban  = b.opsi_jawaban !== undefined ? (b.opsi_jawaban || null) : oldRow.opsi_jawaban;
     const timer_jam     = b.timer_jam    !== undefined ? (b.timer_jam || 0) : oldRow.timer_jam;
-    const timer_menit   = b.timer_menit  !== undefined ? (b.timer_menit || 30) : oldRow.timer_menit;
+    const timer_menit   = b.timer_menit  !== undefined ? (b.timer_menit ?? 30) : oldRow.timer_menit;
     const timer_detik   = b.timer_detik  !== undefined ? (b.timer_detik || 0) : oldRow.timer_detik;
     const kelompok      = b.kelompok     !== undefined ? ((b.kelompok || '').trim() || null) : oldRow.kelompok;
     const data          = b.data         !== undefined ? JSON.stringify(b.data) : oldRow.data;

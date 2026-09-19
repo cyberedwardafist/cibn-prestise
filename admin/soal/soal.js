@@ -213,13 +213,14 @@ function showSoalSetup() {
         </label>
         <label style="flex:1;min-width:130px;display:flex;align-items:flex-start;gap:8px;padding:12px;border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;cursor:pointer;background:rgba(26,90,160,0.08)">
           <input type="radio" name="toefl_mode" value="full" checked onchange="onToeflModeChange()" style="margin-top:2px;accent-color:var(--blue)">
-          <div><div style="font-weight:700;font-size:13px">Full (Real Test)</div><div style="font-size:11px;color:var(--text-sub)">140 soal · 1 timer keseluruhan (1j 55m), tanpa timer per-section</div></div>
+          <div><div style="font-weight:700;font-size:13px">Full (Real Test)</div><div style="font-size:11px;color:var(--text-sub)">140 soal · timer per section (35m + 25m + 55m = 1j 55m)</div></div>
         </label>
       </div>
     </div>
   </div>
-  <div class="form-group">
-    <label class="form-label">Timer Pengerjaan</label>
+  <div id="soal-toefl-timers-wrap" style="display:none">${_toeflSectionTimerHtml('soal')}</div>
+  <div class="form-group" id="soal-timer-group">
+    <label class="form-label" id="soal-timer-label">Timer Pengerjaan</label>
     <div style="display:flex;gap:10px;align-items:center">
       <div style="text-align:center;flex:1"><input id="soal-jam" class="form-input" type="number" value="0" min="0" max="23" style="text-align:center"><div style="font-size:10px;color:var(--text-sub);margin-top:3px;font-weight:600">JAM</div></div>
       <span style="color:var(--text-sub);font-weight:700;font-size:18px;margin-bottom:18px">:</span>
@@ -243,14 +244,104 @@ function showSoalSetup() {
 // Durasi & jumlah soal RESMI TOEFL ITP per mode (lihat lib/toefl.js —
 // TOEFL_MAX_RAW & komentar tabel konversi utk sumbernya): Listening 50 soal/
 // 35 menit, Structure 40 soal/25 menit, Reading 50 soal/55 menit, Full
-// (gabungan real test) 140 soal/115 menit (1j 55m) — 1 timer keseluruhan,
-// TIDAK ada timer terpisah per section.
+// (gabungan real test) 140 soal/115 menit (1j 55m). Khusus mode Full, timer
+// diatur PER SECTION (lihat blok "TIMER PER SECTION" di bawah) dan timer total
+// soal = jumlah ketiganya.
 const TOEFL_REAL_MODE = {
     listening: { jam: 0, menit: 35, jumlah: 50 },
     structure: { jam: 0, menit: 25, jumlah: 40 },
     reading:   { jam: 0, menit: 55, jumlah: 50 },
     full:      { jam: 1, menit: 55, jumlah: 140 },
 };
+// ══════════════ TIMER PER SECTION (khusus TOEFL mode Full) ══════════════
+// Disimpan di data.toefl.timers = { listening, structure, reading } dalam DETIK
+// (di dalam object data-nya sendiri, tanpa migrasi skema — sama seperti `mode`).
+// Timer total soal (timer_jam/menit/detik) SELALU = jumlah ketiganya, dihitung
+// otomatis, jadi mesin ujian yang masih membaca 1 timer total tetap konsisten.
+// Nilai awal = durasi resmi TOEFL ITP; admin tetap boleh mengubahnya.
+const TOEFL_SECTION_TIMER_DEFAULT = { listening: 35 * 60, structure: 25 * 60, reading: 55 * 60 };
+const TOEFL_TIMER_SECTIONS = [
+    { key: 'listening', label: 'Listening', ket: '50 soal · Part A → B → C' },
+    { key: 'structure', label: 'Structure', ket: '40 soal' },
+    { key: 'reading',   label: 'Reading',   ket: '50 soal' },
+];
+// prefix 'soal' = layar setup, 'esi' = modal Edit Info. Id input: `${prefix}-tt-${section}-menit|detik`.
+function _toeflSectionTimerHtml(prefix, timers) {
+    const t = Object.assign({}, TOEFL_SECTION_TIMER_DEFAULT, timers || {});
+    const lbl = 'font-size:10px;color:var(--text-sub);margin-top:3px;font-weight:600';
+    const rows = TOEFL_TIMER_SECTIONS.map(sc => {
+        const sec = Math.max(0, parseInt(t[sc.key]) || 0);
+        return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:120px"><div style="font-weight:700;font-size:13px">${sc.label}</div><div style="font-size:11px;color:var(--text-sub)">${sc.ket}</div></div>
+      <div style="text-align:center;width:84px"><input id="${prefix}-tt-${sc.key}-menit" class="form-input" type="number" min="0" max="999" value="${Math.floor(sec / 60)}" oninput="onToeflSectionTimerChange('${prefix}')" style="text-align:center"><div style="${lbl}">MENIT</div></div>
+      <span style="color:var(--text-sub);font-weight:700;font-size:18px;margin-bottom:18px">:</span>
+      <div style="text-align:center;width:84px"><input id="${prefix}-tt-${sc.key}-detik" class="form-input" type="number" min="0" max="59" value="${sec % 60}" oninput="onToeflSectionTimerChange('${prefix}')" style="text-align:center"><div style="${lbl}">DETIK</div></div>
+    </div>`;
+    }).join('');
+    return `<div class="form-group">
+  <label class="form-label">Timer Per Section</label>
+  <div style="display:flex;flex-direction:column;gap:12px;padding:14px;border:1.5px solid rgba(19,50,89,0.12);border-radius:12px;background:rgba(255,255,255,0.6)">
+    ${rows}
+    <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed rgba(19,50,89,0.15);padding-top:10px">
+      <span style="font-size:12px;color:var(--text-sub);font-weight:600">Total timer (otomatis)</span>
+      <span id="${prefix}-tt-total" style="font-weight:800;color:var(--blue)"></span>
+    </div>
+  </div>
+  <div style="font-size:11px;color:var(--text-sub);margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <span>Terisi otomatis sesuai durasi resmi TOEFL ITP, boleh diubah manual.</span>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="resetToeflSectionTimers('${prefix}')">Kembalikan ke standar</button>
+  </div>
+</div>`;
+}
+function _toeflReadSectionTimers(prefix) {
+    const out = {};
+    TOEFL_TIMER_SECTIONS.forEach(sc => {
+        const m = parseInt(document.getElementById(`${prefix}-tt-${sc.key}-menit`)?.value) || 0;
+        const d = parseInt(document.getElementById(`${prefix}-tt-${sc.key}-detik`)?.value) || 0;
+        out[sc.key] = Math.max(0, m) * 60 + Math.min(59, Math.max(0, d));
+    });
+    return out;
+}
+function _toeflTimersValid(t) { return TOEFL_TIMER_SECTIONS.every(sc => t && t[sc.key] > 0); }
+function _toeflTimersTotalSec(t) { return TOEFL_TIMER_SECTIONS.reduce((a, sc) => a + ((t && t[sc.key]) || 0), 0); }
+function _toeflSecToJMD(sec) { return { jam: Math.floor(sec / 3600), menit: Math.floor((sec % 3600) / 60), detik: sec % 60 }; }
+function _toeflFmtDur(sec) {
+    const x = _toeflSecToJMD(sec);
+    return (x.jam ? x.jam + 'j ' : '') + x.menit + 'm' + (x.detik ? ' ' + x.detik + 'd' : '');
+}
+// Hitung ulang total dari 3 section -> tampilkan & isi field Timer Pengerjaan (jam/menit/detik) di form yg sama.
+function onToeflSectionTimerChange(prefix) {
+    const total = _toeflTimersTotalSec(_toeflReadSectionTimers(prefix));
+    const el = document.getElementById(`${prefix}-tt-total`);
+    if (el) el.textContent = _toeflFmtDur(total);
+    const x = _toeflSecToJMD(total);
+    ['jam', 'menit', 'detik'].forEach(k => { const i = document.getElementById(`${prefix}-${k}`); if (i) i.value = x[k]; });
+}
+function resetToeflSectionTimers(prefix) {
+    TOEFL_TIMER_SECTIONS.forEach(sc => {
+        const sec = TOEFL_SECTION_TIMER_DEFAULT[sc.key];
+        const m = document.getElementById(`${prefix}-tt-${sc.key}-menit`), d = document.getElementById(`${prefix}-tt-${sc.key}-detik`);
+        if (m) m.value = Math.floor(sec / 60);
+        if (d) d.value = sec % 60;
+    });
+    onToeflSectionTimerChange(prefix);
+}
+// Field Timer Pengerjaan tunggal: di mode Full jadi read-only (isinya total otomatis), selain itu editable seperti biasa.
+function _soalApplyTimerLayout(isFull) {
+    const tw = document.getElementById('soal-toefl-timers-wrap'); if (tw) tw.style.display = isFull ? 'block' : 'none';
+    const lbl = document.getElementById('soal-timer-label'); if (lbl) lbl.textContent = isFull ? 'Total Timer (otomatis dari 3 section)' : 'Timer Pengerjaan';
+    ['jam', 'menit', 'detik'].forEach(k => {
+        const i = document.getElementById('soal-' + k);
+        if (i) { i.readOnly = isFull; i.style.opacity = isFull ? '0.6' : ''; }
+    });
+}
+// Ringkasan timer utk header builder TOEFL.
+function _toeflTimerSummary() {
+    const t = SoalState.toefl && SoalState.toefl.timers;
+    const total = ((SoalState.timer && SoalState.timer.jam) || 0) * 3600 + ((SoalState.timer && SoalState.timer.menit) || 0) * 60 + ((SoalState.timer && SoalState.timer.detik) || 0);
+    if (t && _toeflTimersValid(t)) return 'Timer: ' + TOEFL_TIMER_SECTIONS.map(sc => sc.label + ' ' + _toeflFmtDur(t[sc.key])).join(' · ') + ' (total ' + _toeflFmtDur(_toeflTimersTotalSec(t)) + ')';
+    return 'Timer total: ' + _toeflFmtDur(total);
+}
 function onSoalTypeChange() {
     const t = document.getElementById('soal-type')?.value;
     const w = document.getElementById('soal-skor-wrap');
@@ -261,13 +352,16 @@ function onSoalTypeChange() {
     // tetap tidak punya form ini sama sekali.
     if (w) w.style.display = (t === 'sikap_kerja' || t === 'toefl') ? 'none' : 'block';
     if (tw) tw.style.display = (t === 'toefl') ? 'block' : 'none';
-    if (t === 'toefl') onToeflModeChange();
+    if (t === 'toefl') onToeflModeChange(); else _soalApplyTimerLayout(false);
 }
 // Pilih mode TOEFL -> auto-isi Timer Pengerjaan ke durasi resmi mode itu
 // (tetap boleh diubah manual sesudahnya kalau admin mau).
 function onToeflModeChange() {
     const mode = document.querySelector('input[name="toefl_mode"]:checked')?.value || 'full';
     const r = TOEFL_REAL_MODE[mode];
+    const isFull = mode === 'full';
+    _soalApplyTimerLayout(isFull);
+    if (isFull) { resetToeflSectionTimers('soal'); return; } // total (jam/menit/detik) ikut terisi otomatis
     const jamEl = document.getElementById('soal-jam'), menitEl = document.getElementById('soal-menit'), detikEl = document.getElementById('soal-detik');
     if (jamEl) jamEl.value = r.jam;
     if (menitEl) menitEl.value = r.menit;
@@ -290,6 +384,13 @@ function startBuatSoal() {
     SoalState.opsi_jawaban = parseInt(document.getElementById('soal-opsi-jawaban')?.value) || 1;
     SoalState.timer = { jam: parseInt(document.getElementById('soal-jam')?.value)||0, menit: parseInt(document.getElementById('soal-menit')?.value)||30, detik: parseInt(document.getElementById('soal-detik')?.value)||0 };
     SoalState.toefl_mode = document.querySelector('input[name="toefl_mode"]:checked')?.value || 'full';
+    // TOEFL Full: timer diatur per section; timer total = jumlahnya (bukan field tunggal).
+    let toeflTimers = null;
+    if (SoalState.type === 'toefl' && SoalState.toefl_mode === 'full') {
+        toeflTimers = _toeflReadSectionTimers('soal');
+        if (!_toeflTimersValid(toeflTimers)) { showToast('Timer tiap section (Listening, Structure, Reading) harus lebih dari 0', 'danger'); return; }
+        SoalState.timer = _toeflSecToJMD(_toeflTimersTotalSec(toeflTimers));
+    }
     SoalState.mode = 'build'; SoalState._editors = {};
     SoalState.materiList = []; // soal baru = materi selalu mulai kosong, tidak mewarisi soal lain
     if (SoalState.type === 'sikap_kerja') {
@@ -298,6 +399,7 @@ function startBuatSoal() {
     } else if (SoalState.type === 'toefl') {
         SoalState.pertanyaan = []; SoalState.kolom = null;
         startToeflBuild();
+        if (toeflTimers) SoalState.toefl.timers = toeflTimers;
     } else {
         SoalState.pertanyaan = [_newQ()]; SoalState.currentIdx = 0; SoalState.kolom = null;
     }
@@ -1499,6 +1601,7 @@ function _renderToeflHtml() {
   <div>
     <div class="section-title" style="margin-bottom:2px">${_toeflEsc(SoalState.nama)}</div>
     <div class="section-sub" style="margin-bottom:0">TOEFL · ${_toeflSectionLabel(_toeflSection)} · Soal ${total ? (_toeflIdx + 1) : 0}/${total}</div>
+    <div style="font-size:11px;color:var(--text-sub);margin-top:3px">⏱ ${_toeflEsc(_toeflTimerSummary())}</div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
     <button class="btn btn-secondary btn-sm" onclick="cancelBuild()">← Batal</button>
@@ -1686,7 +1789,7 @@ async function editSoalFromLibrary(kode){
             SoalState.kelompok=soal.kelompok||'';
             SoalState.type=soal.type; SoalState.skor_type=soal.skor_type||'benar_salah';
             SoalState.opsi_jawaban=soal.opsi_jawaban||1;
-            SoalState.timer={jam:soal.timer_jam||0,menit:soal.timer_menit||30,detik:soal.timer_detik||0};
+            SoalState.timer={jam:soal.timer_jam||0,menit:soal.timer_menit??30,detik:soal.timer_detik||0};
             SoalState._editors={};
             SoalState.materiList=soal.materi_list||[]; // materi milik soal INI saja, dimuat balik hanya saat edit soal yang sama
             const rawData=soal.data;
@@ -1713,6 +1816,17 @@ async function openEditSoalInfoModal(){
     document.getElementById('esi-jam').value = SoalState.timer?.jam ?? 0;
     document.getElementById('esi-menit').value = SoalState.timer?.menit ?? 0;
     document.getElementById('esi-detik').value = SoalState.timer?.detik ?? 0;
+    // TOEFL Full: timer per section menggantikan field Timer Pengerjaan tunggal.
+    // Soal Full lama (dibuat sebelum fitur ini) belum punya timers -> ditampilkan
+    // nilai standar TOEFL; baru berubah kalau admin menekan Simpan.
+    const isFullToefl = _isFullToefl();
+    const esiGroup = document.getElementById('esi-timer-group'), esiToefl = document.getElementById('esi-toefl-timers-wrap');
+    if (esiGroup) esiGroup.style.display = isFullToefl ? 'none' : 'block';
+    if (esiToefl) {
+        esiToefl.style.display = isFullToefl ? 'block' : 'none';
+        if (isFullToefl) { esiToefl.innerHTML = _toeflSectionTimerHtml('esi', SoalState.toefl && SoalState.toefl.timers); onToeflSectionTimerChange('esi'); }
+        else esiToefl.innerHTML = '';
+    }
     const typeWrap = document.getElementById('esi-type-wrap');
     if (SoalState.type === 'sikap_kerja' || SoalState.type === 'toefl') {
         // Tipe Sikap Kerja & TOEFL tidak bisa diubah (struktur data berbeda total)
@@ -1725,17 +1839,26 @@ async function openEditSoalInfoModal(){
     openModal('edit-soal-info-overlay');
 }
 
+function _isFullToefl() { return SoalState.type === 'toefl' && ((SoalState.toefl && SoalState.toefl.mode) || 'full') === 'full'; }
 function saveSoalInfo(){
     const nama = document.getElementById('esi-nama')?.value?.trim();
     if (!nama) { showToast('Nama soal wajib diisi', 'danger'); return; }
+    const fullToefl = _isFullToefl();
+    const tt = fullToefl ? _toeflReadSectionTimers('esi') : null;
+    if (fullToefl && !_toeflTimersValid(tt)) { showToast('Timer tiap section (Listening, Structure, Reading) harus lebih dari 0', 'danger'); return; }
     SoalState.nama = nama;
     SoalState.nama_internal = document.getElementById('esi-nama-internal')?.value?.trim() || '';
     SoalState.kelompok = document.getElementById('esi-kelompok-select')?.value || '';
-    SoalState.timer = {
-        jam: parseInt(document.getElementById('esi-jam')?.value) || 0,
-        menit: parseInt(document.getElementById('esi-menit')?.value) || 0,
-        detik: parseInt(document.getElementById('esi-detik')?.value) || 0,
-    };
+    if (fullToefl) {
+        SoalState.toefl.timers = tt;
+        SoalState.timer = _toeflSecToJMD(_toeflTimersTotalSec(tt));
+    } else {
+        SoalState.timer = {
+            jam: parseInt(document.getElementById('esi-jam')?.value) || 0,
+            menit: parseInt(document.getElementById('esi-menit')?.value) || 0,
+            detik: parseInt(document.getElementById('esi-detik')?.value) || 0,
+        };
+    }
     // Tipe hanya boleh ditukar antara multiple_choice <-> linier (data pertanyaan kompatibel)
     if (SoalState.type !== 'sikap_kerja' && SoalState.type !== 'toefl') {
         const newType = document.getElementById('esi-type')?.value;
@@ -1819,6 +1942,12 @@ async function downloadSoalTemplate() {
         ['Timer Detik', 0],
     ];
     if (type === 'toefl') infoRows.splice(6, 0, ['Mode TOEFL', toeflMode]);
+    // TOEFL Full: timer per section (menit) — kalau diisi, menggantikan Timer Jam/Menit/Detik
+    // di atas (total dihitung otomatis saat import). Nilai awal = durasi resmi TOEFL ITP.
+    if (type === 'toefl' && toeflMode === 'full') {
+        infoRows.forEach(r => { if (r[0] === 'Timer Jam') r[1] = TOEFL_REAL_MODE.full.jam; if (r[0] === 'Timer Menit') r[1] = TOEFL_REAL_MODE.full.menit; });
+        TOEFL_TIMER_SECTIONS.forEach(sc => infoRows.push(['Timer ' + sc.label + ' (menit)', TOEFL_SECTION_TIMER_DEFAULT[sc.key] / 60]));
+    }
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(infoRows), 'Info');
 
     if (type === 'sikap_kerja') {
@@ -2299,6 +2428,17 @@ async function _importSoalFromWorkbook(wb, imageMap) {
 
         SoalState.toefl = { listening, structure, reading, mode: toeflMode };
         SoalState.toefl_mode = toeflMode;
+        // Mode Full: timer per section dari sheet Info (menit; kosong/tidak valid -> standar
+        // TOEFL). Timer total soal = jumlahnya, menimpa Timer Jam/Menit/Detik di atas.
+        if (toeflMode === 'full') {
+            const tt = {};
+            TOEFL_TIMER_SECTIONS.forEach(sc => {
+                const mnt = parseFloat(String(info['Timer ' + sc.label + ' (menit)'] == null ? '' : info['Timer ' + sc.label + ' (menit)']).replace(',', '.'));
+                tt[sc.key] = (isFinite(mnt) && mnt > 0) ? Math.round(mnt * 60) : TOEFL_SECTION_TIMER_DEFAULT[sc.key];
+            });
+            SoalState.toefl.timers = tt;
+            SoalState.timer = _toeflSecToJMD(_toeflTimersTotalSec(tt));
+        }
         SoalState.pertanyaan = []; SoalState.kolom = null;
         _toeflSection = (toeflMode === 'structure' || toeflMode === 'reading') ? toeflMode : 'listening_A';
         _toeflIdx = 0;
@@ -2627,6 +2767,10 @@ function _buildSoalWorkbook(s) {
     // memang sengaja kosong vs section di luar cakupan mode — sama seperti
     // field ini ditulis saat "Unduh Template" (lihat downloadSoalTemplate()).
     if (type === 'toefl') infoRows.splice(6, 0, ['Mode TOEFL', (s.data && s.data.mode) || 'full']);
+    // Timer per section (hanya ada di soal Full yang sudah punya data.toefl.timers)
+    if (type === 'toefl' && s.data && s.data.timers && ((s.data.mode) || 'full') === 'full') {
+        TOEFL_TIMER_SECTIONS.forEach(sc => infoRows.push(['Timer ' + sc.label + ' (menit)', Math.round(((s.data.timers[sc.key]) || TOEFL_SECTION_TIMER_DEFAULT[sc.key]) / 60 * 100) / 100]));
+    }
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(infoRows), 'Info');
 
     const data = s.data || [];

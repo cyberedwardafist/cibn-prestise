@@ -802,7 +802,7 @@ function buildFlat() {
 
   // 1. Set kapasitas waktu maksimal
   for (const p of st.examData.soal) {
-    let t = ((p.timer_jam || 0) * 3600) + ((p.timer_menit || 30) * 60) + (p.timer_detik || 0);
+    let t = ((p.timer_jam || 0) * 3600) + ((p.timer_menit ?? 30) * 60) + (p.timer_detik || 0);
     st.groupStats[p.kode] = { sec: t > 0 ? t : 1800, maxSec: t > 0 ? t : 1800 };
   }
 
